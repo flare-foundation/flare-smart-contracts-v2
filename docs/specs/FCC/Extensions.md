@@ -103,6 +103,17 @@ The system extension (`extensionId == 0`) cannot be transferred — `SystemOwned
 
 `proposeNewOwner` requires `_newOwner` to be on the global extension-owner allowlist (or `address(0)` to clear a pending proposal). `confirmOwnership` re-checks that the proposed owner is still allowed at confirmation time — this defends against an address being removed from the allowlist between propose and confirm. This gate applies uniformly to public and reserved extensions (the initial reserved mint by governance is exempt; transfers after the mint follow the same rule).
 
+## Optional prep-helper: the extension operator
+
+```solidity
+function setExtensionOperator(uint256 _extensionId, address _operator) external;  // owner only
+function getExtensionOperator(uint256 _extensionId) external view returns (address);
+```
+
+The owner may install one **operator** address per extension, or clear it by passing `address(0)`. The operator is not a co-owner — it can only drive prep steps whose real security gate is a downstream governance threshold signature: machine-path-list lifecycle (`createNewMachinePathList`, `addMachinePaths`, `finalizeMachinePathList`) and pausing-addresses record creation (`setTeePausingAddresses`). Everything else — `setExtensionContracts`, version configuration, allowlists, emergency-pauser delegation, ban/unban, `setNewTeeGovernance`, `proposeNewOwner` — remains owner-only.
+
+The setter works for every extension, including `extensionId == 0`. For id 0, the caller must be the FlareGovernance governance address (a direct tx from the governance multisig). Operators cannot rotate themselves. See [FCC Governance / Extension operator](./Governance.md#extension-operator) for the full rationale.
+
 ## System-extension-specific configuration (governance)
 
 Two governance-only methods:

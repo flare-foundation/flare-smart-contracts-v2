@@ -25,7 +25,7 @@ contract MachinePathManagerFacet is IMachinePathManager {
         external
         returns (uint256 _nonce)
     {
-        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        ExtensionManager.checkOnlyExtensionOwnerOrOperator(_extensionId);
         MachinePathManager.MachinePathList[] storage arr =
             MachinePathManager.getState().lists[_extensionId];
         arr.push();
@@ -41,7 +41,7 @@ contract MachinePathManagerFacet is IMachinePathManager {
     )
         external
     {
-        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        ExtensionManager.checkOnlyExtensionOwnerOrOperator(_extensionId);
         MachinePathManager.MachinePathList storage pathList = MachinePathManager.list(_extensionId, _nonce);
         require(pathList.messageHash == bytes32(0), ListAlreadyFinalized());
         require(_paths.length > 0, NoPaths());
@@ -80,7 +80,7 @@ contract MachinePathManagerFacet is IMachinePathManager {
     )
         external
     {
-        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        ExtensionManager.checkOnlyExtensionOwnerOrOperator(_extensionId);
         MachinePathManager.MachinePathList storage pathList = MachinePathManager.list(_extensionId, _nonce);
         require(pathList.messageHash == bytes32(0), ListAlreadyFinalized());
         require(pathList.paths.length > 0, NoPaths());

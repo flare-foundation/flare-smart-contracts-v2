@@ -180,7 +180,7 @@ library FlareTeeManagerDeployer {
 
         // 2: ExtensionManagerFacet
         {
-            bytes4[] memory s = new bytes4[](25);
+            bytes4[] memory s = new bytes4[](27);
             s[0] = IExtensionManager.register.selector;
             s[1] = IExtensionManager.addTeeVersion.selector;
             s[2] = IExtensionManager.getExtensionOwner.selector;
@@ -206,6 +206,8 @@ library FlareTeeManagerDeployer {
             s[22] = IExtensionManager.getSystemSupportedSigningAlgos.selector;
             s[23] = IExtensionManager.getSupportedKeyTypes.selector;
             s[24] = IExtensionManager.registerReserved.selector;
+            s[25] = IExtensionManager.setExtensionOperator.selector;
+            s[26] = IExtensionManager.getExtensionOperator.selector;
             cuts[2] = IDiamond.FacetCut(
                 address(new ExtensionManagerFacet()), IDiamond.FacetCutAction.Add, s
             );

@@ -6,6 +6,7 @@ import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.
 import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
+import { IExtensionManager } from "../../../../contracts/userInterfaces/tee/IExtensionManager.sol";
 import { IMachinePathManager, TEE_MACHINE_PATH_LIST }
     from "../../../../contracts/userInterfaces/tee/IMachinePathManager.sol";
 import { SignedPayload } from "../../../../contracts/utils/lib/SignedPayload.sol";
@@ -238,8 +239,8 @@ contract MachinePathManagerFacetTest is Test {
     // createNewMachinePathList
     // =========================================================================
 
-    function testCreateNewMachinePathListRevertOnlyExtensionOwner() public {
-        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
+    function testCreateNewMachinePathListRevertOnlyExtensionOwnerOrOperator() public {
+        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwnerOrOperator.selector);
         flareTeeManager.createNewMachinePathList(extensionId);
     }
 
@@ -292,10 +293,10 @@ contract MachinePathManagerFacetTest is Test {
         flareTeeManager.addMachinePaths(extensionId, 999, paths);
     }
 
-    function testAddMachinePathsRevertOnlyExtensionOwner() public {
+    function testAddMachinePathsRevertOnlyExtensionOwnerOrOperator() public {
         uint256 nonce = _newList();
         IMachinePathManager.MachinePath[] memory paths = _onePath(teeA1, teeA2);
-        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
+        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwnerOrOperator.selector);
         flareTeeManager.addMachinePaths(extensionId, nonce, paths);
     }
 
@@ -475,9 +476,9 @@ contract MachinePathManagerFacetTest is Test {
         flareTeeManager.finalizeMachinePathList(extensionId, 999);
     }
 
-    function testFinalizeMachinePathListRevertOnlyExtensionOwner() public {
+    function testFinalizeMachinePathListRevertOnlyExtensionOwnerOrOperator() public {
         uint256 nonce = _newListWithPath(teeA1, teeA2);
-        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
+        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwnerOrOperator.selector);
         flareTeeManager.finalizeMachinePathList(extensionId, nonce);
     }
 
@@ -507,6 +508,40 @@ contract MachinePathManagerFacetTest is Test {
         flareTeeManager.finalizeMachinePathList(extensionId, nonce);
         assertTrue(flareTeeManager.isMachinePathListFinalized(extensionId, nonce));
         assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+    }
+
+    // =========================================================================
+    // operator can drive the full prep lifecycle
+    // =========================================================================
+
+    function testOperatorCanDriveListLifecycle() public {
+        address operator = makeAddr("operator");
+        vm.prank(owner);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, operator);
+
+        vm.startPrank(operator);
+        uint256 nonce = flareTeeManager.createNewMachinePathList(extensionId);
+        flareTeeManager.addMachinePaths(extensionId, nonce, _onePath(teeA1, teeA2));
+        flareTeeManager.finalizeMachinePathList(extensionId, nonce);
+        vm.stopPrank();
+
+        assertTrue(flareTeeManager.isMachinePathListFinalized(extensionId, nonce));
+        // The downstream governance signature is unaffected by who prepped the list.
+        Signature memory sig = _sign(_listMessageHash(extensionId, nonce), privKeysA[0]);
+        flareTeeManager.signMachinePathList(extensionId, nonce, sig);
+        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+    }
+
+    function testClearedOperatorCannotDriveListLifecycle() public {
+        address operator = makeAddr("operator");
+        vm.startPrank(owner);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, operator);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, address(0));
+        vm.stopPrank();
+
+        vm.prank(operator);
+        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwnerOrOperator.selector);
+        flareTeeManager.createNewMachinePathList(extensionId);
     }
 
     // =========================================================================

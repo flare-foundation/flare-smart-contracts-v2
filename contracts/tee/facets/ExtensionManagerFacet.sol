@@ -208,6 +208,21 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         emit NewOwnerConfirmed(_extensionId, msg.sender);
     }
 
+    /// @inheritdoc IExtensionManager
+    function setExtensionOperator(
+        uint256 _extensionId,
+        address _operator
+    )
+        external
+    {
+        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        ExtensionManager.TeeExtension storage extension =
+            ExtensionManager.getState().extensions[_extensionId];
+        address oldOperator = extension.operator;
+        extension.operator = _operator;
+        emit ExtensionOperatorSet(_extensionId, oldOperator, _operator);
+    }
+
     /// @inheritdoc IIExtensionManager
     function addSystemSupportedPlatforms(
         bytes32[] calldata _platforms
@@ -298,6 +313,16 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         returns (address)
     {
         return ExtensionManager.getExtensionOwner(_extensionId);
+    }
+
+    /// @inheritdoc IExtensionManager
+    function getExtensionOperator(
+        uint256 _extensionId
+    )
+        external view
+        returns (address)
+    {
+        return ExtensionManager.getExtensionOperator(_extensionId);
     }
 
     /// @inheritdoc IExtensionManager

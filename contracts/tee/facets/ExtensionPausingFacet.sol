@@ -30,7 +30,7 @@ contract ExtensionPausingFacet is IExtensionPausing {
     )
         external
     {
-        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        ExtensionManager.checkOnlyExtensionOwnerOrOperator(_extensionId);
         require(_governanceHashes.length > 0, NoGovernanceHashes());
         // Validate each hash is known AND ensure no duplicates within the list.
         // Pairwise comparison is fine for small N; duplicates would otherwise make the record

@@ -64,6 +64,12 @@ interface IExtensionManager is ITeeCommonErrors {
         address indexed newOwner
     );
 
+    event ExtensionOperatorSet(
+        uint256 indexed extensionId,
+        address indexed oldOperator,
+        address indexed newOperator
+    );
+
     error InvalidInstructionsSender();
     error VersionEmpty();
     error CodeHashZero();
@@ -221,6 +227,25 @@ interface IExtensionManager is ITeeCommonErrors {
         external;
 
     /**
+     * Set (or clear, by passing `address(0)`) the optional extension operator.
+     * The operator may call the *prep* steps for flows whose real security gate
+     * is a downstream governance threshold signature: machine-path-list
+     * lifecycle (createNewMachinePathList / addMachinePaths /
+     * finalizeMachinePathList) and pausing-addresses record creation
+     * (setTeePausingAddresses).
+     *
+     * Emits ExtensionOperatorSet event.
+     * @param _extensionId The id of the extension.
+     * @param _operator The new operator address, or `address(0)` to clear.
+     * Can only be called by the extension owner.
+     */
+    function setExtensionOperator(
+        uint256 _extensionId,
+        address _operator
+    )
+        external;
+
+    /**
      * Get the id that the next public `register()` call will assign.
      * Initialised to `type(uint16).max + 1` (= 65536) and incremented on each
      * successful public registration. Reserved ids (1..65535) do not flow
@@ -265,6 +290,17 @@ interface IExtensionManager is ITeeCommonErrors {
      * @return The owner address.
      */
     function getExtensionOwner(
+        uint256 _extensionId
+    )
+        external view
+        returns (address);
+
+    /**
+     * Get the operator of a TEE extension.
+     * @param _extensionId The id of the extension.
+     * @return The operator address, or `address(0)` if no operator is set.
+     */
+    function getExtensionOperator(
         uint256 _extensionId
     )
         external view

@@ -26,6 +26,13 @@ library ExtensionManager {
         address owner;
         ITeeExtensionStateVerifier stateVerifier;
         address instructionsSender;
+        /// Optional helper account that can perform owner-gated *prep* work whose
+        /// real security gate is a downstream governance threshold signature.
+        /// `address(0)` means "no operator". For extension id 0 the operator
+        /// slot still lives in this struct — only the `owner` field above is
+        /// dead-letter there because `getExtensionOwner(0)` short-circuits to
+        /// `FlareGovernance.governance()`.
+        address operator;
 
         mapping(bytes32 codeHash => TeeVersion) codeHashToVersion;
         /// Disabled code hash and platform mapping.
@@ -86,6 +93,27 @@ library ExtensionManager {
         require(
             msg.sender == getExtensionOwner(_extensionId),
             ITeeCommonErrors.OnlyExtensionOwner()
+        );
+    }
+
+    function getExtensionOperator(
+        uint256 _extensionId
+    )
+        internal view
+        returns (address)
+    {
+        return getState().extensions[_extensionId].operator;
+    }
+
+    function checkOnlyExtensionOwnerOrOperator(
+        uint256 _extensionId
+    )
+        internal view
+    {
+        require(
+            msg.sender == getExtensionOwner(_extensionId) ||
+            msg.sender == getExtensionOperator(_extensionId),
+            ITeeCommonErrors.OnlyExtensionOwnerOrOperator()
         );
     }
 

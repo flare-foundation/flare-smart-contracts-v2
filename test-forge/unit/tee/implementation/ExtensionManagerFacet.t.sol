@@ -774,6 +774,95 @@ contract ExtensionManagerFacetTest is Test {
         flareTeeManager.addTeeVersion(extensionId, "", codeHash, platforms);
     }
 
+    // =========================================================================
+    // setExtensionOperator / getExtensionOperator
+    // =========================================================================
+
+    function testGetExtensionOperatorDefaultsToZero() public view {
+        assertEq(
+            IExtensionManager(address(flareTeeManager)).getExtensionOperator(extensionId),
+            address(0)
+        );
+        assertEq(
+            IExtensionManager(address(flareTeeManager)).getExtensionOperator(0),
+            address(0)
+        );
+    }
+
+    function testSetExtensionOperatorRevertOnlyOwner() public {
+        address operator = makeAddr("operator");
+        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, operator);
+    }
+
+    function testSetExtensionOperatorRevertOnlyOwnerWhenCallerIsCurrentOperator() public {
+        address operator = makeAddr("operator");
+        // Owner installs an operator.
+        vm.prank(owner);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, operator);
+        // Operator must not be able to rotate themselves.
+        vm.prank(operator);
+        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, makeAddr("attacker"));
+    }
+
+    function testSetExtensionOperatorHappyPath() public {
+        address operator = makeAddr("operator");
+        vm.prank(owner);
+        vm.expectEmit();
+        emit IExtensionManager.ExtensionOperatorSet(extensionId, address(0), operator);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, operator);
+        assertEq(
+            IExtensionManager(address(flareTeeManager)).getExtensionOperator(extensionId),
+            operator
+        );
+    }
+
+    function testSetExtensionOperatorReplacesPrevious() public {
+        address firstOperator = makeAddr("firstOperator");
+        address secondOperator = makeAddr("secondOperator");
+        vm.startPrank(owner);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, firstOperator);
+        vm.expectEmit();
+        emit IExtensionManager.ExtensionOperatorSet(extensionId, firstOperator, secondOperator);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, secondOperator);
+        vm.stopPrank();
+        assertEq(
+            IExtensionManager(address(flareTeeManager)).getExtensionOperator(extensionId),
+            secondOperator
+        );
+    }
+
+    function testSetExtensionOperatorClearsToZero() public {
+        address operator = makeAddr("operator");
+        vm.startPrank(owner);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, operator);
+        vm.expectEmit();
+        emit IExtensionManager.ExtensionOperatorSet(extensionId, operator, address(0));
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, address(0));
+        vm.stopPrank();
+        assertEq(
+            IExtensionManager(address(flareTeeManager)).getExtensionOperator(extensionId),
+            address(0)
+        );
+    }
+
+    function testSetExtensionOperatorForExtensionZeroOnlyGovernance() public {
+        address operator = makeAddr("operator");
+        // Caller is not the governance address.
+        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(0, operator);
+        // Governance multisig caller (initialGovernance pre-production-mode).
+        vm.prank(initialGovernance);
+        vm.expectEmit();
+        emit IExtensionManager.ExtensionOperatorSet(0, address(0), operator);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(0, operator);
+        assertEq(
+            IExtensionManager(address(flareTeeManager)).getExtensionOperator(0),
+            operator
+        );
+    }
+
     // addSystemSupportedPlatforms
     function testAddSystemSupportedPlatformsRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);

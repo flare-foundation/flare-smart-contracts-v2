@@ -15,6 +15,7 @@ interface ITeeCommonErrors {
 
     error OnlyOwner();
     error OnlyExtensionOwner();
+    error OnlyExtensionOwnerOrOperator();
     error OnlyProposedOwner();
     error OnlyOwnerOrBackupManager();
     error OnlyProductionOrPausedStatus();

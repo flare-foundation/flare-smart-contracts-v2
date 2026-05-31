@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import { Test, Vm } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
+import { IExtensionManager } from "../../../../contracts/userInterfaces/tee/IExtensionManager.sol";
 import { IExtensionPausing, TEE_PAUSING_ADDRESSES }
     from "../../../../contracts/userInterfaces/tee/IExtensionPausing.sol";
 import { SignedPayload } from "../../../../contracts/utils/lib/SignedPayload.sol";
@@ -96,9 +97,9 @@ contract ExtensionPausingFacetTest is Test {
     // setTeePausingAddresses
     // =========================================================================
 
-    function testSetTeePausingAddressesRevertOnlyExtensionOwner() public {
+    function testSetTeePausingAddressesRevertOnlyExtensionOwnerOrOperator() public {
         bytes32[] memory hashes = _setGovernanceAndReturnHash(extensionId, signers, 1);
-        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
+        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwnerOrOperator.selector);
         flareTeeManager.setTeePausingAddresses(extensionId, hashes, pausingAddresses);
     }
 
@@ -163,6 +164,36 @@ contract ExtensionPausingFacetTest is Test {
         flareTeeManager.setTeePausingAddresses(extensionId, hashes, pausingAddresses);
 
         vm.stopPrank();
+    }
+
+    function testSetTeePausingAddressesByOperator() public {
+        bytes32[] memory hashes = _setGovernanceAndReturnHash(extensionId, signers, 1);
+        address operator = makeAddr("operator");
+        vm.prank(realOwnerExtension1);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, operator);
+
+        vm.prank(operator);
+        vm.expectEmit();
+        emit IExtensionPausing.NewPausingAddressesSet(extensionId, 0, hashes, pausingAddresses);
+        flareTeeManager.setTeePausingAddresses(extensionId, hashes, pausingAddresses);
+
+        // The downstream signature flow is unaffected by who pinned the record — a governance
+        // signer can still sign it and reach threshold.
+        Signature memory signature = _signRecord(extensionId, 0, hashes, pausingAddresses, privateKeys[0]);
+        flareTeeManager.signTeePausingAddresses(extensionId, 0, signature);
+    }
+
+    function testSetTeePausingAddressesClearedOperatorReverts() public {
+        bytes32[] memory hashes = _setGovernanceAndReturnHash(extensionId, signers, 1);
+        address operator = makeAddr("operator");
+        vm.startPrank(realOwnerExtension1);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, operator);
+        IExtensionManager(address(flareTeeManager)).setExtensionOperator(extensionId, address(0));
+        vm.stopPrank();
+
+        vm.prank(operator);
+        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwnerOrOperator.selector);
+        flareTeeManager.setTeePausingAddresses(extensionId, hashes, pausingAddresses);
     }
 
     // =========================================================================

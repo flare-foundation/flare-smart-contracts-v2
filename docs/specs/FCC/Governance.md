@@ -59,7 +59,7 @@ Only the extension owner can call. It sets the extension's *latest* governance h
 
 ### Pausing addresses
 
-A second use of the extension's governance signer set, run by the separate later facet [`ExtensionPausingFacet`](../../../contracts/tee/facets/ExtensionPausingFacet.sol) + [`library/ExtensionPausing`](../../../contracts/tee/library/ExtensionPausing.sol). The extension owner posts a record consisting of:
+A second use of the extension's governance signer set, run by the separate later facet [`ExtensionPausingFacet`](../../../contracts/tee/facets/ExtensionPausingFacet.sol) + [`library/ExtensionPausing`](../../../contracts/tee/library/ExtensionPausing.sol). The extension owner — or the extension operator, if set; see [Extension operator](#extension-operator) — posts a record consisting of:
 
 - An array of **pausing addresses** (off-chain consumers act on these to pause TEE machinery).
 - An array of **governance hashes** to which the record is bound. The hashes must be known to the extension (validated via `isGovernanceHashValid`) and must be distinct. Each bound hash gets its own *approval* (signers, signatures, and a per-hash `thresholdMet` flag).
@@ -83,13 +83,15 @@ A **path list** lives at `(extensionId, nonce)`. Storage is per-extension: each 
 
 ### Lifecycle
 
-1. **Create** — extension owner calls `createNewMachinePathList(extensionId)`. A fresh nonce is allocated; the list is empty.
-2. **Add paths** — extension owner calls `addMachinePaths(extensionId, nonce, paths)` (potentially across multiple calls). For each teeId in each path, the library:
+Steps 1–3 are the *prep* steps: they record state that is inert until governance signs. They are gated by the extension owner *or* the optional extension operator (see [Extension operator](#extension-operator)). Steps 4–5 are the actual security gate.
+
+1. **Create** — `createNewMachinePathList(extensionId)`. A fresh nonce is allocated; the list is empty.
+2. **Add paths** — `addMachinePaths(extensionId, nonce, paths)` (potentially across multiple calls). For each teeId in each path, the library:
    - Verifies the teeId belongs to this extension (`ExtensionIdMismatch` from `ITeeCommonErrors` otherwise).
    - Reads the teeId's stored `governanceHash` from `MachineManager.TeeMachineState` and verifies it is non-zero (`GovernanceHashZero(teeId)` otherwise). Any TEE status — including `INITIALIZED` — is accepted; the consuming facet re-checks status at trigger time (`directBackup` requires `PRODUCTION`, `replicateFrom` requires `PAUSED_FOR_UPGRADE` / `INITIALIZED` / `REPLICATING`).
    - Adds the governance hash to the list's involved-governance set.
    - Rejects duplicate teeIds within a single path (`SourceTeeIdAlreadyExists`, `DestinationTeeIdAlreadyExists`).
-3. **Finalize** — extension owner calls `finalizeMachinePathList(extensionId, nonce)`. The library computes `messageHash` and emits `MachinePathListFinalized` with the involved-governance hashes so off-chain signers know which sets need to sign. After this, no further paths can be added.
+3. **Finalize** — `finalizeMachinePathList(extensionId, nonce)`. The library computes `messageHash` and emits `MachinePathListFinalized` with the involved-governance hashes so off-chain signers know which sets need to sign. After this, no further paths can be added.
 4. **Sign** — anyone may relay a signature. `signMachinePathList(extensionId, nonce, signature)` recovers the signer (EIP-191), iterates the involved-governance set, and increments the per-governance count for every governance the signer is a member of. The same signer cannot be counted twice — `signerHasSigned[signer]` dedup. A signature that recovers to nobody-in-any-governance reverts `UnrecognizedSigner`.
 5. **Activate** — the list automatically transitions to active once every involved governance has reached its threshold (each governance's threshold comes from `ExtensionGovernance.getTeeGovernanceThreshold`). `MachinePathListSigned` fires, and if the nonce strictly exceeds the extension's current active nonce, `extensionActiveListNonce[extensionId]` is updated.
 
@@ -116,6 +118,25 @@ Entry points:
 Only the extension owner can mutate (or for `extensionId == 0`, system governance).
 
 The allowlist is separate from the **governance signers** because an extension may want different administrative roles for different actions: the governance signers approve software upgrades; the allowlist controls who can register hardware. Both are extension-scoped.
+
+## Extension operator
+
+Each extension can optionally designate one **operator** address. The operator is a *prep helper*: it can drive the multi-step owner-only flows whose effective security gate is a downstream governance threshold signature, but it cannot do anything an owner can do unilaterally.
+
+Concretely, the operator (when set) may call exactly four prep methods:
+
+- `MachinePathManagerFacet.createNewMachinePathList`
+- `MachinePathManagerFacet.addMachinePaths`
+- `MachinePathManagerFacet.finalizeMachinePathList`
+- `ExtensionPausingFacet.setTeePausingAddresses`
+
+All four create records that remain inert until the extension's governance signers sign them on-chain — the operator cannot produce that signature.
+
+The operator is set (and cleared, by passing `address(0)`) by the extension owner via `ExtensionManagerFacet.setExtensionOperator(extensionId, operator)`. It is the *owner*, not the operator, who controls who the operator is — an operator cannot rotate themselves. The setter works for every extension, including the system extension id 0; for id 0 the caller must be the FlareGovernance governance address (i.e. a direct tx from the governance multisig). The current operator is read back via `getExtensionOperator(extensionId)` and may be `address(0)` if no operator is set. The `ExtensionOperatorSet` event carries `(extensionId, oldOperator, newOperator)`.
+
+Motivating use case: when the extension owner is a multisig identical to the governance signer set (common for the id-0 system extension), every prep step would otherwise require the multisig to sign an on-chain tx *and* later the same signers contribute to the on-chain threshold signature — double work for what is, security-wise, a single decision. With an operator installed, prep happens via ordinary EOA transactions; governance only signs once.
+
+The operator's blast radius is bounded: it can create wrong / spammy / unsignable records, but cannot make them take effect. Operations the owner needs to remain fully accountable for (ownership transfer, governance-signer rotation, allowlist management, ban/unban, code-hash configuration, emergency-pauser delegation) stay owner-only.
 
 ## External addresses
 
