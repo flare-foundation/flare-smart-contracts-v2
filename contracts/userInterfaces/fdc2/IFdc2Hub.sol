@@ -3,6 +3,12 @@ pragma solidity >=0.7.6 <0.9;
 
 bytes32 constant FDC2_OP_TYPE = bytes32("F_FDC2");
 
+// Domain prefix bound into every FDC2 attestation-proof signed payload (TEE availability
+// check, PMW multisig configured, PMW payment status, ...). See `SignedPayload`. The
+// per-attestation differentiation (which attestation type, which source) lives inside the
+// signed `Fdc2ResponseHeader` itself via `attestationType` and `sourceId`.
+bytes32 constant FDC2 = bytes32("FDC2");
+
 /**
  * Fdc2Hub interface.
  */

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IMachinePathManager } from "../../userInterfaces/tee/IMachinePathManager.sol";
+import { IMachinePathManager, TEE_MACHINE_PATH_LIST } from "../../userInterfaces/tee/IMachinePathManager.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
 import { MachinePathManager } from "../library/MachinePathManager.sol";
 import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
@@ -83,18 +84,14 @@ contract MachinePathManagerFacet is IMachinePathManager {
         MachinePathManager.MachinePathList storage pathList = MachinePathManager.list(_extensionId, _nonce);
         require(pathList.messageHash == bytes32(0), ListAlreadyFinalized());
         require(pathList.paths.length > 0, NoPaths());
-        // Bind chainid + extensionId + nonce into the signed payload, preventing cross-chain,
-        // cross-extension, and cross-list signature replay between lists that happen to share
-        // path content. Per-path governance hashes are derived deterministically from the teeIds
-        // (which are bound), so they need not be hashed in directly.
-        pathList.messageHash = keccak256(
-            abi.encode(
-                bytes32("TEE_MACHINE_PATH_LIST"),
-                block.chainid,
-                _extensionId,
-                _nonce,
-                _getMachinePaths(_extensionId, _nonce)
-            )
+        // extensionId + nonce go into the inner dataHash, preventing cross-extension and
+        // cross-list signature replay between lists that happen to share path content.
+        // Per-path governance hashes are derived deterministically from the teeIds (which
+        // are bound), so they need not be hashed in directly. The outer SignedPayload
+        // envelope adds the TEE_MACHINE_PATH_LIST prefix and binds block.chainid.
+        pathList.messageHash = SignedPayload.messageHash(
+            TEE_MACHINE_PATH_LIST,
+            keccak256(abi.encode(_extensionId, _nonce, _getMachinePaths(_extensionId, _nonce)))
         );
         emit MachinePathListFinalized(_extensionId, _nonce, pathList.involvedGovernanceHashes.values());
     }

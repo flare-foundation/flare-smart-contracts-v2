@@ -4,6 +4,9 @@ pragma solidity >=0.7.6 <0.9;
 import { Signature } from "../ISignature.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
+// Domain prefix for the per-extension TEE-pausing-addresses signed payload. See `SignedPayload`.
+bytes32 constant TEE_PAUSING_ADDRESSES = bytes32("TEE_PAUSING_ADDRESSES");
+
 /**
  * @title IExtensionPausing
  * @notice Public interface for the ExtensionPausingFacet.

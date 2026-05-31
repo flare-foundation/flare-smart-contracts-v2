@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IExtensionPausing } from "../../userInterfaces/tee/IExtensionPausing.sol";
+import { IExtensionPausing, TEE_PAUSING_ADDRESSES } from "../../userInterfaces/tee/IExtensionPausing.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
+import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
 import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { ExtensionPausing } from "../library/ExtensionPausing.sol";
@@ -62,15 +63,9 @@ contract ExtensionPausingFacet is IExtensionPausing {
         for (uint256 i = 0; i < _governanceHashes.length; i++) {
             record.governanceHashes.push(_governanceHashes[i]);
         }
-        record.messageHash = keccak256(
-            abi.encode(
-                bytes32("TEE_PAUSING_ADDRESSES"),
-                block.chainid,
-                _extensionId,
-                nonce,
-                _governanceHashes,
-                _pausingAddresses
-            )
+        record.messageHash = SignedPayload.messageHash(
+            TEE_PAUSING_ADDRESSES,
+            keccak256(abi.encode(_extensionId, nonce, _governanceHashes, _pausingAddresses))
         );
         emit NewPausingAddressesSet(_extensionId, nonce, _governanceHashes, _pausingAddresses);
     }

@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IWalletKeyManager } from "../../userInterfaces/tee/IWalletKeyManager.sol";
+import { IWalletKeyManager, TEE_KEY_EXISTENCE } from "../../userInterfaces/tee/IWalletKeyManager.sol";
 import { IWalletManager, WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManager.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
+import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
 import { WalletKeyManager } from "../library/WalletKeyManager.sol";
 import { WalletManager } from "../library/WalletManager.sol";
 import { WalletProjectManager } from "../library/WalletProjectManager.sol";
 import { MachineManager } from "../library/MachineManager.sol";
 import { Instructions } from "../library/Instructions.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title WalletKeyManagerFacet
@@ -135,12 +135,8 @@ contract WalletKeyManagerFacet is IWalletKeyManager {
         _validateKeyExistenceConfigConstants(walletId, _proof.configConstants);
         require(_proof.settingsVersion == bytes32(0) && _proof.settings.length == 0, InvalidSettings());
 
-        // check TEE signature; bind chainid into the signed payload so a key-existence
-        // proof signed on one Flare network cannot be replayed on another.
         address teeId = ECDSA.recover(
-            MessageHashUtils.toEthSignedMessageHash(
-                keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, _proof))
-            ),
+            SignedPayload.ethSignedHash(TEE_KEY_EXISTENCE, keccak256(abi.encode(_proof))),
             _teeSignature.v,
             _teeSignature.r,
             _teeSignature.s

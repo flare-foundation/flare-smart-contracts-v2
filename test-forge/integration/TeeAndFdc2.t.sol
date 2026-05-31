@@ -5,17 +5,18 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IDiamondLoupe } from "../../contracts/diamond/interfaces/IDiamondLoupe.sol";
-import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { IMachineManager, TEE_MACHINE_REGISTER } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { SignedPayload } from "../../contracts/utils/lib/SignedPayload.sol";
 import { TEE_SOURCE_ID } from "../../contracts/userInterfaces/tee/IVerification.sol";
 import { IExtensionPausing } from "../../contracts/userInterfaces/tee/IExtensionPausing.sol";
 import { ISystemStateVerifier } from "../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IWalletManager } from "../../contracts/userInterfaces/tee/IWalletManager.sol";
-import { IWalletKeyManager } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IWalletKeyManager, TEE_KEY_EXISTENCE } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
 import { IWalletBackupManager } from "../../contracts/userInterfaces/tee/IWalletBackupManager.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
-import { IFdc2Hub } from "../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
+import { IFdc2Hub, FDC2 } from "../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2Verification } from "../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
 import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
 import { Fdc2Hub } from "../../contracts/fdc2/implementation/Fdc2Hub.sol";
@@ -468,7 +469,7 @@ contract TeeAndFdc2Test is Test {
             governanceHash: bytes32(0)
         });
         Signature memory sig = SignatureHelper.createSignature(
-            vm, keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, data)), _privKey
+            vm, SignedPayload.messageHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(data))), _privKey
         );
 
         address id = PublicKeyHelper.getAddress(_pubKey);
@@ -524,11 +525,10 @@ contract TeeAndFdc2Test is Test {
             ITeeAvailabilityCheck.TeeState(abi.encode(sysState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
-        bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(header)),
-            keccak256(abi.encode(reqBody)),
-            keccak256(abi.encode(respBody))
-        ));
+        bytes32 messageHash = SignedPayload.messageHash(
+            FDC2,
+            keccak256(abi.encode(header, reqBody, respBody))
+        );
 
         // Create real cosigner signatures — verified by the real Fdc2Verification (pure ECDSA)
         bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
@@ -609,7 +609,7 @@ contract TeeAndFdc2Test is Test {
         });
 
         Signature memory teeSig = SignatureHelper.createSignature(
-            vm, keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, proof)), _teePrivKey
+            vm, SignedPayload.messageHash(TEE_KEY_EXISTENCE, keccak256(abi.encode(proof))), _teePrivKey
         );
 
         vm.prank(projectOwner);
@@ -649,7 +649,7 @@ contract TeeAndFdc2Test is Test {
         });
 
         Signature memory teeSig = SignatureHelper.createSignature(
-            vm, keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, proof)), _teePrivKey
+            vm, SignedPayload.messageHash(TEE_KEY_EXISTENCE, keccak256(abi.encode(proof))), _teePrivKey
         );
 
         vm.prank(projectOwner);

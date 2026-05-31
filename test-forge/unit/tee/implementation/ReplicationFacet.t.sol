@@ -9,7 +9,8 @@ import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IReplication } from "../../../../contracts/userInterfaces/tee/IReplication.sol";
-import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { IMachineManager, TEE_MACHINE_REGISTER } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { SignedPayload } from "../../../../contracts/utils/lib/SignedPayload.sol";
 import { IMachinePathManager } from "../../../../contracts/userInterfaces/tee/IMachinePathManager.sol";
 import {
     TEE_SOURCE_ID
@@ -22,7 +23,7 @@ import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeC
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
-import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
+import { IFdc2Hub, FDC2 } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 
@@ -360,7 +361,7 @@ contract ReplicationFacetTest is Test {
             governanceHash: governanceHash
         });
         Signature memory sig = SignatureHelper.createSignature(
-            vm, keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, data)), wallet2.privateKey
+            vm, SignedPayload.messageHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(data))), wallet2.privateKey
         );
         vm.prank(owner);
         flareTeeManager.register{value: 100}(data, sig, makeAddr("proxy2"), "https://url2", address(0));
@@ -634,7 +635,7 @@ contract ReplicationFacetTest is Test {
             governanceHash: governanceHash
         });
         Signature memory sig = SignatureHelper.createSignature(
-            vm, keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, data)), _privateKey
+            vm, SignedPayload.messageHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(data))), _privateKey
         );
         if (_teeId == teeId) {
             teeIdRegistrationTs = block.timestamp;
@@ -697,11 +698,10 @@ contract ReplicationFacetTest is Test {
             ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
-        bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(header)),
-            keccak256(abi.encode(reqBody)),
-            keccak256(abi.encode(respBody))
-        ));
+        bytes32 messageHash = SignedPayload.messageHash(
+            FDC2,
+            keccak256(abi.encode(header, reqBody, respBody))
+        );
         bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
 
         IFdc2Verification.Fdc2Signatures memory sigs;
@@ -829,11 +829,10 @@ contract ReplicationFacetTest is Test {
     )
         private
     {
-        bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(_proof.header)),
-            keccak256(abi.encode(_proof.requestBody)),
-            keccak256(abi.encode(_proof.responseBody))
-        ));
+        bytes32 messageHash = SignedPayload.messageHash(
+            FDC2,
+            keccak256(abi.encode(_proof.header, _proof.requestBody, _proof.responseBody))
+        );
         bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
 
         _proof.signatures.cosignerSignatures = new Signature[](cosignersThreshold);

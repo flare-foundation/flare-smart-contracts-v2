@@ -8,11 +8,12 @@ import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol"
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
-import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
+import { IFdc2Hub, FDC2 } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
+import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
 import { MachineManager } from "./MachineManager.sol";
 import { ExtensionManager } from "./ExtensionManager.sol";
 import { SystemStateVerifier } from "./SystemStateVerifier.sol";
@@ -103,14 +104,14 @@ library Verification {
             );
         }
 
-        // Verify signatures. Chain binding is enforced by `header.chainId == block.chainid`
-        // above and the inner `keccak256(abi.encode(_proof.header))` — so a TEE / signing-policy
-        // / cosigner signature produced for one Flare network cannot be replayed on another.
-        bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(_proof.header)),
-            keccak256(abi.encode(_proof.requestBody)),
-            keccak256(abi.encode(_proof.responseBody))
-        ));
+        // Verify signatures. The outer SignedPayload envelope binds chainid and the FDC2 domain
+        // prefix; the inner dataHash binds the full (header, requestBody, responseBody) — including
+        // attestationType and sourceId — so signatures cannot be replayed across chains, FDC2
+        // attestation types, sources, or requests.
+        bytes32 messageHash = SignedPayload.messageHash(
+            FDC2,
+            keccak256(abi.encode(_proof.header, _proof.requestBody, _proof.responseBody))
+        );
 
         ExternalAddresses.State storage ext = ExternalAddresses.getState();
         uint256 currentRewardEpochId = IFlareSystemsManager(ext.flareSystemsManager).getCurrentRewardEpochId();
@@ -334,6 +335,15 @@ library Verification {
         return _signingPolicyId + getState().signingPolicyValidityDurationInRewardEpochs >= _currentRewardEpochId;
     }
 
+    /**
+     * Cosigner-signature preimage wrap. The 6-byte prefix is the Relay protocol-message wire
+     * format for `protocolId=1 || votingRoundId=0 || isSecureRandom=false` (see `Relay.sol`
+     * `MESSAGE_BYTES`/`MESSAGE_NO_MR_BYTES`), with `_messageHash` filling the 32-byte
+     * "merkleRoot" slot. Aligning cosigner signatures with Relay's protocol-message format lets
+     * an entity that is both a cosigner and a signing-policy data signer use the same off-chain
+     * signing infrastructure with no special handling. Do not change these bytes — they are
+     * load-bearing for that compatibility.
+     */
     function toCosignersMessageHash(
         bytes32 _messageHash
     )

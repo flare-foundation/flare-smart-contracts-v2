@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { IMachineManager, TEE_MACHINE_REGISTER } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import {
     TEE_SOURCE_ID
 } from "../../../../contracts/userInterfaces/tee/IVerification.sol";
@@ -17,7 +17,8 @@ import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
-import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
+import { IFdc2Hub, FDC2 } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
+import { SignedPayload } from "../../../../contracts/utils/lib/SignedPayload.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 
@@ -216,7 +217,7 @@ contract MachineManagerFacetTest is Test {
         });
         teeMachineDataSignature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, teeMachineData)),
+            SignedPayload.messageHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(teeMachineData))),
             teePrivateKey
         );
 
@@ -230,7 +231,7 @@ contract MachineManagerFacetTest is Test {
         });
         newTeeMachineDataSignature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, newTeeMachineData)),
+            SignedPayload.messageHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(newTeeMachineData))),
             newTeePrivateKey
         );
 
@@ -315,7 +316,7 @@ contract MachineManagerFacetTest is Test {
         teeMachineData.codeHash = keccak256("unsupported");
         teeMachineDataSignature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, teeMachineData)),
+            SignedPayload.messageHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(teeMachineData))),
             teePrivateKey
         );
         vm.prank(owner);
@@ -926,11 +927,10 @@ contract MachineManagerFacetTest is Test {
             ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
-        bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(header)),
-            keccak256(abi.encode(reqBody)),
-            keccak256(abi.encode(respBody))
-        ));
+        bytes32 messageHash = SignedPayload.messageHash(
+            FDC2,
+            keccak256(abi.encode(header, reqBody, respBody))
+        );
         bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
 
         // Create cosigner signatures

@@ -8,6 +8,9 @@ import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 bytes32 constant REG_OP_TYPE = bytes32("F_REG");
 
+// Domain prefix for the TEE-machine-registration signed payload. See `SignedPayload`.
+bytes32 constant TEE_MACHINE_REGISTER = bytes32("TEE_MACHINE_REGISTER");
+
 /**
  * @title IMachineManager
  * @notice Public interface for the MachineManagerFacet.

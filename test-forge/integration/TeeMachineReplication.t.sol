@@ -9,7 +9,8 @@ import { FlareTeeManagerDeployer } from "../utils/FlareTeeManagerDeployer.sol";
 // TEE interfaces
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IExtensionManager } from "../../contracts/userInterfaces/tee/IExtensionManager.sol";
-import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { IMachineManager, TEE_MACHINE_REGISTER } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { SignedPayload } from "../../contracts/utils/lib/SignedPayload.sol";
 import { IOwnerAllowlist } from "../../contracts/userInterfaces/tee/IOwnerAllowlist.sol";
 import { IExtensionGovernance } from "../../contracts/userInterfaces/tee/IExtensionGovernance.sol";
 import { IReplication } from "../../contracts/userInterfaces/tee/IReplication.sol";
@@ -27,7 +28,7 @@ import { Fdc2HubProxy } from "../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
 import { Fdc2RequestFeeConfigurations } from "../../contracts/fdc2/implementation/Fdc2RequestFeeConfigurations.sol";
 import { Fdc2RequestFeeConfigurationsProxy } from "../../contracts/fdc2/proxy/Fdc2RequestFeeConfigurationsProxy.sol";
 import { IFdc2Verification } from "../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
-import { IFdc2Hub } from "../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
+import { IFdc2Hub, FDC2 } from "../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 
@@ -404,7 +405,7 @@ contract TeeMachineReplicationTest is Test {
         });
         Signature memory signature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, teeMachineData)),
+            SignedPayload.messageHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(teeMachineData))),
             teePrivateKey
         );
         flareTeeManager.register{value: 150}(
@@ -449,11 +450,10 @@ contract TeeMachineReplicationTest is Test {
             ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
-        bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(header)),
-            keccak256(abi.encode(reqBody)),
-            keccak256(abi.encode(respBody))
-        ));
+        bytes32 messageHash = SignedPayload.messageHash(
+            FDC2,
+            keccak256(abi.encode(header, reqBody, respBody))
+        );
         bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
 
         IFdc2Verification.Fdc2Signatures memory sigs;
@@ -524,7 +524,7 @@ contract TeeMachineReplicationTest is Test {
         });
         Signature memory signature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, newTeeMachineData)),
+            SignedPayload.messageHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(newTeeMachineData))),
             newTeePrivateKey
         );
         flareTeeManager.register{value: 150}(
@@ -621,11 +621,10 @@ contract TeeMachineReplicationTest is Test {
             ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
-        bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(header)),
-            keccak256(abi.encode(reqBody)),
-            keccak256(abi.encode(respBody))
-        ));
+        bytes32 messageHash = SignedPayload.messageHash(
+            FDC2,
+            keccak256(abi.encode(header, reqBody, respBody))
+        );
         bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
 
         IFdc2Verification.Fdc2Signatures memory sigs;
@@ -693,11 +692,10 @@ contract TeeMachineReplicationTest is Test {
             ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
-        bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(header)),
-            keccak256(abi.encode(reqBody)),
-            keccak256(abi.encode(respBody))
-        ));
+        bytes32 messageHash = SignedPayload.messageHash(
+            FDC2,
+            keccak256(abi.encode(header, reqBody, respBody))
+        );
         bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
 
         IFdc2Verification.Fdc2Signatures memory sigs;

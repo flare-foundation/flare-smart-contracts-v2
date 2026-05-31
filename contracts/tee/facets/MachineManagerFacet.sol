@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
+import { IMachineManager, TEE_MACHINE_REGISTER } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IMachineEmergencyPause } from "../../userInterfaces/tee/IMachineEmergencyPause.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
@@ -9,6 +9,7 @@ import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
+import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
 import { MachineManager } from "../library/MachineManager.sol";
 import { MachineEmergencyPause } from "../library/MachineEmergencyPause.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
@@ -17,7 +18,6 @@ import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
 import { Verification } from "../library/Verification.sol";
 import { ExternalAddresses } from "../library/ExternalAddresses.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -50,12 +50,8 @@ contract MachineManagerFacet is IMachineManager {
             ITeeCommonErrors.InvalidGovernanceHash()
         );
         require(PublicKeyUtils.isPublicKeyValid(_teeMachineData.publicKey), InvalidTeePublicKey());
-        // Bind chainid into the signed payload so a TEE registration signature
-        // produced for one Flare network cannot be replayed on another.
         address teeId = ECDSA.recover(
-            MessageHashUtils.toEthSignedMessageHash(
-                keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, _teeMachineData))
-            ),
+            SignedPayload.ethSignedHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(_teeMachineData))),
             _teeMachineDataSignature.v,
             _teeMachineDataSignature.r,
             _teeMachineDataSignature.s

@@ -122,6 +122,17 @@ FDC2 uses [`Fdc2Verification`](../../../contracts/fdc2/implementation/Fdc2Verifi
 - **TEE-machine verification.** `verifyTeeSignature(sig, hash)` and `verifyTeeSignatures(sigs[], hash)` recover the TEE machine's address via ECDSA, then check `flareTeeManager.getExtensionId(teeId) == 0` (the system extension) and `flareTeeManager.getTeeMachineStatus(teeId) == PRODUCTION`. Used for direct on-Flare verification.
 - **Cosigner recovery.** `recoverCosigners(sigs[], hash)` recovers cosigner addresses for caller-side authorization checks.
 
-Each FDC2 response header carries a `chainId` field, and every FDC2 verifier that consumes such a header **must** enforce `header.chainId == block.chainid` (alongside its other header-validation checks) to prevent cross-chain replay of a signed proof onto a different Flare network. The chain binding is then naturally part of the signed `messageHash` via `keccak256(abi.encode(header))`. See `Verification.verifyAvailabilityCheckProof` and `VerificationFacet.verifyPMWMultisigAccountConfiguredProof` for canonical examples.
+Every FDC2 verifier builds its `messageHash` via the canonical [`SignedPayload`](../../../contracts/utils/lib/SignedPayload.sol) envelope:
+
+```solidity
+bytes32 messageHash = SignedPayload.messageHash(
+    FDC2,
+    keccak256(abi.encode(proof.header, proof.requestBody, proof.responseBody))
+);
+```
+
+The outer envelope binds the `FDC2` domain prefix and `block.chainid`, preventing cross-chain and cross-protocol replay. The inner `dataHash` binds the full `(header, requestBody, responseBody)` — including the header's `attestationType` and `sourceId` — so a signed proof cannot be replayed across attestation types, sources, or requests within FDC2. See `Verification.verifyAvailabilityCheckProof`, `VerificationFacet.verifyPMWMultisigAccountConfiguredProof`, and `PMWPaymentStatusVerifierMock.verify` for the call sites.
+
+Cosigner signatures use a separate preimage wrap [`Verification.toCosignersMessageHash`](../../../contracts/tee/library/Verification.sol) — `keccak256(0x010000000000 || messageHash)`. The 6-byte prefix is the [`Relay`](../../../contracts/protocol/implementation/Relay.sol) protocol-message wire format for `(protocolId=1, votingRoundId=0, isSecureRandom=false)`; aligning cosigner signatures with that format lets a cosigner who is also a signing-policy data signer use the same off-chain signing infrastructure with no special handling.
 
 There is **no Merkle proof** in FDC2 — each TEE machine signs its response directly, and the consumer checks the signature(s). See [Fdc2](./Fdc2.md).

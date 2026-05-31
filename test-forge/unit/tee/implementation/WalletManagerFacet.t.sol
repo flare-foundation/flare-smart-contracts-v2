@@ -6,7 +6,8 @@ import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { IWalletProjectPause } from "../../../../contracts/userInterfaces/tee/IWalletProjectPause.sol";
-import { IWalletKeyManager } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IWalletKeyManager, TEE_KEY_EXISTENCE } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { SignedPayload } from "../../../../contracts/utils/lib/SignedPayload.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
@@ -730,7 +731,7 @@ contract WalletManagerFacetTest is Test {
         bytes32 signedMessageHash = keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
-                keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, proof))
+                SignedPayload.messageHash(TEE_KEY_EXISTENCE, keccak256(abi.encode(proof)))
             )
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(teeKey, signedMessageHash);

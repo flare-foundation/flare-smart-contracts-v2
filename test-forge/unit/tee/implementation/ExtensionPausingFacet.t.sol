@@ -4,7 +4,9 @@ pragma solidity ^0.8.27;
 import { Test, Vm } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IExtensionPausing } from "../../../../contracts/userInterfaces/tee/IExtensionPausing.sol";
+import { IExtensionPausing, TEE_PAUSING_ADDRESSES }
+    from "../../../../contracts/userInterfaces/tee/IExtensionPausing.sol";
+import { SignedPayload } from "../../../../contracts/utils/lib/SignedPayload.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -484,14 +486,10 @@ contract ExtensionPausingFacetTest is Test {
         private view
         returns (Signature memory)
     {
-        bytes32 messageHash = keccak256(abi.encode(
-            bytes32("TEE_PAUSING_ADDRESSES"),
-            block.chainid,
-            _extensionId,
-            _nonce,
-            _governanceHashes,
-            _pausingAddresses
-        ));
+        bytes32 messageHash = SignedPayload.messageHash(
+            TEE_PAUSING_ADDRESSES,
+            keccak256(abi.encode(_extensionId, _nonce, _governanceHashes, _pausingAddresses))
+        );
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, signedMessageHash);
         return Signature(v, r, s);

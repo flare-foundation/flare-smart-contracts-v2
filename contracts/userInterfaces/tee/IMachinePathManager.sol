@@ -3,6 +3,9 @@ pragma solidity >=0.7.6 <0.9;
 
 import { Signature } from "../ISignature.sol";
 
+// Domain prefix for the per-extension machine-path-list signed payload. See `SignedPayload`.
+bytes32 constant TEE_MACHINE_PATH_LIST = bytes32("TEE_MACHINE_PATH_LIST");
+
 /**
  * @title IMachinePathManager
  * @notice Public interface for the MachinePathManagerFacet.

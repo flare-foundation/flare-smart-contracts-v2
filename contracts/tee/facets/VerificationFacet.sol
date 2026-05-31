@@ -9,9 +9,10 @@ import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IPMWMultisigAccountConfigured, PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE }
     from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
-import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
+import { IFdc2Hub, FDC2 } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
 import { Verification } from "../library/Verification.sol";
 import { MachineManager } from "../library/MachineManager.sol";
 import { Replication } from "../library/Replication.sol";
@@ -244,14 +245,14 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
             }
         }
 
-        // Chain binding is enforced by `header.chainId == block.chainid` above and the inner
-        // `keccak256(abi.encode(header))` — so a TEE / signing-policy / cosigner signature
-        // produced for one Flare network cannot be replayed on another.
-        bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(header)),
-            keccak256(abi.encode(_proof.requestBody)),
-            keccak256(abi.encode(_proof.responseBody))
-        ));
+        // The outer SignedPayload envelope binds chainid and the FDC2 domain prefix; the inner
+        // dataHash binds the full (header, requestBody, responseBody) — including attestationType
+        // and sourceId — so signatures cannot be replayed across chains, FDC2 attestation types,
+        // sources, or requests.
+        bytes32 messageHash = SignedPayload.messageHash(
+            FDC2,
+            keccak256(abi.encode(header, _proof.requestBody, _proof.responseBody))
+        );
 
         ExternalAddresses.State storage ext = ExternalAddresses.getState();
         uint256 currentRewardEpochId =

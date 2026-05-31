@@ -21,7 +21,8 @@ import { IDiamondCut } from "../../contracts/diamond/interfaces/IDiamondCut.sol"
 import { IDiamond } from "../../contracts/diamond/interfaces/IDiamond.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IInstructions } from "../../contracts/userInterfaces/tee/IInstructions.sol";
-import { IWalletKeyManager } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IWalletKeyManager, TEE_KEY_EXISTENCE } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { SignedPayload } from "../../contracts/utils/lib/SignedPayload.sol";
 import { IWalletBackupManager } from "../../contracts/userInterfaces/tee/IWalletBackupManager.sol";
 import { IVerification } from "../../contracts/userInterfaces/tee/IVerification.sol";
 import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
@@ -680,8 +681,8 @@ contract WalletPaymentsTest is Test {
         private view
         returns (Signature memory)
     {
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(
-            keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, keyExistenceProof))
+        bytes32 signedMessageHash = SignedPayload.ethSignedHash(
+            TEE_KEY_EXISTENCE, keccak256(abi.encode(keyExistenceProof))
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, signedMessageHash);
         return Signature(v, r, s);

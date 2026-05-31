@@ -9,10 +9,11 @@ import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegis
 import { IVerification } from "../../userInterfaces/tee/IVerification.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
-import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
+import { IFdc2Hub, FDC2 } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
 
 contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     using AddressSet for AddressSet.State;
@@ -85,15 +86,13 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
 
         IPMWPaymentStatus.ResponseBody calldata responseBody = _proof.responseBody;
 
-        // Chain binding is enforced by other means (callers verify via signing-policy chain id).
-        // `keccak256(abi.encode(header))` — so a TEE / signing-policy / cosigner signature
-        // produced for one Flare network cannot be replayed on another.
-        bytes32 messageHash = keccak256(
-            abi.encode(
-                keccak256(abi.encode(header)),
-                keccak256(abi.encode(requestBody)),
-                keccak256(abi.encode(responseBody))
-            )
+        // The outer SignedPayload envelope binds chainid and the FDC2 domain prefix; the inner
+        // dataHash binds the full (header, requestBody, responseBody) — including attestationType
+        // and sourceId — so signatures cannot be replayed across chains, FDC2 attestation types,
+        // sources, or requests.
+        bytes32 messageHash = SignedPayload.messageHash(
+            FDC2,
+            keccak256(abi.encode(header, requestBody, responseBody))
         );
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
@@ -211,6 +210,8 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         require(teesList.length >= teeThreshold, TeeThresholdNotMet());
     }
 
+    /// See `Verification.toCosignersMessageHash` — the 6-byte prefix is the Relay
+    /// protocol-message wire format for `protocolId=1 || votingRoundId=0 || isSecureRandom=false`.
     function _toCosignersMessageHash(
         bytes32 _messageHash
     )

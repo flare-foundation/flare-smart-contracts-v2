@@ -205,45 +205,58 @@ function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
   return SigningPolicy.hash(signingPolicy);
 }
 
-function getHash(type: any, parameter: any): string {
-  return web3.utils.keccak256(web3.eth.abi.encodeParameter(type, parameter));
-}
-
 function bytes32Tag(tag: string): string {
   // Pad a short ASCII tag to bytes32 (right-padded with zeros), matching `bytes32("FOO")` in Solidity.
   return web3.utils.utf8ToHex(tag).padEnd(66, "0");
 }
 
-function getFdc2Message(headerHash: string, requestBodyHash: string, responseBodyHash: string): string {
-  // Mirror Verification.sol / VerificationFacet.sol / PMWPaymentStatusVerifierMock.sol.
-  // Chain binding is in the header's `chainId` field, which is already part of headerHash.
+async function signedPayloadMessageHash(prefix: string, dataHash: string): Promise<string> {
+  // Mirror SignedPayload.messageHash in contracts/utils/lib/SignedPayload.sol — the struct
+  // layout is exposed via contracts/utils/structs/SignedPayloadStructs.sol for off-chain use.
+  const chainId = await web3.eth.getChainId();
   return web3.utils.keccak256(
-    web3.eth.abi.encodeParameters(["bytes32", "bytes32", "bytes32"], [headerHash, requestBodyHash, responseBodyHash])
+    web3.eth.abi.encodeParameter(getStruct("SignedPayloadStructs", "payloadStruct"), {
+      prefix,
+      chainId: chainId.toString(),
+      dataHash,
+    })
   );
+}
+
+async function getFdc2Message(
+  header: any,
+  requestBody: any,
+  requestBodyType: any,
+  responseBody: any,
+  responseBodyType: any
+): Promise<string> {
+  // Mirror Verification.sol / VerificationFacet.sol / PMWPaymentStatusVerifierMock.sol —
+  // SignedPayload(FDC2, keccak256(abi.encode(header, requestBody, responseBody))).
+  const dataHash = web3.utils.keccak256(
+    web3.eth.abi.encodeParameters(
+      [getStruct("Fdc2Structs", "fdc2ResponseHeaderStruct"), requestBodyType, responseBodyType],
+      [header, requestBody, responseBody]
+    )
+  );
+  return signedPayloadMessageHash(bytes32Tag("FDC2"), dataHash);
 }
 
 async function getRegisterMessageHash(teeMachineData: any): Promise<string> {
-  // Mirror MachineManagerFacet.register:
-  //   keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, _teeMachineData))
-  const chainId = await web3.eth.getChainId();
-  return web3.utils.keccak256(
-    web3.eth.abi.encodeParameters(
-      ["bytes32", "uint256", getStruct("TeeMachineStructs", "teeMachineDataStruct")],
-      [bytes32Tag("TEE_MACHINE_REGISTER"), chainId, teeMachineData]
-    )
+  // Mirror MachineManagerFacet.register —
+  // SignedPayload(TEE_MACHINE_REGISTER, keccak256(abi.encode(_teeMachineData))).
+  const dataHash = web3.utils.keccak256(
+    web3.eth.abi.encodeParameter(getStruct("TeeMachineStructs", "teeMachineDataStruct"), teeMachineData)
   );
+  return signedPayloadMessageHash(bytes32Tag("TEE_MACHINE_REGISTER"), dataHash);
 }
 
 async function getConfirmKeyMessageHash(proof: any): Promise<string> {
-  // Mirror WalletKeyManagerFacet.confirmKey:
-  //   keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, _proof))
-  const chainId = await web3.eth.getChainId();
-  return web3.utils.keccak256(
-    web3.eth.abi.encodeParameters(
-      ["bytes32", "uint256", getStruct("TeeWalletStructs", "keyExistenceStruct")],
-      [bytes32Tag("TEE_KEY_EXISTENCE"), chainId, proof]
-    )
+  // Mirror WalletKeyManagerFacet.confirmKey —
+  // SignedPayload(TEE_KEY_EXISTENCE, keccak256(abi.encode(_proof))).
+  const dataHash = web3.utils.keccak256(
+    web3.eth.abi.encodeParameter(getStruct("TeeWalletStructs", "keyExistenceStruct"), proof)
   );
+  return signedPayloadMessageHash(bytes32Tag("TEE_KEY_EXISTENCE"), dataHash);
 }
 
 function getStruct(contractName: string, functionName: string) {
@@ -2050,16 +2063,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       };
 
       // sign message
-      const headerHash = getHash(getStruct("Fdc2Structs", "fdc2ResponseHeaderStruct"), proof.header);
-      const requestBodyHash = getHash(
+      const message = await getFdc2Message(
+        proof.header,
+        proof.requestBody,
         getStruct("Fdc2Structs", "availabilityCheckRequestBodyStruct"),
-        proof.requestBody
+        proof.responseBody,
+        getStruct("Fdc2Structs", "availabilityCheckResponseBodyStruct")
       );
-      const responseBodyHash = getHash(
-        getStruct("Fdc2Structs", "availabilityCheckResponseBodyStruct"),
-        proof.responseBody
-      );
-      const message = getFdc2Message(headerHash, requestBodyHash, responseBodyHash);
       proof.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message);
 
       await time.increase(1);
@@ -2541,16 +2551,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     };
 
     // sign message
-    const headerHash = getHash(getStruct("Fdc2Structs", "fdc2ResponseHeaderStruct"), proof.header);
-    const requestBodyHash = getHash(
+    const message = await getFdc2Message(
+      proof.header,
+      proof.requestBody,
       getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredRequestBodyStruct"),
-      proof.requestBody
+      proof.responseBody,
+      getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredResponseBodyStruct")
     );
-    const responseBodyHash = getHash(
-      getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredResponseBodyStruct"),
-      proof.responseBody
-    );
-    const message = getFdc2Message(headerHash, requestBodyHash, responseBodyHash);
     proof.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message);
 
     const tx = await teePaymentsXRP.addPMWMultisigAccount(WALLET1_ID, proof, TEE_WALLET_AUTHORIZATION_ADDRESSES[0], {
@@ -2593,16 +2600,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       },
     };
     // sign message
-    const headerHash2 = getHash(getStruct("Fdc2Structs", "fdc2ResponseHeaderStruct"), proof2.header);
-    const requestBodyHash2 = getHash(
+    const message2 = await getFdc2Message(
+      proof2.header,
+      proof2.requestBody,
       getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredRequestBodyStruct"),
-      proof2.requestBody
+      proof2.responseBody,
+      getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredResponseBodyStruct")
     );
-    const responseBodyHash2 = getHash(
-      getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredResponseBodyStruct"),
-      proof2.responseBody
-    );
-    const message2 = getFdc2Message(headerHash2, requestBodyHash2, responseBodyHash2);
     proof2.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message2);
 
     const tx2 = await teePaymentsEVM.addPMWMultisigAccount(WALLET2_ID, proof2, TEE_WALLET_AUTHORIZATION_ADDRESSES[1], {

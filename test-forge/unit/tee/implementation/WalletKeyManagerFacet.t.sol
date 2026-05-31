@@ -7,7 +7,8 @@ import { VmSafe } from "forge-std/Vm.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IWalletKeyManager } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IWalletKeyManager, TEE_KEY_EXISTENCE } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { SignedPayload } from "../../../../contracts/utils/lib/SignedPayload.sol";
 import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
@@ -1247,7 +1248,7 @@ contract WalletKeyManagerFacetTest is Test {
         returns (Signature memory)
     {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(
-            keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, proof))
+            SignedPayload.messageHash(TEE_KEY_EXISTENCE, keccak256(abi.encode(proof)))
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, signedMessageHash);
         return Signature(v, r, s);

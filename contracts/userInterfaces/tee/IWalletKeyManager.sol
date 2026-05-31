@@ -6,6 +6,9 @@ import { TeeIdKeyIdPair } from "./ITeeIdKeyIdPair.sol";
 import { Signature } from "../ISignature.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
+// Domain prefix for the TEE-attested wallet-key-existence signed payload. See `SignedPayload`.
+bytes32 constant TEE_KEY_EXISTENCE = bytes32("TEE_KEY_EXISTENCE");
+
 /**
  * @title IWalletKeyManager
  * @notice Public interface for the WalletKeyManagerFacet.

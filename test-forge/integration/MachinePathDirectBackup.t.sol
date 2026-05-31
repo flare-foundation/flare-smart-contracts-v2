@@ -10,7 +10,9 @@ import { SignatureHelper } from "../utils/SignatureHelper.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IWalletBackupManager } from "../../contracts/userInterfaces/tee/IWalletBackupManager.sol";
 import { IWalletManager } from "../../contracts/userInterfaces/tee/IWalletManager.sol";
-import { IMachinePathManager } from "../../contracts/userInterfaces/tee/IMachinePathManager.sol";
+import { IMachinePathManager, TEE_MACHINE_PATH_LIST }
+    from "../../contracts/userInterfaces/tee/IMachinePathManager.sol";
+import { SignedPayload } from "../../contracts/utils/lib/SignedPayload.sol";
 import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeeExtensionStateVerifier }
     from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
@@ -518,13 +520,10 @@ contract MachinePathDirectBackupIntegrationTest is Test {
         private view
         returns (bytes32)
     {
-        return keccak256(abi.encode(
-            bytes32("TEE_MACHINE_PATH_LIST"),
-            block.chainid,
-            extensionId,
-            _nonce,
-            _paths
-        ));
+        return SignedPayload.messageHash(
+            TEE_MACHINE_PATH_LIST,
+            keccak256(abi.encode(extensionId, _nonce, _paths))
+        );
     }
 
     function _backupId(address _sourceTee) private view returns (IWalletBackupManager.BackupId memory) {

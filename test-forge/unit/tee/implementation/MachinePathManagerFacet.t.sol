@@ -6,7 +6,9 @@ import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.
 import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IMachinePathManager } from "../../../../contracts/userInterfaces/tee/IMachinePathManager.sol";
+import { IMachinePathManager, TEE_MACHINE_PATH_LIST }
+    from "../../../../contracts/userInterfaces/tee/IMachinePathManager.sol";
+import { SignedPayload } from "../../../../contracts/utils/lib/SignedPayload.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
@@ -826,13 +828,10 @@ contract MachinePathManagerFacetTest is Test {
     function _listMessageHash(uint256 _extensionId, uint256 _nonce) private view returns (bytes32) {
         (IMachinePathManager.MachinePath[] memory paths,,,) =
             flareTeeManager.getMachinePathList(_extensionId, _nonce);
-        return keccak256(abi.encode(
-            bytes32("TEE_MACHINE_PATH_LIST"),
-            block.chainid,
-            _extensionId,
-            _nonce,
-            paths
-        ));
+        return SignedPayload.messageHash(
+            TEE_MACHINE_PATH_LIST,
+            keccak256(abi.encode(_extensionId, _nonce, paths))
+        );
     }
 
     function _onePath(address _src, address _dst)
