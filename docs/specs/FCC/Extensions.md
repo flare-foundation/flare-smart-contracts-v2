@@ -63,7 +63,7 @@ Once registered, the extension owner controls which TEE software is acceptable:
 ```solidity
 function addTeeVersion(
     uint256 _extensionId,
-    string calldata _version,            // human-readable label, e.g. "1.2.0"
+    bytes32 _version,                    // UTF-8 encoded label, e.g. "1.2.0", for off-chain use only
     bytes32 _codeHash,                   // hash of the TEE binary
     bytes32[] calldata _platforms        // hardware platforms this version supports
 ) external;

@@ -32,7 +32,7 @@ interface IExtensionManager is ITeeCommonErrors {
 
     event TeeVersionAdded(
         uint256 indexed extensionId,
-        string version,
+        bytes32 version,
         bytes32 indexed codeHash,
         bytes32[] platforms
     );
@@ -148,14 +148,14 @@ interface IExtensionManager is ITeeCommonErrors {
      * Add a new TEE version.
      * Emits TeeVersionAdded event.
      * @param _extensionId The id of the extension.
-     * @param _version The version.
+     * @param _version The version (UTF-8 encoded name, for off-chain use only).
      * @param _codeHash The code hash.
      * @param _platforms The supported platforms.
      * Can only be called by the extension owner.
      */
     function addTeeVersion(
         uint256 _extensionId,
-        string calldata _version,
+        bytes32 _version,
         bytes32 _codeHash,
         bytes32[] calldata _platforms
     )
@@ -409,7 +409,7 @@ interface IExtensionManager is ITeeCommonErrors {
      * Returns the code hash info (version and platforms).
      * @param _extensionId The id of the extension.
      * @param _codeHash The code hash.
-     * @return _version The version.
+     * @return _version The version (UTF-8 encoded name, for off-chain use only).
      * @return _platforms The supported platforms.
      */
     function getCodeHashInfo(
@@ -418,7 +418,7 @@ interface IExtensionManager is ITeeCommonErrors {
     )
         external view
         returns (
-            string memory _version,
+            bytes32 _version,
             bytes32[] memory _platforms
         );
 }

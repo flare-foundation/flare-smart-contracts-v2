@@ -1886,10 +1886,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
 
   it("Should add new TEE node version", async () => {
     const supportedPlatforms = TEE_PLATFORMS.map((platform) => web3.utils.utf8ToHex(platform).padEnd(66, "0"));
-    await flareTeeManager.addTeeVersion(0, "v0.1.0", TEE_CODE_HASH, supportedPlatforms);
+    const version = web3.utils.utf8ToHex("v0.1.0").padEnd(66, "0");
+    await flareTeeManager.addTeeVersion(0, version, TEE_CODE_HASH, supportedPlatforms);
 
     const codeHashInfo = await flareTeeManager.getCodeHashInfo(0, TEE_CODE_HASH);
-    expect(codeHashInfo[0]).to.be.equal("v0.1.0");
+    expect(codeHashInfo[0]).to.be.equal(version);
     expect(codeHashInfo[1]).to.be.deep.equal(supportedPlatforms);
   });
 

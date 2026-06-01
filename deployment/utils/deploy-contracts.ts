@@ -855,7 +855,7 @@ export async function deployContracts(
 
   await extensionManager.addTeeVersion(
     0,
-    "v0.1.0",
+    web3.utils.utf8ToHex("v0.1.0").padEnd(66, "0"),
     TEE_CODE_HASH,
     TEE_PLATFORMS.map((platform) => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
     { from: governanceAccount.address }
@@ -1063,7 +1063,7 @@ export async function deployContracts(
 
   await extensionManager.addTeeVersion(
     teeExtensionId,
-    "v0.1.0",
+    web3.utils.utf8ToHex("v0.1.0").padEnd(66, "0"),
     TEE_EXTENSION_CODE_HASH,
     TEE_PLATFORMS.map((platform: string) => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
     { from: extensionOwnerAccount.address }

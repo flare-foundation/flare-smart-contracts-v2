@@ -97,7 +97,7 @@ contract ExtensionManagerFacetTest is Test {
     address private newOwner;
     uint24 private currentRewardEpochId;
     string private url;
-    string private version;
+    bytes32 private version;
     bytes32 private codeHash;
     bytes32 private governanceHash;
     bytes32 private platform;
@@ -1126,9 +1126,9 @@ contract ExtensionManagerFacetTest is Test {
 
     // getCodeHashInfo
     function testGetCodeHashInfo() public {
-        (string memory returnedVersion, bytes32[] memory returnedPlatforms) =
+        (bytes32 returnedVersion, bytes32[] memory returnedPlatforms) =
             flareTeeManager.getCodeHashInfo(extensionId, codeHash);
-        assertEq(returnedVersion, "");
+        assertEq(returnedVersion, bytes32(0));
         assertEq(returnedPlatforms.length, 0);
         testAddTeeVersion();
         (returnedVersion, returnedPlatforms) =

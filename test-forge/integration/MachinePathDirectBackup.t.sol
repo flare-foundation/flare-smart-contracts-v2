@@ -400,7 +400,7 @@ contract MachinePathDirectBackupIntegrationTest is Test {
         string memory _signerLabel,
         string memory _codeHashLabel,
         bytes32[] memory _platforms,
-        string memory _versionLabel
+        bytes32 _versionLabel
     )
         private
         returns (

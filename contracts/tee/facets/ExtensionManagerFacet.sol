@@ -79,14 +79,14 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     /// @inheritdoc IExtensionManager
     function addTeeVersion(
         uint256 _extensionId,
-        string calldata _version,
+        bytes32 _version,
         bytes32 _codeHash,
         bytes32[] calldata _platforms
     )
         external
     {
         ExtensionManager.checkOnlyExtensionOwner(_extensionId);
-        require(bytes(_version).length > 0, VersionEmpty());
+        require(_version != bytes32(0), VersionEmpty());
         require(_codeHash != bytes32(0), CodeHashZero());
         require(_platforms.length > 0, NoPlatforms());
         for (uint256 i = 0; i < _platforms.length; i++) {
@@ -418,7 +418,7 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     )
         external view
         returns (
-            string memory _version,
+            bytes32 _version,
             bytes32[] memory _platforms
         )
     {

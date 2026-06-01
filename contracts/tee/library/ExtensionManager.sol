@@ -17,7 +17,8 @@ library ExtensionManager {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     struct TeeVersion {
-        string version;
+        /// UTF-8 encoded version name, for off-chain use only.
+        bytes32 version;
         /// Supported platforms.
         EnumerableSet.Bytes32Set platforms;
     }

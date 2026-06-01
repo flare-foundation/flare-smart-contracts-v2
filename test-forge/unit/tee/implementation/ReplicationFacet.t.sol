@@ -736,7 +736,7 @@ contract ReplicationFacetTest is Test {
     }
 
     function _addTeeVersion(
-        string memory _version,
+        bytes32 _version,
         bytes32 _codeHash,
         bytes32[] memory _platforms
     )
@@ -748,7 +748,7 @@ contract ReplicationFacetTest is Test {
 
     function _addTeeVersionForExtension(
         uint256 _extensionId,
-        string memory _version,
+        bytes32 _version,
         bytes32 _codeHash,
         bytes32[] memory _platforms
     )

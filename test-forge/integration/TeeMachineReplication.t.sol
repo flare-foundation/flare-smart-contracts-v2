@@ -734,7 +734,7 @@ contract TeeMachineReplicationTest is Test {
     }
 
     function _addTeeVersion(
-        string memory _version,
+        bytes32 _version,
         bytes32 _codeHash,
         bytes32[] memory _platforms
     ) internal {
@@ -745,9 +745,9 @@ contract TeeMachineReplicationTest is Test {
         for (uint256 i = 0; i < _platforms.length; i++) {
             assertTrue(flareTeeManager.isCodeHashPlatformSupported(extensionId, _codeHash, _platforms[i]));
         }
-        (string memory version, bytes32[] memory platformsResult) =
+        (bytes32 version, bytes32[] memory platformsResult) =
             flareTeeManager.getCodeHashInfo(extensionId, _codeHash);
-        assertEq(keccak256(abi.encodePacked(version)), keccak256(abi.encodePacked(_version)));
+        assertEq(version, _version);
         assertEq(platformsResult.length, _platforms.length);
         for (uint256 i = 0; i < _platforms.length; i++) {
             assertEq(platformsResult[i], _platforms[i]);
