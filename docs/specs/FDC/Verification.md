@@ -127,11 +127,15 @@ Every FDC2 verifier builds its `messageHash` via the canonical [`SignedPayload`]
 ```solidity
 bytes32 messageHash = SignedPayload.messageHash(
     FDC2,
-    keccak256(abi.encode(proof.header, proof.requestBody, proof.responseBody))
+    keccak256(abi.encode(
+        keccak256(abi.encode(proof.header)),
+        keccak256(abi.encode(proof.requestBody)),
+        keccak256(abi.encode(proof.responseBody))
+    ))
 );
 ```
 
-The outer envelope binds the `FDC2` domain prefix and `block.chainid`, preventing cross-chain and cross-protocol replay. The inner `dataHash` binds the full `(header, requestBody, responseBody)` — including the header's `attestationType` and `sourceId` — so a signed proof cannot be replayed across attestation types, sources, or requests within FDC2. See `Verification.verifyAvailabilityCheckProof`, `VerificationFacet.verifyPMWMultisigAccountConfiguredProof`, and `PMWPaymentStatusVerifierMock.verify` for the call sites.
+The outer envelope binds the `FDC2` domain prefix and `block.chainid`, preventing cross-chain and cross-protocol replay. The inner `dataHash` is the `keccak256` of the three per-struct hashes of `(header, requestBody, responseBody)` — including the header's `attestationType` and `sourceId` — so a signed proof cannot be replayed across attestation types, sources, or requests within FDC2. The three-hashes-of-structs layout is the shape the off-chain FDC2 components (tee-node, relay) produce; do not collapse it to a single `keccak256(abi.encode(header, requestBody, responseBody))`. See `Verification.verifyAvailabilityCheckProof`, `VerificationFacet.verifyPMWMultisigAccountConfiguredProof`, and `PMWPaymentStatusVerifierMock.verify` for the call sites.
 
 Cosigner signatures use a separate preimage wrap [`Verification.toCosignersMessageHash`](../../../contracts/tee/library/Verification.sol) — `keccak256(0x010000000000 || messageHash)`. The 6-byte prefix is the [`Relay`](../../../contracts/protocol/implementation/Relay.sol) protocol-message wire format for `(protocolId=1, votingRoundId=0, isSecureRandom=false)`; aligning cosigner signatures with that format lets a cosigner who is also a signing-policy data signer use the same off-chain signing infrastructure with no special handling.
 

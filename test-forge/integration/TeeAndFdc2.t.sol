@@ -527,7 +527,11 @@ contract TeeAndFdc2Test is Test {
 
         bytes32 messageHash = SignedPayload.messageHash(
             FDC2,
-            keccak256(abi.encode(header, reqBody, respBody))
+            keccak256(abi.encode(
+                keccak256(abi.encode(header)),
+                keccak256(abi.encode(reqBody)),
+                keccak256(abi.encode(respBody))
+            ))
         );
 
         // Create real cosigner signatures — verified by the real Fdc2Verification (pure ECDSA)

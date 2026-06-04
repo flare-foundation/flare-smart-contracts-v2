@@ -246,12 +246,17 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
         }
 
         // The outer SignedPayload envelope binds chainid and the FDC2 domain prefix; the inner
-        // dataHash binds the full (header, requestBody, responseBody) — including attestationType
-        // and sourceId — so signatures cannot be replayed across chains, FDC2 attestation types,
-        // sources, or requests.
+        // dataHash is the keccak256 of the three per-struct hashes of (header, requestBody,
+        // responseBody) — including attestationType and sourceId — so signatures cannot be
+        // replayed across chains, FDC2 attestation types, sources, or requests. The
+        // three-hashes-of-structs layout matches the off-chain FDC2 components.
         bytes32 messageHash = SignedPayload.messageHash(
             FDC2,
-            keccak256(abi.encode(header, _proof.requestBody, _proof.responseBody))
+            keccak256(abi.encode(
+                keccak256(abi.encode(header)),
+                keccak256(abi.encode(_proof.requestBody)),
+                keccak256(abi.encode(_proof.responseBody))
+            ))
         );
 
         ExternalAddresses.State storage ext = ExternalAddresses.getState();

@@ -231,11 +231,20 @@ async function getFdc2Message(
   responseBodyType: any
 ): Promise<string> {
   // Mirror Verification.sol / VerificationFacet.sol / PMWPaymentStatusVerifierMock.sol —
-  // SignedPayload(FDC2, keccak256(abi.encode(header, requestBody, responseBody))).
+  // SignedPayload(FDC2, keccak256(abi.encode(
+  //   keccak256(abi.encode(header)),
+  //   keccak256(abi.encode(requestBody)),
+  //   keccak256(abi.encode(responseBody))
+  // ))).
+  const headerType = getStruct("Fdc2Structs", "fdc2ResponseHeaderStruct");
   const dataHash = web3.utils.keccak256(
     web3.eth.abi.encodeParameters(
-      [getStruct("Fdc2Structs", "fdc2ResponseHeaderStruct"), requestBodyType, responseBodyType],
-      [header, requestBody, responseBody]
+      ["bytes32", "bytes32", "bytes32"],
+      [
+        web3.utils.keccak256(web3.eth.abi.encodeParameter(headerType, header)),
+        web3.utils.keccak256(web3.eth.abi.encodeParameter(requestBodyType, requestBody)),
+        web3.utils.keccak256(web3.eth.abi.encodeParameter(responseBodyType, responseBody)),
+      ]
     )
   );
   return signedPayloadMessageHash(bytes32Tag("FDC2"), dataHash);
