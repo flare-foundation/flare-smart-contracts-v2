@@ -1914,14 +1914,21 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         TEE_URLS.length === TEE_OWNERS.length,
       "Arrays must be of the same length"
     );
+    // Governance for extension 0 was already set in "Should set new TEE governance" above.
+    // Experiment: register machine 0 with a ZERO governance hash and machine 1 with the
+    // registered (non-zero) extension governance hash, then (in the next its) bring BOTH to
+    // production using the "old" empty system state (systemStateVersion == 0). This checks the
+    // claim that a non-zero governance hash + version-0 system state cannot be registered.
+    const teeGovernanceHashAtRegister = await flareTeeManager.getLatestTeeGovernanceHash(0);
     for (let i = 0; i < TEE_URLS.length; i++) {
+      const machineGovernanceHash = i === 1 ? teeGovernanceHashAtRegister : constants.ZERO_BYTES32;
       const teeMachineData = {
         extensionId: 0,
         initialOwner: TEE_OWNERS[i],
         codeHash: TEE_CODE_HASH,
         platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
         publicKey: TEE_PUBLIC_KEYS[i],
-        governanceHash: constants.ZERO_BYTES32,
+        governanceHash: machineGovernanceHash,
       };
 
       const msg = await getRegisterMessageHash(teeMachineData);
@@ -1946,6 +1953,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         url: TEE_URLS[i],
         codeHash: TEE_CODE_HASH,
         platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
+        governanceHash: machineGovernanceHash,
       });
 
       const event2 = requiredEventArgsFrom(tx, flareTeeManager, "TeeAttestationRequested") as any;
@@ -2341,12 +2349,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
   // ===========================================================================================
 
   it("Should create + sign a machine-path list authorizing TEE0 → TEE1", async () => {
-    // Retrofit a non-zero governance hash onto the source and destination TEE machines for the
-    // MachinePathManager flow. The earlier `register(...)` calls were made before the
-    // per-machine governance-hash field was introduced (or with a zero hash), so the
-    // path-manager's eligibility check `tee.governanceHash != 0` would otherwise fail. Use the
-    // test-only mock setter (added during diamond construction above) to stamp the current
-    // extension governance hash onto both machines.
+    // The MachinePathManager eligibility check requires `tee.governanceHash != 0` on both the
+    // source and destination machines. TEE_IDS[1] was registered above WITH the non-zero
+    // extension governance hash, so it already qualifies. TEE_IDS[0] was registered with a zero
+    // hash, so retrofit it via the test-only mock setter (added during diamond construction).
     const teeGovernanceHash = await flareTeeManager.getLatestTeeGovernanceHash(0);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockSetter = (await artifacts.require("MockTeeGovernanceHashSetter" as any).at(
@@ -2355,8 +2361,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     )) as any;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     await mockSetter.mockSetTeeMachineGovernanceHash(TEE_IDS[0], teeGovernanceHash);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    await mockSetter.mockSetTeeMachineGovernanceHash(TEE_IDS[1], teeGovernanceHash);
 
     let tx = await flareTeeManager.createNewMachinePathList(0);
     expectEvent(tx, "MachinePathListStarted", { extensionId: "0", nonce: "1" });
