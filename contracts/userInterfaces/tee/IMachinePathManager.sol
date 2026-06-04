@@ -10,9 +10,8 @@ bytes32 constant TEE_MACHINE_PATH_LIST = bytes32("TEE_MACHINE_PATH_LIST");
  * @title IMachinePathManager
  * @notice Public interface for the MachinePathManagerFacet.
  *
- * @dev Per-extension governance-signed allow-list of (sourceTeeIds[], destinationTeeIds[]) paths.
- *      Sibling primitive to UpgradeManagerFacet (which signs (codeHash, platform) version paths),
- *      but addresses TEE machines directly by `address teeId`. The primitive is intentionally generic
+ * @dev Per-extension governance-signed allow-list of (sourceTeeIds[], destinationTeeIds[]) paths,
+ *      addressing TEE machines directly by `address teeId`. The primitive is intentionally generic
  *      so it can gate other authorized TEE-to-TEE flows beyond key backup/restore.
  *
  *      Addressing: lists are per-extension, identified by their 1-indexed nonce. The list with nonce

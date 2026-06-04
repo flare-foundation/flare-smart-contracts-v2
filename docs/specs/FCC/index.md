@@ -16,7 +16,7 @@ The FCC contracts live under [`contracts/tee/`](../../../contracts/tee/) and are
 - [Wallet management](./WalletManagement.md) — `WalletManagerFacet`, `WalletBackupManagerFacet`, `WalletProjectManagerFacet`, `WalletProjectPauseFacet`, `WalletResumeFacet`
 - [Instructions](./Instructions.md) — fee-validated TEE instruction sending and system instructions (`InstructionsFacet`)
 - [Operation fees](./OperationFees.md) — `OperationFeesFacet`, `TeePayments` suite, fee schedules and limits
-- [Verification](./Verification.md) — `VerificationFacet`, `VrfFacet`, `SystemStateVerifierFacet`, `VrfVerifier`
+- [Verification](./Verification.md) — `VerificationFacet`, `VrfFacet`, `SystemStateVerifier` (library), `VrfVerifier`
 - [Extensions](./Extensions.md) — `ExtensionManagerFacet` + the system extension's currently-hosted applications (FDC2, PMW)
 - [Governance](./Governance.md) — `DiamondGovernanceFacet`, `OwnerAllowlistFacet`, `MachinePathManagerFacet`, `ExternalAddressesFacet`, `MachineEmergencyPauseFacet`
 - [Rewarding](./Rewarding.md) — `TeeRewardOffersManager`
