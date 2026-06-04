@@ -17,6 +17,8 @@
     "VrfFacet",
     "ExternalAddressesFacet",
     "MachinePathManagerFacet",
+    "WalletProjectPauseFacet",
+    "MachineEmergencyPauseFacet",
     "ReplicationFacet",
     "ExtensionPausingFacet",
     "WalletResumeFacet"
