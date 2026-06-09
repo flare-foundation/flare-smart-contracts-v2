@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
@@ -19,9 +19,7 @@ library WalletProjectPause {
         mapping(bytes32 projectId => EnumerableSet.AddressSet) unpausers;
     }
 
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.WalletProjectPause.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.WalletProjectPause.State"));
 
     function isPauser(
         bytes32 _projectId,

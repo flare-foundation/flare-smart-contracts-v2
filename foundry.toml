@@ -17,6 +17,13 @@ optimizer_runs = 200
 via_ir = false
 ffi = true
 
+[lint]
+# Forge runs its built-in linter (solar) on `forge build` and fails the build on findings. Solar does
+# not yet recognise the solc 0.8.35 `erc7201(...)` builtin, so it reports "unresolved symbol erc7201"
+# on every namespaced-storage contract that uses it (solc compiles them fine — it's a linter-only false
+# positive). Keep linting advisory (run `forge lint` explicitly) until solar supports the builtin.
+lint_on_build = false
+
 [dependencies]
 forge-std = "1.10.0"
 "@openzeppelin-contracts" = "5.4.0"

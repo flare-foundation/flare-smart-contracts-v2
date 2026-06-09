@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IWalletKeyManager } from "../../userInterfaces/tee/IWalletKeyManager.sol";
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
@@ -32,9 +32,7 @@ library WalletKeyManager {
         mapping(bytes32 walletId => TeeWalletKeysState) walletKeys;
     }
 
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.WalletKeyManager.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.WalletKeyManager.State"));
 
     function increaseKeyNonce(
         address _teeId,

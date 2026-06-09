@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
@@ -51,9 +51,7 @@ library ExtensionPausing {
         mapping(uint256 extensionId => TeeExtensionPausingState) extensionStates;
     }
 
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.ExtensionPausing.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.ExtensionPausing.State"));
 
     function getState()
         internal pure

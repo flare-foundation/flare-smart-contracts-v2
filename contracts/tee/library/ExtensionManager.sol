@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
@@ -70,9 +70,7 @@ library ExtensionManager {
     ///      system / governance extension and is never minted.
     uint256 internal constant PUBLIC_EXTENSION_ID_START = uint256(type(uint16).max) + 1;
 
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.ExtensionManager.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.ExtensionManager.State"));
 
     function getExtensionOwner(
         uint256 _extensionId

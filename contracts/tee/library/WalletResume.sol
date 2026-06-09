@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 /**
  * @title WalletResume
@@ -13,9 +13,7 @@ library WalletResume {
         mapping(bytes32 walletId => uint256) setPausingAddressesNonce;
     }
 
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.WalletResume.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.WalletResume.State"));
 
     function getState()
         internal pure

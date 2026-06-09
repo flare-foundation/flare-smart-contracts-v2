@@ -393,7 +393,7 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: "0.8.34",
+        version: "0.8.35",
         settings: {
           evmVersion: "cancun",
           optimizer: {
@@ -425,7 +425,7 @@ const config: HardhatUserConfig = {
       },
       // enable IR only for files that require deeper stack handling (contracts in P256 usage path)
       "@openzeppelin/contracts/utils/cryptography/P256.sol": {
-        version: "0.8.34",
+        version: "0.8.35",
         settings: {
           evmVersion: "cancun",
           optimizer: {
@@ -437,7 +437,7 @@ const config: HardhatUserConfig = {
       },
       // contracts that imports P256
       "contracts/protocol/implementation/NodePossessionVerifier.sol": {
-        version: "0.8.34",
+        version: "0.8.35",
         settings: {
           evmVersion: "cancun",
           optimizer: {
@@ -491,6 +491,10 @@ const config: HardhatUserConfig = {
     hardhat: {
       accounts,
       initialDate: "2021-01-01", // no time - get UTC @ 00:00:00
+      // Pin the EVM to cancun (matches the compiler evmVersion). Newer Hardhat defaults to a post-Fusaka
+      // hardfork that enforces the EIP-7825 per-transaction gas cap (16,777,216), which breaks the
+      // simulation's high-gas setup transactions.
+      hardfork: "cancun",
       blockGasLimit: 125000000, // 10x ETH gas
       /*
         Normally each Truffle smart contract interaction that modifies state results in a transaction mined in a new block

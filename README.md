@@ -26,6 +26,15 @@ You can also reach out to us on [discord](https://discord.com/invite/flarenetwor
 
 If you're interested in contributing, please see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+### Toolchain
+
+Building and testing requires:
+
+- **Node** >= 22
+- **Solidity** 0.8.35 — auto-downloaded by both toolchains; required for the built-in `erc7201(...)` storage-slot helper used by the TEE / diamond / governance contracts
+- **Foundry** >= 1.7.1 — the first stable release whose `svm` list includes solc 0.8.35 (1.7.0 only supports up to 0.8.34). Install with `foundryup -U && foundryup -i 1.7.1`
+- **Hardhat** 2.28.6 (pinned) — earlier 2.x mis-resolves solc 0.8.35 to the `0.8.35-pre.1` prerelease listed first upstream; Hardhat 3.x is a breaking rewrite and is not supported
+
 ## Security
 
 If you have found a possible vulnerability please see [SECURITY.md](./SECURITY.md).

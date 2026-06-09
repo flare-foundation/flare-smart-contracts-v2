@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IMachineEmergencyPause } from "../../userInterfaces/tee/IMachineEmergencyPause.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -62,9 +62,7 @@ library MachineEmergencyPause {
     /// availability-refresh flow) are routed exclusively to TEEs in this extension.
     uint256 internal constant SYSTEM_EXTENSION_ID = 0;
 
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.MachineEmergencyPause.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.MachineEmergencyPause.State"));
 
     /// Validates the input against `[MIN_GRACE_PERIOD_SECONDS, MAX_GRACE_PERIOD_SECONDS]`,
     /// writes the new value into ERC-7201 storage, and emits

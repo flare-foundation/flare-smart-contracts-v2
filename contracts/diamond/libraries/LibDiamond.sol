@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.35;
 
 /******************************************************************************\
 * Author: Nick Mudge <nick@perfectabstractions.com>, Twitter/Github: @mudgen
@@ -28,9 +28,7 @@ error InitializationFunctionReverted(address _initializationContractAddress, byt
 // solhint-disable no-inline-assembly
 // solhint-disable ordering
 library LibDiamond {
-    bytes32 internal constant DIAMOND_STORAGE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("flare.LibDiamond.DiamondStorage")) - 1)) & ~bytes32(uint256(0xff)
-    );
+    bytes32 internal constant DIAMOND_STORAGE_POSITION = bytes32(erc7201("flare.LibDiamond.DiamondStorage"));
 
     struct FacetAddressAndSelectorPosition {
         address facetAddress;
@@ -163,14 +161,14 @@ library LibDiamond {
         }
         enforceHasContractCode(_init, "LibDiamondCut: _init address has no code");
         // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory error) = _init.delegatecall(_calldata);
+        (bool success, bytes memory err) = _init.delegatecall(_calldata);
         if (!success) {
-            if (error.length > 0) {
+            if (err.length > 0) {
                 // bubble up error
                 /// @solidity memory-safe-assembly
                 assembly {
-                    let returndata_size := mload(error)
-                    revert(add(32, error), returndata_size)
+                    let returndata_size := mload(err)
+                    revert(add(32, err), returndata_size)
                 }
             } else {
                 revert InitializationFunctionReverted(_init, _calldata);

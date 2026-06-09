@@ -116,10 +116,11 @@ scripts/                # Utility scripts, protocol libs
 
 ## Build & Test
 
-- **Solidity version**: 0.8.27+ (compiled with 0.8.30)
+- **Solidity version**: 0.8.27+; the TEE / diamond / governance namespaced-storage contracts require **0.8.35** for the built-in `erc7201(...)` helper, so the toolchain compiles with **0.8.35**
 - **EVM version**: cancun
 - **Node**: >=22
-- **Foundry**: forge must be in PATH (default: `~/.foundry/bin/forge`)
+- **Foundry**: forge must be in PATH (default: `~/.foundry/bin/forge`); **>= 1.7.1 required** — it is the first stable release whose `svm` list ships solc `0.8.35` (1.7.0 only goes up to 0.8.34). Update with `foundryup -U && foundryup -i 1.7.1`.
+- **Hardhat**: **2.28.6** (pinned in `package.json`) — earlier 2.x mis-resolves solc `0.8.35` to the `0.8.35-pre.1` build that upstream lists first, which fails the `^0.8.35` pragma. Hardhat 3.x is a breaking rewrite and is not supported.
 - **Optimizer**: enabled, 200 runs, `via_ir = false`
 
 ### Forge

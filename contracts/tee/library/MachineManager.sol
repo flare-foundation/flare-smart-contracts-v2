@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
@@ -42,9 +42,7 @@ library MachineManager {
         mapping(address teeId => address) proposedTeeOwner;
     }
 
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.MachineManager.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.MachineManager.State"));
 
     function changeStatus(
         address _teeId,

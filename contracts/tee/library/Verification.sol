@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IMachineManager, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IVerification, TEE_SOURCE_ID } from "../../userInterfaces/tee/IVerification.sol";
@@ -47,9 +47,7 @@ library Verification {
         mapping(address teeId => uint256) challengeTs;
     }
 
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.Verification.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.Verification.State"));
 
     /// Op command of the TEE machine registration-attestation instruction.
     bytes32 internal constant TEE_ATTESTATION = bytes32("TEE_ATTESTATION");

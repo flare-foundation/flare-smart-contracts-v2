@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 
@@ -26,9 +26,7 @@ library WalletProjectManager {
         mapping(bytes32 projectId => address) proposedProjectOwner;
     }
 
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.WalletProjectManager.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.WalletProjectManager.State"));
 
     function getOwner(
         bytes32 _projectId

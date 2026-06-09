@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IMachinePathManager } from "../../userInterfaces/tee/IMachinePathManager.sol";
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
@@ -42,9 +42,7 @@ library MachinePathManager {
         mapping(uint256 extensionId => uint256) extensionActiveListNonce;
     }
 
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.MachinePathManager.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.MachinePathManager.State"));
 
     /**
      * Returns the storage handle for the list at (extensionId, nonce).
