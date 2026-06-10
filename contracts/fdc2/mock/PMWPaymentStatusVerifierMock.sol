@@ -102,9 +102,10 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
 
-        messageHash = _toCosignersMessageHash(messageHash);
+        // The TEE signs the bare messageHash; only cosigner (and signing-policy)
+        // signatures use the relay-prefixed hash.
         _checkTeeSignatures(messageHash, _proof.signatures.teeSignatures);
-        _checkCosignerSignatures(messageHash, _proof.signatures.cosignerSignatures);
+        _checkCosignerSignatures(_toCosignersMessageHash(messageHash), _proof.signatures.cosignerSignatures);
 
         require(responseBody.amount >= responseBody.receivedAmount, AmountTooLow());
 
