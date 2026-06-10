@@ -2491,7 +2491,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       },
       requestBody: web3.eth.abi.encodeParameter(pmwMultisigAccountConfiguredRequestBodyStruct, requestBody),
     };
-    const tx = await flareTeeManager.requestPMWMultisigAccountConfiguredAttestation(
+    const tx = await teePaymentsXRP.requestPMWMultisigAccountConfiguredAttestation(
       WALLET1_ID,
       XRP_SOURCE_ID,
       "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
@@ -2520,7 +2520,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       },
       requestBody: web3.eth.abi.encodeParameter(pmwMultisigAccountConfiguredRequestBodyStruct, requestBody2),
     };
-    const tx2 = await flareTeeManager.requestPMWMultisigAccountConfiguredAttestation(
+    const tx2 = await teePaymentsEVM.requestPMWMultisigAccountConfiguredAttestation(
       WALLET2_ID,
       FLR_SOURCE_ID,
       accounts[200],

@@ -24,7 +24,6 @@ import { IInstructions } from "../../contracts/userInterfaces/tee/IInstructions.
 import { IWalletKeyManager, TEE_KEY_EXISTENCE } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
 import { SignedPayload } from "../../contracts/utils/lib/SignedPayload.sol";
 import { IWalletBackupManager } from "../../contracts/userInterfaces/tee/IWalletBackupManager.sol";
-import { IVerification } from "../../contracts/userInterfaces/tee/IVerification.sol";
 import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeePayments } from "../../contracts/userInterfaces/tee/ITeePayments.sol";
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
@@ -231,19 +230,23 @@ contract WalletPaymentsTest is Test {
         );
 
         // TeePayments resolves: AddressUpdater, FlareTeeManager, FlareSystemsManager,
-        // TeePaymentsFeeScheduleManager, TeePaymentsRegistry
-        contractNameHashes = new bytes32[](5);
-        contractAddresses = new address[](5);
+        // TeePaymentsFeeScheduleManager, TeePaymentsRegistry, Fdc2Verification, Fdc2Hub
+        contractNameHashes = new bytes32[](7);
+        contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("FlareTeeManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("TeePaymentsFeeScheduleManager"));
         contractNameHashes[4] = keccak256(abi.encode("TeePaymentsRegistry"));
+        contractNameHashes[5] = keccak256(abi.encode("Fdc2Verification"));
+        contractNameHashes[6] = keccak256(abi.encode("Fdc2Hub"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = address(flareTeeManager);
         contractAddresses[2] = flareSystemsManagerMock;
         contractAddresses[3] = address(teePaymentsFeeScheduleManager);
         contractAddresses[4] = address(teePaymentsRegistry);
+        contractAddresses[5] = fdc2VerificationMock;
+        contractAddresses[6] = fdc2HubMock;
         teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
 
         // TeePaymentsFeeScheduleManager resolves: AddressUpdater, FlareTeeManager, TeePaymentsRegistry
@@ -409,16 +412,21 @@ contract WalletPaymentsTest is Test {
     function testAddPMWMultisigAccount() public {
         testWalletCreation();
 
+        // TeePayments verifies the proof in-contract via Fdc2ProofVerification: it cross-checks the
+        // proof's threshold + public keys against the wallet's confirmed keys (read from the real Diamond
+        // via getWalletPublicKeys) and verifies the signing-policy signatures via Fdc2Verification. The
+        // signing-policy signatures are empty here, so we mock Fdc2Verification to return the current
+        // reward epoch id (13); the Diamond's verification cosigner set is empty (never configured), so the
+        // cosigner check is a no-op.
         vm.mockCall(
-            address(flareTeeManager),
-            abi.encodeWithSelector(
-                IVerification.verifyPMWMultisigAccountConfiguredProof.selector,
-                walletId
-            ),
-            abi.encode(true)
+            fdc2VerificationMock,
+            abi.encodeWithSelector(IFdc2Verification.verifySigningPolicySignatures.selector),
+            abi.encode(uint256(13))
         );
-        bytes[] memory pmwPublicKeys = new bytes[](1);
-        pmwPublicKeys[0] = hex"03D11FBF992FCC3C7326E323687C234866E400229EA81C73EE4D0DBC1AB5DB22D3";
+        // Wallet was created with two confirmed keys (publicKey == abi.encode("publicKey")) and threshold 2.
+        bytes[] memory pmwPublicKeys = new bytes[](2);
+        pmwPublicKeys[0] = abi.encode("publicKey");
+        pmwPublicKeys[1] = abi.encode("publicKey");
         IPMWMultisigAccountConfigured.Proof memory pmwAccountProof = IPMWMultisigAccountConfigured.Proof({
             signatures: IFdc2Verification.Fdc2Signatures({
                 signingPolicySignatures: "",

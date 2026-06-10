@@ -11,8 +11,14 @@ import {
 } from "../../userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
 import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
-import { IPMWMultisigAccountConfigured } from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
+import {
+    IPMWMultisigAccountConfigured,
+    PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE
+} from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
+import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
+import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { Fdc2ProofVerification } from "../../fdc2/library/Fdc2ProofVerification.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
@@ -79,6 +85,10 @@ contract TeePayments is ITeePayments, FlareUpgradeableBase {
     ITeePaymentsFeeScheduleManager public teePaymentsFeeScheduleManager;
     /// Shared sourceId -> TeePayments registry.
     ITeePaymentsRegistry public teePaymentsRegistry;
+    /// FDC2 verification contract.
+    IFdc2Verification public fdc2Verification;
+    /// FDC2 hub contract.
+    IFdc2Hub public fdc2Hub;
 
     modifier onlyWalletOwner(PMWMultisigAccount calldata _account) {
         _checkOnlyWalletOwner(_account);
@@ -344,7 +354,7 @@ contract TeePayments is ITeePayments, FlareUpgradeableBase {
             walletStatus == IWalletManager.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus()
         );
-        require(flareTeeManager.verifyPMWMultisigAccountConfiguredProof(_walletId, _proof), InvalidProof());
+        require(_verifyConfiguredProof(_walletId, _proof), InvalidProof());
         accountHashToWalletId[accountHash] = _walletId;
         walletAccounts[_walletId].push(PMWMultisigAccount(_proof.header.sourceId, _proof.requestBody.accountAddress));
         states[accountHash].nonce = _proof.responseBody.sequence;
@@ -360,6 +370,38 @@ contract TeePayments is ITeePayments, FlareUpgradeableBase {
             1,
             0
         );
+    }
+
+    /**
+     * @inheritdoc ITeePayments
+     */
+    function requestPMWMultisigAccountConfiguredAttestation(
+        bytes32 _walletId,
+        bytes32 _sourceId,
+        string calldata _accountAddress,
+        address _testOnTeeId,
+        address _proofOwner,
+        address _claimBackAddress
+    )
+        external payable
+    {
+        require(bytes(_accountAddress).length > 0, AccountAddressZero());
+        (uint64 multisigThreshold, bytes[] memory publicKeys) =
+            flareTeeManager.getWalletPublicKeys(_walletId);
+        IFdc2Hub.Fdc2AttestationRequest memory request = IFdc2Hub.Fdc2AttestationRequest({
+            header: IFdc2Hub.Fdc2RequestHeader({
+                attestationType: PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
+                sourceId: _sourceId,
+                thresholdBIPS: 0,
+                proofOwner: _proofOwner
+            }),
+            requestBody: abi.encode(IPMWMultisigAccountConfigured.RequestBody({
+                accountAddress: _accountAddress,
+                publicKeys: publicKeys,
+                threshold: multisigThreshold
+            }))
+        });
+        _requestConfiguredAttestation(_walletId, request, _testOnTeeId, _claimBackAddress);
     }
 
     /**
@@ -479,6 +521,10 @@ contract TeePayments is ITeePayments, FlareUpgradeableBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsFeeScheduleManager"));
         teePaymentsRegistry = ITeePaymentsRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsRegistry"));
+        fdc2Verification = IFdc2Verification(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "Fdc2Verification"));
+        fdc2Hub = IFdc2Hub(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "Fdc2Hub"));
     }
 
     function _sendPaymentInstructions(
@@ -504,6 +550,93 @@ contract TeePayments is ITeePayments, FlareUpgradeableBase {
                 _cosignersThreshold,
                 _claimBackAddress
             )
+        );
+    }
+
+    function _verifyConfiguredProof(
+        bytes32 _walletId,
+        IPMWMultisigAccountConfigured.Proof calldata _proof
+    )
+        internal
+        returns (bool)
+    {
+        require(
+            _proof.header.thresholdBIPS == 0 &&
+            _proof.header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
+            InvalidAttestation()
+        );
+        (uint64 walletThreshold, bytes[] memory walletPublicKeys) =
+            flareTeeManager.getWalletPublicKeys(_walletId);
+        require(
+            walletThreshold == _proof.requestBody.threshold &&
+            walletPublicKeys.length == _proof.requestBody.publicKeys.length,
+            InvalidRequestBody()
+        );
+        for (uint256 i = 0; i < walletPublicKeys.length; i++) {
+            require(
+                keccak256(_proof.requestBody.publicKeys[i]) == keccak256(walletPublicKeys[i]),
+                InvalidRequestBody()
+            );
+        }
+
+        // The outer SignedPayload envelope binds chainid and the FDC2 domain prefix; the inner
+        // dataHash is the keccak256 of the three per-struct hashes of (header, requestBody,
+        // responseBody) — including attestationType and sourceId — so signatures cannot be replayed
+        // across chains, FDC2 attestation types, sources, or requests.
+        bytes32 messageHash = Fdc2ProofVerification.messageHash(
+            keccak256(abi.encode(
+                keccak256(abi.encode(_proof.header)),
+                keccak256(abi.encode(_proof.requestBody)),
+                keccak256(abi.encode(_proof.responseBody))
+            ))
+        );
+        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        (address[] memory cosigners, uint64 cosignersThreshold) = flareTeeManager.getCosigners();
+        if (_proof.signatures.teeSignatures.length > 0) {
+            Fdc2ProofVerification.verifyTeeSignatures(
+                address(fdc2Verification), _proof.signatures.teeSignatures, messageHash
+            );
+        } else {
+            Fdc2ProofVerification.verifySigningPolicySignatures(
+                address(fdc2Verification),
+                currentRewardEpochId,
+                _proof.signatures.signingPolicySignatures,
+                messageHash
+            );
+        }
+        Fdc2ProofVerification.verifyCosignerSignatures(
+            address(fdc2Verification),
+            messageHash,
+            _proof.signatures.cosignerSignatures,
+            cosigners,
+            cosignersThreshold
+        );
+        return _proof.responseBody.status == IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
+    }
+
+    function _requestConfiguredAttestation(
+        bytes32 _walletId,
+        IFdc2Hub.Fdc2AttestationRequest memory _request,
+        address _testOnTeeId,
+        address _claimBackAddress
+    )
+        internal
+    {
+        IWalletManager.WalletStatus walletStatus = flareTeeManager.getWalletStatus(_walletId);
+        require(
+            walletStatus == IWalletManager.WalletStatus.PRODUCTION ||
+            walletStatus == IWalletManager.WalletStatus.PAUSED,
+            OnlyProductionOrPausedStatus()
+        );
+        (address[] memory cosigners, uint64 cosignersThreshold) = flareTeeManager.getCosigners();
+        (uint256 numberOfTees, address[] memory teeIds) = _teeTargets(_testOnTeeId);
+        fdc2Hub.requestAttestation{value: msg.value}(
+            _request,
+            numberOfTees,
+            teeIds,
+            cosigners,
+            cosignersThreshold,
+            _claimBackAddress
         );
     }
 
@@ -554,6 +687,23 @@ contract TeePayments is ITeePayments, FlareUpgradeableBase {
         _teeIds = new address[](_teeIdKeyIdPairs.length);
         for (uint256 i = 0; i < _teeIdKeyIdPairs.length; i++) {
             _teeIds[i] = _teeIdKeyIdPairs[i].teeId;
+        }
+    }
+
+    function _teeTargets(
+        address _testOnTeeId
+    )
+        internal pure
+        returns (
+            uint256 _numberOfTees,
+            address[] memory _teeIds
+        )
+    {
+        if (_testOnTeeId != address(0)) {
+            _teeIds = new address[](1);
+            _teeIds[0] = _testOnTeeId;
+        } else {
+            _numberOfTees = 1;
         }
     }
 

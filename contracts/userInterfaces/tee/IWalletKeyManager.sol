@@ -244,4 +244,19 @@ interface IWalletKeyManager is ITeeCommonErrors {
             uint64[] memory _keyIds,
             uint64 _counter
         );
+
+    /**
+     * Returns the wallet's multisig threshold and public keys (ordered by key id) in a single call.
+     * @param _walletId The wallet id.
+     * @return _multisigThreshold The multisig threshold.
+     * @return _publicKeys The public keys, ordered by key id.
+     */
+    function getWalletPublicKeys(
+        bytes32 _walletId
+    )
+        external view
+        returns (
+            uint64 _multisigThreshold,
+            bytes[] memory _publicKeys
+        );
 }

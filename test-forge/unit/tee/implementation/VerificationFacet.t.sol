@@ -14,10 +14,6 @@ import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces
 import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
 import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
-import {
-    IPMWMultisigAccountConfigured,
-    PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE
-} from "../../../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
@@ -318,11 +314,9 @@ contract VerificationFacetTest is Test {
     // Wallet-specific state
     bytes32 private walletId;
     bytes32 private projectId;
-    string private walletAddress;
     uint64 private multisigThreshold;
     bytes private publicKey;
     uint64[] private keyIds;
-    IPMWMultisigAccountConfigured.Proof private pmwProof;
 
     function setUp() public {
         owner = makeAddr("owner");
@@ -488,7 +482,6 @@ contract VerificationFacetTest is Test {
         // =====================================================================
         walletId = bytes32("walletId");
         projectId = bytes32("projectId");
-        walletAddress = "rAccountAddress123";
         multisigThreshold = 1;
         publicKey = hex"0123456789abcdef";
         keyIds = new uint64[](1);
@@ -499,15 +492,6 @@ contract VerificationFacetTest is Test {
 
         // Set key state
         stateHelper.setKeyState(walletId, keyIds[0], publicKey, teeId, multisigThreshold);
-
-        // Set up PMW proof fields
-        pmwProof.header.thresholdBIPS = 0;
-        pmwProof.header.attestationType = PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE;
-        pmwProof.requestBody.accountAddress = walletAddress;
-        pmwProof.requestBody.threshold = multisigThreshold;
-        pmwProof.requestBody.publicKeys = new bytes[](1);
-        pmwProof.requestBody.publicKeys[0] = publicKey;
-        pmwProof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
     }
 
     // =========================================================================
@@ -1068,112 +1052,6 @@ contract VerificationFacetTest is Test {
     }
 
     // =========================================================================
-    // Wallet verification tests (PMW)
-    // =========================================================================
-
-    function testRequestPMWMultisigAccountConfiguredAttestationRevertAccountAddressZero() public {
-        vm.expectRevert(IVerification.AccountAddressZero.selector);
-        flareTeeManager.requestPMWMultisigAccountConfiguredAttestation(
-            walletId, sourceId, "", address(0), address(0), address(0)
-        );
-    }
-
-    function testRequestPMWMultisigAccountConfiguredAttestationRevertOnlyProductionOrPausedStatus()
-        public
-    {
-        stateHelper.setWalletState(walletId, projectId, IWalletManager.WalletStatus.CREATED);
-        vm.expectRevert(ITeeCommonErrors.OnlyProductionOrPausedStatus.selector);
-        flareTeeManager.requestPMWMultisigAccountConfiguredAttestation(
-            walletId, sourceId, walletAddress, address(0), address(0), address(0)
-        );
-    }
-
-    function testRequestPMWMultisigAccountConfiguredAttestation() public {
-        flareTeeManager.requestPMWMultisigAccountConfiguredAttestation(
-            walletId, sourceId, walletAddress, address(0), address(0), address(0)
-        );
-    }
-
-    function testRequestPMWMultisigAccountConfiguredAttestationWithProofOwnerAndClaimBack() public {
-        address proofOwner = makeAddr("proofOwner");
-        address claimBack = makeAddr("claimBack");
-        vm.expectCall(
-            fdc2Hub,
-            _buildPMWExpectCallData(proofOwner, claimBack)
-        );
-        flareTeeManager.requestPMWMultisigAccountConfiguredAttestation(
-            walletId, sourceId, walletAddress, address(0), proofOwner, claimBack
-        );
-    }
-
-    function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidAttestation() public {
-        pmwProof.header.thresholdBIPS = 1;
-        vm.expectRevert(IVerification.InvalidAttestation.selector);
-        flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
-    }
-
-    function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidAttestation2() public {
-        pmwProof.header.attestationType = keccak256("invalidAttestationType");
-        vm.expectRevert(IVerification.InvalidAttestation.selector);
-        flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
-    }
-
-    function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidRequestBody1() public {
-        pmwProof.requestBody.threshold = multisigThreshold + 1;
-        vm.expectRevert(IVerification.InvalidRequestBody.selector);
-        flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
-    }
-
-    function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidRequestBody2() public {
-        pmwProof.requestBody.publicKeys[0] = hex"ff";
-        vm.expectRevert(IVerification.InvalidRequestBody.selector);
-        flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
-    }
-
-    function testVerifyPMWMultisigAccountConfiguredProof() public {
-        assertTrue(
-            flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof)
-        );
-    }
-
-    function testVerifyPMWMultisigAccountConfiguredProofWithTeeSignatures() public {
-        address[] memory signingTeeIds = new address[](1);
-        signingTeeIds[0] = teeId;
-        _mockVerifyTeeSignatures(signingTeeIds);
-        _addMockTeeSignatureToPmwProof();
-
-        assertTrue(
-            flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof)
-        );
-    }
-
-    function testVerifyPMWMultisigAccountConfiguredProofWithTeeSignaturesStatusError() public {
-        address[] memory signingTeeIds = new address[](1);
-        signingTeeIds[0] = teeId;
-        _mockVerifyTeeSignatures(signingTeeIds);
-        _addMockTeeSignatureToPmwProof();
-
-        pmwProof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.ERROR;
-        assertFalse(
-            flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof)
-        );
-    }
-
-    function testVerifyPMWMultisigAccountConfiguredProofTeeSignaturesBypassSigningPolicy()
-        public
-    {
-        _mockVerifySigningPolicySignatures(rewardEpochId + 100);
-        address[] memory signingTeeIds = new address[](1);
-        signingTeeIds[0] = teeId;
-        _mockVerifyTeeSignatures(signingTeeIds);
-        _addMockTeeSignatureToPmwProof();
-
-        assertTrue(
-            flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof)
-        );
-    }
-
-    // =========================================================================
     // Mock helpers
     // =========================================================================
 
@@ -1219,12 +1097,6 @@ contract VerificationFacetTest is Test {
 
     function _addMockTeeSignatureToProof() private {
         proof.signatures.teeSignatures.push(Signature(27, bytes32(uint256(1)), bytes32(uint256(2))));
-    }
-
-    function _addMockTeeSignatureToPmwProof() private {
-        pmwProof.signatures.teeSignatures.push(
-            Signature(27, bytes32(uint256(1)), bytes32(uint256(2)))
-        );
     }
 
     function _buildTeeAttestationExpectCallData(
@@ -1280,39 +1152,6 @@ contract VerificationFacetTest is Test {
             attestationRequest,
             uint256(0),
             teeIdsParam,
-            new address[](0),
-            uint64(0),
-            _claimBack
-        );
-    }
-
-    function _buildPMWExpectCallData(
-        address _proofOwner,
-        address _claimBack
-    ) private view returns (bytes memory) {
-        bytes[] memory publicKeys = new bytes[](1);
-        publicKeys[0] = publicKey;
-        IPMWMultisigAccountConfigured.RequestBody memory requestBody =
-            IPMWMultisigAccountConfigured.RequestBody({
-                accountAddress: walletAddress,
-                publicKeys: publicKeys,
-                threshold: multisigThreshold
-            });
-        IFdc2Hub.Fdc2AttestationRequest memory attestationRequest = IFdc2Hub.Fdc2AttestationRequest({
-            header: IFdc2Hub.Fdc2RequestHeader({
-                attestationType: PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
-                sourceId: sourceId,
-                thresholdBIPS: 0,
-                proofOwner: _proofOwner
-            }),
-            requestBody: abi.encode(requestBody)
-        });
-        // _testOnTeeId == address(0) => numberOfTees = 1, teeIds = empty
-        return abi.encodeWithSelector(
-            IFdc2Hub.requestAttestation.selector,
-            attestationRequest,
-            uint256(1),
-            new address[](0),
             new address[](0),
             uint64(0),
             _claimBack

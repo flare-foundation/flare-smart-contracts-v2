@@ -8,12 +8,10 @@ import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol"
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
-import { IFdc2Hub, FDC2 } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
-import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
+import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
-import { Signature } from "../../userInterfaces/ISignature.sol";
-import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
+import { Fdc2ProofVerification } from "../../fdc2/library/Fdc2ProofVerification.sol";
 import { MachineManager } from "./MachineManager.sol";
 import { ExtensionManager } from "./ExtensionManager.sol";
 import { SystemStateVerifier } from "./SystemStateVerifier.sol";
@@ -102,13 +100,12 @@ library Verification {
             );
         }
 
-        // Verify signatures. The outer SignedPayload envelope binds chainid and the FDC2 domain
-        // prefix; the inner dataHash is the keccak256 of the three per-struct hashes of
-        // (header, requestBody, responseBody) — including attestationType and sourceId — so
-        // signatures cannot be replayed across chains, FDC2 attestation types, sources, or
-        // requests. The three-hashes-of-structs layout matches the off-chain FDC2 components.
-        bytes32 messageHash = SignedPayload.messageHash(
-            FDC2,
+        // The outer SignedPayload envelope binds chainid and the FDC2 domain prefix; the inner
+        // dataHash is the keccak256 of the three per-struct hashes of (header, requestBody,
+        // responseBody) — including attestationType and sourceId — so signatures cannot be
+        // replayed across chains, FDC2 attestation types, sources, or requests. The
+        // three-hashes-of-structs layout matches the off-chain FDC2 components.
+        bytes32 messageHash = Fdc2ProofVerification.messageHash(
             keccak256(abi.encode(
                 keccak256(abi.encode(_proof.header)),
                 keccak256(abi.encode(_proof.requestBody)),
@@ -120,18 +117,26 @@ library Verification {
         uint256 currentRewardEpochId = IFlareSystemsManager(ext.flareSystemsManager).getCurrentRewardEpochId();
 
         if (_proof.signatures.teeSignatures.length > 0) {
-            IFdc2Verification(ext.fdc2Verification).verifyTeeSignatures(
-                _proof.signatures.teeSignatures, messageHash
+            Fdc2ProofVerification.verifyTeeSignatures(
+                ext.fdc2Verification, _proof.signatures.teeSignatures, messageHash
             );
         } else {
-            checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
+            Fdc2ProofVerification.verifySigningPolicySignatures(
+                ext.fdc2Verification, currentRewardEpochId, _proof.signatures.signingPolicySignatures, messageHash
+            );
         }
 
         // Cosigner check for initial availability check or active replication
         if (_status == IMachineManager.TeeStatus.INITIALIZED ||
             _status == IMachineManager.TeeStatus.REPLICATING)
         {
-            checkCosignerSignatures(toCosignersMessageHash(messageHash), _proof.signatures.cosignerSignatures);
+            Fdc2ProofVerification.verifyCosignerSignatures(
+                ext.fdc2Verification,
+                messageHash,
+                _proof.signatures.cosignerSignatures,
+                s.cosigners.values(),
+                s.cosignersThreshold
+            );
         }
 
         // Validate response body data
@@ -218,22 +223,6 @@ library Verification {
         emit IVerification.TeeAttestationRequested(_teeId, challenge);
     }
 
-    function checkSigningPolicySignatures(
-        uint256 _currentRewardEpochId,
-        bytes32 _messageHash,
-        bytes calldata _signatures
-    )
-        internal
-    {
-        ExternalAddresses.State storage ext = ExternalAddresses.getState();
-        uint256 rewardEpochId = IFdc2Verification(ext.fdc2Verification)
-            .verifySigningPolicySignatures(_signatures, _messageHash);
-        require(
-            rewardEpochId == _currentRewardEpochId || rewardEpochId + 1 == _currentRewardEpochId,
-            IVerification.InvalidSigningPolicy()
-        );
-    }
-
     function requestFdc2Attestation(
         address _testOnTeeId,
         address[] memory _cosigners,
@@ -309,25 +298,6 @@ library Verification {
         _lastSigningPolicyId = validity.lastSigningPolicyId;
     }
 
-    function checkCosignerSignatures(
-        bytes32 _messageHash,
-        Signature[] calldata _signatures
-    )
-        internal view
-    {
-        State storage s = getState();
-        if (s.cosignersThreshold == 0) {
-            return;
-        }
-        ExternalAddresses.State storage ext = ExternalAddresses.getState();
-        address[] memory cosignersList = IFdc2Verification(ext.fdc2Verification)
-            .recoverCosigners(_signatures, _messageHash);
-        require(cosignersList.length >= s.cosignersThreshold, IVerification.CosignersThresholdNotMet());
-        for (uint256 i = 0; i < cosignersList.length; i++) {
-            require(s.cosigners.contains(cosignersList[i]), ITeeCommonErrors.InvalidCosigner(cosignersList[i]));
-        }
-    }
-
     function isSigningPolicyValid(
         uint256 _signingPolicyId,
         uint256 _currentRewardEpochId
@@ -336,24 +306,6 @@ library Verification {
         returns (bool)
     {
         return _signingPolicyId + getState().signingPolicyValidityDurationInRewardEpochs >= _currentRewardEpochId;
-    }
-
-    /**
-     * Cosigner-signature preimage wrap. The 6-byte prefix is the Relay protocol-message wire
-     * format for `protocolId=1 || votingRoundId=0 || isSecureRandom=false` (see `Relay.sol`
-     * `MESSAGE_BYTES`/`MESSAGE_NO_MR_BYTES`), with `_messageHash` filling the 32-byte
-     * "merkleRoot" slot. Aligning cosigner signatures with Relay's protocol-message format lets
-     * an entity that is both a cosigner and a signing-policy data signer use the same off-chain
-     * signing infrastructure with no special handling. Do not change these bytes — they are
-     * load-bearing for that compatibility.
-     */
-    function toCosignersMessageHash(
-        bytes32 _messageHash
-    )
-        internal pure
-        returns (bytes32)
-    {
-        return keccak256(bytes.concat(hex"010000000000", _messageHash));
     }
 
     function validateDuration(

@@ -286,6 +286,21 @@ contract WalletKeyManagerFacet is IWalletKeyManager {
     /**
      * @inheritdoc IWalletKeyManager
      */
+    function getWalletPublicKeys(
+        bytes32 _walletId
+    )
+        external view
+        returns (
+            uint64 _multisigThreshold,
+            bytes[] memory _publicKeys
+        )
+    {
+        return WalletKeyManager.getWalletPublicKeys(_walletId);
+    }
+
+    /**
+     * @inheritdoc IWalletKeyManager
+     */
     function getWalletKeyTeeIds(
         bytes32 _walletId,
         uint64 _keyId

@@ -4,27 +4,17 @@ pragma solidity ^0.8.27;
 import { IIVerification } from "../interface/IIVerification.sol";
 import { IVerification, TEE_SOURCE_ID } from "../../userInterfaces/tee/IVerification.sol";
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
-import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
-import { IPMWMultisigAccountConfigured, PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE }
-    from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
-import { IFdc2Hub, FDC2 } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
-import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
-import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
-import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
 import { Verification } from "../library/Verification.sol";
 import { MachineManager } from "../library/MachineManager.sol";
 import { Replication } from "../library/Replication.sol";
-import { ExternalAddresses } from "../library/ExternalAddresses.sol";
-import { WalletManager } from "../library/WalletManager.sol";
-import { WalletKeyManager } from "../library/WalletKeyManager.sol";
 import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @title VerificationFacet
- * @notice Facet for TEE machine attestation, availability checks, and wallet (PMW) verification.
+ * @notice Facet for TEE machine attestation and availability checks.
  */
 contract VerificationFacet is IIVerification, FlareGovernedAccess {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -162,122 +152,6 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
             _signingPolicyValidityDurationInRewardEpochs,
             _challengeValidityDurationSeconds
         );
-    }
-
-    // =========================================================================
-    // Wallet verification (PMW)
-    // =========================================================================
-
-    /// @inheritdoc IVerification
-    function requestPMWMultisigAccountConfiguredAttestation(
-        bytes32 _walletId,
-        bytes32 _sourceId,
-        string calldata _accountAddress,
-        address _testOnTeeId,
-        address _proofOwner,
-        address _claimBackAddress
-    )
-        external payable
-    {
-        require(bytes(_accountAddress).length > 0, AccountAddressZero());
-        IWalletManager.WalletStatus walletStatus = WalletManager.getWalletStatus(_walletId);
-        require(
-            walletStatus == IWalletManager.WalletStatus.PRODUCTION ||
-                walletStatus == IWalletManager.WalletStatus.PAUSED,
-            OnlyProductionOrPausedStatus()
-        );
-
-        (uint64 multisigThreshold, uint64[] memory keyIds, ) =
-            WalletKeyManager.getWalletKeysInfo(_walletId);
-        IPMWMultisigAccountConfigured.RequestBody memory requestBody =
-            IPMWMultisigAccountConfigured.RequestBody({
-                accountAddress: _accountAddress,
-                publicKeys: new bytes[](keyIds.length),
-                threshold: multisigThreshold
-            });
-        for (uint256 i = 0; i < keyIds.length; i++) {
-            requestBody.publicKeys[i] = WalletKeyManager.getWalletKeyPublicKey(_walletId, keyIds[i]);
-        }
-
-        Verification.State storage verState = Verification.getState();
-        Verification.requestFdc2Attestation(
-            _testOnTeeId,
-            verState.cosigners.values(),
-            verState.cosignersThreshold,
-            PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
-            _sourceId,
-            abi.encode(requestBody),
-            _proofOwner,
-            _claimBackAddress
-        );
-    }
-
-    /// @inheritdoc IVerification
-    function verifyPMWMultisigAccountConfiguredProof(
-        bytes32 _walletId,
-        IPMWMultisigAccountConfigured.Proof calldata _proof
-    )
-        external
-        returns (bool)
-    {
-        IFdc2Hub.Fdc2ResponseHeader calldata header = _proof.header;
-        require(
-            header.thresholdBIPS == 0 &&
-            header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
-            InvalidAttestation()
-        );
-
-        {
-            IPMWMultisigAccountConfigured.RequestBody calldata requestBody = _proof.requestBody;
-            (uint64 multisigThreshold, uint64[] memory keyIds, ) =
-                WalletKeyManager.getWalletKeysInfo(_walletId);
-            require(
-                multisigThreshold == requestBody.threshold &&
-                    keyIds.length == requestBody.publicKeys.length,
-                InvalidRequestBody()
-            );
-            for (uint256 i = 0; i < keyIds.length; i++) {
-                bytes memory publicKey = WalletKeyManager.getWalletKeyPublicKey(_walletId, keyIds[i]);
-                require(
-                    keccak256(requestBody.publicKeys[i]) == keccak256(publicKey),
-                    InvalidRequestBody()
-                );
-            }
-        }
-
-        // The outer SignedPayload envelope binds chainid and the FDC2 domain prefix; the inner
-        // dataHash is the keccak256 of the three per-struct hashes of (header, requestBody,
-        // responseBody) — including attestationType and sourceId — so signatures cannot be
-        // replayed across chains, FDC2 attestation types, sources, or requests. The
-        // three-hashes-of-structs layout matches the off-chain FDC2 components.
-        bytes32 messageHash = SignedPayload.messageHash(
-            FDC2,
-            keccak256(abi.encode(
-                keccak256(abi.encode(header)),
-                keccak256(abi.encode(_proof.requestBody)),
-                keccak256(abi.encode(_proof.responseBody))
-            ))
-        );
-
-        ExternalAddresses.State storage ext = ExternalAddresses.getState();
-        uint256 currentRewardEpochId =
-            IFlareSystemsManager(ext.flareSystemsManager).getCurrentRewardEpochId();
-
-        if (_proof.signatures.teeSignatures.length > 0) {
-            IFdc2Verification(ext.fdc2Verification).verifyTeeSignatures(
-                _proof.signatures.teeSignatures, messageHash
-            );
-        } else {
-            Verification.checkSigningPolicySignatures(
-                currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures
-            );
-        }
-        Verification.checkCosignerSignatures(
-            Verification.toCosignersMessageHash(messageHash),
-            _proof.signatures.cosignerSignatures
-        );
-
-        return _proof.responseBody.status == IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
     }
 
     // =========================================================================

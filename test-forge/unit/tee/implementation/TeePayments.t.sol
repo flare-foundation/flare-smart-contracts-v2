@@ -25,8 +25,10 @@ import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachi
 import { IWalletKeyManager } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
 import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import {
-    IPMWMultisigAccountConfigured
+    IPMWMultisigAccountConfigured,
+    PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE
 } from "../../../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
+import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -53,6 +55,8 @@ contract TeePaymentsTest is Test {
 
     address private flareTeeManager;
     address private teePaymentsFeeScheduleManager;
+    address private fdc2Verification;
+    address private fdc2Hub;
 
     address private governance;
     address private addressUpdater;
@@ -111,20 +115,26 @@ contract TeePaymentsTest is Test {
 
         flareTeeManager = makeAddr("flareTeeManager");
         teePaymentsFeeScheduleManager = makeAddr("teePaymentsFeeScheduleManager");
+        fdc2Verification = makeAddr("fdc2Verification");
+        fdc2Hub = makeAddr("fdc2Hub");
 
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](5);
-        contractAddresses = new address[](5);
+        contractNameHashes = new bytes32[](7);
+        contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("FlareTeeManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("TeePaymentsFeeScheduleManager"));
         contractNameHashes[4] = keccak256(abi.encode("TeePaymentsRegistry"));
+        contractNameHashes[5] = keccak256(abi.encode("Fdc2Verification"));
+        contractNameHashes[6] = keccak256(abi.encode("Fdc2Hub"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = flareTeeManager;
         contractAddresses[2] = mockFSM;
         contractAddresses[3] = teePaymentsFeeScheduleManager;
         contractAddresses[4] = address(teePaymentsRegistry);
+        contractAddresses[5] = fdc2Verification;
+        contractAddresses[6] = fdc2Hub;
         teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
@@ -140,7 +150,7 @@ contract TeePaymentsTest is Test {
         pmwMultisigAccount.sourceId = SOURCE_ID;
         pmwMultisigAccount.accountAddress = senderAddress;
 
-        // TODO set public keys and threshold for the proof
+        proof.header.attestationType = PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE;
         proof.header.sourceId = SOURCE_ID;
         proof.requestBody.accountAddress = senderAddress;
         proof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
@@ -153,7 +163,7 @@ contract TeePaymentsTest is Test {
         // move time to 500 seconds
         vm.warp(500);
 
-        _mockVerifyPMWMultisigAccountConfiguredProof(true);
+        _mockVerifyConfiguredProof();
         _mockGetExtensionId(0);
         _mockCalculateFeeByTeeIds(PAY, fee);
         _mockCalculateFeeByTeeIds(REISSUE, fee);
@@ -265,7 +275,7 @@ contract TeePaymentsTest is Test {
 
     function testAddPMWMultisigAccountRevertInvalidProof() public {
         _mockGetWalletStatus(IWalletManager.WalletStatus.PRODUCTION);
-        _mockVerifyPMWMultisigAccountConfiguredProof(false);
+        proof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.ERROR;
         vm.expectRevert(ITeePayments.InvalidProof.selector);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
@@ -1322,11 +1332,25 @@ contract TeePaymentsTest is Test {
         );
     }
 
-    function _mockVerifyPMWMultisigAccountConfiguredProof(bool _valid) internal{
+    // Mocks the in-contract FDC2 proof verification seams used by addPMWMultisigAccount:
+    //  - getWalletPublicKeys(walletId) -> (threshold 0, no keys), matching the proof's request body
+    //  - getCosigners() -> (no cosigners, threshold 0) so the cosigner check is a no-op
+    //  - Fdc2Verification.verifySigningPolicySignatures(...) -> current reward epoch id (10)
+    function _mockVerifyConfiguredProof() internal {
         vm.mockCall(
             flareTeeManager,
-            abi.encodeWithSelector(IVerification.verifyPMWMultisigAccountConfiguredProof.selector),
-            abi.encode(_valid)
+            abi.encodeWithSelector(IWalletKeyManager.getWalletPublicKeys.selector),
+            abi.encode(uint64(0), new bytes[](0))
+        );
+        vm.mockCall(
+            flareTeeManager,
+            abi.encodeWithSelector(IVerification.getCosigners.selector),
+            abi.encode(new address[](0), uint64(0))
+        );
+        vm.mockCall(
+            fdc2Verification,
+            abi.encodeWithSelector(IFdc2Verification.verifySigningPolicySignatures.selector),
+            abi.encode(uint256(10))
         );
     }
 

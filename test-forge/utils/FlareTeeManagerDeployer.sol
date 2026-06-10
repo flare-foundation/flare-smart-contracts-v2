@@ -262,9 +262,9 @@ library FlareTeeManagerDeployer {
             );
         }
 
-        // 6: VerificationFacet (includes wallet verification)
+        // 6: VerificationFacet
         {
-            bytes4[] memory s = new bytes4[](11);
+            bytes4[] memory s = new bytes4[](9);
             s[0] = IVerification.requestTeeAttestation.selector;
             s[1] = IIVerification.setCosigners.selector;
             s[2] = IVerification.requestAvailabilityCheckAttestation.selector;
@@ -274,8 +274,6 @@ library FlareTeeManagerDeployer {
             s[6] = IVerification.getCosigners.selector;
             s[7] = IVerification.getSettings.selector;
             s[8] = IVerification.getAvailabilityCheckValidity.selector;
-            s[9] = IVerification.requestPMWMultisigAccountConfiguredAttestation.selector;
-            s[10] = IVerification.verifyPMWMultisigAccountConfiguredProof.selector;
             cuts[5] = IDiamond.FacetCut(
                 address(new VerificationFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -352,7 +350,7 @@ library FlareTeeManagerDeployer {
 
         // 12: WalletKeyManagerFacet
         {
-            bytes4[] memory s = new bytes4[](10);
+            bytes4[] memory s = new bytes4[](11);
             s[0] = IWalletKeyManager.addKey.selector;
             s[1] = IWalletKeyManager.confirmKey.selector;
             s[2] = IWalletKeyManager.setMultisigThreshold.selector;
@@ -363,6 +361,7 @@ library FlareTeeManagerDeployer {
             s[7] = IWalletKeyManager.getWalletKeyPublicKey.selector;
             s[8] = IWalletKeyManager.getWalletKeyTeeIds.selector;
             s[9] = IWalletKeyManager.getKeyNonce.selector;
+            s[10] = IWalletKeyManager.getWalletPublicKeys.selector;
             cuts[10] = IDiamond.FacetCut(
                 address(new WalletKeyManagerFacet()), IDiamond.FacetCutAction.Add, s
             );

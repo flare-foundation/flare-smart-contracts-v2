@@ -119,6 +119,24 @@ library WalletKeyManager {
         return (keys.multisigThreshold, keys.keyIds, keys.keyIdCounter);
     }
 
+    function getWalletPublicKeys(
+        bytes32 _walletId
+    )
+        internal view
+        returns (
+            uint64 _multisigThreshold,
+            bytes[] memory _publicKeys
+        )
+    {
+        TeeWalletKeysState storage keys = getState().walletKeys[_walletId];
+        uint64[] memory keyIds = keys.keyIds;
+        _multisigThreshold = keys.multisigThreshold;
+        _publicKeys = new bytes[](keyIds.length);
+        for (uint256 i = 0; i < keyIds.length; i++) {
+            _publicKeys[i] = keys.keyDefinitions[keyIds[i]].publicKey;
+        }
+    }
+
     function getWalletKeyPublicKey(
         bytes32 _walletId,
         uint64 _keyId

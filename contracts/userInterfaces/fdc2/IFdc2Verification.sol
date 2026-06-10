@@ -24,6 +24,9 @@ interface IFdc2Verification {
     error InvalidTeeMachineExtensionId();
     error DuplicatedTeeId(address teeId);
     error DuplicatedCosigner(address cosigner);
+    error InvalidSigningPolicy();
+    error CosignersThresholdNotMet();
+    error InvalidCosigner(address cosigner);
 
     /**
      * Verifies the signing policy signatures using the signing policy threshold.

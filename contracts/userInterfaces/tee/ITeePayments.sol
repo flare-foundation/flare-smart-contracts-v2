@@ -94,6 +94,8 @@ interface ITeePayments {
     error PaymentAmountZero();
     error RecipientIsSender();
     error AuthorizationAddressZero();
+    error InvalidAttestation();
+    error InvalidRequestBody();
 
     /**
      * Payment instruction method.
@@ -149,6 +151,25 @@ interface ITeePayments {
         address _authorizationAddress
     )
         external;
+
+    /**
+     * Requests a PMW multisig account configured attestation - triggers an FDC2 attestation request.
+     * @param _walletId The wallet id.
+     * @param _sourceId The source id.
+     * @param _accountAddress The account address.
+     * @param _testOnTeeId The TEE machine id to test on; if address(0) a random active TEE is used.
+     * @param _proofOwner The proof owner address (optional).
+     * @param _claimBackAddress An address that can claim back the fee if not executed (optional).
+     */
+    function requestPMWMultisigAccountConfiguredAttestation(
+        bytes32 _walletId,
+        bytes32 _sourceId,
+        string calldata _accountAddress,
+        address _testOnTeeId,
+        address _proofOwner,
+        address _claimBackAddress
+    )
+        external payable;
 
     /**
     * Method for setting the batch settings.
