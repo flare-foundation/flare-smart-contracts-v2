@@ -34,6 +34,7 @@ interface IRelay is RandomNumberV2Interface {
     struct RelayGovernanceConfig {
         bytes32 descriptionHash;        // Description hash (should be keccak256("RelayGovernance")
         uint256 chainId;                // Chain id on which is the relay is deployed
+        uint256 nonce;                  // Strictly-increasing replay-protection nonce
         FeeConfig[] newFeeConfigs;      // Fee configurations
     }
 
@@ -67,6 +68,20 @@ interface IRelay is RandomNumberV2Interface {
         uint32 indexed votingRoundId,       // Voting round id
         bool isSecureRandom,                // Secure random flag
         bytes32 merkleRoot                  // Merkle root of the protocol message
+    );
+
+    // Event is emitted when a protocol fee is (re)configured via governanceFeeSetup.
+    event RelayGovernanceFeeConfigured(
+        uint8 indexed protocolId,           // Protocol id
+        uint256 feeInWei,                   // New fee in wei
+        uint256 nonce                       // Governance fee nonce used for this change
+    );
+
+    // Event is emitted when a random number is relayed (random-number protocol).
+    event RandomNumberRelayed(
+        uint32 indexed votingRoundId,       // Voting round id of the random
+        uint256 randomNumber,               // The relayed (Merkle-proven) random number value
+        bool isSecureRandom                 // Whether the random is secure
     );
 
     /**
@@ -123,7 +138,10 @@ interface IRelay is RandomNumberV2Interface {
      * Verifies the leaf (or intermediate node) with the Merkle proof against the Merkle root
      * for given protocol id and voting round id.
      * A fee may need to be paid. It is protocol specific.
-     * **NOTE:** Overpayment is not refunded.
+     * **NOTE:** Overpayment above the protocol fee is refunded to the caller.
+     * **NOTE (RLY-15):** A leaf equal to the (finalized, non-zero) root verifies with an empty proof —
+     *           a standard Merkle property. Off-chain leaf encoding MUST be domain-separated from internal
+     *           and root node hashes so an internal node cannot be presented as a differently-typed leaf.
      * @param _protocolId The protocol id.
      * @param _votingRoundId The voting round id.
      * @param _leaf The leaf (or intermediate node) to verify.
@@ -203,6 +221,11 @@ interface IRelay is RandomNumberV2Interface {
      * @param _protocolId The protocol id.
      */
     function protocolFeeInWei(uint256 _protocolId) external view returns (uint256);
+
+    /**
+     * Returns the current strictly-increasing governance fee configuration nonce.
+     */
+    function governanceFeeNonce() external view returns (uint256);
 
     /**
      * Returns the state data.

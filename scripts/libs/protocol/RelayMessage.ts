@@ -8,6 +8,11 @@ export interface IRelayMessage {
   protocolMessageMerkleRoot?: IProtocolMessageMerkleRoot;
   newSigningPolicy?: ISigningPolicy;
   signatures: IECDSASignatureWithIndex[];
+  // RLY-03: for the random-number protocol, the relay message carries a trailer after the
+  // signatures: the random number value plus its Merkle proof against the message merkleRoot.
+  isRandomNumberGeneratingProtocolMessage?: boolean;
+  randomNumber?: string;   // uint256 as 0x-prefixed 32-byte hex string
+  merkleProof?: string[];  // sequence of 0x-prefixed 32-byte hex strings
 }
 
 export namespace RelayMessage {
@@ -66,6 +71,22 @@ export namespace RelayMessage {
     let lastObservedIndex = -1;
     let totalWeight = 0;
     encoded += ECDSASignatureWithIndex.encodeSignatureList(message.signatures).slice(2);
+    // RLY-03: append the random-number trailer (randomNumber || merkleProof) after the signatures.
+    if (message.isRandomNumberGeneratingProtocolMessage) {
+      if (!message.randomNumber || message.randomNumber.length !== 66 || !/^0x[0-9a-fA-F]{64}$/.test(message.randomNumber)) {
+        throw Error("Invalid relay message: randomNumber must be a 32-byte hex string (0x-prefixed)");
+      }
+      encoded += message.randomNumber.slice(2);
+      if (!message.merkleProof) {
+        throw Error("Invalid relay message: merkleProof is missing for random-number protocol message");
+      }
+      for (const proofElement of message.merkleProof) {
+        if (proofElement.length !== 66 || !/^0x[0-9a-fA-F]{64}$/.test(proofElement)) {
+          throw Error("Invalid relay message: merkleProof elements must be 32-byte hex strings (0x-prefixed)");
+        }
+        encoded += proofElement.slice(2);
+      }
+    }
     if(verify) {
       for (const signature of message.signatures) {
         if(signature.index <= lastObservedIndex) {

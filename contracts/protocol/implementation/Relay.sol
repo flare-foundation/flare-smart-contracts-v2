@@ -171,6 +171,8 @@ contract Relay is IIRelay {
     uint256 private constant M_5_stateData = 160;
     uint256 private constant M_5_isSecureRandom = 160;
     uint256 private constant M_6_merkleRoot = 192;
+    uint256 private constant M_7_randomNumber = 224;
+    uint256 private constant M_8_signatureStart = 256;
 
     uint256 private constant ADDRESS_OFFSET = 12;
     /* solhint-enable const-name-snakecase */
@@ -199,6 +201,13 @@ contract Relay is IIRelay {
     /// The state of the relay contract.
     StateData public stateData;
 
+    /// Strictly-increasing nonce for governance fee configuration messages (replay protection).
+    uint256 public governanceFeeNonce;
+
+    /// The relayed (Merkle-proven) random number for a given voting round id (RLY-03).
+    //slither-disable-next-line uninitialized-state
+    mapping(uint256 votingRoundId => uint256) private toRandomNumberPrivate;
+
     /// Old relay contract
     IRelay public immutable oldRelay;
     /// The initial reward epoch id.
@@ -224,6 +233,9 @@ contract Relay is IIRelay {
         IRelay _oldRelay
     ) {
         require(_initialConfig.thresholdIncreaseBIPS >= THRESHOLD_BIPS, "threshold increase too small");
+        // RLY-11: reject zero epoch durations (would cause div-by-zero / silent-zero in epoch math).
+        require(_initialConfig.rewardEpochDurationInVotingEpochs > 0, "reward epoch duration zero");
+        require(_initialConfig.votingEpochDurationSeconds > 0, "voting epoch duration zero");
         require(
             _initialConfig.firstRewardEpochStartVotingRoundId +
             _initialConfig.initialRewardEpochId * _initialConfig.rewardEpochDurationInVotingEpochs <=
@@ -251,6 +263,12 @@ contract Relay is IIRelay {
             stateData.noSigningPolicyRelay = true;
         }
         feeCollectionAddress = _initialConfig.feeCollectionAddress;
+        // RLY-10: in relay mode (signingPolicySetter == 0) fees can be charged now or added later via
+        // governanceFeeSetup; a zero fee-collection address would burn collected fees, so reject it.
+        require(
+            _signingPolicySetter != address(0) || _initialConfig.feeCollectionAddress != address(0),
+            "fee collection address zero"
+        );
         for (uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {
             uint8 protocolId = _initialConfig.feeConfigs[i].protocolId;
             require(protocolId > 1, "invalid protocol id");
@@ -301,6 +319,9 @@ contract Relay is IIRelay {
         external onlySigningPolicySetter
         returns (bytes32)
     {
+        // RLY-06: the signing policy setter (trusted; FlareSystemsManager on Flare) is responsible for
+        // ensuring the policy is well-formed — no zero-address voters, no duplicate voters, canonical
+        // voter order, normalised weights. These are intentionally NOT re-validated here.
         require(
             stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
             "not next reward epoch"
@@ -331,6 +352,8 @@ contract Relay is IIRelay {
         Counters memory m;
 
         // bytes32 currentHash;
+        // RLY-19: _signingPolicy.rewardEpochId is uint24 (see IIRelay.SigningPolicy), so the bytes3(...)
+        // narrowing below is lossless and matches the mapping key — no >2**24 truncation is possible.
         bytes memory toHash = bytes.concat(
             bytes2(uint16(_signingPolicy.voters.length)),
             bytes3(_signingPolicy.rewardEpochId),
@@ -439,18 +462,29 @@ contract Relay is IIRelay {
         require(signingPolicySetter == address(0), "fee cannot be set");
         require(_config.chainId == block.chainid, "wrong chain id");
         require(_config.descriptionHash == keccak256("RelayGovernance"), "wrong description hash");
+        // RLY-02: bind the signed digest to this contract (address(this)) to prevent
+        // cross-deployment replay; the config also carries a strictly-increasing nonce.
+        uint256 returnRewardEpochId =
+            _verifyCustomSignature(_relayMessage, keccak256(abi.encode(_config, address(this))));
+        // allow signing with the latest or one earliest signing policy
+        // RLY-17: guard the `- 1` against underflow (unreachable today given the +1-monotonic
+        // signing-policy invariant, but made locally safe so a future refactor cannot panic here).
+        require(
+            stateData.lastInitializedRewardEpoch == returnRewardEpochId ||
+            (stateData.lastInitializedRewardEpoch > 0 &&
+                stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId),
+            "too old signing policy"
+        );
+        // RLY-02: replay protection — the nonce must strictly increase across accepted messages.
+        require(_config.nonce > governanceFeeNonce, "nonce too low");
+        governanceFeeNonce = _config.nonce;
+        // RLY-02: apply fee changes only after the signature has been verified.
         for (uint256 i = 0; i < _config.newFeeConfigs.length; i++) {
             uint8 protocolId = _config.newFeeConfigs[i].protocolId;
             require(protocolId > 1, "invalid protocol id");
             protocolFeeInWei[protocolId] = _config.newFeeConfigs[i].feeInWei;
+            emit RelayGovernanceFeeConfigured(protocolId, _config.newFeeConfigs[i].feeInWei, _config.nonce);
         }
-        uint256 returnRewardEpochId = _verifyCustomSignature(_relayMessage, keccak256(abi.encode(_config)));
-        // allow signing with the latest or one earliest signing policy
-        require(
-            stateData.lastInitializedRewardEpoch == returnRewardEpochId ||
-            stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId,
-            "too old signing policy"
-        );
     }
 
     /**
@@ -635,6 +669,51 @@ contract Relay is IIRelay {
                         shl(sub(255, mod(_votingRoundId, 256)), 1)
                     )
                 )
+            }
+
+            // RLY-03: verify a random-number Merkle proof and persist the value.
+            // The calldata after the signatures must be: randomNumber (32 bytes) followed by the
+            // Merkle proof (a sequence of 32-byte nodes). The leaf is
+            //   keccak256(abi.encode(uint256 votingRoundId, uint256 value, uint256 isSecure))
+            // and the proof is processed with OpenZeppelin sorted-pair hashing up to _memPtrMerkleRoot.
+            // On success, toRandomNumberPrivate[_votingRoundId] = randomNumber; otherwise it reverts.
+            // Uses scratch at _memPtr, _memPtr+32, _memPtr+64.
+            function processRandomMerkleProof(_memPtr, _proofStart, _memPtrMerkleRoot, _votingRoundId, _isSecureRandom) {
+                // calldata must contain at least the 32-byte random number after the signatures
+                if lt(calldatasize(), add(_proofStart, 32)) {
+                    revertWithMessage(_memPtr, "No random number", 16)
+                }
+                // the trailing calldata (random number + proof) must be a whole number of 32-byte words
+                if iszero(eq(mod(sub(calldatasize(), _proofStart), 32), 0)) {
+                    revertWithMessage(_memPtr, "Incorrect merkle proof", 22)
+                }
+                // leaf = keccak256(votingRoundId || value || isSecure)
+                mstore(_memPtr, _votingRoundId)
+                calldatacopy(add(_memPtr, 32), _proofStart, 32) // random number value
+                mstore(add(_memPtr, 64), _isSecureRandom)
+                mstore(_memPtr, keccak256(_memPtr, 96))
+                for {
+                    let pos := add(_proofStart, 32)
+                } lt(pos, calldatasize()) {
+                    pos := add(pos, 32)
+                } {
+                    calldatacopy(add(_memPtr, 32), pos, 32) // proof element
+                    // sorted-pair parent hash
+                    if lt(mload(_memPtr), mload(add(_memPtr, 32))) {
+                        mstore(_memPtr, keccak256(_memPtr, 64))
+                        continue
+                    }
+                    mstore(add(_memPtr, 64), mload(_memPtr))
+                    mstore(_memPtr, keccak256(add(_memPtr, 32), 64))
+                }
+                if iszero(eq(mload(_memPtr), mload(_memPtrMerkleRoot))) {
+                    revertWithMessage(_memPtr, "Invalid random number proof", 27)
+                }
+                // toRandomNumberPrivate[_votingRoundId] = randomNumber
+                calldatacopy(add(_memPtr, 64), _proofStart, 32) // reload value (slots 0/32 reused as map key/slot)
+                mstore(_memPtr, _votingRoundId)
+                mstore(add(_memPtr, 32), toRandomNumberPrivate.slot)
+                sstore(keccak256(_memPtr, 64), mload(add(_memPtr, 64)))
             }
 ////////////// A comment on handling of signing policy and a message /////////////////////////////////////////
 //
@@ -1095,6 +1174,9 @@ contract Relay is IIRelay {
                 NUMBER_OF_SIGNATURES_MASK
             )
             signatureStart := add(signatureStart, NUMBER_OF_SIGNATURES_BYTES)
+            // RLY-03: stash signatureStart for the random-proof trailer (read deep in the random branch
+            // where keeping it on the stack would risk stack-too-deep)
+            mstore(add(memPtr, M_8_signatureStart), signatureStart)
             if lt(
                 calldatasize(),
                 add(
@@ -1161,6 +1243,22 @@ contract Relay is IIRelay {
                 }
                 nextUnusedIndex := add(index, 1)
 
+                // RLY-16: reject non-canonical ECDSA signatures (defence-in-depth; strict index
+                // ordering already neutralizes malleability double-counting). v must be 27 or 28,
+                // and s must lie in the lower half of the curve order (EIP-2 low-s).
+                if iszero(or(
+                    eq(and(mload(add(memPtrFor, M_1)), 0xff), 27),
+                    eq(and(mload(add(memPtrFor, M_1)), 0xff), 28)
+                )) {
+                    revertWithMessage(memPtrFor, "Bad v", 5)
+                }
+                if gt(
+                    mload(add(memPtrFor, M_3)),
+                    0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+                ) {
+                    revertWithMessage(memPtrFor, "Bad s", 5)
+                }
+
                 // ecrecover call. Address goes to slot 64, it is 0 padded
                 if iszero(
                     staticcall(
@@ -1176,6 +1274,11 @@ contract Relay is IIRelay {
                 }
                 if iszero(eq(returndatasize(),32)) {
                     revertWithMessage(memPtrFor, "ecrecover returned bad data", 27)
+                }
+                // RLY-18: explicit zero-recovered-signer guard. Already implied by the returndatasize
+                // check above (a successful recovery is never address(0)); kept for clarity/robustness.
+                if iszero(mload(add(memPtrFor, M_2))) {
+                    revertWithMessage(memPtrFor, "Zero signer", 11)
                 }
                 // extract expected signer address to slot no 96
                 mstore(add(memPtrFor, M_3), 0) // zeroing slot for expected address
@@ -1227,12 +1330,22 @@ contract Relay is IIRelay {
                             32
                         )
                         if eq(protocolId, 1) {
+                            // RLY-07: this is the ONLY relay() path that returns non-empty data
+                            // (35 bytes: 32-byte merkleRoot/hash + 3-byte rewardEpochId). Every other
+                            // path returns 0 bytes or reverts, so _verifyCustomSignature uses the 35-byte
+                            // length as the discriminator for this path — preserve it if changing returns.
                             mstore(memPtrFor, mload(add(memPtrFor, M_6_merkleRoot)))
                             mstore(
                                 add(memPtrFor, M_1),
                                 shl(sub(256, mul(8, REWARD_EPOCH_ID_BYTES)), rewardEpochId)
                             )
                             return (memPtrFor, add(32, REWARD_EPOCH_ID_BYTES))
+                        }
+
+                        // RLY-04: reject a zero merkle root (would break isFinalized and the
+                        // already-relayed sentinel, and allow repeated event spam for the round).
+                        if iszero(mload(add(memPtrFor, M_6_merkleRoot))) {
+                            revertWithMessage(memPtrFor, "zero merkle root", 16)
                         }
 
                         let votingRoundId := extractVotingRoundIdFromMessage(
@@ -1308,75 +1421,91 @@ contract Relay is IIRelay {
                                 SD_MASK_randomNumberProtocolId
                             )
                         ) {
-                            // stateData.randomVotingRoundId = votingRoundId
-                            mstore(
-                                add(memPtrFor, M_5_stateData),
-                                assignStruct(
-                                    mload(add(memPtrFor, M_5_stateData)),
-                                    SD_BOFF_randomVotingRoundId,
-                                    SD_MASK_randomVotingRoundId,
-                                    votingRoundId
-                                )
-                            )
-
-                            // stateData.isSecureRandom = message.isSecureRandom
+                            // RLY-14: read and normalize isSecureRandom from the message to {0,1}
                             calldatacopy(
                                 memPtrFor,
                                 add(SELECTOR_BYTES, signingPolicyLength),
                                 MESSAGE_NO_MR_BYTES
                             )
-                            mstore(
+                            let isSecure := iszero(iszero(
+                                structValue(
+                                    shr(sub(256, mul(8, MESSAGE_NO_MR_BYTES)), mload(memPtrFor)),
+                                    MSG_NMR_BOFF_isSecureRandom,
+                                    MSG_NMR_MASK_isSecureRandom
+                                )
+                            ))
+
+                            // RLY-03: verify the random Merkle proof against the signed merkleRoot and store
+                            // toRandomNumberPrivate[votingRoundId] (always, so historical lookups work).
+                            // The trailer (randomNumber || proof) starts right after the signatures.
+                            processRandomMerkleProof(
                                 memPtrFor,
-                                shr(
-                                    sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
-                                    mload(memPtrFor)
-                                )
+                                add(
+                                    mload(add(memPtrFor, M_8_signatureStart)),
+                                    mul(numberOfSignatures, SIGNATURE_WITH_INDEX_BYTES)
+                                ),
+                                add(memPtrFor, M_6_merkleRoot),
+                                votingRoundId,
+                                isSecure
                             )
 
-                            mstore(
-                                add(memPtrFor, M_5_stateData),
-                                assignStruct(
-                                    mload(add(memPtrFor, M_5_stateData)),
-                                    SD_BOFF_isSecureRandom,
-                                    SD_MASK_isSecureRandom,
-                                    structValue(
-                                        mload(memPtrFor),
-                                        MSG_NMR_BOFF_isSecureRandom,
-                                        MSG_NMR_MASK_isSecureRandom
-                                    )
-                                )
-                            )
-
-                            sstore(
-                                stateData.slot,
-                                mload(add(memPtrFor, M_5_stateData))
-                            )
-
-                            // using M_3 and M_4 for helping store historical isSecureRandom
-                            if structValue(
-                                mload(memPtrFor),
-                                MSG_NMR_BOFF_isSecureRandom,
-                                MSG_NMR_MASK_isSecureRandom
-                            ) {
+                            // historical secure-random bit (always, for getRandomNumberHistorical)
+                            if isSecure {
                                 setIsSecureRandomBit(add(memPtrFor, M_3), votingRoundId)
                             }
 
-                            // M_5_stateData is not used anymore. Using M_5_isSecureRandom for
-                            // isSecureRandom, together with M_6_merkleRoot for data of an event
-                            mstore(
-                                add(memPtrFor, M_5_isSecureRandom),
+                            // RLY-03 monotonicity: advance the live random pointer only for a newer round,
+                            // so a stale (within-window) older round cannot regress the reported "current" random.
+                            if gt(
+                                votingRoundId,
                                 structValue(
-                                    mload(add(memPtrFor, M_5_isSecureRandom)),
-                                    SD_BOFF_isSecureRandom,
-                                    SD_MASK_isSecureRandom
+                                    mload(add(memPtrFor, M_5_stateData)),
+                                    SD_BOFF_randomVotingRoundId,
+                                    SD_MASK_randomVotingRoundId
                                 )
-                            )
-                            // Use M_3 and M4 to store event signature
+                            ) {
+                                sstore(
+                                    stateData.slot,
+                                    assignStruct(
+                                        assignStruct(
+                                            mload(add(memPtrFor, M_5_stateData)),
+                                            SD_BOFF_randomVotingRoundId,
+                                            SD_MASK_randomVotingRoundId,
+                                            votingRoundId
+                                        ),
+                                        SD_BOFF_isSecureRandom,
+                                        SD_MASK_isSecureRandom,
+                                        isSecure
+                                    )
+                                )
+                            }
+
+                            // emit ProtocolMessageRelayed(protocolId, votingRoundId, isSecureRandom, merkleRoot)
+                            // data: isSecureRandom (M_5) + merkleRoot (still in M_6)
+                            mstore(add(memPtrFor, M_5_isSecureRandom), isSecure)
                             mstore(add(memPtrFor, M_3), "ProtocolMessageRelayed(uint8,uin")
                             mstore(add(memPtrFor, M_4), "t32,bool,bytes32)")
                             log3(
                                 add(memPtrFor, M_5_isSecureRandom), 64, keccak256(add(memPtrFor, M_3), 49),
                                 protocolId, votingRoundId
+                            )
+
+                            // RLY-03: emit RandomNumberRelayed(votingRoundId, randomNumber, isSecureRandom)
+                            // data: randomNumber (M_6) + isSecureRandom (M_7); indexed topic: votingRoundId
+                            calldatacopy(
+                                add(memPtrFor, M_6_merkleRoot),
+                                add(
+                                    mload(add(memPtrFor, M_8_signatureStart)),
+                                    mul(numberOfSignatures, SIGNATURE_WITH_INDEX_BYTES)
+                                ),
+                                32
+                            )
+                            mstore(add(memPtrFor, M_7_randomNumber), isSecure)
+                            mstore(add(memPtrFor, M_3), "RandomNumberRelayed(uint32,uint2")
+                            mstore(add(memPtrFor, M_4), "56,bool)")
+                            log2(
+                                add(memPtrFor, M_6_merkleRoot), 64, keccak256(add(memPtrFor, M_3), 40),
+                                votingRoundId
                             )
                             return(0,0)
                         } // if protocolId == stateData.randomNumberProtocolId
@@ -1400,21 +1529,38 @@ contract Relay is IIRelay {
         returns (bool)
     {
         if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
-            return oldRelay.verify{value: msg.value}(_protocolId, _votingRoundId, _leaf, _proof);
+            // RLY-13: fail closed — if the old relay returns false (rather than reverting) after we
+            // already forwarded the fee, revert so the value transfer unwinds.
+            bool ok = oldRelay.verify{value: msg.value}(_protocolId, _votingRoundId, _leaf, _proof);
+            require(ok, "old relay verification failed");
+            return true;
         } else {
             require(_protocolId > 1, "invalid protocol id");
-            require(msg.value >= protocolFeeInWei[_protocolId], "too low fee");
+            uint256 fee = protocolFeeInWei[_protocolId];
+            require(msg.value >= fee, "too low fee");
+            // RLY-01: never verify against an uninitialized (zero) Merkle root.
+            bytes32 root = merkleRootsPrivate[_protocolId][_votingRoundId];
+            require(root != bytes32(0), "not finalized");
             require(
-                _proof.verifyCalldata(merkleRootsPrivate[_protocolId][_votingRoundId], _leaf),
+                _proof.verifyCalldata(root, _leaf),
                 "merkle proof invalid"
             );
-        }
-        if (msg.value > 0) {
-            /* solhint-disable avoid-low-level-calls */
-            //slither-disable-next-line arbitrary-send-eth
-            (bool success, ) = feeCollectionAddress.call{value: msg.value}("");
-            /* solhint-enable avoid-low-level-calls */
-            require(success, "Transfer failed");
+            // RLY-21: forward only the fee to the collection address and refund any overpayment.
+            // verify() performs no state writes, so these external calls cannot corrupt contract state.
+            if (fee > 0) {
+                /* solhint-disable avoid-low-level-calls */
+                //slither-disable-next-line arbitrary-send-eth
+                (bool feeOk, ) = feeCollectionAddress.call{value: fee}("");
+                /* solhint-enable avoid-low-level-calls */
+                require(feeOk, "Transfer failed");
+            }
+            uint256 refund = msg.value - fee;
+            if (refund > 0) {
+                /* solhint-disable avoid-low-level-calls */
+                (bool refundOk, ) = msg.sender.call{value: refund}("");
+                /* solhint-enable avoid-low-level-calls */
+                require(refundOk, "Refund failed");
+            }
         }
 
         return true;
@@ -1430,6 +1576,8 @@ contract Relay is IIRelay {
         if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
             return oldRelay.isFinalized(_protocolId, _votingRoundId);
         }
+        // RLY-09: a non-zero stored root is the finalized sentinel; RLY-04 guarantees relayed roots are
+        // non-zero, so this sentinel is reliable (no zero-root "relayed-but-not-finalized" ambiguity).
         return merkleRootsPrivate[_protocolId][_votingRoundId] != bytes32(0);
     }
 
@@ -1458,9 +1606,10 @@ contract Relay is IIRelay {
             uint256 _randomTimestamp
         )
     {
-        _randomNumber = uint256(
-            keccak256(abi.encode(merkleRootsPrivate[stateData.randomNumberProtocolId][stateData.randomVotingRoundId]))
-        );
+        // RLY-03: return the relayed (Merkle-proven) random value for the latest random round.
+        // RLY-20: before the first random relay this returns (0, false, ts); consumers MUST gate on
+        // _isSecureRandom (getRandomNumberHistorical instead reverts for an absent round).
+        _randomNumber = toRandomNumberPrivate[stateData.randomVotingRoundId];
         _isSecureRandom = stateData.isSecureRandom;
         _randomTimestamp =
             stateData.firstVotingRoundStartTs +
@@ -1482,11 +1631,9 @@ contract Relay is IIRelay {
         if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
             return oldRelay.getRandomNumberHistorical(_votingRoundId);
         }
-        bytes32 merkleRoot = merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId];
-        require(merkleRoot != bytes32(0), "no random number");
-        _randomNumber = uint256(
-            keccak256(abi.encode(merkleRoot))
-        );
+        // RLY-03: return the relayed (Merkle-proven) random value for the given round.
+        _randomNumber = toRandomNumberPrivate[_votingRoundId];
+        require(_randomNumber != uint256(0), "no random number");
         _isSecureRandom =
             (isSecureRandomMap[_votingRoundId / 256] >> (255 - _votingRoundId % 256)) & bytes32(uint256(1))
                 == bytes32(uint256(1));
@@ -1539,7 +1686,9 @@ contract Relay is IIRelay {
         (bool success, bytes memory returnData) = address(this).call(_relayMessage);
         /* solhint-enable avoid-low-level-calls */
         require(success, "Verification failed");
-        // 32 bytes hash + 3 bytes reward epoch id
+        // 32 bytes hash + 3 bytes reward epoch id.
+        // RLY-07: the 35-byte length is the unique discriminator of relay()'s protocolId==1 path
+        // (all other paths return 0 bytes or revert). Preserve this invariant if relay() returns change.
         require(returnData.length == 35, "Wrong verification data");
         bytes32 returnHash;
         uint256 returnRewardEpochId;

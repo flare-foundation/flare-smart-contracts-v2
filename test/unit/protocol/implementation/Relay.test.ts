@@ -31,6 +31,7 @@ interface FeeConfig {
 interface RelayGovernanceConfig {
   descriptionHash: string;
   chainId: number;
+  nonce: number;
   newFeeConfigs: FeeConfig[];
 }
 
@@ -44,6 +45,11 @@ const RelayGovernanceConfigABI = {
     {
       "internalType": "uint256",
       "name": "chainId",
+      "type": "uint256"
+    },
+    {
+      "internalType": "uint256",
+      "name": "nonce",
       "type": "uint256"
     },
     {
@@ -69,9 +75,10 @@ const RelayGovernanceConfigABI = {
   "type": "tuple"
 }
 
-function hashRelayGovernanceConfig(config: RelayGovernanceConfig): string {
+function hashRelayGovernanceConfig(config: RelayGovernanceConfig, relayAddress: string): string {
   const paramType = ParamType.from(RelayGovernanceConfigABI);
-  const abiEncoded = coder.encode([paramType], [config]);
+  // Must mirror Relay.governanceFeeSetup: keccak256(abi.encode(_config, address(this))).
+  const abiEncoded = coder.encode([paramType, ParamType.from("address")], [config, relayAddress]);
   return ethers.keccak256(abiEncoded);
 }
 
@@ -107,6 +114,51 @@ function getRandomNumberName(getRandomNumberRaw: GetRandomNumberRaw) {
   };
 }
 
+export interface RandomResult {
+  readonly votingRoundId: number;
+  readonly value: string; // 0x-prefixed bytes32 encoded uint256
+  readonly isSecure: boolean;
+}
+
+function toHex32(x: string | number) {
+  return web3.utils.leftPad(web3.utils.toHex(x), 64);
+}
+
+function hashRandomResult(randomResult: RandomResult): string {
+  return web3.utils.soliditySha3(toHex32(randomResult.votingRoundId) + toHex32(randomResult.value).slice(2) + toHex32(randomResult.isSecure ? 1 : 0).slice(2))!;
+}
+
+function randomNumberWithMerkleProof(randomResult: RandomResult, n = 100) {
+  const randomNumberHash = hashRandomResult(randomResult);
+  const hashes = [randomNumberHash];
+  for (let i = 0; i < n; i++) {
+    hashes.push(web3.utils.randomHex(32));
+  }
+
+  const merkleTree = new MerkleTree(hashes);
+  return {
+    merkleRoot: merkleTree.root,
+    leaf: randomNumberHash,
+    proof: merkleTree.getProof(randomNumberHash)
+  }
+}
+
+function prepareDataWithRandom(messageData: IProtocolMessageMerkleRoot, randomNumber = 100) {
+  const randomNumberResult: RandomResult = {
+    votingRoundId: messageData.votingRoundId,
+    value: toHex32(randomNumber),
+    isSecure: messageData.isSecureRandom
+  }
+  const { leaf, merkleRoot, proof } = randomNumberWithMerkleProof(randomNumberResult)!;
+  messageData.merkleRoot = merkleRoot!;
+  const relayData = {
+    isRandomNumberGeneratingProtocolMessage: true,
+    randomNumber: randomNumberResult.value,
+    merkleProof: proof!
+  };
+  return { randomNumberResult, relayData, randomNumberLeaf: leaf };
+}
+
 
 
 function generateForgedSignatures(
@@ -115,11 +167,12 @@ function generateForgedSignatures(
 ): IECDSASignatureWithIndex[] {
   const signatures: IECDSASignatureWithIndex[] = [];
   for (let i = 0; i < count; i++) {
-    const voterAddress = voters[i].toLowerCase();
-    const r = "0x" + "0".repeat(24) + voterAddress.slice(2);
+    // RLY-16: use a valid v (27) and low s so the canonical-signature checks pass; r = 0 is an
+    // invalid recovery input, so ecrecover returns empty and the returndatasize check is exercised.
+    void voters;
     signatures.push({
-      v: 0,
-      r: r,
+      v: 27,
+      r: "0x" + "0".repeat(64),
       s: "0x0000000000000000000000000000000000000000000000000000000000000001",
       index: i,
     });
@@ -209,7 +262,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-      feeCollectionAddress: constants.ZERO_ADDRESS,
+      feeCollectionAddress: BURN_ADDRESS,
       feeConfigs: []
     }
 
@@ -243,6 +296,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   });
 
   it("Should relay a message for random number generating protocol", async () => {
+    const { randomNumberResult, relayData } = prepareDataWithRandom(messageData, 100);
     const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -254,6 +308,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       signingPolicy: signingPolicyData,
       signatures,
       protocolMessageMerkleRoot: messageData,
+      ...relayData
     };
 
     const fullData = RelayMessage.encode(relayMessage);
@@ -266,7 +321,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       protocolId: toBN(messageData.protocolId),
       votingRoundId: toBN(messageData.votingRoundId),
       isSecureRandom: messageData.isSecureRandom,
-      merkleRoot: merkleRoot,
+      merkleRoot: messageData.merkleRoot,
+    });
+    await expectEvent.inTransaction(receipt.transactionHash, relay, "RandomNumberRelayed", {
+      votingRoundId: toBN(messageData.votingRoundId),
+      randomNumber: toBN(randomNumberResult.value),
+      isSecureRandom: messageData.isSecureRandom,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
     expect(await relay.isFinalized(messageData.protocolId, messageData.votingRoundId)).to.equal(true);
@@ -277,14 +337,22 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     expect(stateData.randomVotingRoundId.toString()).to.be.equal(messageData.votingRoundId.toString());
     expect(stateData.isSecureRandom.toString()).to.be.equal(messageData.isSecureRandom.toString());
 
-    expect(RelayMessage.decode(fullData)).not.to.throw;
-    const decodedRelayMessage = RelayMessage.decode(fullData);
+    // Round-trip the relay message (without the random-number trailer, which RelayMessage.decode
+    // does not parse) through encode/decode to verify the message body encoding.
+    const relayMessageNoTrailer = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: messageData,
+    };
+    const fullDataNoTrailer = RelayMessage.encode(relayMessageNoTrailer);
+    expect(RelayMessage.decode(fullDataNoTrailer)).not.to.throw;
+    const decodedRelayMessage = RelayMessage.decode(fullDataNoTrailer);
 
-    expect(RelayMessage.equals(relayMessage, decodedRelayMessage)).to.be.true;
+    expect(RelayMessage.equals(relayMessageNoTrailer, decodedRelayMessage)).to.be.true;
     const getRandomNumberRaw = await relay.getRandomNumber();
     const { _randomNumber, _isSecureRandom, _randomTimestamp } = getRandomNumberName(getRandomNumberRaw);
     expect(_isSecureRandom).to.be.true;
-    expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(messageData.merkleRoot)).toString());
+    expect(_randomNumber.toString()).to.equal(toBN(randomNumberResult.value).toString());
     expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (messageData.votingRoundId + 1));
     expect((await relay.getVotingRoundId(_randomTimestamp)).toNumber()).to.be.equal(toBN(messageData.votingRoundId + 1));
   });
@@ -333,10 +401,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     expect(RelayMessage.equals(relayMessage, decodedRelayMessage)).to.be.true;
     const getRandomNumberRaw = await relay.getRandomNumber();
     const { _randomNumber, _isSecureRandom, _randomTimestamp } = getRandomNumberName(getRandomNumberRaw);
-    // Because of previous test
+    // Because of previous test: the random pointer is NOT updated by a non-random-number protocol
+    // relay, so it still reflects the value relayed in the previous test (votingRoundId 4411, value 100).
     expect(_isSecureRandom).to.be.true;
-    // different randomly generated merkle root
-    expect(_randomNumber.toString()).to.not.equal(BigInt(web3.utils.keccak256(messageData.merkleRoot)).toString());
+    expect(_randomNumber.toString()).to.equal(toBN(100).toString());
     expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (messageData.votingRoundId + 1));
     expect((await relay.getVotingRoundId(_randomTimestamp)).toNumber()).to.be.equal(toBN(messageData.votingRoundId + 1));
   });
@@ -368,6 +436,28 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         data: selector + fullData.slice(2),
       })
     ).to.be.revertedWith("Not enough weight");
+  });
+
+  it("Should fail to relay a Mode-2 message with a zero merkle root [RLY-04]", async () => {
+    const newMessageData = { ...messageData };
+    newMessageData.protocolId = randomNumberProtocolId + 1; // non-random protocol
+    newMessageData.votingRoundId++;
+    newMessageData.merkleRoot = ethers.ZeroHash;
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const signatures = await generateSignatures(accountPrivateKeys, messageHash, N / 2 + 1);
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: newMessageData,
+    };
+    const fullData = RelayMessage.encode(relayMessage);
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData.slice(2),
+      })
+    ).to.be.revertedWith("zero merkle root");
   });
 
   it("Should fail to relay a message due to non increasing signature indices", async () => {
@@ -494,7 +584,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-      feeCollectionAddress: constants.ZERO_ADDRESS,
+      feeCollectionAddress: BURN_ADDRESS,
       feeConfigs: []
     }
 
@@ -579,6 +669,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   it("Should relay a message with old signing policy and 20% signatures more", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs; // shift to next reward epoch
+    const { relayData } = prepareDataWithRandom(newMessageData, 100);
     const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
     const signatureObjects = await generateSignatures(
@@ -591,6 +682,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       signingPolicy: signingPolicyData,
       signatures: signatureObjects,
       protocolMessageMerkleRoot: newMessageData,
+      ...relayData
     };
     const fullData = RelayMessage.encode(relayMessage);
 
@@ -603,7 +695,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       protocolId: toBN(newMessageData.protocolId),
       votingRoundId: toBN(newMessageData.votingRoundId),
       isSecureRandom: newMessageData.isSecureRandom,
-      merkleRoot: merkleRoot,
+      merkleRoot: newMessageData.merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
     expect(await relay.isFinalized(newMessageData.protocolId, newMessageData.votingRoundId)).to.equal(true);
@@ -699,7 +791,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-      feeCollectionAddress: constants.ZERO_ADDRESS,
+      feeCollectionAddress: BURN_ADDRESS,
       feeConfigs: []
     }
 
@@ -822,6 +914,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const newMessageData = { ...messageData };
     // newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs - 1; // shift to next reward epoch
     newMessageData.votingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch) + 12;
+    const { relayData } = prepareDataWithRandom(newMessageData, 100);
     const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
     newSigningPolicyData.rewardEpochId = newRewardEpoch;
@@ -840,6 +933,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       signingPolicy: newSigningPolicyData,
       signatures,
       protocolMessageMerkleRoot: newMessageData,
+      ...relayData
     };
 
     const fullData = RelayMessage.encode(relayMessage);
@@ -853,7 +947,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       protocolId: toBN(newMessageData.protocolId),
       votingRoundId: toBN(newMessageData.votingRoundId),
       isSecureRandom: newMessageData.isSecureRandom,
-      merkleRoot: merkleRoot,
+      merkleRoot: newMessageData.merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
     expect(await relay.isFinalized(newMessageData.protocolId, newMessageData.votingRoundId)).to.equal(true);
@@ -861,14 +955,19 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const stateDataRaw = await relay.stateData();
     const stateData = stateDataName(stateDataRaw);
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
-    expect(stateData.randomVotingRoundId.toString()).to.be.equal(newMessageData.votingRoundId.toString());
-    expect(stateData.isSecureRandom.toString()).to.be.equal(newMessageData.isSecureRandom.toString());
+    // RLY-03 monotonicity: this votingRoundId is lower than the one relayed by a previous test, so the
+    // live random pointer does not regress to it; the per-round value is still stored and queryable.
+    expect(toBN(stateData.randomVotingRoundId).toNumber()).to.be.at.least(newMessageData.votingRoundId);
+    const historical = getRandomNumberName(await relay.getRandomNumberHistorical(newMessageData.votingRoundId));
+    expect(historical._randomNumber.toString()).to.be.equal(toBN(100).toString());
+    expect(historical._isSecureRandom.toString()).to.be.equal(newMessageData.isSecureRandom.toString());
 
   });
 
   it("Should relay a message with old signing policy and less then 20%+ more weight after delayed reward epoch initialization", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = firstVotingRoundInRewardEpoch(signingPolicyData.rewardEpochId + 1) + 9; // new startingVotingRoundId is on +10
+    const { relayData } = prepareDataWithRandom(newMessageData, 100);
     const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
     const signatures = await generateSignatures(
@@ -881,6 +980,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       signingPolicy: signingPolicyData,
       signatures,
       protocolMessageMerkleRoot: newMessageData,
+      ...relayData
     };
 
     const fullData = RelayMessage.encode(relayMessage);
@@ -894,7 +994,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       protocolId: toBN(newMessageData.protocolId),
       votingRoundId: toBN(newMessageData.votingRoundId),
       isSecureRandom: newMessageData.isSecureRandom,
-      merkleRoot: merkleRoot,
+      merkleRoot: newMessageData.merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
     expect(await relay.isFinalized(newMessageData.protocolId, newMessageData.votingRoundId)).to.equal(true);
@@ -902,8 +1002,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const stateDataRaw = await relay.stateData();
     const stateData = stateDataName(stateDataRaw);
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
-    expect(stateData.randomVotingRoundId.toString()).to.be.equal(newMessageData.votingRoundId.toString());
-    expect(stateData.isSecureRandom.toString()).to.be.equal(newMessageData.isSecureRandom.toString());
+    // RLY-03 monotonicity: this votingRoundId is lower than the one relayed by a previous test, so the
+    // live random pointer does not regress to it; the per-round value is still stored and queryable.
+    expect(toBN(stateData.randomVotingRoundId).toNumber()).to.be.at.least(newMessageData.votingRoundId);
+    const historical = getRandomNumberName(await relay.getRandomNumberHistorical(newMessageData.votingRoundId));
+    expect(historical._randomNumber.toString()).to.be.equal(toBN(100).toString());
+    expect(historical._isSecureRandom.toString()).to.be.equal(newMessageData.isSecureRandom.toString());
   });
 
   it("Should fail to relay a message with old signing policy when a new was initialized and votingRoundId is over startingVotingRoundId", async () => {
@@ -1153,7 +1257,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1201,7 +1305,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1233,7 +1337,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1254,7 +1358,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1291,7 +1395,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1321,7 +1425,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1349,7 +1453,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1395,7 +1499,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1456,7 +1560,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1477,7 +1581,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1533,7 +1637,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1554,7 +1658,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1764,6 +1868,90 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: "1000" });
       const newBalance = Number(await web3.eth.getBalance(BURN_ADDRESS));
       expect(newBalance - oldBalance).to.equal(1000);
+
+      // RLY-21: overpayment is refunded; feeCollection receives only the fee (1000), not the full 2000.
+      const beforeOverpay = Number(await web3.eth.getBalance(BURN_ADDRESS));
+      await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: "2000" });
+      const afterOverpay = Number(await web3.eth.getBalance(BURN_ADDRESS));
+      expect(afterOverpay - beforeOverpay).to.equal(1000);
+    });
+
+    it("Should reject verification against an unfinalized (zero) root [RLY-01]", async () => {
+      const signingPolicyData = defaultTestSigningPolicy(signers.map(x => x.address), N, singleWeight);
+      signingPolicyData.rewardEpochId = rewardEpochId;
+      signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
+      const localHash = SigningPolicy.hashEncoded(SigningPolicy.encode(signingPolicyData));
+      const relayInitialConfig: RelayInitialConfig = {
+        initialRewardEpochId: signingPolicyData.rewardEpochId,
+        startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
+        initialSigningPolicyHash: localHash,
+        randomNumberProtocolId: randomNumberProtocolId,
+        firstVotingRoundStartTs: firstVotingRoundStartSec,
+        votingEpochDurationSeconds: votingRoundDurationSec,
+        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
+        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
+        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: BURN_ADDRESS,
+        feeConfigs: []
+      };
+      const relay = await Relay.new(relayInitialConfig, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
+      // Nothing relayed for protocol 16 / round 12345 -> stored root is zero. A zero leaf with an
+      // empty proof would previously have returned true; it must now revert.
+      await expectRevert(
+        relay.verify(randomNumberProtocolId + 1, 12345, constants.ZERO_BYTES32, []),
+        "not finalized"
+      );
+    });
+  });
+
+  describe("Constructor validation [RLY-10/RLY-11]", () => {
+    function baseConfig(): RelayInitialConfig {
+      const sp = defaultTestSigningPolicy(signers.map(x => x.address), N, singleWeight);
+      sp.rewardEpochId = rewardEpochId;
+      sp.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
+      return {
+        initialRewardEpochId: sp.rewardEpochId,
+        startingVotingRoundIdForInitialRewardEpochId: sp.startVotingRoundId,
+        initialSigningPolicyHash: SigningPolicy.hashEncoded(SigningPolicy.encode(sp)),
+        randomNumberProtocolId: randomNumberProtocolId,
+        firstVotingRoundStartTs: firstVotingRoundStartSec,
+        votingEpochDurationSeconds: votingRoundDurationSec,
+        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
+        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
+        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: BURN_ADDRESS,
+        feeConfigs: []
+      };
+    }
+
+    it("Should deploy with a valid config (sanity)", async () => {
+      await Relay.new(baseConfig(), constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
+    });
+
+    it("RLY-11: rejects zero rewardEpochDurationInVotingEpochs", async () => {
+      const cfg = baseConfig();
+      cfg.rewardEpochDurationInVotingEpochs = 0;
+      await expectRevert(Relay.new(cfg, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS), "reward epoch duration zero");
+    });
+
+    it("RLY-11: rejects zero votingEpochDurationSeconds", async () => {
+      const cfg = baseConfig();
+      cfg.votingEpochDurationSeconds = 0;
+      await expectRevert(Relay.new(cfg, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS), "voting epoch duration zero");
+    });
+
+    it("RLY-10: rejects zero feeCollectionAddress in relay mode", async () => {
+      const cfg = baseConfig();
+      cfg.feeCollectionAddress = constants.ZERO_ADDRESS;
+      await expectRevert(Relay.new(cfg, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS), "fee collection address zero");
+    });
+
+    it("RLY-10: allows zero feeCollectionAddress in setter mode", async () => {
+      const cfg = baseConfig();
+      cfg.feeCollectionAddress = constants.ZERO_ADDRESS;
+      await Relay.new(cfg, signers[0].address, constants.ZERO_ADDRESS); // signingPolicySetter != 0
     });
   });
 
@@ -1790,7 +1978,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1894,7 +2082,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -1910,6 +2098,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const newRelayGovernanceConfig: RelayGovernanceConfig = {
         descriptionHash: relayGovernanceDescriptionHash,
         chainId,
+        nonce: 1,
         newFeeConfigs: [
           {
             protocolId: 2,
@@ -1920,7 +2109,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
       async function prepareRelayMessage(config: RelayGovernanceConfig, numSignatures = N / 2 + 1, protocolId = 1, votingRoundId = 0, newRewardEpochId?: number) {
         const newMessageData = { ...messageData };
-        newMessageData.merkleRoot = specificHash;
+        newMessageData.merkleRoot = hashRelayGovernanceConfig(config, relay.address);
         newMessageData.votingRoundId = votingRoundId;
         newMessageData.isSecureRandom = false;
         newMessageData.protocolId = protocolId;
@@ -1943,13 +2132,43 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         const fullData = RelayMessage.encode(relayMessage);
         return selector + fullData.slice(2)
       }
-      const specificHash = hashRelayGovernanceConfig(newRelayGovernanceConfig);
-
       for (const feeChange of newRelayGovernanceConfig.newFeeConfigs) {
         expect((await relay.protocolFeeInWei(feeChange.protocolId)).toString()).to.equal("0");
-        await relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig);
+        const setupTx = await relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig);
+        expectEvent(setupTx, "RelayGovernanceFeeConfigured", { feeInWei: NEW_FEE, nonce: "1" });
         expect((await relay.protocolFeeInWei(feeChange.protocolId)).toString()).to.equal(NEW_FEE);
       }
+      expect((await relay.governanceFeeNonce()).toString()).to.equal("1");
+
+      // RLY-02: replaying an accepted governance message is rejected (nonce did not increase).
+      await expectRevert(
+        relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig),
+        "nonce too low"
+      );
+
+      // RLY-02: a strictly-greater (non-sequential) nonce is accepted.
+      const bumpConfig: RelayGovernanceConfig = {
+        descriptionHash: relayGovernanceDescriptionHash,
+        chainId,
+        nonce: 5,
+        newFeeConfigs: [{ protocolId: 2, feeInWei: "2000" }]
+      };
+      await relay.governanceFeeSetup(await prepareRelayMessage(bumpConfig), bumpConfig);
+      expect((await relay.protocolFeeInWei(2)).toString()).to.equal("2000");
+      expect((await relay.governanceFeeNonce()).toString()).to.equal("5");
+
+      // RLY-02: a nonce <= the current one (3 < 5) is rejected, even though > the original nonce.
+      const staleConfig: RelayGovernanceConfig = {
+        descriptionHash: relayGovernanceDescriptionHash,
+        chainId,
+        nonce: 3,
+        newFeeConfigs: [{ protocolId: 2, feeInWei: "3000" }]
+      };
+      await expectRevert(
+        relay.governanceFeeSetup(await prepareRelayMessage(staleConfig), staleConfig),
+        "nonce too low"
+      );
+      expect((await relay.protocolFeeInWei(2)).toString()).to.equal("2000");
 
       newRelayGovernanceConfig.descriptionHash = web3.utils.keccak256("Something else");
       await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig), "wrong description hash");
@@ -2006,20 +2225,22 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
       const hashes = new Map<number, string>();
       const isSecure = new Map<number, boolean>();
+      const randomNumbers = new Map<number, string>();
       const startVotingRoundId = signingPolicyData.startVotingRoundId;
       const MAX_NUM = 1000;
       const STEP = 39;
       for (let i = 0; i < MAX_NUM; i += STEP) {
         const random = Math.random() > 0.5;
-        const specificHash = web3.utils.keccak256(`hash${i}`);
-        hashes.set(startVotingRoundId + i, specificHash);
         isSecure.set(startVotingRoundId + i, random);
         const newMessageData = {
-          merkleRoot: specificHash,
+          merkleRoot: "", // will be set in prepareDataWithRandom
           votingRoundId: startVotingRoundId + i,
           isSecureRandom: random,
           protocolId: randomNumberProtocolId
         };
+        const { randomNumberResult, relayData } = prepareDataWithRandom(newMessageData, 100 + i);
+        hashes.set(startVotingRoundId + i, newMessageData.merkleRoot);
+        randomNumbers.set(startVotingRoundId + i, randomNumberResult.value);
         const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
         const signatures = await generateSignatures(
           accountPrivateKeys,
@@ -2031,6 +2252,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           signingPolicy: signingPolicyData,
           signatures,
           protocolMessageMerkleRoot: newMessageData,
+          ...relayData
         };
 
         const fullData = RelayMessage.encode(relayMessage);
@@ -2043,13 +2265,13 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         const getRandomNumberRaw = await relay.getRandomNumber();
         let { _randomNumber, _isSecureRandom, _randomTimestamp } = getRandomNumberName(getRandomNumberRaw);
         expect(_isSecureRandom).to.equal(random);
-        expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(newMessageData.merkleRoot)).toString());
+        expect(_randomNumber.toString()).to.equal(BigInt(randomNumberResult.value).toString());
         expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (newMessageData.votingRoundId + 1));
         expect((await relay.getVotingRoundId(_randomTimestamp)).toNumber()).to.be.equal(toBN(newMessageData.votingRoundId + 1));
 
         const getRandomNumberHistoricalRaw = await relay.getRandomNumberHistorical(newMessageData.votingRoundId);
         ({ _randomNumber, _isSecureRandom, _randomTimestamp } = getRandomNumberName(getRandomNumberHistoricalRaw));
-        expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(newMessageData.merkleRoot)).toString());
+        expect(_randomNumber.toString()).to.equal(BigInt(randomNumberResult.value).toString());
         expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (newMessageData.votingRoundId + 1));
         expect(_isSecureRandom).to.equal(random);
       }
@@ -2059,7 +2281,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         if (hashes.get(votingRoundId)) {
           const getRandomNumberHistoricalRaw = await relay.getRandomNumberHistorical(votingRoundId);
           const { _randomNumber, _isSecureRandom, _randomTimestamp } = getRandomNumberName(getRandomNumberHistoricalRaw);
-          expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(hashes.get(votingRoundId)!)).toString());
+          expect(_randomNumber.toString()).to.equal(BigInt(randomNumbers.get(votingRoundId)!).toString());
           expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (votingRoundId + 1));
           expect(_isSecureRandom).to.equal(isSecure.get(votingRoundId));
         } else {
@@ -2082,7 +2304,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -2275,7 +2497,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -2290,7 +2512,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: []
       }
 
@@ -2392,10 +2614,22 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
             isSecureRandom: isRandomNumberProtocol
           };
           const newMessageData = newMessageDataTmp;
-          // initialize a random merkle root
-          newMessageData.merkleRoot = ethers.hexlify(ethers.randomBytes(32));
-          const leaf = newMessageData.merkleRoot;
-          const proof: string[] = [];
+          let leaf: string;
+          let proof: string[];
+          let relayData = {};
+          if (isRandomNumberProtocol) {
+            // For the random-number protocol the merkle root must contain the random-number leaf
+            // (so the appended random-number trailer verifies); use that leaf/proof as the example.
+            const prepared = prepareDataWithRandom(newMessageData, randomNumber);
+            leaf = prepared.randomNumberLeaf;
+            proof = prepared.relayData.merkleProof;
+            relayData = prepared.relayData;
+          } else {
+            // initialize a random merkle root
+            newMessageData.merkleRoot = ethers.hexlify(ethers.randomBytes(32));
+            leaf = newMessageData.merkleRoot;
+            proof = [];
+          }
           votingRoundIdAndProtocolIdToMerkleRoot.set(`${votingRoundIdBase + votingRoundOffset}-${protocolId}`, newMessageData.merkleRoot);
           votingRoundIdAndProtocolIdExampleLeaf.set(`${votingRoundIdBase + votingRoundOffset}-${protocolId}`, leaf);
           votingRoundIdAndProtocolIdExampleProof.set(`${votingRoundIdBase + votingRoundOffset}-${protocolId}`, proof);
@@ -2411,6 +2645,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
             signingPolicy: newSigningPolicyData,
             signatures,
             protocolMessageMerkleRoot: newMessageData,
+            ...relayData
           };
 
           const fullData = RelayMessage.encode(relayMessage);
@@ -2535,6 +2770,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         merkleRoot,
       };
 
+      const { relayData } = prepareDataWithRandom(messageData, 100);
       const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
       const signatures = await generateSignatures(
         accountPrivateKeys,
@@ -2546,6 +2782,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         signingPolicy: signingPolicyData,
         signatures,
         protocolMessageMerkleRoot: messageData,
+        ...relayData
       };
 
       const fullData = RelayMessage.encode(relayMessage);
@@ -2564,7 +2801,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           protocolId: toBN(messageData.protocolId),
           votingRoundId: toBN(messageData.votingRoundId),
           isSecureRandom: messageData.isSecureRandom,
-          merkleRoot: merkleRoot,
+          merkleRoot: messageData.merkleRoot,
         }
       );
 
@@ -2667,7 +2904,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       ).to.equal(false);
     });
 
-    it("Sanity check: v=0 forged sig fails with wrong r value (not voter address)", async () => {
+    it("Sanity check: v=0 forged sig is rejected by the canonical-signature check [RLY-16]", async () => {
       // const attackVotingRoundId = votingRoundId + 4;
       const attackVotingRoundId = testVotingRoundId + 4;
       const messageData: IProtocolMessageMerkleRoot = {
@@ -2700,7 +2937,38 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           to: relay.address,
           data: fullCalldata,
         })
-      ).to.be.revertedWith("ecrecover returned bad data");
+      ).to.be.revertedWith("Bad v");
+    });
+
+    it("High-s forged signature is rejected [RLY-16]", async () => {
+      const attackVotingRoundId = testVotingRoundId + 5;
+      const messageData: IProtocolMessageMerkleRoot = {
+        protocolId: randomNumberProtocolId + 1, // non-random protocol (no trailer needed; reverts before)
+        votingRoundId: attackVotingRoundId,
+        isSecureRandom: false,
+        merkleRoot: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      };
+      const signingPolicyEncoded = SigningPolicy.encode(signingPolicyData).slice(2);
+      const messageEncoded = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
+      const badSigs: IECDSASignatureWithIndex[] = [];
+      for (let i = 0; i < N / 2 + 1; i++) {
+        badSigs.push({
+          v: 27,
+          r: "0x0000000000000000000000000000000000000000000000000000000000000001",
+          s: "0x8000000000000000000000000000000000000000000000000000000000000001", // > secp256k1n/2
+          index: i,
+        });
+      }
+      const signaturesEncoded = encodeForgedSignatures(badSigs);
+      const fullCalldata =
+        selector + signingPolicyEncoded + messageEncoded + signaturesEncoded;
+      await expect(
+        signers[0].sendTransaction({
+          from: signers[0].address,
+          to: relay.address,
+          data: fullCalldata,
+        })
+      ).to.be.revertedWith("Bad s");
     });
   });
 });
