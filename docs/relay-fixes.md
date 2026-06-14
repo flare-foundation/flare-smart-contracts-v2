@@ -3,7 +3,7 @@
 **Branch:** `relay-fix-3` (off `origin/main` @ `264dab74`)
 **Target:** `contracts/protocol/implementation/Relay.sol` (+ its interfaces / tests)
 **Started:** 2026-06-14
-**Status:** Substantive set + selected defence-in-depth notes complete on `relay-fix-3`. Implemented & tested: RLY-02, RLY-03 (incl. RLY-14), RLY-01, RLY-13, RLY-21, RLY-10, RLY-11, RLY-04, **RLY-16, RLY-17, RLY-18, RLY-22**. Documented (no code): RLY-06, **RLY-07, RLY-09, RLY-15, RLY-19, RLY-20**. Deferred: RLY-05, RLY-08, RLY-12. **Foundry 21 passing · Hardhat 54 passing.**
+**Status:** Substantive set + selected defence-in-depth notes + post-review hardening complete on `relay-fix-3`. Implemented & tested: RLY-02, RLY-03 (incl. RLY-14), RLY-01, RLY-13, RLY-21, RLY-10, RLY-11, RLY-04, **RLY-16, RLY-17, RLY-18, RLY-22**, and security-review **M-1, L-1, L-4**. Documented (no code): RLY-06, **RLY-07, RLY-09, RLY-15, RLY-19, RLY-20**, and **L-2, L-3, L-6, L-7**. Deferred: RLY-05, RLY-08, RLY-12; review L-5 (strictly-increasing nonce, accepted). **Foundry 31 passing · Hardhat Relay 54 + Submission + EndToEnd 36 = 93 passing.** See "Security-review follow-ups" at the end + `docs/relay-security-review.md`.
 
 This document records, issue by issue, exactly what is changed in `Relay.sol`
 to address the findings collected from the internal AI audit runs (the
@@ -273,3 +273,41 @@ Agreed set done: **RLY-02, RLY-03 (+RLY-14), RLY-01, RLY-13, RLY-21, RLY-10, RLY
 - **RLY-20** 📝: `getRandomNumber` comment documents the bootstrap `(0,false,ts)` return and that consumers must gate on `_isSecureRandom`.
 
 **Status:** ✅/📝 Implemented/documented & tested on `relay-fix-3` (uncommitted).
+
+---
+
+## Security-review follow-ups (post-review hardening + coverage)
+
+After the substantive set, a dedicated security review (`docs/relay-security-review.md`) surfaced one Medium and a Low cluster. The selected improvements are implemented here. **Foundry `Relay.t.sol`: 31 passing · Hardhat Relay 54 + Submission + EndToEnd 36: 93 passing.**
+
+### ✅ M-1 — `verify()` oldRelay fallback now refunds overpayment (Medium)
+
+The RLY-21 refund applied only to the new-relay path; the historical-round fallback forwarded the **entire `msg.value`** to `oldRelay.verify`, contradicting the documented refund guarantee. Fixed (option a): the fallback now reads `oldFee = oldRelay.protocolFeeInWei(_protocolId)`, `require(msg.value >= oldFee, "too low fee")`, forwards only `oldFee`, `require`s the old relay's success (`"old relay verification failed"`), then refunds `msg.value - oldFee` to `msg.sender` (`require(ok, "Refund failed")`). Test: `test_verify_oldRelayFallback_refundsOverpayment` (mock fee 700, `verify{value:5000}` on a historical round; asserts old relay nets +700 and caller −700). `MockOldRelay` gained `protocolFeeInWei`.
+
+### ✅ L-1 — random `value == 0` no longer collides with the "not relayed" sentinel (Low)
+
+`getRandomNumberHistorical` previously gated on `_randomNumber != 0`, so a legitimately relayed `value == 0` round was reported finalized yet absent. Now it gates on `require(merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId] != bytes32(0), "no random number")` (RLY-04 guarantees relayed roots are non-zero) and returns `toRandomNumberPrivate[_votingRoundId]` (which may be `0`). Test: `test_random_zeroValue_isReturnedNotAbsent`.
+
+### ✅ L-4 — constructor rejects a zero `initialSigningPolicyHash` (Low)
+
+`require(_initialConfig.initialSigningPolicyHash != bytes32(0), "initial signing policy hash zero");` (after the RLY-11 duration checks). Prevents a bricked pure-relay deployment seeded with a zero initial hash. Test: `test_ctor_rejects_zeroInitialSigningPolicyHash`. (Setter-mode tests that set the genesis policy via `setSigningPolicy` now pass a non-zero placeholder initial hash.)
+
+### 📝 L-2 / L-3 — interface NatSpec hardening (documented)
+
+- **L-2:** `IRelay.verify` NOTE — the overpayment refund is a value-bearing call; a contract caller must be able to receive ETH (or send exactly the fee), else `verify()` reverts.
+- **L-3:** `IRelay.verifyCustomSignature` SECURITY note — it is a generic signature-quorum oracle (no chainId / contract / nonce binding); callers MUST domain-separate `_messageHash` themselves.
+
+### 📝 L-6 — `startVotingRoundId` monotonicity: documented, **not** enforced on-chain (downgraded)
+
+Initially implemented as a `require(_signingPolicy.startVotingRoundId >= startingVotingRoundIds[lastInitializedRewardEpoch])` in `setSigningPolicy`, but **reverted to a code comment**: an on-chain check pre-empted an existing voters-count revert and conflicted with legitimate setter-driven configurations (the existing test scenarios do not maintain strict start-round monotonicity). Like RLY-06, this canonical-ordering invariant is the trusted setter's (FlareSystemsManager) responsibility; the assumption is now documented at the `setSigningPolicy` site.
+
+### 📝 L-7 — monotonic-random guard edge documented (Low)
+
+Comment on the `votingRoundId > stored` guard noting the `votingRoundId == 0`-first-round under-report edge is unreachable on the production deployment (the first reward epoch starts at a non-zero voting round).
+
+### ✅ Coverage additions
+
+- **High gap** — cross-epoch random monotonicity: `test_random_monotonicity_acrossRewardEpochs` (relay epoch R+1's random, then an older in-window round; live pointer stays at R+1).
+- **Medium gaps** — `test_random_malformedTrailerLength_reverts` (non-%32 trailer reverts), `test_random_deepMerkleProof` (multi-node proof fold), `test_random_isSecureNormalization` (message `isSecure` byte `2` folds to `1` in the leaf + stored flag), `test_threshold_exactBoundary_strictGreater` (weight `==` threshold fails, `>` passes), `test_verify_feeReceiverReverts` / `test_verify_refundReceiverReverts` (reverting receiver → `"Transfer failed"` / `"Refund failed"`; new `RevertingReceiver` helper).
+
+Remaining Low-risk coverage gaps and the Halmos/Kontrol FV opportunities (see the review doc) are **deferred**.

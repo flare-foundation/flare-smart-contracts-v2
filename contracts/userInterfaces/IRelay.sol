@@ -89,6 +89,11 @@ interface IRelay is RandomNumberV2Interface {
      * signed for protocol message Merkle root of the form (1, 0, 0, _messageHash).
      * If the check is successful, reward epoch id of the signing policy is returned.
      * Otherwise the function reverts.
+     * **SECURITY (L-3):** This is a generic signature-quorum oracle — it only checks that enough current voters
+     *           signed _messageHash. It does NOT bind chain id, this contract's address, or any nonce. Callers
+     *           MUST domain-separate _messageHash themselves (e.g. include block.chainid, the consuming contract
+     *           address, and an application nonce); otherwise the same voter signatures can be replayed for the
+     *           same _messageHash on another chain or deployment with an overlapping signing policy.
      * @param _relayMessage The relay message.
      * @param _messageHash The hash of the message.
      * @return _rewardEpochId The reward epoch id of the signing policy.
@@ -138,7 +143,8 @@ interface IRelay is RandomNumberV2Interface {
      * Verifies the leaf (or intermediate node) with the Merkle proof against the Merkle root
      * for given protocol id and voting round id.
      * A fee may need to be paid. It is protocol specific.
-     * **NOTE:** Overpayment above the protocol fee is refunded to the caller.
+     * **NOTE:** Overpayment above the protocol fee is refunded to the caller via a value-bearing call, so a
+     *           contract caller MUST be able to receive ETH (or send exactly the fee); otherwise verify() reverts (L-2).
      * **NOTE (RLY-15):** A leaf equal to the (finalized, non-zero) root verifies with an empty proof —
      *           a standard Merkle property. Off-chain leaf encoding MUST be domain-separated from internal
      *           and root node hashes so an internal node cannot be presented as a differently-typed leaf.

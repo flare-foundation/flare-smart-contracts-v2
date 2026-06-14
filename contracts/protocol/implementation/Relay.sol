@@ -236,6 +236,8 @@ contract Relay is IIRelay {
         // RLY-11: reject zero epoch durations (would cause div-by-zero / silent-zero in epoch math).
         require(_initialConfig.rewardEpochDurationInVotingEpochs > 0, "reward epoch duration zero");
         require(_initialConfig.votingEpochDurationSeconds > 0, "voting epoch duration zero");
+        // L-4: a zero initial signing-policy hash would brick the initial epoch (no relay message could match).
+        require(_initialConfig.initialSigningPolicyHash != bytes32(0), "initial signing policy hash zero");
         require(
             _initialConfig.firstRewardEpochStartVotingRoundId +
             _initialConfig.initialRewardEpochId * _initialConfig.rewardEpochDurationInVotingEpochs <=
@@ -326,6 +328,10 @@ contract Relay is IIRelay {
             stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
             "not next reward epoch"
         );
+        // L-6 (documented, not enforced): the reward-epoch decision matrix assumes a non-decreasing
+        // startVotingRoundId across epochs. Like RLY-06, this canonical-ordering invariant is the
+        // trusted signing-policy setter's (FlareSystemsManager) responsibility and is intentionally NOT
+        // re-checked here — an on-chain require conflicts with legitimate setter-driven configurations.
         require(_signingPolicy.voters.length > 0, "must be non-trivial");
         require(_signingPolicy.voters.length <= MAX_VOTERS, "too many voters");
         require(_signingPolicy.voters.length == _signingPolicy.weights.length, "size mismatch");
@@ -1456,6 +1462,9 @@ contract Relay is IIRelay {
 
                             // RLY-03 monotonicity: advance the live random pointer only for a newer round,
                             // so a stale (within-window) older round cannot regress the reported "current" random.
+                            // L-7 (narrow/accepted): the stored pointer starts at 0, so a FIRST-ever random relayed
+                            // at votingRoundId 0 would not advance it. The random protocol's first round is always
+                            // > 0 in practice (firstRewardEpochStartVotingRoundId), so this edge is not reachable.
                             if gt(
                                 votingRoundId,
                                 structValue(
@@ -1529,10 +1538,20 @@ contract Relay is IIRelay {
         returns (bool)
     {
         if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
-            // RLY-13: fail closed — if the old relay returns false (rather than reverting) after we
-            // already forwarded the fee, revert so the value transfer unwinds.
-            bool ok = oldRelay.verify{value: msg.value}(_protocolId, _votingRoundId, _leaf, _proof);
+            // RLY-13: fail closed if the old relay returns false (rather than reverting).
+            // M-1: forward only the old relay's fee and refund any overpayment, so the fallback honours
+            // the same fee/refund contract as the new-relay path below.
+            uint256 oldFee = oldRelay.protocolFeeInWei(_protocolId);
+            require(msg.value >= oldFee, "too low fee");
+            bool ok = oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof);
             require(ok, "old relay verification failed");
+            uint256 oldRefund = msg.value - oldFee;
+            if (oldRefund > 0) {
+                /* solhint-disable avoid-low-level-calls */
+                (bool oldRefundOk, ) = msg.sender.call{value: oldRefund}("");
+                /* solhint-enable avoid-low-level-calls */
+                require(oldRefundOk, "Refund failed");
+            }
             return true;
         } else {
             require(_protocolId > 1, "invalid protocol id");
@@ -1631,9 +1650,13 @@ contract Relay is IIRelay {
         if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
             return oldRelay.getRandomNumberHistorical(_votingRoundId);
         }
-        // RLY-03: return the relayed (Merkle-proven) random value for the given round.
+        // RLY-03 + L-1: gate presence on the finalized (non-zero, per RLY-04) merkle root, NOT on the value,
+        // so a legitimately-relayed random value of 0 is returned rather than mis-read as "absent".
+        require(
+            merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId] != bytes32(0),
+            "no random number"
+        );
         _randomNumber = toRandomNumberPrivate[_votingRoundId];
-        require(_randomNumber != uint256(0), "no random number");
         _isSecureRandom =
             (isSecureRandomMap[_votingRoundId / 256] >> (255 - _votingRoundId % 256)) & bytes32(uint256(1))
                 == bytes32(uint256(1));
