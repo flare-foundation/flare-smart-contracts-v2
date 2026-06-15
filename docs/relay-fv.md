@@ -91,23 +91,23 @@ Each obligation: informal statement; formal statement; assumptions; tool/bound; 
 
 ### P3 — Canonicality gating (malleability / zero-signer)
 - **Formal:** any signature with `v ∉ {27,28}` or `s > n/2` or recovered `address(0)` causes a revert *before* its weight is added (no contribution to `weight`).
-- **Assumptions:** A2, A3, A5. **Tool:** Halmos. **Status:** _planned._
+- **Assumptions:** A2, A3, A5. **Tool:** Halmos. **Status:** ✅ **proved (bounded, K=1)** — `RelayCanonicalityFV.check_p3_{badV,highS}_cannotAccept`: a single signature with `v∉{27,28}` or high-`s` cannot accept even when its weight alone exceeds the threshold (the `"Bad v"`/`"Bad s"` reverts at `Relay.sol:1269/1275` precede the weight add at `:1325`); `check_p3_reachability_canonicalAccepts` confirms a canonical sig accepts. Zero-signer: documented (unreachable to acceptance — recovered must equal the non-zero `voters[index]`). Caveat: single-signature shape.
 
 ### P4 — Random-proof binding (second-preimage / value binding)
 - **Formal:** `toRandomNumberPrivate[vrid]` can be set to `val` only if `keccak256(abi.encode(vrid, val, isSecure))` is a leaf reproducing the **signed** `merkleRoot` via the provided proof. Equivalently: no accepting run sets the stored random to a value not committed under the signed root.
 - **Assumptions:** A1 (injective keccak ⇒ binding), A3 (depth ≤ D), A5. **Tool:** Halmos. **Status:** _planned._
 
 ### P5 — `isSecure` normalization
-- **Formal:** the `isSecure` used in the leaf hash, the stored `isSecureRandomMap` bit, and the emitted event are all equal to `(messageByte != 0)` (RLY-14). **Tool:** Halmos. **Status:** _planned._
+- **Formal:** the `isSecure` fed to the Merkle leaf, the stored `isSecureRandomMap` bit, and the live `stateData.isSecureRandom` flag are all equal to `(messageByte != 0)` (RLY-14). **Tool:** Halmos. **Status:** ✅ **proved (bounded, b∈0..255, 3 sigs, 2-leaf tree)** — `RelayIsSecureNormFV`: `check_leafNorm_machineChecked` (leaf rule is exactly `(b!=0)`, via an INDEPENDENT decoupled leaf bit so a divergent rule like `b&1` is caught), `check_historicalSecure_eq_byteNonZero` (stored map bit), `check_liveSecure_eq_byteNonZero` (live flag), `check_liveAndHistorical_agree`; reachability controls at `b=0`, `b=1`, and `b>1`. **Scope note:** the proven sinks are leaf / stored-map-bit / live-flag. The *emitted event* `isSecure` field (`Relay.sol:1508`/`:1526`) is written from the **same** `isSecure` local (the RLY-14 "one normalization, every sink" fact) but is not separately asserted — verifying the emitted field directly is a small follow-up.
 
 ### P6 — 35-byte return discriminator
-- **Formal:** only the `protocolId==1` path returns 35 bytes; Mode-0 returns 0 / Mode-2 returns 0 or reverts — so `_verifyCustomSignature`'s length check cannot be confused. **Tool:** Halmos. **Status:** _planned._
+- **Formal:** only the `protocolId==1` path returns 35 bytes; Mode-0 returns 0 / Mode-2 returns 0 or reverts — so `_verifyCustomSignature`'s length check cannot be confused. **Tool:** Halmos. **Status:** ✅ **proved (bounded, K=3)** — `RelayReturnDiscriminatorFV`: `check_protocolId1_successReturns35`, `check_protocolId3_successReturns0`, `check_protocolId3_isNot35`; reachability for both paths. Caveat: Mode-0 (`protocolId==0`, also returns 0) not separately exercised — irrelevant to `_verifyCustomSignature`, which only issues `protocolId==1` calls.
 
 ### P7 — Fee conservation (verify(), new-relay path)
-- **Formal:** for `msg.value ≥ fee`, after `verify()` succeeds: `feeCollection` balance += `fee`, caller net −`fee`, contract retains 0. **Tool:** Halmos. **Status:** _planned._
+- **Formal:** for `msg.value ≥ fee`, after `verify()` succeeds: `feeCollection` balance += `fee`, caller net −`fee`, contract retains 0. **Tool:** Halmos. **Status:** ✅ **proved (bounded, msg.value/fee ≤ 2¹²⁸)** — `RelayFeeConservationFV.check_p7_feeConservation` (the three balance deltas mirror `Relay.sol:1590-1603`); `check_p7_reachability` confirms a reachable success. Caveats: new-relay path only (oldRelay==0 fallback has its own accounting, unit-tested separately); value cap is non-restrictive (≫ ETH supply).
 
 ### P8 — Signing-policy-hash equivalence
-- **Formal:** the assembly `calculateSigningPolicyHash` equals the reference fold (lift the harness's dynamic cross-check to symbolic input). **Tool:** Halmos. **Status:** _planned._
+- **Formal:** the assembly `calculateSigningPolicyHash` equals the reference fold (lift the harness's dynamic cross-check to symbolic input). **Tool:** Halmos. **Status:** ✅ **proved (bounded, NV∈{1,2,3})** — `RelayPolicyHashFV.check_policyHash_equiv_NV{1,2,3}` (assembly fold `Relay.sol:574-602` ≡ reference fold `Relay.t.sol:111-128` — byte-identical keccak-call sequence under A1); `check_policyHash_mismatchReachable_NV3` is the sensitivity tripwire. Caveat: NV≤3 (covers initial-word + mid-fold + zero-padded-tail cases); up to MAX_VOTERS=300 rests on loop uniformity (Phase 2).
 
 **Deferred to Phase 2 (Kontrol, unbounded/inductive):** random monotonicity across `relay()` sequences; threshold soundness for unbounded K via loop invariant; `M_0..M_8` non-collision as machine-checked lemmas.
 
@@ -148,3 +148,15 @@ A 4-lens adversarial audit (vacuity, faithfulness, hidden-assumptions, modeling-
 4. **Distinct voters (A4 / RLY-06) is constructional.** Voter addresses are hardcoded distinct; the threshold proofs carry no `vm.assume(distinct)`. The signer-level reading ("distinct indices ⇒ distinct signers") therefore relies on the trusted-setter precondition `relay()` does not enforce in relay-only mode.
 5. **Cryptography assumed, not proved (A1/A2).** Uninterpreted ecrecover/keccak ⇒ only the on-chain accounting half of "only the quorum can finalize" is established; ECDSA unforgeability and keccak collision-resistance are external assumptions (conservative direction — uninterpreted ecrecover gives the adversary more power).
 6. **Conservative input widening.** The parametric harness quantifies over all NV=3 policies, including thresholds (`thr=0`, `thr≥sum`) that the setter-mode `checkThresholdConsistency` (`:1109`, Mode-1 only) would reject — strictly stronger than "for setter-valid policies." Threshold/weight *consistency* is a separate property owned by `checkThresholdConsistency`, NOT established here.
+
+---
+
+## 7. Audit of the P3–P8 proofs (2026-06-15)
+
+A 4-lens adversarial audit (vacuity / faithfulness / over-constraint / harness-fidelity) + synthesis was run over the five new harnesses (`RelayCanonicalityFV`, `RelayReturnDiscriminatorFV`, `RelayFeeConservationFV`, `RelayIsSecureNormFV`, `RelayPolicyHashFV`). **Verdict: valid-with-caveats — no false PASS.** The synthesizer independently re-derived each (P3 reverts precede the weight add `:1269-1280`/`:1325`; P6 length reads hit the real return sites `:1362`/`:1432`; P7 deltas mirror `:1590-1603`; P8 the two folds are byte-identical; P5 S1/S2 machine-checked over symbolic `b`).
+
+Two P5 mustFix items were applied:
+1. **Leaf normalization upgraded from by-construction to machine-checked** — `check_leafNorm_machineChecked` builds the signed root from an INDEPENDENT leaf bit decoupled from the message byte, so `accept ⟹ (b!=0) == lb` now proves the contract's leaf rule is exactly `(b!=0)` over all `b` (would catch a `b&1` divergence); added a `b>1` reachability control (`check_reach_highByte_canAccept`).
+2. **Docs sink list corrected** — P5 above now lists the *proven* sinks (leaf / stored map bit / live flag) and scopes the emitted-event field honestly.
+
+Per-obligation caveats are recorded inline in §4 (P3 single-sig; P6 Mode-0 not exercised; P7 new-relay-path-only + value cap; P8 NV≤3); the generic bounded-MC caveats of §6 apply throughout. Halmos result across the five: **16 PASS + 9 reachability counterexamples** (`loop = 6`; max loop depth on any path = 3).
