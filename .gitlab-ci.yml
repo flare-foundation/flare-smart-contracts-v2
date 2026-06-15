@@ -185,7 +185,13 @@ test-unit-forge:
 # the proofs vacuous. See docs/relay-fv.md. verify_fv.py judges via Halmos JSON (Halmos's own exit code
 # is non-zero by design, since the reachability controls produce counterexamples).
 test-fv-halmos:
-  needs: []
+  # depend on build-smart-contracts and pull its node_modules cache: forge build needs the npm-resolved
+  # remappings (e.g. @gnosis.pm/mock-contract) that live under node_modules/, exactly like test-unit-forge
+  # (which gets them via .test-node-sc). soldeer + forge install cover the non-npm deps.
+  needs:
+  - job: build-smart-contracts
+    artifacts: false
+  cache: [ !reference [.partials, cache-nodejs] ]
   timeout: 20 minutes
   tags: [ flarenetwork-md ]
   # The foundry:stable image has ONLY forge (no python/curl/apt, non-root), so halmos can't be added to
