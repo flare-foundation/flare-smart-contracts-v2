@@ -1,0 +1,8 @@
+# Halmos config (auto-loaded from ROOT/halmos.toml). Mirrors CLI long-options.
+# This repo builds to a non-default artifacts dir; point Halmos at it.
+[global]
+forge-build-out = "artifacts-forge"
+# Loop unrolling bound. DEFAULT IS 2, which silently truncates relay()'s signature loop and makes
+# any 3+-signature test pass VACUOUSLY. Must be >= the max loop iterations exercised by a proof
+# (signer count, Merkle proof depth). Keep the reachability controls in the FV tests as a tripwire.
+loop = 6
