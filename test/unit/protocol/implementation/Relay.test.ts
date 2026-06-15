@@ -1613,6 +1613,16 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           signingPolicyBytes: SigningPolicy.encode(newSigningPolicyData)
         });
 
+      // Coverage: the relay() Mode-1 assembly path must ACCEPT exactly MAX_VOTERS (300), not only reject 301.
+      const receipt300 = await web3.eth.sendTransaction({
+        from: signers[0].address,
+        to: relay3.address,
+        data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
+      });
+      await expectEvent.inTransaction(receipt300.transactionHash, relay3, "SigningPolicyRelayed", {
+        rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
+      });
+
     });
 
     it("Should fail due to total weight be too big or not in sync with threshold limits", async () => {

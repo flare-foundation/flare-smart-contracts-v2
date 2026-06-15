@@ -123,3 +123,59 @@ Coverage is strong on the fixed behaviours (each RLY-xx has a regression test; H
 3. **L-4** (`initialSigningPolicyHash != 0`) + **L-3** (verifyCustomSignature NatSpec warning) + **L-6/L-7** guards: cheap hardening.
 4. **L-5**: decide strictly-increasing vs sequential nonce (your call; trade-off documented).
 5. **Coverage:** add the High gap (cross-epoch random monotonicity) + the Medium gaps; then pursue the Halmos/Kontrol invariants on the harness.
+
+---
+
+# Round 2 — re-review of the UPDATED contract (post M-1 / L-1 / L-4)
+
+**Target:** `Relay.sol` @ commit `463fd59c` on `relay-fix-3` (after the Round-1 hardening landed). 1726 lines.
+**Method:** adversarial multi-agent workflow — **11 dimension reviewers** (M-1 fallback, L-1 random presence, constructor, sig/threshold, asm/memory, random-asm, governance/custom-sig, verify/fee, state-machine, Mode-0 policy rotation, invariants/access); **every finding refute-tested through 3 independent lenses** (exploitability, correctness-vs-code, regression-from-fix; survives only with ≥2/3); plus **2 coverage angles** (behavioral + adversarial) and a **completeness critic**. 80 agents total.
+**Date:** 2026-06-14.
+
+**Headline: CLEAN.** Zero findings survived adversarial verification — the M-1/L-1/L-4 fixes introduced **no new defect**, and the previously-asserted-sound core was independently **re-confirmed against the code**. The critic re-derived the full `relay()` assembly memory layout and verified: `M_8` (signature start, `0x180`) is never clobbered by the signature loop / random-proof scratch / event logging; the random `sstore` precedes the `M_5` reuse (state persistence correct); the ecrecover input/output overlap (output into the `0x80` input window) is benign (the precompile reads input fully before writing); `protocolId==1` is the only non-empty return and never writes `merkleRootsPrivate`; and `governanceFeeSetup` reentrancy is safe (the re-entered `protocolId==1` path makes no external calls and writes no fee/nonce state).
+
+## Verified-sound (the M-1 three-call fallback specifically)
+The new `verify()` oldRelay branch makes three external calls (`protocolFeeInWei`, `verify{value:oldFee}`, refund `msg.sender.call`). Confirmed safe: `verify()` performs **no state writes**, so reentrancy into `relay()`/`verify()`/`governanceFeeSetup` during any of the three calls cannot corrupt or double-spend (it is plain CEI with no critical state). `oldRelay` is the trusted previous deployment (set once at construction); the refund recipient is arbitrary but only risks its own call (self-inflicted DoS, no cross-account griefing). No double-charge: the fallback `return true`s before the new-relay fee path.
+
+## Silent-shadowing concern — investigated and refuted (would have been the only correctness gap)
+The critic asked whether a **new-relay Mode-2 write** could ever target a `votingRoundId < startingVotingRoundIdForInitialRewardEpochId` — which the four read paths (`verify`/`merkleRoots`/`isFinalized`/`getRandomNumberHistorical`) unconditionally delegate to `oldRelay`, so such a write would be silently shadowed. **Verified unreachable** by reading the code: the lowest signing-policy hash ever stored is `initialRewardEpochId` (constructor), and `setSigningPolicy`/Mode-1 relay only add strictly-greater epochs; the relay gates at `Relay.sol:917` ("Wrong sign policy reward epoch", `messageRewardEpochId ≥ rewardEpochId`) and `Relay.sol:948` ("Delayed sign policy", `votingRoundId ≥ policy.startVotingRoundId`) together force every Mode-2 write to have `votingRoundId ≥ startingVotingRoundIdForInitialRewardEpochId`. The write domain and the read-delegation boundary coincide exactly; no shadowing is possible.
+
+## Test-coverage gaps (this is where the actionable value is)
+
+Coverage is strong (Foundry 31 + Hardhat 54 + EndToEnd 36; every RLY-xx and the M-1/L-1/L-4 happy paths have regression tests). The gaps below are **revert-branch / boundary** holes, prioritized:
+
+| Risk | Area | What's missing | Proposed test (framework) |
+|---|---|---|---|
+| **High** | M-1 fallback `"too low fee"` (`Relay.sol:1545`) | `msg.value < oldFee` on the oldRelay branch never sent (existing test overpays 5000 vs 700) | MockOldRelay fee=700; `verify{value:699}(3,100,…)` ⇒ revert `"too low fee"` (Foundry) |
+| **High** | M-1 fallback exact-fee / no-refund branch | `msg.value == oldFee > 0` (refund branch skipped) untested | `verify{value:700}`; assert old relay +700, caller −700, no refund call (Foundry) |
+| **High** | `governanceFeeSetup` own negatives | in-loop `"invalid protocol id"` (config protocolId ≤ 1) and `"fee cannot be set"` (called on a setter-mode relay) untested (the existing hits are *constructor* checks) | config with `protocolId==1` ⇒ `"invalid protocol id"`; setter-mode relay ⇒ `"fee cannot be set"`; `nonce == governanceFeeNonce` pins the strict-`>` edge (either) |
+| Med | M-1 fallback `oldFee==0` + overpay | full-refund-with-zero-fee combo untested | MockOldRelay fee=0; `verify{value:1234}`; caller net 0, returns true (Foundry) |
+| Med | new-relay `verify()` `"merkle proof invalid"` / `"invalid protocol id"` | only `"not finalized"` + happy path tested; wrong leaf/proof against a *finalized* root, and `protocolId ≤ 1`, untested | finalize a root, `verify(pid,vrid,wrongLeaf,proof)` ⇒ `"merkle proof invalid"`; `verify(1,…)` ⇒ `"invalid protocol id"` (either) |
+| Med | `"No random number"` short trailer (`Relay.sol:689`) | 1..31-byte trailer (partial random word) hits this branch; existing tests only assert `ok==false`, not the reason | append 31-byte trailer, bubble revert ⇒ assert `"No random number"` (Foundry) |
+| Med | oldRelay **read**-delegation in isolation | `MockOldRelay` doesn't implement `getRandomNumberHistorical`/`merkleRoots`/`toSigningPolicyHash`/`isFinalized`; their `< boundary` delegation is unit-untested | extend mock with sentinels; assert delegation below boundary, local logic at/above (Foundry) |
+| Med | relay-mode getter lockouts | `merkleRoots()` `"no access to merkle roots"` (`:1613`) and `toSigningPolicyHash()` `"no access…"` (`:1684`) never asserted | on relay-mode harness, `expectRevert` both (Foundry) |
+| Med | `getVotingRoundId()` `"before the start"` (`:1673`) | underflow-guard revert never asserted | `expectRevert("before the start"); getVotingRoundId(firstTs-1)` (either) |
+| Med | `verifyCustomSignature()` direct | only reached via `governanceFeeSetup`; its own happy path + `"Verification failed"` untested | call directly with valid + too-few signers (Foundry) |
+| Med | Mode-1 `checkThresholdConsistency` `"total weight too big"` exact edge | sum `== 65535` pass / `== 65536` fail on the **relay()** path not pinned | relay() Mode-1 with weights summing to 65535 then 65536 (Hardhat) |
+| Low | `getRandomNumber()` pre-relay tuple (RLY-20) | `(0,false,ts)` on a fresh relay never asserted | fresh relay ⇒ assert `(0,false,ts)` (either) |
+| Low | Foundry signature-index checks | `"Index out of range"` / `"Index out of order"` only in Hardhat | hand-craft descending / out-of-range indices (Foundry) |
+| Low | zero `numberOfSignatures` | `count==0` falls through to `"Not enough weight"` untested | 0-count trailer ⇒ `"Not enough weight"` (Foundry) |
+| Low | `"Message too old"` / `"Wrong sign policy reward epoch"` window edge in Foundry | only Hardhat advances epochs enough to cross the window | push `lastInitializedRewardEpoch`, relay at window vs window+1 (Foundry) |
+| Low | constructor oldRelay incompatibility in Foundry | Foundry `MockOldRelay` always matches; reverse setter/relay-mode mismatch + timing-mismatch reverts untested there | mismatched-mock variants ⇒ `"old relay incompatible"` / `"wrong … "` (Foundry) |
+| Low | reentrancy receiver (defense-in-depth) | receivers that *revert* are tested; one that *re-enters* `verify()`/`relay()` during the refund is not | re-entrant receiver; assert outer call still consistent, no extra ETH extracted (Foundry) |
+| Low | relay() Mode-1 accept exactly `MAX_VOTERS` (300) | only 301-reject + setter-path 300 tested | Mode-1 message with 300 voters ⇒ relays OK (Hardhat) |
+| Low | non-random Mode-2 `isSecure` byte propagation | raw (non-normalized) byte into `ProtocolMessageRelayed` for a non-random protocol undocumented/untested | relay non-random with `isSecure=2`; assert event reflects raw byte (Foundry) |
+
+## Critic Info/Low items (documentation / optional hardening)
+- **L-6 invariant carries to the relay path transitively.** The L-6 comment defers monotonicity to the trusted local setter, but on **pure-relay** chains `startingVotingRoundIds` is written by the Mode-1 `relay()` path from *signature-bound* policy metadata — so the invariant is enforced transitively by the quorum's signature over the signing-policy hash, not by a local setter. Worth stating in the comment. (Trust model unchanged; severity Info.)
+- **Mode-1 relayed policy skips RLY-06 voter checks** (no zero-addr/duplicate/order re-check). Security is carried by the **strictly-increasing signature index** (a duplicate voter is counted at most once) and ecrecover never returning `address(0)`. Worth documenting this linkage next to RLY-06.
+- **`messageFinalizationWindowInRewardEpochs` is unvalidated** in the constructor (unlike the RLY-11 duration checks). `0` ⇒ only the current epoch can finalize; very large ⇒ staleness protection effectively disabled. Config-quality, not a vuln — consider a constructor bound or an explicit "accepted range" note.
+- **`uint32 + 1` overflow in the random getters** (`Relay.sol:1635`, `:1665`): `randomVotingRoundId + 1` is computed in `uint32` before the `uint256` cast; at `type(uint32).max` it reverts. Astronomically unreachable (Info). Optional robustness: cast before adding (`uint256(x) + 1`).
+- **Migration handshake** (`redeploy-relay.ts`): the new relay seeds `lastInitializedRewardEpoch = initialRewardEpochId` and the first `setSigningPolicy` must be exactly `+1`. No on-chain check that FlareSystemsManager's bookkeeping agrees; relies on operational cutover sequencing. Operational note (L-4 already fail-closes a zero next-policy hash).
+
+## Round 2 — resolution status (implemented on `relay-fix-3`)
+
+All selected improvements implemented + tested. **Foundry `Relay.t.sol`: 31 → 52 passing · Hardhat 93 passing.**
+- **Coverage (all four bundles):** added the High/Medium revert-branch and boundary tests — M-1 fallback `"too low fee"` / exact-fee-no-refund / zero-fee-full-refund; `governanceFeeSetup` `"invalid protocol id"` + `"fee cannot be set"`; `verifyCustomSignature` direct + insufficient-weight; `verify()` `"merkle proof invalid"` / `"invalid protocol id"`; relay-mode getter lockouts; `getVotingRoundId` `"before the start"`; `getRandomNumber` pre-relay default; `"No random number"` short trailer; oldRelay read-delegation (mock extended); signature `"Index out of range"` / `"Index out of order"` / zero-sig; constructor oldRelay incompatibility + timing mismatch; relay()-path accept-exactly-300-voters (Hardhat); and a reentrancy defense-in-depth test.
+- **Deliberately skipped (low value):** exact `totalWeight` 65535/65536 off-by-one on the relay() path (the `"total weight too big"` revert + happy 300-voter accept are already covered; an exact off-by-one is fragile to craft) and a Foundry re-implementation of the `"Message too old"` window edge (already covered in Hardhat).
+- **Critic Info/Low items — documented in code** (no behavior change): L-6 transitive-via-signed-policy-hash note; RLY-06 index-ordering linkage at the signature loop; shadowing-unreachable invariant at the `verify()` read boundary; migration-handshake note in the constructor. `messageFinalizationWindowInRewardEpochs` bound and the `uint32 + 1` getter edge left as-is (Info).

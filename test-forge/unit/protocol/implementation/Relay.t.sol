@@ -241,6 +241,38 @@ contract RelayGovernanceFeeReplayTest is RelayTestBase {
         vm.expectRevert("Invalid config hash");
         relay.governanceFeeSetup(rm, c);
     }
+
+    // Coverage: the public verifyCustomSignature entry point (only reached via governanceFeeSetup elsewhere).
+    function test_verifyCustomSignature_direct_returnsRewardEpoch() public {
+        bytes32 mh = keccak256("app-action");
+        uint256 rid = relay.verifyCustomSignature(_customSigRelayMessage(policy, mh, 3), mh);
+        assertEq(rid, REWARD_EPOCH_ID, "verifyCustomSignature returns the signing policy reward epoch");
+    }
+
+    // Coverage: insufficient weight on the custom-sig path surfaces as "Verification failed".
+    function test_verifyCustomSignature_insufficientWeight_reverts() public {
+        bytes32 mh = keccak256("app-action");
+        // 2 signers -> weight 200 < threshold 260 -> inner relay() reverts -> "Verification failed"
+        vm.expectRevert("Verification failed");
+        relay.verifyCustomSignature(_customSigRelayMessage(policy, mh, 2), mh);
+    }
+
+    // Coverage: governanceFeeSetup rejects a fee config for a reserved protocol id (<= 1), in-loop after verify.
+    function test_governanceFeeSetup_invalidProtocolId_reverts() public {
+        IRelay.RelayGovernanceConfig memory c = _governanceConfig(1, 1, 1000); // protocolId 1
+        bytes32 mh = keccak256(abi.encode(c, address(relay)));
+        vm.expectRevert("invalid protocol id");
+        relay.governanceFeeSetup(_customSigRelayMessage(policy, mh, 3), c);
+    }
+
+    // Coverage: governanceFeeSetup is disabled on a setter-mode (Flare) deployment ("fee cannot be set").
+    function test_governanceFeeSetup_onSetterMode_reverts() public {
+        Relay setterRelay = new Relay(_initialConfig(_signingPolicyHash(policy)), address(this), IRelay(address(0)));
+        IRelay.RelayGovernanceConfig memory c = _governanceConfig(1, 2, 1000);
+        bytes memory rm = _customSigRelayMessage(policy, keccak256(abi.encode(c, address(setterRelay))), 3);
+        vm.expectRevert("fee cannot be set");
+        setterRelay.governanceFeeSetup(rm, c);
+    }
 }
 
 // RLY-03: true Merkle-proven random + monotonicity.
@@ -432,6 +464,27 @@ contract RelayRandomTest is RelayTestBase {
         (uint256 rnd, bool sec,) = relay.getRandomNumber();
         assertEq(rnd, value);
         assertTrue(sec, "isSecure must be normalized to true");
+    }
+
+    // bubbles the inner relay() revert data so vm.expectRevert can match the exact reason
+    function relayRaw(bytes calldata rm) external {
+        (bool ok, bytes memory ret) = address(relay).call(rm);
+        if (!ok) {
+            assembly { revert(add(ret, 0x20), mload(ret)) }
+        }
+    }
+
+    // Coverage (Med): a trailer shorter than the 32-byte random word hits the distinct "No random number"
+    // guard (calldatasize < proofStart+32), separate from the non-multiple-of-32 "Incorrect merkle proof".
+    function test_random_shortTrailer_revertsNoRandomNumber() public {
+        uint32 vrid = START_VOTING_ROUND_ID;
+        (bytes32 root,) = _treeFor(vrid, 0xAAAA, true);
+        bytes memory message = _protocolMessage(RANDOM_PROTOCOL_ID, vrid, true, root);
+        bytes memory sigs = _signatures(_ethSignedHash(message), _firstK(3));
+        bytes memory trailer = new bytes(16); // < 32: partial random-number word
+        bytes memory rm = abi.encodePacked(Relay.relay.selector, policy, message, sigs, trailer);
+        vm.expectRevert("No random number");
+        this.relayRaw(rm);
     }
 }
 
@@ -647,6 +700,165 @@ contract RelayVerifyTest is RelayTestBase {
         rr.callVerify{value: 5000}(r, 3, START_VOTING_ROUND_ID, leaf, proof); // overpays -> refund to rr reverts
     }
 
+    // Coverage (Med): a valid proof for the WRONG leaf against a finalized root reverts "merkle proof invalid".
+    function test_verify_merkleProofInvalid_reverts() public {
+        uint8 pid = 3;
+        uint32 vrid = START_VOTING_ROUND_ID;
+        bytes32 leaf = keccak256("claim-leaf");
+        bytes32 sibling = keccak256("sibling");
+        _relayNonRandom(pid, vrid, _sortedPair(leaf, sibling), 3);
+        bytes32[] memory badProof = new bytes32[](1);
+        badProof[0] = keccak256("wrong-sibling");
+        vm.expectRevert("merkle proof invalid");
+        relay.verify(pid, vrid, leaf, badProof);
+    }
+
+    // Coverage (Med): verify() on the new-relay path rejects a reserved protocol id (<= 1).
+    function test_verify_invalidProtocolId_reverts() public {
+        vm.expectRevert("invalid protocol id");
+        relay.verify(1, START_VOTING_ROUND_ID, keccak256("x"), new bytes32[](0));
+    }
+
+    // Coverage (Med): in relay mode (signingPolicySetter == 0) merkleRoots() is locked out.
+    function test_merkleRoots_relayMode_reverts() public {
+        vm.expectRevert("no access to merkle roots");
+        relay.merkleRoots(3, START_VOTING_ROUND_ID);
+    }
+
+    // Coverage (Med): in relay mode toSigningPolicyHash() is locked out.
+    function test_toSigningPolicyHash_relayMode_reverts() public {
+        vm.expectRevert("no access to signing policy hashes");
+        relay.toSigningPolicyHash(REWARD_EPOCH_ID);
+    }
+
+    // Coverage (Med): getVotingRoundId underflow guard.
+    function test_getVotingRoundId_beforeStart_reverts() public {
+        vm.expectRevert("before the start");
+        relay.getVotingRoundId(uint256(FIRST_VOTING_ROUND_TS) - 1);
+    }
+
+    // Coverage (Low, RLY-20): getRandomNumber() before any random relay returns (0, false, ts), no revert.
+    function test_getRandomNumber_beforeAnyRelay_returnsDefault() public {
+        (uint256 rnd, bool sec, uint256 tsv) = relay.getRandomNumber();
+        assertEq(rnd, 0, "no random yet");
+        assertFalse(sec, "not secure before any relay");
+        assertEq(tsv, uint256(FIRST_VOTING_ROUND_TS) + uint256(1) * VOTING_EPOCH_DURATION, "ts for round 0+1");
+    }
+
+    // ---- M-1 oldRelay fallback fee edges ----
+
+    function _oldRelayWithFee(uint256 feeWei) internal returns (MockOldRelay mock, Relay r) {
+        mock = new MockOldRelay(
+            true, FIRST_VOTING_ROUND_TS, VOTING_EPOCH_DURATION,
+            FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID, REWARD_EPOCH_DURATION, feeWei
+        );
+        r = new Relay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(mock)));
+    }
+
+    // M-1: msg.value below the old relay's fee reverts "too low fee".
+    function test_verify_oldRelayFallback_tooLowFee_reverts() public {
+        (, Relay r) = _oldRelayWithFee(700);
+        vm.deal(address(this), 1 ether);
+        vm.expectRevert("too low fee");
+        r.verify{value: 699}(3, 100, keccak256("x"), new bytes32[](0)); // round 100 < START -> fallback
+    }
+
+    // M-1: exact fee -> oldRefund == 0 -> the refund call is SKIPPED. A refund-rejecting caller paying
+    // the exact fee must therefore NOT revert (proves the if(oldRefund > 0) false-branch).
+    function test_verify_oldRelayFallback_exactFee_skipsRefund() public {
+        (MockOldRelay mock, Relay r) = _oldRelayWithFee(700);
+        RevertingReceiver rr = new RevertingReceiver();
+        vm.deal(address(rr), 1 ether);
+        uint256 mockBefore = address(mock).balance;
+        rr.callVerify{value: 700}(r, 3, 100, keccak256("x"), new bytes32[](0));
+        assertEq(address(mock).balance - mockBefore, 700, "old relay received exactly its fee, no refund attempted");
+    }
+
+    // M-1: oldFee == 0 with overpayment -> full refund to caller.
+    function test_verify_oldRelayFallback_zeroFee_fullRefund() public {
+        (MockOldRelay mock, Relay r) = _oldRelayWithFee(0);
+        vm.deal(address(this), 1 ether);
+        uint256 mockBefore = address(mock).balance;
+        uint256 selfBefore = address(this).balance;
+        bool ok = r.verify{value: 1234}(3, 100, keccak256("x"), new bytes32[](0));
+        assertTrue(ok);
+        assertEq(address(mock).balance - mockBefore, 0, "old relay forwarded zero fee");
+        assertEq(selfBefore - address(this).balance, 0, "caller fully refunded");
+    }
+
+    // Coverage (Med): the four read paths delegate to the old relay below the switchover boundary.
+    function test_oldRelay_readDelegation_belowBoundary() public {
+        (, Relay r) = _oldRelayWithFee(0);
+        assertEq(r.merkleRoots(3, 100), bytes32(uint256(0xABCDEF)), "merkleRoots delegated");
+        assertTrue(r.isFinalized(3, 100), "isFinalized delegated");
+        assertEq(r.toSigningPolicyHash(0), bytes32(uint256(0xCAFE)), "toSigningPolicyHash delegated (epoch 0 < initial)");
+        (uint256 rn, bool sec,) = r.getRandomNumberHistorical(100);
+        assertEq(rn, 0xBEEF, "historical random delegated");
+        assertTrue(sec, "historical isSecure delegated");
+    }
+
+    // Coverage (Low, DiD): a caller that re-enters a verify()-path read during the refund callback.
+    // verify() does no state writes, so this is benign: reentrancy observes consistent state and
+    // feeCollection receives exactly one fee.
+    function test_verify_reentrantReceiver_consistentNoExtraEth() public {
+        uint8 pid = 3;
+        uint32 vrid = START_VOTING_ROUND_ID;
+        uint256 fee = 500;
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeConfigs = new IRelay.FeeConfig[](1);
+        cfg.feeConfigs[0] = IRelay.FeeConfig(pid, fee);
+        Relay r = new Relay(cfg, address(0), IRelay(address(0)));
+
+        bytes32 leaf = keccak256("l");
+        bytes32 sibling = keccak256("s");
+        bytes memory message = _protocolMessage(pid, vrid, false, _sortedPair(leaf, sibling));
+        bytes memory sigs = _signatures(_ethSignedHash(message), _firstK(3));
+        (bool ok,) = address(r).call(abi.encodePacked(Relay.relay.selector, policy, message, sigs));
+        require(ok, "relay failed");
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = sibling;
+
+        ReentrantReceiver rr = new ReentrantReceiver(r, pid, vrid, leaf, proof);
+        vm.deal(address(this), 1 ether);
+        uint256 feeBefore = feeCollection.balance;
+        rr.fire{value: 5000}(); // overpays -> refund 4500 to rr -> receive() re-enters isFinalized
+        assertTrue(rr.reentered(), "refund callback re-entered verify() read");
+        assertEq(feeCollection.balance - feeBefore, fee, "exactly one fee collected despite reentrancy");
+    }
+
+    // ---- signature-loop index / count edges ----
+
+    // Coverage (Low): a signature index == numberOfVoters is out of range.
+    function test_relay_indexOutOfRange_reverts() public {
+        bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("r"));
+        (uint8 v, bytes32 rr, bytes32 s) = vm.sign(pks[0], _ethSignedHash(message));
+        bytes memory sigs = abi.encodePacked(uint16(1), v, rr, s, uint16(uint256(N))); // index N (valid 0..N-1)
+        bytes memory rm = abi.encodePacked(Relay.relay.selector, policy, message, sigs);
+        vm.expectRevert("Index out of range");
+        this.relayRaw(rm);
+    }
+
+    // Coverage (Low): signature indices must be strictly increasing.
+    function test_relay_indexOutOfOrder_reverts() public {
+        bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("r"));
+        bytes32 sh = _ethSignedHash(message);
+        (uint8 v0, bytes32 r0, bytes32 s0) = vm.sign(pks[1], sh);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(pks[0], sh);
+        bytes memory sigs = abi.encodePacked(uint16(2), v0, r0, s0, uint16(1), v1, r1, s1, uint16(0)); // 1 then 0
+        bytes memory rm = abi.encodePacked(Relay.relay.selector, policy, message, sigs);
+        vm.expectRevert("Index out of order");
+        this.relayRaw(rm);
+    }
+
+    // Coverage (Low): a zero-signature message falls through to "Not enough weight".
+    function test_relay_zeroSignatures_notEnoughWeight() public {
+        bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("r"));
+        bytes memory sigs = abi.encodePacked(uint16(0)); // declared count 0, no signature bytes
+        bytes memory rm = abi.encodePacked(Relay.relay.selector, policy, message, sigs);
+        vm.expectRevert("Not enough weight");
+        this.relayRaw(rm);
+    }
+
     receive() external payable {}
 }
 
@@ -700,6 +912,23 @@ contract RelayConstructorTest is RelayTestBase {
         new Relay(c, address(0), IRelay(address(0)));
     }
 
+    // Coverage (Med): a relay-mode new deployment against a SETTER-mode old relay is incompatible.
+    function test_ctor_oldRelay_incompatibleSetterMode_reverts() public {
+        MockOldRelaySetterMode mock = new MockOldRelaySetterMode();
+        vm.expectRevert("old relay incompatible");
+        new Relay(_cfg(), address(0), IRelay(address(mock))); // new relay = relay mode, old = setter mode
+    }
+
+    // Coverage (Med): a timing-field mismatch with the old relay is rejected ("wrong start ts").
+    function test_ctor_oldRelay_wrongStartTs_reverts() public {
+        MockOldRelay mock = new MockOldRelay(
+            true, FIRST_VOTING_ROUND_TS + 1, VOTING_EPOCH_DURATION, // ts differs by 1
+            FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID, REWARD_EPOCH_DURATION, 0
+        );
+        vm.expectRevert("wrong start ts");
+        new Relay(_cfg(), address(0), IRelay(address(mock)));
+    }
+
 }
 
 // Minimal old-relay mock: satisfies the Relay constructor compatibility checks
@@ -733,6 +962,55 @@ contract MockOldRelay {
 
     function verify(uint256, uint256, bytes32, bytes32[] calldata) external payable returns (bool) {
         return verifyReturn;
+    }
+
+    // Read-delegation sentinels (distinct constants) so the new relay's pre-boundary fallbacks can be asserted.
+    function merkleRoots(uint256, uint256) external pure returns (bytes32) {
+        return bytes32(uint256(0xABCDEF));
+    }
+    function isFinalized(uint256, uint256) external pure returns (bool) {
+        return true;
+    }
+    function toSigningPolicyHash(uint256) external pure returns (bytes32) {
+        return bytes32(uint256(0xCAFE));
+    }
+    function getRandomNumberHistorical(uint256) external pure returns (uint256, bool, uint256) {
+        return (0xBEEF, true, 0xD00D);
+    }
+}
+
+// Old relay reporting SETTER mode (non-zero signingPolicySetter) -> triggers "old relay incompatible"
+// against a relay-mode new deployment (the incompat check runs before any stateData read).
+contract MockOldRelaySetterMode {
+    function signingPolicySetter() external pure returns (address) {
+        return address(0x5E77E5);
+    }
+}
+
+// Re-enters a verify()-path read during the overpayment refund callback; proves verify() exposes
+// consistent state mid-call and that reentrancy is harmless (verify() performs no state writes).
+contract ReentrantReceiver {
+    Relay internal r;
+    uint256 internal pid;
+    uint256 internal vrid;
+    bytes32 internal leaf;
+    bytes32[] internal proof;
+    bool public reentered;
+
+    constructor(Relay _r, uint256 _pid, uint256 _vrid, bytes32 _leaf, bytes32[] memory _proof) {
+        r = _r; pid = _pid; vrid = _vrid; leaf = _leaf; proof = _proof;
+    }
+
+    function fire() external payable {
+        r.verify{value: msg.value}(pid, vrid, leaf, proof);
+    }
+
+    receive() external payable {
+        if (!reentered) {
+            reentered = true;
+            // mid-refund: finalized state must still read consistently
+            require(r.isFinalized(pid, vrid), "state inconsistent during reentrancy");
+        }
     }
 }
 

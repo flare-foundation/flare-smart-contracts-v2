@@ -3,7 +3,7 @@
 **Branch:** `relay-fix-3` (off `origin/main` @ `264dab74`)
 **Target:** `contracts/protocol/implementation/Relay.sol` (+ its interfaces / tests)
 **Started:** 2026-06-14
-**Status:** Substantive set + selected defence-in-depth notes + post-review hardening complete on `relay-fix-3`. Implemented & tested: RLY-02, RLY-03 (incl. RLY-14), RLY-01, RLY-13, RLY-21, RLY-10, RLY-11, RLY-04, **RLY-16, RLY-17, RLY-18, RLY-22**, and security-review **M-1, L-1, L-4**. Documented (no code): RLY-06, **RLY-07, RLY-09, RLY-15, RLY-19, RLY-20**, and **L-2, L-3, L-6, L-7**. Deferred: RLY-05, RLY-08, RLY-12; review L-5 (strictly-increasing nonce, accepted). **Foundry 31 passing · Hardhat Relay 54 + Submission + EndToEnd 36 = 93 passing.** See "Security-review follow-ups" at the end + `docs/relay-security-review.md`.
+**Status:** Substantive set + selected defence-in-depth notes + post-review hardening complete on `relay-fix-3`. Implemented & tested: RLY-02, RLY-03 (incl. RLY-14), RLY-01, RLY-13, RLY-21, RLY-10, RLY-11, RLY-04, **RLY-16, RLY-17, RLY-18, RLY-22**, and security-review **M-1, L-1, L-4**. Documented (no code): RLY-06, **RLY-07, RLY-09, RLY-15, RLY-19, RLY-20**, and **L-2, L-3, L-6, L-7**. Deferred: RLY-05, RLY-08, RLY-12; review L-5 (strictly-increasing nonce, accepted). **Foundry 52 passing · Hardhat Relay 54 + Submission + EndToEnd 36 = 93 passing.** Round-2 re-review = CLEAN (zero new findings); coverage expanded 31→52 Foundry. See "Security-review follow-ups" + "Round-2 review" at the end + `docs/relay-security-review.md`.
 
 This document records, issue by issue, exactly what is changed in `Relay.sol`
 to address the findings collected from the internal AI audit runs (the
@@ -311,3 +311,24 @@ Comment on the `votingRoundId > stored` guard noting the `votingRoundId == 0`-fi
 - **Medium gaps** — `test_random_malformedTrailerLength_reverts` (non-%32 trailer reverts), `test_random_deepMerkleProof` (multi-node proof fold), `test_random_isSecureNormalization` (message `isSecure` byte `2` folds to `1` in the leaf + stored flag), `test_threshold_exactBoundary_strictGreater` (weight `==` threshold fails, `>` passes), `test_verify_feeReceiverReverts` / `test_verify_refundReceiverReverts` (reverting receiver → `"Transfer failed"` / `"Refund failed"`; new `RevertingReceiver` helper).
 
 Remaining Low-risk coverage gaps and the Halmos/Kontrol FV opportunities (see the review doc) are **deferred**.
+
+---
+
+## Round-2 review + coverage expansion (re-review of the updated contract)
+
+A second adversarial review of the updated contract (commit `463fd59c`; 80 agents, 11 dimensions, 3-lens verification, coverage angles + completeness critic) returned **CLEAN** — zero findings; the M-1/L-1/L-4 fixes introduced no new defect and the assembly core was re-confirmed sound (full report: `docs/relay-security-review.md` → "Round 2"). The one substantive open question (could a new-relay Mode-2 write land below the old-relay read-delegation boundary and be silently shadowed?) was **verified unreachable** — the gates `Relay.sol` "Wrong sign policy reward epoch" + "Delayed sign policy" plus the constructor invariant force every Mode-2 write to `votingRoundId ≥ startingVotingRoundIdForInitialRewardEpochId`.
+
+**Coverage tests added (all four selected bundles). Foundry `Relay.t.sol`: 31 → 52 passing · Hardhat 93 passing.**
+- **M-1 fallback + governance negatives:** `test_verify_oldRelayFallback_tooLowFee_reverts`, `..._exactFee_skipsRefund` (refund-rejecting caller pays the exact fee ⇒ must not revert, proving the `oldRefund>0` false-branch), `..._zeroFee_fullRefund`; `test_governanceFeeSetup_invalidProtocolId_reverts`, `..._onSetterMode_reverts`; `test_verifyCustomSignature_direct_returnsRewardEpoch`, `..._insufficientWeight_reverts`.
+- **verify()/getter reverts:** `test_verify_merkleProofInvalid_reverts`, `test_verify_invalidProtocolId_reverts`, `test_merkleRoots_relayMode_reverts`, `test_toSigningPolicyHash_relayMode_reverts`, `test_getVotingRoundId_beforeStart_reverts`, `test_getRandomNumber_beforeAnyRelay_returnsDefault`, `test_random_shortTrailer_revertsNoRandomNumber`, `test_oldRelay_readDelegation_belowBoundary` (extended `MockOldRelay` with `merkleRoots`/`isFinalized`/`toSigningPolicyHash`/`getRandomNumberHistorical` sentinels).
+- **Assembly boundaries:** `test_relay_indexOutOfRange_reverts`, `test_relay_indexOutOfOrder_reverts`, `test_relay_zeroSignatures_notEnoughWeight`; constructor `test_ctor_oldRelay_incompatibleSetterMode_reverts` (+ new `MockOldRelaySetterMode`), `test_ctor_oldRelay_wrongStartTs_reverts`; Hardhat: relay()-path **accept exactly 300 voters** (assertion added to the existing "wrong number of voters" test).
+- **Reentrancy DiD:** `test_verify_reentrantReceiver_consistentNoExtraEth` (+ new `ReentrantReceiver`) — a refund callback re-enters a `verify()` read; asserts consistent state and exactly one fee collected.
+
+**Deliberately skipped (documented residuals, low value):** the exact `totalWeight` 65535/65536 off-by-one on the relay() Mode-1 path (the `"total weight too big"` revert and the happy 300-voter accept are already covered; an exact off-by-one is fragile to craft against the existing weight setup) and a Foundry re-implementation of the `"Message too old"` window edge (already covered in Hardhat via multi-epoch policy relays).
+
+**Critic Info/Low items — documented (no behavior change):**
+- L-6 comment now notes the monotonicity invariant is carried **transitively via the signed policy hash** on pure-relay deployments (not only by the local trusted setter).
+- RLY-06 linkage: a comment at the signature-loop index check records that **strictly-increasing index + ecrecover-never-`address(0)`** is what carries no-double-count security when a policy's voter set was not re-validated (relayed policies).
+- Shadowing-unreachable invariant documented at the `verify()` read-delegation boundary.
+- Migration-handshake note in the constructor (`lastInitializedRewardEpoch` seeding ⇒ first `setSigningPolicy` must be `initialRewardEpochId + 1`; L-4 fail-closes a zero next-epoch hash).
+- `messageFinalizationWindowInRewardEpochs` (unvalidated) and the `uint32 + 1` random-getter timestamp edge: recorded in the review doc as Info-grade; left as-is.

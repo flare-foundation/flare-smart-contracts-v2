@@ -248,6 +248,10 @@ contract Relay is IIRelay {
         startingVotingRoundIdForInitialRewardEpochId =
             _initialConfig.startingVotingRoundIdForInitialRewardEpochId;
         signingPolicySetter = _signingPolicySetter;
+        // Migration handshake: lastInitializedRewardEpoch is seeded to initialRewardEpochId, and setSigningPolicy
+        // strictly requires the next call to be exactly initialRewardEpochId + 1 ("not next reward epoch"). The
+        // deployer (redeploy-relay.ts) must therefore cut over so the trusted setter's next policy is that epoch;
+        // a zero next-epoch policy hash on the old relay is fail-closed by the L-4 require above.
         stateData.lastInitializedRewardEpoch = _initialConfig.initialRewardEpochId;
         startingVotingRoundIds[_initialConfig.initialRewardEpochId] =
             _initialConfig.startingVotingRoundIdForInitialRewardEpochId;
@@ -328,10 +332,14 @@ contract Relay is IIRelay {
             stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
             "not next reward epoch"
         );
-        // L-6 (documented, not enforced): the reward-epoch decision matrix assumes a non-decreasing
-        // startVotingRoundId across epochs. Like RLY-06, this canonical-ordering invariant is the
-        // trusted signing-policy setter's (FlareSystemsManager) responsibility and is intentionally NOT
-        // re-checked here — an on-chain require conflicts with legitimate setter-driven configurations.
+        // L-6 (documented, not enforced): the reward-epoch decision matrix (see the relay() gate that reads
+        // startingVotingRoundIds[rewardEpochId + 1]) assumes a non-decreasing startVotingRoundId across epochs.
+        // Like RLY-06, this canonical-ordering invariant is the trusted signing-policy setter's
+        // (FlareSystemsManager) responsibility and is intentionally NOT re-checked here — an on-chain require
+        // conflicts with legitimate setter-driven configurations. On pure-relay deployments (this setter is
+        // unused) startingVotingRoundIds is instead written by the Mode-1 relay() path from the relayed policy
+        // metadata; there the invariant is carried transitively by the voter quorum's signature over the
+        // signing-policy hash (a faithfully-relayed canonical policy preserves it).
         require(_signingPolicy.voters.length > 0, "must be non-trivial");
         require(_signingPolicy.voters.length <= MAX_VOTERS, "too many voters");
         require(_signingPolicy.voters.length == _signingPolicy.weights.length, "size mismatch");
@@ -1239,7 +1247,13 @@ contract Relay is IIRelay {
                     mload(add(memPtrFor, M_4))
                 )
 
-                // Index sanity checks in regard to signing policy
+                // Index sanity checks in regard to signing policy.
+                // RLY-06 linkage: signing policies are NOT re-checked for zero-address/duplicate voters
+                // (the trusted setter, or for relayed policies the signed policy hash, owns that). The
+                // strictly-increasing index below is what carries no-double-count security regardless of
+                // policy origin: a duplicate voter can be counted at most once (index must strictly
+                // increase), and a zero-address "voter" cannot be matched because ecrecover never yields
+                // address(0) (enforced by the returndatasize / zero-signer checks above).
                 if gt(add(index, 1), numberOfVoters) {
                     revertWithMessage(memPtrFor, "Index out of range", 18)
                 }
@@ -1537,6 +1551,13 @@ contract Relay is IIRelay {
         external payable
         returns (bool)
     {
+        // Read-delegation boundary: rounds below startingVotingRoundIdForInitialRewardEpochId are served by
+        // the old relay (here and in merkleRoots/isFinalized/getRandomNumberHistorical/toSigningPolicyHash).
+        // No new-relay write can land below this boundary (so there is no silent shadowing): the lowest stored
+        // signing policy is initialRewardEpochId, and the relay() gates "Wrong sign policy reward epoch"
+        // (messageRewardEpochId >= policy rewardEpochId) and "Delayed sign policy"
+        // (votingRoundId >= policy startVotingRoundId) force every Mode-2 write to have
+        // votingRoundId >= startingVotingRoundIdForInitialRewardEpochId. Write domain == read-delegation domain.
         if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
             // RLY-13: fail closed if the old relay returns false (rather than reverting).
             // M-1: forward only the old relay's fee and refund any overpayment, so the fallback honours
