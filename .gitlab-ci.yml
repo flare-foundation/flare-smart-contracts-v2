@@ -175,6 +175,41 @@ test-unit-forge:
   - forge test -vvv
 
 ##
+## FORMAL VERIFICATION (Halmos)
+##
+
+# Gate for the Relay.sol formal-verification suite (test-forge/fv). Enforces BOTH halves of every
+# proof: each PROOF check passes, and each REACHABILITY / non-vacuity control produces a counterexample.
+# An unexpected reachability PASS is a hard failure ("vacuity alarm") — that is what would happen if the
+# Halmos --loop bound (halmos.toml: loop=6) ever dropped below a harness's signer count, silently making
+# the proofs vacuous. See docs/relay-fv.md. verify_fv.py judges via Halmos JSON (Halmos's own exit code
+# is non-zero by design, since the reachability controls produce counterexamples).
+test-fv-halmos:
+  needs: []
+  timeout: 20 minutes
+  tags: [ flarenetwork-md ]
+  image: ghcr.io/foundry-rs/foundry:stable
+  variables:
+    PIP_BREAK_SYSTEM_PACKAGES: "1"
+    FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+  rules:
+  - changes:
+    - contracts/protocol/implementation/Relay.sol
+    - contracts/protocol/interface/IIRelay.sol
+    - contracts/userInterfaces/IRelay.sol
+    - test-forge/fv/**/*
+    - halmos.toml
+  before_script:
+  # halmos is a Python tool (pulls z3); the foundry image is Debian-based. Adjust if the base image changes.
+  - apt-get update 1>/dev/null && apt-get install -y python3 python3-pip 1>/dev/null
+  - pip3 install halmos 1>/dev/null
+  - forge soldeer install
+  - forge install --no-git
+  - forge build
+  script:
+  - python3 test-forge/fv/verify_fv.py
+
+##
 ## COVERAGE
 ##
 

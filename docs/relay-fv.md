@@ -162,3 +162,22 @@ Two P5 mustFix items were applied:
 2. **Docs sink list corrected** — P5 above now lists the *proven* sinks (leaf / stored map bit / live flag) and scopes the emitted-event field honestly.
 
 Per-obligation caveats are recorded inline in §4 (P3 single-sig; P6 Mode-0 not exercised; P7 new-relay-path-only + value cap; P8 NV≤3); the generic bounded-MC caveats of §6 apply throughout. Halmos result across the five: **16 PASS + 9 reachability counterexamples** (`loop = 6`; max loop depth on any path = 3).
+
+---
+
+## 8. CI enforcement (the anti-vacuity gate)
+
+`test-forge/fv/verify_fv.py` makes §6 caveat 3 an **enforced gate** rather than a convention. It runs Halmos over `test-forge/fv` (JSON output) and requires **both** halves of every proof:
+
+- every **proof** check passes (no counterexample), and
+- every **reachability / non-vacuity control** (function name contains `reach`) produces a **counterexample**.
+
+An unexpected reachability **PASS** is a hard failure — the *vacuity alarm* — because it means the accept path became unreachable (e.g. `--loop` dropped below a harness's signer count) and the guarded proofs went vacuous. Halmos's own exit code is unusable as a signal (non-zero by design, since the reachability controls produce counterexamples), so the script judges each check from the JSON.
+
+Run locally (from the repo root; `halmos.toml` supplies `loop = 6` + `forge-build-out`):
+```
+HALMOS=halmos python3 test-forge/fv/verify_fv.py
+```
+Validated both directions: at `loop = 6` it reports **33 checks — 22 proofs hold, 11 reachability controls live**, exit 0; forced to `--loop 2` it exits 1 with **7 vacuity alarms** (the multi-iteration controls flip to PASS), proving the gate catches a real regression.
+
+Wired into GitLab CI as job **`test-fv-halmos`** (`.gitlab-ci.yml`, `foundry:stable` image + `pip install halmos`), triggered on changes to `Relay.sol` / its interfaces / `test-forge/fv/**` / `halmos.toml`.
