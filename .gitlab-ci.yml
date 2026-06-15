@@ -200,14 +200,20 @@ test-fv-halmos:
     - test-forge/fv/**/*
     - halmos.toml
   before_script:
-  # halmos is a Python tool (pulls z3); the foundry image is Debian-based. Adjust if the base image changes.
-  - apt-get update 1>/dev/null && apt-get install -y python3 python3-pip 1>/dev/null
-  - pip3 install halmos 1>/dev/null
+  # foundry:stable runs as a NON-root user with no system Python/pip, so apt-get/pip3 are unavailable.
+  # Install halmos with uv: a single binary that installs under $HOME (no root) and provisions its own
+  # Python; forge is already in the image (the other forge jobs prove soldeer install / build work here).
+  - curl -LsSf https://astral.sh/uv/install.sh | sh
+  - export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+  - uv python install 3.12
+  - uv tool install halmos
   - forge soldeer install
   - forge install --no-git
   - forge build
   script:
-  - python3 test-forge/fv/verify_fv.py
+  - export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+  # verify_fv.py uses only the stdlib; run it with uv's managed Python. halmos is on PATH (uv tool bin).
+  - HALMOS=halmos uv run --no-project --python 3.12 test-forge/fv/verify_fv.py
 
 ##
 ## COVERAGE
