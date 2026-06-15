@@ -188,9 +188,12 @@ test-fv-halmos:
   needs: []
   timeout: 20 minutes
   tags: [ flarenetwork-md ]
-  image: ghcr.io/foundry-rs/foundry:stable
+  # The foundry:stable image has ONLY forge (no python/curl/apt, non-root), so halmos can't be added to
+  # it. Use the full python:3.12 image instead (bundles git + curl), install halmos via pip and foundry
+  # via foundryup. pip --user and foundryup both write under $HOME, so this works whether or not the
+  # runner enforces non-root.
+  image: python:3.12
   variables:
-    PIP_BREAK_SYSTEM_PACKAGES: "1"
     FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
   rules:
   - changes:
@@ -200,20 +203,17 @@ test-fv-halmos:
     - test-forge/fv/**/*
     - halmos.toml
   before_script:
-  # foundry:stable runs as a NON-root user with no system Python/pip, so apt-get/pip3 are unavailable.
-  # Install halmos with uv: a single binary that installs under $HOME (no root) and provisions its own
-  # Python; forge is already in the image (the other forge jobs prove soldeer install / build work here).
-  - curl -LsSf https://astral.sh/uv/install.sh | sh
-  - export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-  - uv python install 3.12
-  - uv tool install halmos
+  - python3 --version; git --version; curl --version | head -1   # env diagnostics
+  - pip install --user halmos
+  - curl -L https://foundry.paradigm.xyz | bash
+  - export PATH="$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
+  - foundryup
   - forge soldeer install
   - forge install --no-git
   - forge build
   script:
-  - export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-  # verify_fv.py uses only the stdlib; run it with uv's managed Python. halmos is on PATH (uv tool bin).
-  - HALMOS=halmos uv run --no-project --python 3.12 test-forge/fv/verify_fv.py
+  - export PATH="$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
+  - HALMOS=halmos python3 test-forge/fv/verify_fv.py
 
 ##
 ## COVERAGE
