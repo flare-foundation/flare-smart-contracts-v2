@@ -20,6 +20,13 @@ interface IFdc2InflationConfigurations {
         uint224 mode;
     }
 
+    /// Event emitted when an FDC2 configuration is added.
+    event Fdc2ConfigurationAdded(uint256 indexed index, Fdc2Configuration configuration);
+    /// Event emitted when an FDC2 configuration is replaced.
+    event Fdc2ConfigurationReplaced(uint256 indexed index, Fdc2Configuration configuration);
+    /// Event emitted when an FDC2 configuration is removed.
+    event Fdc2ConfigurationRemoved(uint256 indexed index);
+
     error InvalidIndex();
     error LengthsMismatch();
 

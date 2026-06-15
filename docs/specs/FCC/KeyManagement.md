@@ -22,7 +22,7 @@ The system supports a configurable set of `(keyType, signingAlgo)` pairs. Exampl
 - `keyType = "ed25519"` with `signingAlgo = "EdDSA"` — XRPL / Solana / many modern chains.
 - `keyType = "BLS12_381_G2"` with various BLS signing schemes.
 
-Governance configures the **system-supported** key types via [`ExtensionManagerFacet.addSystemSupportedKeyTypesAndSigningAlgos`](../../../contracts/tee/facets/ExtensionManagerFacet.sol). Each extension owner then opts into the subset of system-supported types relevant to their use case via `addSupportedKeyTypes`. Generating a key with a type the extension hasn't enabled reverts.
+Governance configures the **system-supported** key types via [`ExtensionManagerFacet.addSystemSupportedKeyTypesAndSigningAlgos`](../../../contracts/tee/facets/ExtensionManagerFacet.sol) and can withdraw them via `removeSystemSupportedKeyTypesAndSigningAlgos` (which only blocks *new* projects from selecting that key type / signing algo; existing projects keep their stored `signingAlgo` and are unaffected). Each extension owner then opts into the subset of system-supported types relevant to their use case via `addSupportedKeyTypes`. Generating a key with a type the extension hasn't enabled reverts.
 
 ## Key generation
 

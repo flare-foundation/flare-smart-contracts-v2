@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IFdc2InflationConfigurations } from "../../userInterfaces/fdc2/IFdc2InflationConfigurations.sol";
 import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
@@ -26,7 +26,7 @@ contract Fdc2InflationConfigurations is FlareUpgradeableBase, IFdc2InflationConf
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
-     * (single call is assured by GovernedBase.initialise).
+     * (single call is assured by the `initializer` modifier).
      * @param _governanceSettings The governance settings interface.
      * @param _initialGovernance The initial governance address.
      * @param _addressUpdater The address updater contract.
@@ -56,6 +56,7 @@ contract Fdc2InflationConfigurations is FlareUpgradeableBase, IFdc2InflationConf
         for (uint256 i = 0; i < _configs.length; i++) {
             _checkFdc2Configuration(_configs[i]);
             fdc2Configurations.push(_configs[i]);
+            emit Fdc2ConfigurationAdded(fdc2Configurations.length - 1, _configs[i]);
         }
     }
 
@@ -78,6 +79,7 @@ contract Fdc2InflationConfigurations is FlareUpgradeableBase, IFdc2InflationConf
             require(length > _indices[i], InvalidIndex());
             _checkFdc2Configuration(_configs[i]);
             fdc2Configurations[_indices[i]] = _configs[i];
+            emit Fdc2ConfigurationReplaced(_indices[i], _configs[i]);
         }
     }
 
@@ -97,6 +99,7 @@ contract Fdc2InflationConfigurations is FlareUpgradeableBase, IFdc2InflationConf
 
         fdc2Configurations[_index] = fdc2Configurations[length - 1]; // length > 0
         fdc2Configurations.pop();
+        emit Fdc2ConfigurationRemoved(_index);
     }
 
     /**

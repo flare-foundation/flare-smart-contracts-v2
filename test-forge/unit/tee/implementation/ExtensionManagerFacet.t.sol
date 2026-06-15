@@ -44,7 +44,7 @@ contract TestTeeMachineSetupFacet {
             owner: msg.sender,
             teeProxyId: _teeProxyId,
             status: _status,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: bytes32(0),
             platform: bytes32(0),
             governanceHash: bytes32(0),
@@ -70,6 +70,14 @@ contract TestTeeMachineSetupFacet {
     {
         ExtensionManager.State storage s = ExtensionManager.getState();
         s.extensions[_extensionId].instructionsSender = _instructionsSender;
+    }
+
+    function setupNextPublicExtensionId(
+        uint256 _nextPublicExtensionId
+    )
+        external
+    {
+        ExtensionManager.getState().nextPublicExtensionId = _nextPublicExtensionId;
     }
 }
 
@@ -157,7 +165,7 @@ contract ExtensionManagerFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 1000,
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
@@ -170,10 +178,11 @@ contract ExtensionManagerFacetTest is Test {
         // Add test helper facet to the diamond
         testSetupFacet = new TestTeeMachineSetupFacet();
         IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
-        bytes4[] memory selectors = new bytes4[](3);
+        bytes4[] memory selectors = new bytes4[](4);
         selectors[0] = TestTeeMachineSetupFacet.setupTeeMachineState.selector;
         selectors[1] = TestTeeMachineSetupFacet.setupExtensionOwner.selector;
         selectors[2] = TestTeeMachineSetupFacet.setupExtensionInstructionsSender.selector;
+        selectors[3] = TestTeeMachineSetupFacet.setupNextPublicExtensionId.selector;
         cuts[0] = IDiamond.FacetCut(
             address(testSetupFacet), IDiamond.FacetCutAction.Add, selectors
         );
@@ -377,9 +386,10 @@ contract ExtensionManagerFacetTest is Test {
             cosigners,
             1,
             address(0),
-            0
+            2000
         );
-        flareTeeManager.sendInstructions(
+        vm.deal(address(this), 1 ether);
+        flareTeeManager.sendInstructions{value: 2000}(
             teeIds,
             IInstructions.TeeInstructionParams(
                 opType, opCommand, message, cosigners, 1, address(0)
@@ -421,9 +431,10 @@ contract ExtensionManagerFacetTest is Test {
             cosigners,
             1,
             address(0),
-            0
+            2000
         );
-        flareTeeManager.sendInstructions(
+        vm.deal(address(this), 1 ether);
+        flareTeeManager.sendInstructions{value: 2000}(
             teeIds,
             IInstructions.TeeInstructionParams(
                 opType, opCommand, message, cosigners, 1, address(0)
@@ -551,43 +562,54 @@ contract ExtensionManagerFacetTest is Test {
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms);
     }
 
-    // disableCodeHashPlatform
-    function testDisableCodeHashPlatformRevertOnlyOwner() public {
+    // disableCodeHashPlatforms
+    function testDisableCodeHashPlatformsRevertOnlyOwner() public {
         testRegister();
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
-        flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, platform);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
-        flareTeeManager.disableCodeHashPlatform(extensionId + 1, codeHash, platform);
+        flareTeeManager.disableCodeHashPlatforms(extensionId + 1, codeHash, platforms);
     }
 
-    function testDisableCodeHashPlatformRevertInvalidCodeHash() public {
+    function testDisableCodeHashPlatformsRevertNoPlatforms() public {
+        testAddTeeVersion();
+        vm.prank(owner);
+        vm.expectRevert(IExtensionManager.NoPlatforms.selector);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, new bytes32[](0));
+    }
+
+    function testDisableCodeHashPlatformsRevertInvalidCodeHash() public {
         testRegister();
         vm.prank(owner);
         vm.expectRevert(IExtensionManager.InvalidCodeHash.selector);
-        flareTeeManager.disableCodeHashPlatform(extensionId, keccak256("invalidCodeHash"), platform);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, keccak256("invalidCodeHash"), platforms);
     }
 
-    function testDisableCodeHashPlatformRevertInvalidPlatform() public {
+    function testDisableCodeHashPlatformsRevertInvalidPlatform() public {
         testAddTeeVersion();
+        bytes32[] memory invalidPlatforms = new bytes32[](1);
+        invalidPlatforms[0] = keccak256("invalidPlatform");
         vm.prank(owner);
         vm.expectRevert(IExtensionManager.InvalidPlatform.selector);
-        flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, keccak256("invalidPlatform"));
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, invalidPlatforms);
     }
 
-    function testDisableCodeHashPlatform() public {
+    function testDisableCodeHashPlatformsRevertAlreadyDisabled() public {
+        testAddTeeVersion();
+        vm.startPrank(owner);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
+        vm.expectRevert(IExtensionManager.CodeHashPlatformAlreadyDisabled.selector);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
+        vm.stopPrank();
+    }
+
+    function testDisableCodeHashPlatforms() public {
         testAddTeeVersion();
         vm.prank(owner);
         vm.expectEmit();
-        emit IExtensionManager.CodeHashPlatformDisabled(extensionId, codeHash, platform);
-        flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, platform);
-    }
-
-    function testDisableCodeHashPlatformAll() public {
-        testAddTeeVersion();
-        vm.prank(owner);
-        vm.expectEmit();
-        emit IExtensionManager.CodeHashPlatformDisabled(extensionId, codeHash, platform);
-        flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, bytes32(0));
+        emit IExtensionManager.CodeHashPlatformsDisabled(extensionId, codeHash, platforms);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
+        assertTrue(flareTeeManager.isCodeHashPlatformDisabled(extensionId, codeHash, platform));
     }
 
     // addSystemSupportedKeyTypesAndSigningAlgos
@@ -647,6 +669,83 @@ contract ExtensionManagerFacetTest is Test {
         vm.expectEmit();
         emit IExtensionManager.SystemSupportedKeyTypesAndSigningAlgosAdded(keyTypes, signingAlgosByKeyType);
         flareTeeManager.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+    }
+
+    // removeSystemSupportedKeyTypesAndSigningAlgos
+    function testRemoveSystemSupportedKeyTypesAndSigningAlgosRevertOnlyGovernance() public {
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
+        flareTeeManager.removeSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+    }
+
+    function testRemoveSystemSupportedKeyTypesAndSigningAlgosRevertLengthsMismatch() public {
+        testAddSystemSupportedKeyTypesAndSigningAlgos();
+        bytes32[] memory removeKeyTypes = new bytes32[](1);
+        removeKeyTypes[0] = keyTypes[0];
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeCommonErrors.LengthsMismatch.selector);
+        flareTeeManager.removeSystemSupportedKeyTypesAndSigningAlgos(removeKeyTypes, signingAlgosByKeyType);
+    }
+
+    function testRemoveSystemSupportedKeyTypesAndSigningAlgosRevertNoSigningAlgos() public {
+        testAddSystemSupportedKeyTypesAndSigningAlgos();
+        bytes32[][] memory removeAlgos = new bytes32[][](2);
+        removeAlgos[0] = new bytes32[](0);
+        removeAlgos[1] = new bytes32[](0);
+        vm.prank(initialGovernance);
+        vm.expectRevert(
+            abi.encodeWithSelector(IExtensionManager.NoSigningAlgos.selector, keyTypes[0])
+        );
+        flareTeeManager.removeSystemSupportedKeyTypesAndSigningAlgos(keyTypes, removeAlgos);
+    }
+
+    function testRemoveSystemSupportedKeyTypesAndSigningAlgosRevertSigningAlgoNotFound() public {
+        testAddSystemSupportedKeyTypesAndSigningAlgos();
+        bytes32[] memory removeKeyTypes = new bytes32[](1);
+        removeKeyTypes[0] = keyTypes[0];
+        bytes32[][] memory removeAlgos = new bytes32[][](1);
+        removeAlgos[0] = new bytes32[](1);
+        removeAlgos[0][0] = bytes32("NOT_ADDED_ALGO");
+        vm.prank(initialGovernance);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IExtensionManager.SigningAlgoNotFound.selector,
+                keyTypes[0],
+                bytes32("NOT_ADDED_ALGO")
+            )
+        );
+        flareTeeManager.removeSystemSupportedKeyTypesAndSigningAlgos(removeKeyTypes, removeAlgos);
+    }
+
+    function testRemoveSystemSupportedKeyTypesAndSigningAlgos() public {
+        testAddSystemSupportedKeyTypesAndSigningAlgos();
+        vm.prank(initialGovernance);
+        vm.expectEmit();
+        emit IExtensionManager.SystemSupportedKeyTypesAndSigningAlgosRemoved(keyTypes, signingAlgosByKeyType);
+        flareTeeManager.removeSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+        // Every signing algo removed -> both key types are dropped from the supported set.
+        assertEq(flareTeeManager.getSystemSupportedKeyTypes().length, 0);
+        assertEq(flareTeeManager.getSystemSupportedSigningAlgos(keyTypes[0]).length, 0);
+        assertEq(flareTeeManager.getSystemSupportedSigningAlgos(keyTypes[1]).length, 0);
+    }
+
+    function testRemoveSystemSupportedKeyTypesAndSigningAlgosKeepsKeyTypeWithRemainingAlgo() public {
+        testAddSystemSupportedKeyTypesAndSigningAlgos();
+        // Remove only the first of the EVM key type's two signing algos.
+        bytes32[] memory removeKeyTypes = new bytes32[](1);
+        removeKeyTypes[0] = keyTypes[1];
+        bytes32[][] memory removeAlgos = new bytes32[][](1);
+        removeAlgos[0] = new bytes32[](1);
+        removeAlgos[0][0] = signingAlgosByKeyType[1][0];
+        vm.prank(initialGovernance);
+        flareTeeManager.removeSystemSupportedKeyTypesAndSigningAlgos(removeKeyTypes, removeAlgos);
+        // Key type retained because it still has its second signing algo.
+        bytes32[] memory remaining = flareTeeManager.getSystemSupportedSigningAlgos(keyTypes[1]);
+        assertEq(remaining.length, 1);
+        assertEq(remaining[0], signingAlgosByKeyType[1][1]);
+        assertTrue(flareTeeManager.isSigningAlgoSupported(keyTypes[1], signingAlgosByKeyType[1][1]));
+        assertFalse(flareTeeManager.isSigningAlgoSupported(keyTypes[1], signingAlgosByKeyType[1][0]));
+        // Both key types still supported (XRP untouched, EVM kept).
+        assertEq(flareTeeManager.getSystemSupportedKeyTypes().length, 2);
     }
 
     // addSupportedKeyTypes
@@ -901,6 +1000,32 @@ contract ExtensionManagerFacetTest is Test {
         }
     }
 
+    // removeSystemSupportedPlatforms
+    function testRemoveSystemSupportedPlatformsRevertOnlyGovernance() public {
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
+        flareTeeManager.removeSystemSupportedPlatforms(platforms);
+    }
+
+    function testRemoveSystemSupportedPlatformsRevertPlatformNotFound() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IExtensionManager.PlatformNotFound.selector,
+                platforms[0]
+            )
+        );
+        flareTeeManager.removeSystemSupportedPlatforms(platforms);
+    }
+
+    function testRemoveSystemSupportedPlatforms() public {
+        testAddSystemSupportedPlatforms();
+        vm.prank(initialGovernance);
+        vm.expectEmit();
+        emit IExtensionManager.SystemSupportedPlatformsRemoved(platforms);
+        flareTeeManager.removeSystemSupportedPlatforms(platforms);
+        assertEq(flareTeeManager.getSystemSupportedPlatforms().length, 0);
+    }
+
     // registerSystemInstructionsSenders
     function testRegisterSystemInstructionsSendersRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
@@ -995,10 +1120,11 @@ contract ExtensionManagerFacetTest is Test {
             cosigners,
             1,
             address(0),
-            0
+            2000
         );
+        vm.deal(instructionsSenders[0], 1 ether);
         vm.prank(instructionsSenders[0]);
-        flareTeeManager.sendSystemInstructions(
+        flareTeeManager.sendSystemInstructions{value: 2000}(
             instructionId,
             teeIds,
             IInstructions.TeeInstructionParams(opType, opCommand, message, cosigners, 1, address(0))
@@ -1033,10 +1159,11 @@ contract ExtensionManagerFacetTest is Test {
             cosigners,
             1,
             address(0),
-            0
+            2000
         );
+        vm.deal(instructionsSenders[0], 1 ether);
         vm.prank(instructionsSenders[0]);
-        flareTeeManager.sendSystemInstructions(
+        flareTeeManager.sendSystemInstructions{value: 2000}(
             instructionId,
             teeMachines,
             IInstructions.TeeInstructionParams(opType, opCommand, message, cosigners, 1, address(0))
@@ -1106,7 +1233,7 @@ contract ExtensionManagerFacetTest is Test {
         val = flareTeeManager.isCodeHashPlatformSupported(extensionId, codeHash, platform);
         assertTrue(val);
         vm.prank(owner);
-        flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, platform);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
         val = flareTeeManager.isCodeHashPlatformSupported(extensionId, codeHash, platform);
         assertFalse(val);
     }
@@ -1119,7 +1246,7 @@ contract ExtensionManagerFacetTest is Test {
         val = flareTeeManager.isCodeHashPlatformDisabled(extensionId, codeHash, platform);
         assertFalse(val);
         vm.prank(owner);
-        flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, platform);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
         val = flareTeeManager.isCodeHashPlatformDisabled(extensionId, codeHash, platform);
         assertTrue(val);
     }
@@ -1254,6 +1381,16 @@ contract ExtensionManagerFacetTest is Test {
         // Increments by 1 on each register
         vm.prank(owner);
         flareTeeManager.register(teeExtensionStateVerifier, address(this));
+        assertEq(flareTeeManager.nextPublicExtensionId(), ExtensionManager.PUBLIC_EXTENSION_ID_START + 1);
+    }
+
+    function testRegisterFloorsCounterBelowBoundary() public {
+        // Force the counter below the boundary (e.g. an uninitialized 0 slot); the next
+        // public register() must floor it back to PUBLIC_EXTENSION_ID_START.
+        TestTeeMachineSetupFacet(address(flareTeeManager)).setupNextPublicExtensionId(0);
+        vm.prank(owner);
+        uint256 id = flareTeeManager.register(teeExtensionStateVerifier, address(this));
+        assertEq(id, ExtensionManager.PUBLIC_EXTENSION_ID_START);
         assertEq(flareTeeManager.nextPublicExtensionId(), ExtensionManager.PUBLIC_EXTENSION_ID_START + 1);
     }
 

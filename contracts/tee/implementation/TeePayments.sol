@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
@@ -592,7 +592,7 @@ contract TeePayments is ITeePayments, FlareUpgradeableBase {
         );
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         (address[] memory cosigners, uint64 cosignersThreshold) = flareTeeManager.getCosigners();
-        if (_proof.signatures.teeSignatures.length > 0) {
+        if (!flareTeeManager.isExtensionEmergencyPaused(0) && _proof.signatures.teeSignatures.length > 0) {
             Fdc2ProofVerification.verifyTeeSignatures(
                 address(fdc2Verification), _proof.signatures.teeSignatures, messageHash
             );
@@ -709,7 +709,7 @@ contract TeePayments is ITeePayments, FlareUpgradeableBase {
 
     function _toAccountHash(
         bytes32 _sourceId,
-        string memory _accountAddress
+        string calldata _accountAddress
     )
         internal pure
         returns (bytes32)

@@ -160,7 +160,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         uint256 rewardEpochId = fdc2Verification.verifySigningPolicySignatures(_signatures, _messageHash);
         require(
             rewardEpochId == _currentRewardEpochId || rewardEpochId + 1 == _currentRewardEpochId,
-            IVerification.InvalidSigningPolicy()
+            IFdc2Verification.InvalidSigningPolicy()
         );
     }
 
@@ -200,7 +200,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
             return; // no cosigners, nothing to check
         }
         address[] memory cosignersList = fdc2Verification.recoverCosigners(_signatures, _messageHash);
-        require(cosignersList.length >= cosignersThreshold, IVerification.CosignersThresholdNotMet());
+        require(cosignersList.length >= cosignersThreshold, IFdc2Verification.CosignersThresholdNotMet());
         for (uint256 i = 0; i < cosignersList.length; i++) {
             require(cosigners.index[cosignersList[i]] != 0, ITeeCommonErrors.InvalidCosigner(cosignersList[i]));
         }

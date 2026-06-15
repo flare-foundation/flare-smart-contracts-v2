@@ -113,8 +113,23 @@ contract TeeRewardOffersManagerTest is Test {
     function testSetTeeOwnersPPM() public {
         assertEq(teeRewardOffersManager.teeOwnersPPM(), 1234);
         vm.prank(governance);
+        vm.expectEmit();
+        emit ITeeRewardOffersManager.TeeOwnersPPMSet(12345);
         teeRewardOffersManager.setTeeOwnersPPM(12345);
         assertEq(teeRewardOffersManager.teeOwnersPPM(), 12345);
+    }
+
+    function testInitializeEmitsTeeOwnersPPMSet() public {
+        TeeRewardOffersManager impl = new TeeRewardOffersManager();
+        vm.expectEmit(false, false, false, true);
+        emit ITeeRewardOffersManager.TeeOwnersPPMSet(1234);
+        new TeeRewardOffersManagerProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            1234,
+            address(impl)
+        );
     }
 
     function testSetTeeOwnersPPMRevertInvalidValue() public {

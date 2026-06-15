@@ -64,7 +64,7 @@ State transitions:
 - `PRODUCTION → PAUSED` — `pauseWallets` (batch) on [`WalletProjectPauseFacet`](../../../contracts/tee/facets/WalletProjectPauseFacet.sol), callable by the project owner or a project pauser.
 - `PAUSED → PRODUCTION` — `unpauseWallets` (batch) on `WalletProjectPauseFacet`, callable by the project owner or a project unpauser.
 
-[`WalletResumeFacet`](../../../contracts/tee/facets/WalletResumeFacet.sol) does *not* change `WalletStatus`; it sends TEE instructions: `setPausingAddresses` (configure the off-chain pausing addresses for a wallet) and `resume` (resume off-chain wallet operations after a pause / upgrade). Both require the wallet to be in `PRODUCTION` or `PAUSED`.
+[`WalletResumeFacet`](../../../contracts/tee/facets/WalletResumeFacet.sol) does *not* change `WalletStatus`; it sends TEE instructions: `setPausingAddresses` (configure the off-chain pausing addresses for a wallet) and `resume` (resume off-chain wallet operations after a pause / upgrade). Both require the wallet to be in `PRODUCTION` or `PAUSED`. `resume` validates every `ResumeKeyData` entry the same way the other key-bearing flows do — the TEE must belong to the wallet's project extension (`ExtensionIdMismatch`), must currently hold the `(wallet, key)` pair (`WrongKeyId`), and must be in production (`TeeMachineNotAvailable`). The `ResumeKeyData.nonce` is an off-chain value (distinct from the on-chain key-management nonce), so it is forwarded to the TEE unchecked. `setPausingAddresses` accepts an empty list but rejects a zero address (`InvalidAddress`) or duplicate entries (`AddressAlreadyInSet`).
 
 ## Setting the key admin set
 

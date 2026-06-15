@@ -119,7 +119,7 @@ contract VrfFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 1000,
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
@@ -248,7 +248,7 @@ contract VrfFacetTest is Test {
         vm.prank(authAddress);
         vm.expectEmit(true, false, false, false, address(flareTeeManager));
         emit IVrf.VrfRequested(walletId, 0, bytes32(0));
-        bytes32 returnedId = flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
+        bytes32 returnedId = flareTeeManager.requestVrf{value: 1000 * 1}(walletId, keyId, nonce, address(0));
         assertTrue(returnedId != bytes32(0));
     }
 
@@ -259,7 +259,7 @@ contract VrfFacetTest is Test {
         _setupHappyPath(teeIds);
 
         vm.prank(authAddress);
-        bytes32 returnedId = flareTeeManager.requestVrf(walletId, keyId, nonce, claimBack);
+        bytes32 returnedId = flareTeeManager.requestVrf{value: 1000 * 1}(walletId, keyId, nonce, claimBack);
         assertTrue(returnedId != bytes32(0));
     }
 
@@ -288,7 +288,7 @@ contract VrfFacetTest is Test {
         vm.prank(authAddress);
         vm.expectEmit(true, false, false, false, address(flareTeeManager));
         emit IVrf.VrfRequested(walletId, 0, bytes32(0));
-        bytes32 returnedId = flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
+        bytes32 returnedId = flareTeeManager.requestVrf{value: 1000 * 3}(walletId, keyId, nonce, address(0));
         assertTrue(returnedId != bytes32(0));
     }
 
@@ -307,7 +307,7 @@ contract VrfFacetTest is Test {
         vm.prank(authAddress);
         vm.expectEmit(true, false, false, false, address(flareTeeManager));
         emit IVrf.VrfRequested(walletId, 0, bytes32(0));
-        bytes32 returnedId = flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
+        bytes32 returnedId = flareTeeManager.requestVrf{value: 1000 * 2}(walletId, keyId, nonce, address(0));
         assertTrue(returnedId != bytes32(0));
     }
 

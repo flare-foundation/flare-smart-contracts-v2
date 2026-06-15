@@ -85,6 +85,10 @@ contract Fdc2InflationConfigurationsTest is Test {
         configs[1] = IFdc2InflationConfigurations.Fdc2Configuration(
             type2, source2, 5000, 5, 1
         );
+        vm.expectEmit();
+        emit IFdc2InflationConfigurations.Fdc2ConfigurationAdded(0, configs[0]);
+        vm.expectEmit();
+        emit IFdc2InflationConfigurations.Fdc2ConfigurationAdded(1, configs[1]);
         inflationConfigs.addFdc2Configurations(configs);
 
         fdc2Configurations = inflationConfigs.getFdc2Configurations();
@@ -127,6 +131,8 @@ contract Fdc2InflationConfigurationsTest is Test {
         assertEq(getConfig.inflationShare, 5000);
         assertEq(getConfig.minRequestsThreshold, 5);
         assertEq(getConfig.mode, 1);
+        vm.expectEmit();
+        emit IFdc2InflationConfigurations.Fdc2ConfigurationReplaced(1, configs[0]);
         inflationConfigs.replaceFdc2Configurations(indices, configs);
         getConfig = inflationConfigs.getFdc2Configuration(1);
         assertEq(getConfig.attestationType, type1);
@@ -160,6 +166,8 @@ contract Fdc2InflationConfigurationsTest is Test {
 
         getConfig = inflationConfigs.getFdc2Configuration(0);
         assertEq(getConfig.attestationType, type1);
+        vm.expectEmit();
+        emit IFdc2InflationConfigurations.Fdc2ConfigurationRemoved(0);
         inflationConfigs.removeFdc2Configuration(0);
         getConfig = inflationConfigs.getFdc2Configuration(0);
         assertEq(getConfig.attestationType, type2);

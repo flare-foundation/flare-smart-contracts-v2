@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IMachinePathManager, TEE_MACHINE_PATH_LIST } from "../../userInterfaces/tee/IMachinePathManager.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";

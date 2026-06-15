@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IFdc2RewardOffersManager } from "../../userInterfaces/fdc2/IFdc2RewardOffersManager.sol";
 import { IFdc2InflationConfigurations } from "../../userInterfaces/fdc2/IFdc2InflationConfigurations.sol";

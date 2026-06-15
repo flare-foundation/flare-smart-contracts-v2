@@ -166,6 +166,11 @@ contract ExtensionGovernanceFacetTest is Test {
         assertEq(returnedThreshold, 1);
     }
 
+    function testGetTeeGovernanceThresholdRevertInvalidGovernanceHash() public {
+        vm.expectRevert(ITeeCommonErrors.InvalidGovernanceHash.selector);
+        flareTeeManager.getTeeGovernanceThreshold(extensionId2, bytes32(0));
+    }
+
     // =========================================================================
     // isTeeGovernanceSigner
     // =========================================================================

@@ -17,11 +17,11 @@ library WalletManager {
     struct TeeWalletState {
         bytes32 projectId;
         IWalletManager.WalletStatus status;
-        PublicKey[] adminsPublicKeys;
         uint64 adminsThreshold;
+        PublicKey[] adminsPublicKeys;
         mapping(address admin => bool) adminConfirmations;
-        address[] cosigners;
         uint64 cosignersThreshold;
+        address[] cosigners;
         mapping(address cosigner => bool) cosignerConfirmations;
     }
 

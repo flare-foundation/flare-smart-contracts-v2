@@ -58,7 +58,7 @@ contract TestTeeMachineHelperFacet is ITestTeeMachineHelper {
             owner: _owner,
             teeProxyId: _teeId,
             status: _status,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: bytes32(0),
             platform: bytes32(0),
             governanceHash: bytes32(0),
@@ -101,7 +101,7 @@ contract WalletManagerFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 1000,
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
@@ -202,6 +202,15 @@ contract WalletManagerFacetTest is Test {
     function testCreateWalletRevert() public {
         vm.expectRevert(ITeeCommonErrors.OnlyOwner.selector);
         flareTeeManager.createWallet(projectId);
+    }
+
+    function testGetWalletStatusNoneForNonExistentWallet() public {
+        // A wallet id that was never created reads back the NONE sentinel (not a real status),
+        // so the default storage slot is distinguishable from a genuine CREATED wallet.
+        assertEq(
+            uint8(flareTeeManager.getWalletStatus(keccak256("neverCreated"))),
+            uint8(IWalletManager.WalletStatus.NONE)
+        );
     }
 
     // not enough admins
@@ -325,6 +334,17 @@ contract WalletManagerFacetTest is Test {
 
     // invalid admin
     function testConfirmAdminsRevert1() public {
+        // The wallet was never created, so its status is NONE; the wallet-status guard rejects
+        // the confirmation before the admin-membership check is reached.
+        vm.expectRevert(ITeeCommonErrors.InvalidWalletStatus.selector);
+        flareTeeManager.confirmAdmin(walletId);
+    }
+
+    function testConfirmAdminRevertInvalidAdmin() public {
+        // Real CREATED wallet with admins set; a caller who is not an admin cannot confirm.
+        testSetAdmins();
+        address nonAdmin = makeAddr("nonAdmin");
+        vm.prank(nonAdmin);
         vm.expectRevert(IWalletManager.InvalidAdmin.selector);
         flareTeeManager.confirmAdmin(walletId);
     }
@@ -422,10 +442,21 @@ contract WalletManagerFacetTest is Test {
     }
 
     function testConfirmCosignerRevert() public {
+        // The wallet was never created, so its status is NONE; the wallet-status guard rejects
+        // the confirmation before the cosigner-membership check is reached.
+        vm.expectRevert(ITeeCommonErrors.InvalidWalletStatus.selector);
+        flareTeeManager.confirmCosigner(walletId);
+    }
+
+    function testConfirmCosignerRevertInvalidCosigner() public {
+        // Real CREATED wallet with cosigners set; a caller who is not a cosigner cannot confirm.
+        testSetCosigners();
+        address nonCosigner = makeAddr("nonCosigner");
+        vm.prank(nonCosigner);
         vm.expectRevert(
             abi.encodeWithSelector(
                 ITeeCommonErrors.InvalidCosigner.selector,
-                address(this)
+                nonCosigner
             )
         );
         flareTeeManager.confirmCosigner(walletId);
@@ -701,7 +732,7 @@ contract WalletManagerFacetTest is Test {
         );
 
         vm.prank(projectOwner);
-        uint64 keyId = flareTeeManager.addKey{value: 0}(teeAddr, _walletId, address(0));
+        uint64 keyId = flareTeeManager.addKey{value: 1000}(teeAddr, _walletId, address(0));
 
         // Build proof
         (PublicKey[] memory adminsPublicKeys, uint64 adminsThreshold) =

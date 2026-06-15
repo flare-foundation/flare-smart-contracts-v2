@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IIExtensionManager } from "../interface/IIExtensionManager.sol";
 import { IExtensionManager } from "../../userInterfaces/tee/IExtensionManager.sol";
@@ -28,6 +28,9 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         require(OwnerAllowlist.isAllowedExtensionOwner(msg.sender), NotAllowedExtensionOwner());
         require(_teeExtensionInstructionsSender != address(0), InvalidInstructionsSender());
         ExtensionManager.State storage s = ExtensionManager.getState();
+        if (s.nextPublicExtensionId < ExtensionManager.PUBLIC_EXTENSION_ID_START) {
+            s.nextPublicExtensionId = ExtensionManager.PUBLIC_EXTENSION_ID_START;
+        }
         _extensionId = s.nextPublicExtensionId++;
         ExtensionManager.TeeExtension storage newExtension = s.extensions[_extensionId];
         newExtension.owner = msg.sender;
@@ -43,7 +46,7 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         address _owner
     )
         external
-        onlyImmediateGovernance
+        onlyGovernance
     {
         require(
             _extensionId > 0 && _extensionId < ExtensionManager.PUBLIC_EXTENSION_ID_START,
@@ -105,40 +108,31 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     }
 
     /// @inheritdoc IExtensionManager
-    function disableCodeHashPlatform(
+    function disableCodeHashPlatforms(
         uint256 _extensionId,
         bytes32 _codeHash,
-        bytes32 _platform
+        bytes32[] calldata _platforms
     )
         external
     {
+        require(_platforms.length > 0, NoPlatforms());
         ExtensionManager.checkOnlyExtensionOwner(_extensionId);
         ExtensionManager.TeeExtension storage extension =
             ExtensionManager.getState().extensions[_extensionId];
         require(extension.codeHashToVersion[_codeHash].platforms.length() > 0, InvalidCodeHash());
-        bytes32[] memory platforms = extension.codeHashToVersion[_codeHash].platforms.values();
-        if (_platform != bytes32(0)) {
-            for (uint256 i = 0; i < platforms.length; i++) {
-                if (platforms[i] == _platform) {
-                    require(
-                        !extension.codeHashPlatformDisabled[_codeHash][_platform],
-                        CodeHashPlatformAlreadyDisabled()
-                    );
-                    extension.codeHashPlatformDisabled[_codeHash][_platform] = true;
-                    emit CodeHashPlatformDisabled(_extensionId, _codeHash, _platform);
-                    return;
-                }
-            }
-            revert InvalidPlatform();
-        } else {
-            for (uint256 i = 0; i < platforms.length; i++) {
-                if (extension.codeHashPlatformDisabled[_codeHash][platforms[i]]) {
-                    continue;
-                }
-                extension.codeHashPlatformDisabled[_codeHash][platforms[i]] = true;
-                emit CodeHashPlatformDisabled(_extensionId, _codeHash, platforms[i]);
-            }
+        for (uint256 i = 0; i < _platforms.length; i++) {
+            bytes32 platform = _platforms[i];
+            require(
+                extension.codeHashToVersion[_codeHash].platforms.contains(platform),
+                InvalidPlatform()
+            );
+            require(
+                !extension.codeHashPlatformDisabled[_codeHash][platform],
+                CodeHashPlatformAlreadyDisabled()
+            );
+            extension.codeHashPlatformDisabled[_codeHash][platform] = true;
         }
+        emit CodeHashPlatformsDisabled(_extensionId, _codeHash, _platforms);
     }
 
     /// @inheritdoc IExtensionManager
@@ -163,7 +157,7 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     /// @inheritdoc IExtensionManager
     function removeSupportedKeyTypes(
         uint256 _extensionId,
-        bytes32[] memory _keyTypes
+        bytes32[] calldata _keyTypes
     )
         external
     {
@@ -239,6 +233,20 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     }
 
     /// @inheritdoc IIExtensionManager
+    function removeSystemSupportedPlatforms(
+        bytes32[] calldata _platforms
+    )
+        external
+        onlyGovernance
+    {
+        ExtensionManager.State storage s = ExtensionManager.getState();
+        for (uint256 i = 0; i < _platforms.length; i++) {
+            require(s.systemSupportedPlatforms.remove(_platforms[i]), PlatformNotFound(_platforms[i]));
+        }
+        emit SystemSupportedPlatformsRemoved(_platforms);
+    }
+
+    /// @inheritdoc IIExtensionManager
     function addSystemSupportedKeyTypesAndSigningAlgos(
         bytes32[] calldata _keyTypes,
         bytes32[][] calldata _signingAlgosByKeyType
@@ -265,6 +273,35 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
             }
         }
         emit SystemSupportedKeyTypesAndSigningAlgosAdded(_keyTypes, _signingAlgosByKeyType);
+    }
+
+    /// @inheritdoc IIExtensionManager
+    function removeSystemSupportedKeyTypesAndSigningAlgos(
+        bytes32[] calldata _keyTypes,
+        bytes32[][] calldata _signingAlgosByKeyType
+    )
+        external
+        onlyGovernance
+    {
+        require(_keyTypes.length == _signingAlgosByKeyType.length, LengthsMismatch());
+        ExtensionManager.State storage s = ExtensionManager.getState();
+        for (uint256 i = 0; i < _keyTypes.length; i++) {
+            bytes32 keyType = _keyTypes[i];
+            bytes32[] calldata signingAlgos = _signingAlgosByKeyType[i];
+            require(signingAlgos.length > 0, NoSigningAlgos(keyType));
+            for (uint256 j = 0; j < signingAlgos.length; j++) {
+                bytes32 signingAlgo = signingAlgos[j];
+                require(
+                    s.systemSupportedSigningAlgos[keyType].remove(signingAlgo),
+                    SigningAlgoNotFound(keyType, signingAlgo)
+                );
+            }
+            // Drop the key type once it no longer has any supported signing algorithm.
+            if (s.systemSupportedSigningAlgos[keyType].length() == 0) {
+                s.systemSupportedKeyTypes.remove(keyType);
+            }
+        }
+        emit SystemSupportedKeyTypesAndSigningAlgosRemoved(_keyTypes, _signingAlgosByKeyType);
     }
 
     // =========================================================================

@@ -24,9 +24,9 @@ library MachineManager {
         address initialTeeId;
         uint32 initialSigningPolicyId;
         address owner;
-        address teeProxyId;
         IMachineManager.TeeStatus status;
-        uint256 lastStatusChangeTs;
+        uint64 lastStatusChangeTs;
+        address teeProxyId;
         bytes32 codeHash;
         bytes32 platform;
         bytes32 governanceHash;
@@ -53,13 +53,15 @@ library MachineManager {
         State storage s = getState();
         TeeMachineState storage state = s.teeMachineStates[_teeId];
         state.status = _newStatus;
-        state.lastStatusChangeTs = block.timestamp;
+        state.lastStatusChangeTs = uint64(block.timestamp);
         if (_newStatus == IMachineManager.TeeStatus.PRODUCTION) {
             s.extensionActiveTeeIds[state.extensionId].add(_teeId);
             s.activeTeeIds.add(_teeId);
         } else if (
             _newStatus == IMachineManager.TeeStatus.PAUSED ||
-            _newStatus == IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE
+            _newStatus == IMachineManager.TeeStatus.SUSPENDED ||
+            _newStatus == IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE ||
+            _newStatus == IMachineManager.TeeStatus.BANNED
         ) {
             s.extensionActiveTeeIds[state.extensionId].remove(_teeId);
             s.activeTeeIds.remove(_teeId);

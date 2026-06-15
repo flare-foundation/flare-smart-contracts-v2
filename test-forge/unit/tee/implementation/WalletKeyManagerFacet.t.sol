@@ -107,7 +107,7 @@ contract TestKeyManagerHelperFacet is ITestKeyManagerHelper {
             owner: _owner,
             teeProxyId: _teeId,
             status: _status,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: bytes32(0),
             platform: bytes32(0),
             governanceHash: bytes32(0),
@@ -312,7 +312,7 @@ contract WalletKeyManagerFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 1000,
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
@@ -532,7 +532,7 @@ contract WalletKeyManagerFacetTest is Test {
         vm.prank(owner);
         vm.expectEmit();
         emit IWalletKeyManager.WalletKeyAdded(teeId, walletId, 0);
-        uint64 returnedKeyId = flareTeeManager.addKey{value: 0}(teeId, walletId, address(0));
+        uint64 returnedKeyId = flareTeeManager.addKey{value: 1000}(teeId, walletId, address(0));
         assertEq(returnedKeyId, 0);
 
         // Verify key counter incremented
@@ -545,7 +545,7 @@ contract WalletKeyManagerFacetTest is Test {
         vm.prank(owner);
         vm.expectEmit();
         emit IWalletKeyManager.WalletKeyAdded(teeId, walletId, 0);
-        flareTeeManager.addKey{value: 0}(teeId, walletId, claimBack);
+        flareTeeManager.addKey{value: 1000}(teeId, walletId, claimBack);
     }
 
     // =========================================================================
@@ -829,7 +829,7 @@ contract WalletKeyManagerFacetTest is Test {
         flareTeeManager.confirmKey(proof, teeSignature);
         // teeId is now in the key's teeIds again. Delete to get nonce=2, then try to add again
         vm.prank(owner);
-        flareTeeManager.deleteKey{value: 0}(teeId, walletId, keyId, address(0));
+        flareTeeManager.deleteKey{value: 1000}(teeId, walletId, keyId, address(0));
         // nonces[teeId] = 2 now, but teeId was also re-added by confirmKey above and then removed by deleteKey
         // Actually we need teeId to be present in teeIds AND try to re-add it.
         // Let's re-confirm again, then try to confirm a third time without deleting
@@ -843,7 +843,7 @@ contract WalletKeyManagerFacetTest is Test {
         // But we want nonces[teeId] to increase. Let's use a different approach:
         // We can add newTeeId to the key, then try to add teeId again (which is already there).
         vm.prank(owner);
-        flareTeeManager.deleteKey{value: 0}(newTeeId, walletId, keyId, address(0));
+        flareTeeManager.deleteKey{value: 1000}(newTeeId, walletId, keyId, address(0));
         // nonces[newTeeId] = 1
         proof.teeId = newTeeId;
         proof.nonce = 1;
@@ -854,7 +854,7 @@ contract WalletKeyManagerFacetTest is Test {
         // Now both teeId and newTeeId are in teeIds.
         // Try to add teeId again (it's already there)
         vm.prank(owner);
-        flareTeeManager.deleteKey{value: 0}(teeId, walletId, keyId, address(0));
+        flareTeeManager.deleteKey{value: 1000}(teeId, walletId, keyId, address(0));
         // nonces[teeId] = 3, teeId removed from teeIds
         // Re-add teeId
         proof.teeId = teeId;
@@ -903,7 +903,7 @@ contract WalletKeyManagerFacetTest is Test {
 
         // Now add newTeeId: deleteKey to increase its nonce, then confirmKey
         vm.prank(owner);
-        flareTeeManager.deleteKey{value: 0}(newTeeId, walletId, keyId, address(0));
+        flareTeeManager.deleteKey{value: 1000}(newTeeId, walletId, keyId, address(0));
         // nonces[newTeeId] = 1 (newTeeId wasn't in teeIds, but deleteKey still increments nonce)
 
         proof.teeId = newTeeId;
@@ -988,11 +988,11 @@ contract WalletKeyManagerFacetTest is Test {
 
         // Add key for newTeeId (this doesn't create a new keyId, it adds to the same wallet)
         vm.prank(owner);
-        flareTeeManager.addKey{value: 0}(newTeeId, walletId, address(0));
+        flareTeeManager.addKey{value: 1000}(newTeeId, walletId, address(0));
 
         // Delete key for newTeeId to get nonce, then confirm to add newTeeId
         vm.prank(owner);
-        flareTeeManager.deleteKey{value: 0}(newTeeId, walletId, keyId, address(0));
+        flareTeeManager.deleteKey{value: 1000}(newTeeId, walletId, keyId, address(0));
 
         proof.teeId = newTeeId;
         proof.nonce = 1;
@@ -1008,7 +1008,7 @@ contract WalletKeyManagerFacetTest is Test {
         vm.prank(owner);
         vm.expectEmit();
         emit IWalletKeyManager.WalletKeyDeleted(teeId, walletId, keyId);
-        flareTeeManager.deleteKey{value: 0}(teeId, walletId, keyId, address(0));
+        flareTeeManager.deleteKey{value: 1000}(teeId, walletId, keyId, address(0));
 
         // teeId should be removed
         teeIds = flareTeeManager.getWalletKeyTeeIds(walletId, keyId);
@@ -1022,7 +1022,7 @@ contract WalletKeyManagerFacetTest is Test {
         vm.prank(owner);
         vm.expectEmit();
         emit IWalletKeyManager.WalletKeyDeleted(teeId, walletId, keyId);
-        flareTeeManager.deleteKey{value: 0}(teeId, walletId, keyId, claimBack);
+        flareTeeManager.deleteKey{value: 1000}(teeId, walletId, keyId, claimBack);
     }
 
     // =========================================================================
@@ -1208,7 +1208,7 @@ contract WalletKeyManagerFacetTest is Test {
 
         // deleteKey bumps nonce[teeId] to 1 AND removes teeId from the key's holders.
         vm.prank(owner);
-        flareTeeManager.deleteKey{value: 0}(teeId, walletId, keyId, address(0));
+        flareTeeManager.deleteKey{value: 1000}(teeId, walletId, keyId, address(0));
         (nonce, teeHoldsKey) = flareTeeManager.getKeyNonce(teeId, walletId, keyId);
         assertEq(nonce, 1);
         assertFalse(teeHoldsKey);
@@ -1225,7 +1225,7 @@ contract WalletKeyManagerFacetTest is Test {
 
     function _addKey() private {
         vm.prank(owner);
-        flareTeeManager.addKey{value: 0}(teeId, walletId, address(0));
+        flareTeeManager.addKey{value: 1000}(teeId, walletId, address(0));
     }
 
     function _setupConfirmKeyInWallet() private {
@@ -1235,7 +1235,7 @@ contract WalletKeyManagerFacetTest is Test {
         // we need nonce > 0 and restored == true.
         // Use deleteKey to increment the nonce for teeId
         vm.prank(owner);
-        flareTeeManager.deleteKey{value: 0}(teeId, walletId, keyId, address(0));
+        flareTeeManager.deleteKey{value: 1000}(teeId, walletId, keyId, address(0));
         // After deleteKey, nonces[teeId] = 1 and teeId is removed from teeIds
         proof.nonce = 1;
         proof.restored = true;

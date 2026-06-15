@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
@@ -30,7 +30,7 @@ contract TeePaymentsRegistry is IITeePaymentsRegistry, FlareUpgradeableBase {
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
-     * (single call is assured by GovernedBase.initialise).
+     * (single call is assured by the `initializer` modifier).
      * @param _governanceSettings The governance settings interface.
      * @param _initialGovernance The initial governance address.
      * @param _addressUpdater The address updater contract.

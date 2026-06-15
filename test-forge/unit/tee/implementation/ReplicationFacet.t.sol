@@ -395,7 +395,7 @@ contract ReplicationFacetTest is Test {
 
         // Disable the code hash platform after registration
         vm.prank(extensionOwner);
-        flareTeeManager.disableCodeHashPlatform(extensionId, codeHash2, platforms1[0]);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash2, platforms1);
 
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(
             newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]

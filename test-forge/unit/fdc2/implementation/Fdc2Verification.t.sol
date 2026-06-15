@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Fdc2Verification } from "../../../../contracts/fdc2/implementation/Fdc2Verification.sol";
 import { Fdc2VerificationProxy } from "../../../../contracts/fdc2/proxy/Fdc2VerificationProxy.sol";
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
+import { IMachineEmergencyPause } from "../../../../contracts/userInterfaces/tee/IMachineEmergencyPause.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
@@ -70,6 +71,7 @@ contract Fdc2VerificationTest is Test {
 
         _mockGetTeeMachineStatus(IMachineManager.TeeStatus.PRODUCTION);
         _mockGetExtensionId(0);
+        _mockIsExtensionEmergencyPaused(false);
 
         vm.mockCall(
             relay,
@@ -100,6 +102,12 @@ contract Fdc2VerificationTest is Test {
         assertEq(returnedTeeId, teeId);
     }
 
+    function testVerifyTeeSignatureRevertSystemExtensionEmergencyPaused() public {
+        _mockIsExtensionEmergencyPaused(true);
+        vm.expectRevert(IFdc2Verification.SystemExtensionEmergencyPaused.selector);
+        fdc2Verification.verifyTeeSignature(signature, messageHash);
+    }
+
 
     // verifyTeeSignatures
     function testVerifyTeeSignaturesRevertTeeMachineNotAvailable() public {
@@ -124,6 +132,14 @@ contract Fdc2VerificationTest is Test {
         fdc2Verification.verifyTeeSignatures(signatures, messageHash);
     }
 
+
+    function testVerifyTeeSignaturesRevertSystemExtensionEmergencyPaused() public {
+        Signature[] memory signatures = new Signature[](1);
+        signatures[0] = signature;
+        _mockIsExtensionEmergencyPaused(true);
+        vm.expectRevert(IFdc2Verification.SystemExtensionEmergencyPaused.selector);
+        fdc2Verification.verifyTeeSignatures(signatures, messageHash);
+    }
 
     function testVerifyTeeSignatures() public {
         Signature[] memory signatures = new Signature[](0);
@@ -185,6 +201,14 @@ contract Fdc2VerificationTest is Test {
             flareTeeManager,
             abi.encodeWithSelector(IMachineManager.getExtensionId.selector),
             abi.encode(_extensionId)
+        );
+    }
+
+    function _mockIsExtensionEmergencyPaused(bool _paused) private {
+        vm.mockCall(
+            flareTeeManager,
+            abi.encodeWithSelector(IMachineEmergencyPause.isExtensionEmergencyPaused.selector),
+            abi.encode(_paused)
         );
     }
 

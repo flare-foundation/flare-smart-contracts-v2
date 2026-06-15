@@ -148,6 +148,14 @@ contract ExtensionPausingFacetTest is Test {
         flareTeeManager.setTeePausingAddresses(extensionId, hashes, pausingAddresses);
     }
 
+    function testSetTeePausingAddressesRevertInvalidAddress() public {
+        bytes32[] memory hashes = _setGovernanceAndReturnHash(extensionId, signers, 1);
+        pausingAddresses[1] = address(0);
+        vm.prank(realOwnerExtension1);
+        vm.expectRevert(ITeeCommonErrors.InvalidAddress.selector);
+        flareTeeManager.setTeePausingAddresses(extensionId, hashes, pausingAddresses);
+    }
+
     function testSetTeePausingAddresses() public {
         bytes32[] memory hashes = _setGovernanceAndReturnHash(extensionId, signers, 1);
         address[] memory emptyPausingAddresses = new address[](0);

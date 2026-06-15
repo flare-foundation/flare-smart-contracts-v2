@@ -50,7 +50,7 @@ contract TestEmHelperFacet is ITestEmHelper {
             owner: _owner,
             teeProxyId: _teeId,
             status: _status,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: bytes32(0),
             platform: bytes32(0),
             governanceHash: bytes32(0),
@@ -93,7 +93,7 @@ contract MachineEmergencyPauseFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 1000,
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: GRACE_SECONDS
         }));

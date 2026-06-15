@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IExtensionGovernance } from "../../userInterfaces/tee/IExtensionGovernance.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";

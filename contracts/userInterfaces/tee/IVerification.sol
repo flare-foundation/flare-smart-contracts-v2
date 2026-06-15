@@ -40,12 +40,9 @@ interface IVerification is ITeeCommonErrors {
         uint256 endTs
     );
 
-    error AccountAddressZero();
     error ChallengeExpired(uint256 challengeTs);
     error InvalidAttestation();
     error InvalidRequestBody();
-    error InvalidSigningPolicy();
-    error CosignersThresholdNotMet();
 
     /**
      * Request attestation for a TEE machine.
@@ -88,17 +85,6 @@ interface IVerification is ITeeCommonErrors {
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         external;
-
-    /**
-     * Validate the availability check proof.
-     * @param _proof The availability check proof.
-     * @return _responseDataValid True if the response data is valid, false otherwise.
-     */
-    function verifyAvailabilityCheckProof(
-        ITeeAvailabilityCheck.Proof calldata _proof
-    )
-        external
-        returns (bool _responseDataValid);
 
     // =========================================================================
     // View getters

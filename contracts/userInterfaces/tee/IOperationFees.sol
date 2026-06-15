@@ -21,6 +21,8 @@ interface IOperationFees is ITeeCommonErrors {
         uint256[] fees
     );
 
+    error DefaultFeeZero();
+
     /**
      * Returns the default fee.
      * @return The default fee.

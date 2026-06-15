@@ -17,14 +17,14 @@ interface IOwnerAllowlist is ITeeCommonErrors {
     event AllowedExtensionOwnersRemoved(address[] owners);
     event AllExtensionOwnersAllowed();
     event AllExtensionOwnersDisallowed();
-    event AllowedTeeMachineOwnersAdded(uint256 extensionId, address[] owners);
-    event AllowedTeeMachineOwnersRemoved(uint256 extensionId, address[] owners);
-    event AllowedTeeWalletProjectOwnersAdded(uint256 extensionId, address[] owners);
-    event AllowedTeeWalletProjectOwnersRemoved(uint256 extensionId, address[] owners);
-    event AllTeeMachineOwnersAllowed(uint256 extensionId);
-    event AllTeeMachineOwnersDisallowed(uint256 extensionId);
-    event AllTeeWalletProjectOwnersAllowed(uint256 extensionId);
-    event AllTeeWalletProjectOwnersDisallowed(uint256 extensionId);
+    event AllowedTeeMachineOwnersAdded(uint256 indexed extensionId, address[] owners);
+    event AllowedTeeMachineOwnersRemoved(uint256 indexed extensionId, address[] owners);
+    event AllowedTeeWalletProjectOwnersAdded(uint256 indexed extensionId, address[] owners);
+    event AllowedTeeWalletProjectOwnersRemoved(uint256 indexed extensionId, address[] owners);
+    event AllTeeMachineOwnersAllowed(uint256 indexed extensionId);
+    event AllTeeMachineOwnersDisallowed(uint256 indexed extensionId);
+    event AllTeeWalletProjectOwnersAllowed(uint256 indexed extensionId);
+    event AllTeeWalletProjectOwnersDisallowed(uint256 indexed extensionId);
 
     /**
      * Adds a list of allowed extension owners to the global allowlist.
@@ -36,7 +36,7 @@ interface IOwnerAllowlist is ITeeCommonErrors {
      * Can only be called by the Flare governance address.
      */
     function addAllowedExtensionOwners(
-        address[] memory _owners
+        address[] calldata _owners
     )
         external;
 
@@ -47,7 +47,7 @@ interface IOwnerAllowlist is ITeeCommonErrors {
      * Can only be called by the Flare governance address.
      */
     function removeAllowedExtensionOwners(
-        address[] memory _owners
+        address[] calldata _owners
     )
         external;
 
@@ -78,7 +78,7 @@ interface IOwnerAllowlist is ITeeCommonErrors {
      */
     function addAllowedTeeMachineOwners(
         uint256 _extensionId,
-        address[] memory _owners
+        address[] calldata _owners
     )
         external;
 
@@ -91,7 +91,7 @@ interface IOwnerAllowlist is ITeeCommonErrors {
      */
     function removeAllowedTeeMachineOwners(
         uint256 _extensionId,
-        address[] memory _owners
+        address[] calldata _owners
     )
         external;
 
@@ -104,7 +104,7 @@ interface IOwnerAllowlist is ITeeCommonErrors {
      */
     function addAllowedTeeWalletProjectOwners(
         uint256 _extensionId,
-        address[] memory _owners
+        address[] calldata _owners
     )
         external;
 
@@ -117,7 +117,7 @@ interface IOwnerAllowlist is ITeeCommonErrors {
      */
     function removeAllowedTeeWalletProjectOwners(
         uint256 _extensionId,
-        address[] memory _owners
+        address[] calldata _owners
     )
         external;
 

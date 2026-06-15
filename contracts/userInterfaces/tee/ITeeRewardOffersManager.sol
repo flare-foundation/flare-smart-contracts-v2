@@ -16,5 +16,11 @@ interface ITeeRewardOffersManager {
         uint256 teeOwnersPPM
     );
 
+    /// Event emitted when the part of the rewards that goes to the TEE owners is set.
+    event TeeOwnersPPMSet(
+        // part of the rewards that goes to the TEE owners
+        uint24 teeOwnersPPM
+    );
+
     error InvalidTeeOwnersPPMValue();
 }

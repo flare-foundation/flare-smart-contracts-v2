@@ -31,31 +31,14 @@ library OperationFees {
     )
         internal
     {
+        require(_defaultFee > 0, IOperationFees.DefaultFeeZero());
         getState().defaultFee = _defaultFee;
         emit IOperationFees.DefaultFeeSet(_defaultFee);
-    }
-
-    function getDefaultFee()
-        internal view
-        returns (uint256)
-    {
-        return getState().defaultFee;
     }
 
     function getOperationFee(
         bytes32 _opType,
         bytes32 _opCommand
-    )
-        internal view
-        returns (uint256)
-    {
-        return getState().operationFee[_opType][_opCommand];
-    }
-
-    function calculateFeeByTeeIds(
-        bytes32 _opType,
-        bytes32 _opCommand,
-        address[] memory _teeIds
     )
         internal view
         returns (uint256 _fee)
@@ -65,7 +48,17 @@ library OperationFees {
         if (_fee == 0) {
             _fee = s.defaultFee;
         }
-        _fee *= _teeIds.length;
+    }
+
+    function calculateFeeByTeeIds(
+        bytes32 _opType,
+        bytes32 _opCommand,
+        address[] memory _teeIds
+    )
+        internal view
+        returns (uint256)
+    {
+        return getOperationFee(_opType, _opCommand) * _teeIds.length;
     }
 
     function getState()

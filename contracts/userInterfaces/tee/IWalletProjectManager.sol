@@ -81,7 +81,7 @@ interface IWalletProjectManager is ITeeCommonErrors {
         external;
 
     /**
-     * Confirms the ownership of the project.
+     * Confirms the ownership of the project. Backup manager, pausers and unpausers remain unchanged.
      * Emits OwnershipConfirmed event.
      * @param _projectId The project id.
      * Can only be called by the proposed new owner.

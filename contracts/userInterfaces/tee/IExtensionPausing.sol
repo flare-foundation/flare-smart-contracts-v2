@@ -55,7 +55,7 @@ interface IExtensionPausing is ITeeCommonErrors {
      *      Must be non-empty, contain no duplicates, and each must be a known governance hash
      *      (validated via ExtensionGovernance.isGovernanceHashValid).
      * @param _pausingAddresses The list of pausing addresses, can be empty.
-     * Can only be called by the extension owner.
+     * Can only be called by the extension owner or the extension operator.
      */
     function setTeePausingAddresses(
         uint256 _extensionId,

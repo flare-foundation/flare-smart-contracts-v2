@@ -13,6 +13,7 @@ bytes32 constant WALLET_OP_TYPE = bytes32("F_WALLET");
 interface IWalletManager is ITeeCommonErrors {
 
     enum WalletStatus {
+        NONE,
         CREATED,
         INITIALIZED,
         PRODUCTION,
@@ -96,6 +97,7 @@ interface IWalletManager is ITeeCommonErrors {
 
     /**
      * Confirms the admin.
+     * Confirmation is per-wallet membership consent independent of set composition and threshold.
      * Emits WalletAdminConfirmed event.
      * @param _walletId The wallet id.
      */
@@ -121,6 +123,7 @@ interface IWalletManager is ITeeCommonErrors {
 
     /**
      * Confirms the cosigner.
+     * Confirmation is per-wallet membership consent independent of set composition and threshold.
      * Emits WalletCosignerConfirmed event.
      * @param _walletId The wallet id.
      */

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";

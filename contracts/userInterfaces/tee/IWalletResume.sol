@@ -29,6 +29,9 @@ interface IWalletResume is ITeeCommonErrors {
         ResumeKeyData[] keysData;
     }
 
+    event PausingAddressesSet(bytes32 indexed walletId, uint256 nonce, address[] pausingAddresses);
+    event WalletResumed(bytes32 indexed walletId, ResumeKeyData[] keysData);
+
     error WrongKeyId();
 
     /**

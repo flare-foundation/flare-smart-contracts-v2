@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { IFlareTeeManager } from "../../userInterfaces/tee/IFlareTeeManager.sol";
@@ -66,7 +66,11 @@ contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
         external view
         returns (address _signingTeeId)
     {
-        _signingTeeId = _verifyTeeSignature(_signature, _messageHash);
+        require(
+            !flareTeeManager.isExtensionEmergencyPaused(0),
+            SystemExtensionEmergencyPaused()
+        );
+        _signingTeeId = _verifyTeeSignature(flareTeeManager, _signature, _messageHash);
     }
 
     /**
@@ -80,8 +84,13 @@ contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
         returns (address[] memory _signingTeeIds)
     {
         _signingTeeIds = new address[](_signatures.length);
+        IFlareTeeManager flareTeeManagerTmp = flareTeeManager; // used in loop
+        require(
+            !flareTeeManagerTmp.isExtensionEmergencyPaused(0),
+            SystemExtensionEmergencyPaused()
+        );
         for (uint256 i = 0; i < _signatures.length; i++) {
-            address teeId = _verifyTeeSignature(_signatures[i], _messageHash);
+            address teeId = _verifyTeeSignature(flareTeeManagerTmp, _signatures[i], _messageHash);
             for (uint256 j = 0; j < i; j++) {
                 require(_signingTeeIds[j] != teeId, DuplicatedTeeId(teeId));
             }
@@ -131,6 +140,7 @@ contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
     }
 
     function _verifyTeeSignature(
+        IFlareTeeManager _flareTeeManager,
         Signature calldata _signature,
         bytes32 _messageHash
     )
@@ -144,11 +154,11 @@ contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
             _signature.s
         );
         require(
-            flareTeeManager.getExtensionId(_signingTeeId) == 0,
+            _flareTeeManager.getExtensionId(_signingTeeId) == 0,
             InvalidTeeMachineExtensionId()
         );
         require(
-            flareTeeManager.getTeeMachineStatus(_signingTeeId) == IMachineManager.TeeStatus.PRODUCTION,
+            _flareTeeManager.getTeeMachineStatus(_signingTeeId) == IMachineManager.TeeStatus.PRODUCTION,
             TeeMachineNotAvailable()
         );
     }

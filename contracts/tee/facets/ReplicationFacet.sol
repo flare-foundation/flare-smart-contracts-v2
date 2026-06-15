@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IIReplication } from "../interface/IIReplication.sol";
 import { IReplication } from "../../userInterfaces/tee/IReplication.sol";

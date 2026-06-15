@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
@@ -64,9 +64,7 @@ contract WalletManagerFacet is IWalletManager {
         }
         WalletManager.TeeWalletState storage wallet = WalletManager.getState().wallets[_walletId];
         WalletManager.checkWalletStatus(wallet.status, WalletStatus.CREATED);
-        while (wallet.adminsPublicKeys.length > 0) {
-            wallet.adminsPublicKeys.pop();
-        }
+        delete wallet.adminsPublicKeys;
         for (uint256 i = 0; i < _adminsPublicKeys.length; i++) {
             wallet.adminsPublicKeys.push(_adminsPublicKeys[i]);
         }

@@ -87,7 +87,6 @@ interface ITeePayments {
     error BatchDurationTooLarge();
     error PMWMultisigAccountAddressAlreadySet();
     error OnlyProductionOrPausedStatus();
-    error MinFeeNotSet();
     error AccountAddressZero();
     error UnsupportedSourceId();
     error InvalidProof();

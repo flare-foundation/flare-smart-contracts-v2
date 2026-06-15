@@ -106,7 +106,7 @@ contract TestStateHelperFacet is ITestStateHelper {
             owner: _owner,
             teeProxyId: _teeId,
             status: _status,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: bytes32(0),
             platform: bytes32(0),
             governanceHash: bytes32(0),
@@ -270,6 +270,11 @@ contract WalletBackupManagerFacetTest is Test {
         backupManager = makeAddr("backupManager");
         teeMachineOwner = makeAddr("teeMachineOwner");
 
+        // Charged operations (backupRestore / directBackup / directRestore) cost the default fee
+        // (1000 wei per targeted TEE). Fund the senders so the charged calls can pay.
+        vm.deal(owner, 1 ether);
+        vm.deal(backupManager, 1 ether);
+
         teeId = makeAddr("teeId");
         backupTeeId = makeAddr("backupTeeId");
         keyHolderTeeId = makeAddr("keyHolderTeeId");
@@ -314,7 +319,7 @@ contract WalletBackupManagerFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 1000,
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
@@ -605,7 +610,7 @@ contract WalletBackupManagerFacetTest is Test {
             keyId,
             1 // nonce (increaseKeyNonce returns ++nonce, first call = 1)
         );
-        flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
+        flareTeeManager.backupRestore{ value: 1000 }(teeId, backupId, backupUrl, address(0));
     }
 
     function testBackupRestoreByBackupManager() public {
@@ -617,7 +622,7 @@ contract WalletBackupManagerFacetTest is Test {
             keyId,
             1
         );
-        flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
+        flareTeeManager.backupRestore{ value: 1000 }(teeId, backupId, backupUrl, address(0));
     }
 
     // =========================================================================
@@ -762,7 +767,7 @@ contract WalletBackupManagerFacetTest is Test {
             keyHolderTeeId, teeId, walletId, keyId, bytes32(0)
         );
         bytes32 instructionId =
-            flareTeeManager.directBackup(keyHolderTeeId, teeId, walletId, keyId, address(0));
+            flareTeeManager.directBackup{ value: 1000 }(keyHolderTeeId, teeId, walletId, keyId, address(0));
         assertTrue(instructionId != bytes32(0), "directBackup must return a non-zero instructionId");
 
         // Critical contract: directBackup must NOT mutate the destination's nonce.
@@ -774,7 +779,7 @@ contract WalletBackupManagerFacetTest is Test {
         _registerPath(keyHolderTeeId, teeId);
         vm.prank(backupManager);
         bytes32 instructionId =
-            flareTeeManager.directBackup(keyHolderTeeId, teeId, walletId, keyId, address(0));
+            flareTeeManager.directBackup{ value: 1000 }(keyHolderTeeId, teeId, walletId, keyId, address(0));
         assertTrue(instructionId != bytes32(0));
     }
 
@@ -829,7 +834,7 @@ contract WalletBackupManagerFacetTest is Test {
         bytes32 backupInstrId = bytes32("backupInstr");
         vm.expectEmit(true, true, true, false);
         emit IWalletBackupManager.DirectRestoreTriggered(teeId, walletId, keyId, 1, backupInstrId);
-        flareTeeManager.directRestore(teeId, backupId, backupInstrId, address(0));
+        flareTeeManager.directRestore{ value: 1000 }(teeId, backupId, backupInstrId, address(0));
 
         (uint256 nonceAfter, ) = flareTeeManager.getKeyNonce(teeId, walletId, keyId);
         assertEq(nonceAfter, 1, "directRestore must bump destination nonce by exactly 1");
@@ -848,13 +853,13 @@ contract WalletBackupManagerFacetTest is Test {
 
         vm.prank(owner);
         bytes32 backupInstrId =
-            flareTeeManager.directBackup(keyHolderTeeId, teeId, walletId, keyId, address(0));
+            flareTeeManager.directBackup{ value: 1000 }(keyHolderTeeId, teeId, walletId, keyId, address(0));
 
         (uint256 nonceBetween, ) = flareTeeManager.getKeyNonce(teeId, walletId, keyId);
         assertEq(nonceBetween, 0, "destination nonce stays 0 between directBackup and directRestore");
 
         vm.prank(owner);
-        flareTeeManager.directRestore(teeId, bid, backupInstrId, address(0));
+        flareTeeManager.directRestore{ value: 1000 }(teeId, bid, backupInstrId, address(0));
 
         (uint256 nonceAfter, ) = flareTeeManager.getKeyNonce(teeId, walletId, keyId);
         assertEq(nonceAfter, 1, "directRestore bumps destination nonce by exactly +1");

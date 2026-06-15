@@ -180,7 +180,7 @@ library FlareTeeManagerDeployer {
 
         // 2: ExtensionManagerFacet
         {
-            bytes4[] memory s = new bytes4[](27);
+            bytes4[] memory s = new bytes4[](29);
             s[0] = IExtensionManager.register.selector;
             s[1] = IExtensionManager.addTeeVersion.selector;
             s[2] = IExtensionManager.getExtensionOwner.selector;
@@ -194,7 +194,7 @@ library FlareTeeManagerDeployer {
             s[10] = IExtensionManager.nextPublicExtensionId.selector;
             s[11] = IExtensionManager.isKeyTypeSupported.selector;
             s[12] = IExtensionManager.setExtensionContracts.selector;
-            s[13] = IExtensionManager.disableCodeHashPlatform.selector;
+            s[13] = IExtensionManager.disableCodeHashPlatforms.selector;
             s[14] = IExtensionManager.removeSupportedKeyTypes.selector;
             s[15] = IExtensionManager.proposeNewOwner.selector;
             s[16] = IExtensionManager.confirmOwnership.selector;
@@ -208,6 +208,8 @@ library FlareTeeManagerDeployer {
             s[24] = IExtensionManager.registerReserved.selector;
             s[25] = IExtensionManager.setExtensionOperator.selector;
             s[26] = IExtensionManager.getExtensionOperator.selector;
+            s[27] = IIExtensionManager.removeSystemSupportedPlatforms.selector;
+            s[28] = IIExtensionManager.removeSystemSupportedKeyTypesAndSigningAlgos.selector;
             cuts[2] = IDiamond.FacetCut(
                 address(new ExtensionManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -264,16 +266,15 @@ library FlareTeeManagerDeployer {
 
         // 6: VerificationFacet
         {
-            bytes4[] memory s = new bytes4[](9);
+            bytes4[] memory s = new bytes4[](8);
             s[0] = IVerification.requestTeeAttestation.selector;
             s[1] = IIVerification.setCosigners.selector;
             s[2] = IVerification.requestAvailabilityCheckAttestation.selector;
             s[3] = IVerification.confirmAvailability.selector;
-            s[4] = IVerification.verifyAvailabilityCheckProof.selector;
-            s[5] = IIVerification.updateSettings.selector;
-            s[6] = IVerification.getCosigners.selector;
-            s[7] = IVerification.getSettings.selector;
-            s[8] = IVerification.getAvailabilityCheckValidity.selector;
+            s[4] = IIVerification.updateSettings.selector;
+            s[5] = IVerification.getCosigners.selector;
+            s[6] = IVerification.getSettings.selector;
+            s[7] = IVerification.getAvailabilityCheckValidity.selector;
             cuts[5] = IDiamond.FacetCut(
                 address(new VerificationFacet()), IDiamond.FacetCutAction.Add, s
             );

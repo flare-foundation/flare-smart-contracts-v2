@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IIVerification } from "../interface/IIVerification.sol";
 import { IVerification, TEE_SOURCE_ID } from "../../userInterfaces/tee/IVerification.sol";
@@ -97,20 +97,6 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
             InvalidResponseData()
         );
         Verification.extendAvailability(_proof);
-    }
-
-    /// @inheritdoc IVerification
-    function verifyAvailabilityCheckProof(
-        ITeeAvailabilityCheck.Proof calldata _proof
-    )
-        external
-        returns (bool)
-    {
-        address teeId = _proof.requestBody.teeId;
-        IMachineManager.TeeStatus status = MachineManager.getTeeMachineStatus(teeId);
-        IMachineManager.TeeMachineWithAttestationData memory teeMachine =
-            MachineManager.getTeeMachineWithAttestationData(teeId);
-        return Verification.verifyAvailabilityCheckProof(teeMachine, status, _proof);
     }
 
     /// @inheritdoc IIVerification

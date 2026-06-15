@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IIInstructions } from "../interface/IIInstructions.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";

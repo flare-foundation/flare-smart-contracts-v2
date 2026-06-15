@@ -134,7 +134,7 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
             owner: _owner,
             teeProxyId: _teeProxyId,
             status: _status,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: _codeHash,
             platform: _platform,
             governanceHash: bytes32(0),
@@ -163,7 +163,7 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
             owner: _owner,
             teeProxyId: address(0),
             status: _status,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: bytes32(0),
             platform: bytes32(0),
             governanceHash: bytes32(0),
@@ -361,7 +361,7 @@ contract VerificationFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 1 hours,
             signingPolicyValidityDurationInRewardEpochs: 1,
             challengeValidityDurationSeconds: 1 minutes,
-            defaultFee: 0,
+            defaultFee: 1000,
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
@@ -492,6 +492,9 @@ contract VerificationFacetTest is Test {
 
         // Set key state
         stateHelper.setKeyState(walletId, keyIds[0], publicKey, teeId, multisigThreshold);
+
+        // Fund the test contract (sender of requestTeeAttestation) for the non-zero instruction fee.
+        vm.deal(address(this), 1 ether);
     }
 
     // =========================================================================
@@ -520,19 +523,19 @@ contract VerificationFacetTest is Test {
         bytes32 challenge = bytes32(0);
         vm.expectEmit();
         emit IVerification.TeeAttestationRequested(teeId, challenge);
-        flareTeeManager.requestTeeAttestation(teeId, address(0));
+        flareTeeManager.requestTeeAttestation{value: 1000}(teeId, address(0));
 
         vm.warp(2 minutes);
         challenge = keccak256(abi.encode(teeId, block.timestamp, randomNumber));
         vm.expectEmit();
         emit IVerification.TeeAttestationRequested(teeId, challenge);
-        flareTeeManager.requestTeeAttestation(teeId, address(0));
+        flareTeeManager.requestTeeAttestation{value: 1000}(teeId, address(0));
     }
 
     function testRequestTeeAttestationWithClaimBackAddress() public {
         address claimBack = makeAddr("claimBack");
         vm.recordLogs();
-        flareTeeManager.requestTeeAttestation(teeId, claimBack);
+        flareTeeManager.requestTeeAttestation{value: 1000}(teeId, claimBack);
         // Verify TeeInstructionsSent event carries the claimBackAddress
         Vm.Log[] memory entries = vm.getRecordedLogs();
         bool foundInstructionsSent = false;
@@ -652,7 +655,7 @@ contract VerificationFacetTest is Test {
 
     function testConfirmAvailabilityRevertInvalidSigningPolicy() public {
         _mockVerifySigningPolicySignatures(rewardEpochId + 2);
-        vm.expectRevert(IVerification.InvalidSigningPolicy.selector);
+        vm.expectRevert(IFdc2Verification.InvalidSigningPolicy.selector);
         flareTeeManager.confirmAvailability(proof);
     }
 
@@ -719,232 +722,6 @@ contract VerificationFacetTest is Test {
             proof.header.timestamp + 1 hours
         );
         flareTeeManager.confirmAvailability(proof);
-    }
-
-    // verifyAvailabilityCheckProof
-    function testVerifyAvailabilityCheckProofRevertCosignersThresholdNotMet() public {
-        testSetCosigners();
-        _mockRecoverCosigners(new address[](0));
-        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
-        vm.expectRevert(IVerification.CosignersThresholdNotMet.selector);
-        flareTeeManager.verifyAvailabilityCheckProof(proof);
-    }
-
-    function testVerifyAvailabilityCheckProofRevertInvalidCosigner() public {
-        testSetCosigners();
-        address[] memory invalidCosigners = new address[](1);
-        invalidCosigners[0] = makeAddr("invalidCosigner");
-        _mockRecoverCosigners(invalidCosigners);
-        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ITeeCommonErrors.InvalidCosigner.selector,
-                invalidCosigners[0]
-            )
-        );
-        flareTeeManager.verifyAvailabilityCheckProof(proof);
-    }
-
-    // header.timestamp >= block.timestamp
-    function testVerifyAvailabilityCheckRevertTimestampInvalid1() public {
-        testRequestTeeAttestation();
-        vm.expectRevert(ITeeCommonErrors.AvailabilityCheckTimestampInvalid.selector);
-        flareTeeManager.verifyAvailabilityCheckProof(proof);
-    }
-
-    // header.timestamp < challengeTs[teeId]
-    function testVerifyAvailabilityCheckRevertTimestampInvalid2() public {
-        proof.header.timestamp = 1;
-        // block.timestamp == 0
-        vm.expectRevert(ITeeCommonErrors.AvailabilityCheckTimestampInvalid.selector);
-        flareTeeManager.verifyAvailabilityCheckProof(proof);
-    }
-
-    function testVerifyAvailabilityCheckRevertInvalidRequestBody1() public {
-        proof.requestBody.url = "invalidUrl";
-        vm.expectRevert(IVerification.InvalidRequestBody.selector);
-        flareTeeManager.verifyAvailabilityCheckProof(proof);
-    }
-
-    function testVerifyAvailabilityCheckRevertInvalidRequestBody2() public {
-        proof.requestBody.challenge = keccak256("invalidChallenge");
-        vm.expectRevert(IVerification.InvalidRequestBody.selector);
-        flareTeeManager.verifyAvailabilityCheckProof(proof);
-    }
-
-    function testVerifyAvailabilityCheckRevertInvalidRequestBody3() public {
-        proof.requestBody.teeProxyId = makeAddr("invalidTeeProxyId");
-        vm.expectRevert(IVerification.InvalidRequestBody.selector);
-        flareTeeManager.verifyAvailabilityCheckProof(proof);
-    }
-
-    // true
-    function testVerifyAvailabilityCheckProof1() public {
-        testSetCosigners();
-        assertTrue(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // codeHash doesn't match
-    function testVerifyAvailabilityCheckProof2() public {
-        testSetCosigners();
-        proof.responseBody.codeHash = keccak256("invalidCodeHash");
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // platform doesn't match
-    function testVerifyAvailabilityCheckProof3() public {
-        testSetCosigners();
-        proof.responseBody.platform = keccak256("invalidPlatform");
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // lastSigningPolicyId is too old
-    function testVerifyAvailabilityCheckProof4() public {
-        vm.prank(initialGovernance);
-        flareTeeManager.updateSettings(1 hours, 4, 1 minutes);
-        testSetCosigners();
-        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
-        _mockGetCurrentRewardEpochId(uint24(rewardEpochId + 2));
-        _mockVerifySigningPolicySignatures(rewardEpochId + 2);
-        proof.responseBody.lastSigningPolicyId = uint32(rewardEpochId);
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    //  verifyTeeSystemState -> false
-    function testVerifyAvailabilityCheckProof5() public {
-        testSetCosigners();
-        // Mark the machine as replication-capable without populating the proof's payload — the
-        // verifier rejects an empty payload when the chain has a non-zero stored `initialTeeId`.
-        stateHelper.setTeeMachineInitialTeeId(proof.requestBody.teeId, makeAddr("storedInitialTeeId"));
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // address(teeStateVerifier) != address(0) && verifyTeeState -> false
-    function testVerifyAvailabilityCheckProof6() public {
-        testSetCosigners();
-        address teeStateVerifier = makeAddr("teeStateVerifier");
-        stateHelper.setExtensionStateVerifier(extensionId, teeStateVerifier);
-        vm.mockCall(
-            teeStateVerifier,
-            abi.encodeWithSelector(
-                ITeeExtensionStateVerifier.verifyTeeState.selector
-            ),
-            abi.encode(false)
-        );
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // address(teeStateVerifier) == address(0) && state.stateVersion != bytes32(0)
-    function testVerifyAvailabilityCheckProof7() public {
-        testSetCosigners();
-        proof.responseBody.state.stateVersion = bytes32("stateVersion");
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // address(teeStateVerifier) == address(0) && state.state.length != 0
-    function testVerifyAvailabilityCheckProof8() public {
-        testSetCosigners();
-        proof.responseBody.state.state = "state";
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // initialSigningPolicyId > currentRewardEpochId
-    // machine status == INITIALIZED
-    function testVerifyAvailabilityCheckProof9() public {
-        proof.responseBody.initialSigningPolicyId = signingPolicyId + 1;
-        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // initialSigningPolicyId + signingPolicyValidityDurationInRewardEpochs (== 1) < currentRewardEpochId
-    // machine status == INITIALIZED
-    function testVerifyAvailabilityCheckProof10() public {
-        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
-        _mockGetCurrentRewardEpochId(10);
-        _mockVerifySigningPolicySignatures(10);
-        proof.responseBody.initialSigningPolicyId = 1;
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // initialSigningPolicyId > currentRewardEpochId
-    // machine status != INITIALIZED
-    function testVerifyAvailabilityCheckProof11() public {
-        proof.responseBody.initialSigningPolicyId = signingPolicyId + 1;
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // availability check validity expired
-    // machine status != INITIALIZED
-    function testVerifyAvailabilityCheckProof12() public {
-        _mockGetCurrentRewardEpochId(uint24(rewardEpochId + 100));
-        _mockVerifySigningPolicySignatures(rewardEpochId + 100);
-        assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // address(teeStateVerifier) != address(0) && verifyTeeState -> true
-    function testVerifyAvailabilityCheckProof13() public {
-        testSetCosigners();
-        address teeStateVerifier = makeAddr("teeStateVerifier");
-        stateHelper.setExtensionStateVerifier(extensionId, teeStateVerifier);
-        vm.mockCall(
-            teeStateVerifier,
-            abi.encodeWithSelector(
-                ITeeExtensionStateVerifier.verifyTeeState.selector
-            ),
-            abi.encode(true)
-        );
-        assertTrue(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // verifyAvailabilityCheckProof with TEE signatures
-    function testVerifyAvailabilityCheckProofWithTeeSignatures() public {
-        testSetCosigners();
-        address[] memory signingTeeIds = new address[](1);
-        signingTeeIds[0] = teeId;
-        _mockVerifyTeeSignatures(signingTeeIds);
-        _addMockTeeSignatureToProof();
-
-        assertTrue(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // verifyAvailabilityCheckProof with TEE signatures bypasses signing policy check
-    function testVerifyAvailabilityCheckProofTeeSignaturesBypassSigningPolicy() public {
-        testSetCosigners();
-        _mockVerifySigningPolicySignatures(rewardEpochId + 100);
-        address[] memory signingTeeIds = new address[](1);
-        signingTeeIds[0] = teeId;
-        _mockVerifyTeeSignatures(signingTeeIds);
-        _addMockTeeSignatureToProof();
-
-        assertTrue(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // verifyAvailabilityCheckProof with TEE signatures for INITIALIZED status (cosigners still checked)
-    function testVerifyAvailabilityCheckProofWithTeeSignaturesInitialized() public {
-        testSetCosigners();
-        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
-        address[] memory signingTeeIds = new address[](1);
-        signingTeeIds[0] = makeAddr("teeIdInProduction");
-        _mockVerifyTeeSignatures(signingTeeIds);
-        _addMockTeeSignatureToProof();
-
-        assertTrue(flareTeeManager.verifyAvailabilityCheckProof(proof));
-    }
-
-    // verifyAvailabilityCheckProof with TEE signatures - INITIALIZED status, cosigner check still fails
-    function testVerifyAvailabilityCheckProofWithTeeSignaturesInitializedRevertCosignersThresholdNotMet()
-        public
-    {
-        testSetCosigners();
-        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
-        _mockRecoverCosigners(new address[](0));
-        address[] memory signingTeeIds = new address[](1);
-        signingTeeIds[0] = makeAddr("teeIdInProduction");
-        _mockVerifyTeeSignatures(signingTeeIds);
-        _addMockTeeSignatureToProof();
-
-        vm.expectRevert(IVerification.CosignersThresholdNotMet.selector);
-        flareTeeManager.verifyAvailabilityCheckProof(proof);
     }
 
     // setCosigners

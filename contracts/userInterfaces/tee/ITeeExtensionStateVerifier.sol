@@ -18,6 +18,6 @@ interface ITeeExtensionStateVerifier {
         bytes32 _stateVersion,
         bytes calldata _state
     )
-        external
+        external view
         returns (bool _isValid);
 }

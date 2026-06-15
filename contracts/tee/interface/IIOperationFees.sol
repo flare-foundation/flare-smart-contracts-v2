@@ -11,7 +11,7 @@ import { IOperationFees } from "../../userInterfaces/tee/IOperationFees.sol";
 interface IIOperationFees is IOperationFees {
 
     /**
-     * Sets fees for operations.
+     * Sets fees for operations. Value 0 removes the override, using default fee again.
      * @param _opTypes List of operation types.
      * @param _opCommands List of operation commands.
      * @param _fees List of fees.
@@ -25,7 +25,7 @@ interface IIOperationFees is IOperationFees {
         external;
 
     /**
-     * Sets the default fee.
+     * Sets the default fee. Cannot be 0.
      * @param _defaultFee The new default fee.
      * @dev Only governance can call this method.
      */

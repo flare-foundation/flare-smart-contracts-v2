@@ -62,6 +62,7 @@ contract MachineManagerFacetTest is Test {
     string private url;
     bytes32 private codeHash;
     bytes32 private platform;
+    bytes32[] private platforms;
     bytes32 private governanceHash;
     IMachineManager.TeeMachineData private teeMachineData;
     Signature private teeMachineDataSignature;
@@ -137,7 +138,7 @@ contract MachineManagerFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 1000,
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
@@ -175,7 +176,7 @@ contract MachineManagerFacetTest is Test {
         );
 
         // Add system supported platforms
-        bytes32[] memory platforms = new bytes32[](1);
+        platforms = new bytes32[](1);
         platforms[0] = platform;
         vm.startPrank(initialGovernance);
         flareTeeManager.addSystemSupportedPlatforms(platforms);
@@ -263,6 +264,9 @@ contract MachineManagerFacetTest is Test {
 
         // Advance time so block.timestamp > 1
         vm.warp(block.timestamp + 1000);
+
+        // Fund the machine owner so it can pay the (non-zero) registration instruction fee.
+        vm.deal(owner, 1 ether);
     }
 
     // =========================================================================
@@ -281,33 +285,33 @@ contract MachineManagerFacetTest is Test {
         teeMachineData.publicKey = PublicKey(0, 0);
         vm.prank(owner);
         vm.expectRevert(IMachineManager.InvalidTeePublicKey.selector);
-        flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
+        flareTeeManager.register{value: 1000}(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
     }
 
     function testRegisterRevertInvalidTeePublicKeyOrSignature() public {
         teeMachineData.publicKey = PublicKeyHelper.getRandomPublicKey(vm);
         vm.prank(owner);
         vm.expectRevert(IMachineManager.InvalidTeePublicKeyOrSignature.selector);
-        flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
+        flareTeeManager.register{value: 1000}(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
     }
 
     function testRegisterRevertInvalidTeeProxyId() public {
         vm.prank(owner);
         vm.expectRevert(IMachineManager.InvalidTeeProxyId.selector);
-        flareTeeManager.register(teeMachineData, teeMachineDataSignature, address(0), url, address(0));
+        flareTeeManager.register{value: 1000}(teeMachineData, teeMachineDataSignature, address(0), url, address(0));
     }
 
     function testRegisterRevertInvalidUrl() public {
         vm.prank(owner);
         vm.expectRevert(IMachineManager.InvalidUrl.selector);
-        flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, "", address(0));
+        flareTeeManager.register{value: 1000}(teeMachineData, teeMachineDataSignature, teeProxyId, "", address(0));
     }
 
     function testRegisterRevertAlreadyRegistered() public {
         vm.startPrank(owner);
-        flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
+        flareTeeManager.register{value: 1000}(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
         vm.expectRevert(IMachineManager.AlreadyRegistered.selector);
-        flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
+        flareTeeManager.register{value: 1000}(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
         vm.stopPrank();
     }
 
@@ -321,7 +325,7 @@ contract MachineManagerFacetTest is Test {
         );
         vm.prank(owner);
         vm.expectRevert(ITeeCommonErrors.VersionNotSupported.selector);
-        flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
+        flareTeeManager.register{value: 1000}(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
     }
 
     function testRegister() public {
@@ -330,7 +334,7 @@ contract MachineManagerFacetTest is Test {
         emit IMachineManager.TeeMachineRegistered(
             teeId, teeProxyId, owner, extensionId, url, codeHash, platform, governanceHash
         );
-        flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
+        flareTeeManager.register{value: 1000}(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
         registerTimestamps[teeId] = block.timestamp;
     }
 
@@ -357,7 +361,7 @@ contract MachineManagerFacetTest is Test {
         testRegister();
         // Disable the code hash platform
         vm.prank(extensionOwner);
-        flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, platform);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
         vm.prank(owner);
         vm.expectRevert(ITeeCommonErrors.VersionNotSupported.selector);
@@ -444,7 +448,7 @@ contract MachineManagerFacetTest is Test {
         testToProduction();
         // Disable the code hash platform through the diamond
         vm.prank(extensionOwner);
-        flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, platform);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
         // anyone can call pause when code hash platform is disabled
         vm.expectEmit();
         emit IMachineManager.TeeMachineStatusChanged(teeId, IMachineManager.TeeStatus.PAUSED);
@@ -777,7 +781,8 @@ contract MachineManagerFacetTest is Test {
         testToProduction();
         // register and promote newTee to production
         vm.prank(owner);
-        flareTeeManager.register(newTeeMachineData, newTeeMachineDataSignature, teeProxyId, url, address(0));
+        flareTeeManager.register{value: 1000}(
+            newTeeMachineData, newTeeMachineDataSignature, teeProxyId, url, address(0));
         registerTimestamps[newTeeId] = block.timestamp;
         _changeStateToProductionForTee(newTeeId, teeProxyId, url);
 
@@ -821,6 +826,42 @@ contract MachineManagerFacetTest is Test {
         assertEq(urls.length, 1);
         assertEq(teeIds[0], teeId);
         assertEq(urls[0], url);
+    }
+
+    // changeStatus must remove the machine from the active sets on BANNED
+    function testBanRemovesFromActiveTeeMachines() public {
+        testToProduction();
+        (address[] memory teeIds, ) = flareTeeManager.getActiveTeeMachines(extensionId);
+        assertEq(teeIds.length, 1);
+
+        vm.prank(extensionOwner);
+        flareTeeManager.ban(teeId);
+
+        (teeIds, ) = flareTeeManager.getActiveTeeMachines(extensionId);
+        assertEq(teeIds.length, 0);
+        (address[] memory allTeeIds, , uint256 totalLength) = flareTeeManager.getAllActiveTeeMachines(0, 10);
+        assertEq(allTeeIds.length, 0);
+        assertEq(totalLength, 0);
+    }
+
+    // changeStatus must remove the machine from the active sets on SUSPENDED
+    function testSuspendRemovesFromActiveTeeMachines() public {
+        testToProduction();
+        (address[] memory teeIds, ) = flareTeeManager.getActiveTeeMachines(extensionId);
+        assertEq(teeIds.length, 1);
+
+        // An availability-check proof with failing response data suspends the machine.
+        ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
+        proof.responseBody.codeHash = keccak256("wrong");
+        vm.warp(block.timestamp + 1);
+        flareTeeManager.pauseWithProof(proof);
+
+        assertTrue(flareTeeManager.getTeeMachineStatus(teeId) == IMachineManager.TeeStatus.SUSPENDED);
+        (teeIds, ) = flareTeeManager.getActiveTeeMachines(extensionId);
+        assertEq(teeIds.length, 0);
+        (address[] memory allTeeIds, , uint256 totalLength) = flareTeeManager.getAllActiveTeeMachines(0, 10);
+        assertEq(allTeeIds.length, 0);
+        assertEq(totalLength, 0);
     }
 
     // =========================================================================

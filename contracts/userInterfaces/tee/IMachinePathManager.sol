@@ -80,7 +80,7 @@ interface IMachinePathManager {
      * The returned nonce is `getMachinePathListsCount(extensionId)` immediately after the call
      * (1-indexed within the extension; strictly increasing).
      * Emits MachinePathListStarted.
-     * Can only be called by the extension owner.
+     * Can only be called by the extension owner or the extension operator.
      * @param _extensionId The extension id.
      * @return _nonce The freshly-allocated list nonce.
      */
@@ -95,7 +95,7 @@ interface IMachinePathManager {
      * the teeId's governance hash from its codeHash and adds it to the list's involved-governance set.
      * teeIds may freely mix governances within either role inside a single path.
      * Emits MachinePathsAdded.
-     * Can only be called by the extension owner.
+     * Can only be called by the extension owner or the extension operator.
      * @param _extensionId The extension id.
      * @param _nonce The list nonce.
      * @param _paths The paths to add.
@@ -111,7 +111,7 @@ interface IMachinePathManager {
      * Finalizes the list and computes its messageHash. After this call the list is ready for
      * signing but no further paths may be added.
      * Emits MachinePathListFinalized.
-     * Can only be called by the extension owner.
+     * Can only be called by the extension owner or the extension operator.
      * @param _extensionId The extension id.
      * @param _nonce The list nonce.
      */

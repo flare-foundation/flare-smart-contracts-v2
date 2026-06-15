@@ -60,7 +60,7 @@ contract TestMachinePathHelperFacet is ITestMachinePathHelper {
             owner: address(uint160(uint256(uint160(_teeId)) ^ 1)),
             teeProxyId: _teeId,
             status: _status,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: _codeHash,
             platform: _platform,
             governanceHash: _governanceHash,

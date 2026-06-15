@@ -21,6 +21,9 @@ import {
     IOperationFees
 } from "../../../../contracts/userInterfaces/tee/IOperationFees.sol";
 import { IVerification } from "../../../../contracts/userInterfaces/tee/IVerification.sol";
+import {
+    IMachineEmergencyPause
+} from "../../../../contracts/userInterfaces/tee/IMachineEmergencyPause.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { IWalletKeyManager } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
 import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";
@@ -29,6 +32,7 @@ import {
     PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE
 } from "../../../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
+import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -164,6 +168,7 @@ contract TeePaymentsTest is Test {
         vm.warp(500);
 
         _mockVerifyConfiguredProof();
+        _mockIsExtensionEmergencyPaused(false);
         _mockGetExtensionId(0);
         _mockCalculateFeeByTeeIds(PAY, fee);
         _mockCalculateFeeByTeeIds(REISSUE, fee);
@@ -238,6 +243,39 @@ contract TeePaymentsTest is Test {
         assertEq(accounts.length, 1);
         assertEq(accounts[0].accountAddress, senderAddress);
         assertEq(accounts[0].sourceId, SOURCE_ID);
+    }
+
+    function testAddPMWMultisigAccountSkipsTeeVerificationWhenSystemExtensionPaused() public {
+        // A TEE signature is present, but the system extension (id 0) is emergency-paused, so
+        // TEE-signature verification must be skipped and the signing-policy path used instead.
+        proof.signatures.teeSignatures.push(Signature(27, bytes32("r"), bytes32("s")));
+        _mockIsExtensionEmergencyPaused(true);
+        // If the (skipped) TEE path were taken, this would surface; it must not be reached.
+        vm.mockCallRevert(
+            fdc2Verification,
+            abi.encodeWithSelector(IFdc2Verification.verifyTeeSignatures.selector),
+            "TEE_PATH_NOT_SKIPPED"
+        );
+        _mockGetWalletStatus(IWalletManager.WalletStatus.PRODUCTION);
+        vm.prank(walletOwner);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
+        assertEq(teePayments.getWalletId(pmwMultisigAccount), walletId);
+    }
+
+    function testAddPMWMultisigAccountUsesTeeVerificationWhenNotPaused() public {
+        // Toggle sanity check: when NOT emergency-paused and TEE signatures are present, the TEE
+        // verification path is taken (here it is mocked to revert to prove it is reached).
+        proof.signatures.teeSignatures.push(Signature(27, bytes32("r"), bytes32("s")));
+        _mockIsExtensionEmergencyPaused(false);
+        vm.mockCallRevert(
+            fdc2Verification,
+            abi.encodeWithSelector(IFdc2Verification.verifyTeeSignatures.selector),
+            "TEE_PATH_TAKEN"
+        );
+        _mockGetWalletStatus(IWalletManager.WalletStatus.PRODUCTION);
+        vm.prank(walletOwner);
+        vm.expectRevert();
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
     }
 
     function testAddPMWMultisigAccountRevertAccountAddressZero() public {
@@ -1359,6 +1397,14 @@ contract TeePaymentsTest is Test {
             flareTeeManager,
             abi.encodeWithSelector(IMachineManager.getExtensionId.selector),
             abi.encode(_extensionId)
+        );
+    }
+
+    function _mockIsExtensionEmergencyPaused(bool _paused) internal {
+        vm.mockCall(
+            flareTeeManager,
+            abi.encodeWithSelector(IMachineEmergencyPause.isExtensionEmergencyPaused.selector),
+            abi.encode(_paused)
         );
     }
 

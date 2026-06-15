@@ -91,8 +91,8 @@ contract OperationFeesFacetTest is Test {
         // assert
         assertEq(flareTeeManager.getOperationFee(opTypes[0], opCommands[0]), fees[0]);
         assertEq(flareTeeManager.getOperationFee(opTypes[1], opCommands[1]), fees[1]);
-        // no fee set
-        assertEq(flareTeeManager.getOperationFee(opTypes[0], opCommands[1]), 0);
+        // no specific fee set - falls back to the default fee
+        assertEq(flareTeeManager.getOperationFee(opTypes[0], opCommands[1]), defaultFee);
     }
 
     function testSetDefaultFeeRevertOnlyGovernance() public {
@@ -105,6 +105,12 @@ contract OperationFeesFacetTest is Test {
         vm.expectEmit();
         emit IOperationFees.DefaultFeeSet(defaultFee + 1);
         flareTeeManager.setDefaultFee(defaultFee + 1);
+    }
+
+    function testSetDefaultFeeRevertDefaultFeeZero() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(IOperationFees.DefaultFeeZero.selector);
+        flareTeeManager.setDefaultFee(0);
     }
 
     function testGetDefaultFee() public {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IWalletProjectPause } from "../../userInterfaces/tee/IWalletProjectPause.sol";
 import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
@@ -97,14 +97,13 @@ contract WalletProjectPauseFacet is IWalletProjectPause {
         require(_walletIds.length > 0, NoWalletIds());
         WalletManager.State storage s = WalletManager.getState();
         for (uint256 i = 0; i < _walletIds.length; i++) {
-            bytes32 walletId = _walletIds[i];
-            bytes32 projectId = s.wallets[walletId].projectId;
+            WalletManager.TeeWalletState storage wallet = s.wallets[_walletIds[i]];
+            bytes32 projectId = wallet.projectId;
             require(
                 msg.sender == WalletProjectManager.getOwner(projectId) ||
                     WalletProjectPause.isPauser(projectId, msg.sender),
                 NotOwnerOrPauser(msg.sender)
             );
-            WalletManager.TeeWalletState storage wallet = s.wallets[walletId];
             WalletManager.checkWalletStatus(wallet.status, IWalletManager.WalletStatus.PRODUCTION);
             wallet.status = IWalletManager.WalletStatus.PAUSED;
         }
@@ -120,14 +119,13 @@ contract WalletProjectPauseFacet is IWalletProjectPause {
         require(_walletIds.length > 0, NoWalletIds());
         WalletManager.State storage s = WalletManager.getState();
         for (uint256 i = 0; i < _walletIds.length; i++) {
-            bytes32 walletId = _walletIds[i];
-            bytes32 projectId = s.wallets[walletId].projectId;
+            WalletManager.TeeWalletState storage wallet = s.wallets[_walletIds[i]];
+            bytes32 projectId = wallet.projectId;
             require(
                 msg.sender == WalletProjectManager.getOwner(projectId) ||
                     WalletProjectPause.isUnpauser(projectId, msg.sender),
                 NotOwnerOrUnpauser(msg.sender)
             );
-            WalletManager.TeeWalletState storage wallet = s.wallets[walletId];
             WalletManager.checkWalletStatus(wallet.status, IWalletManager.WalletStatus.PAUSED);
             wallet.status = IWalletManager.WalletStatus.PRODUCTION;
         }

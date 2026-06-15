@@ -25,9 +25,18 @@ interface IExtensionManager is ITeeCommonErrors {
         bytes32[] platforms
     );
 
+    event SystemSupportedPlatformsRemoved(
+        bytes32[] platforms
+    );
+
     event SystemSupportedKeyTypesAndSigningAlgosAdded(
         bytes32[] keyTypes,
-        bytes32[][] _signingAlgosByKeyType
+        bytes32[][] signingAlgosByKeyType
+    );
+
+    event SystemSupportedKeyTypesAndSigningAlgosRemoved(
+        bytes32[] keyTypes,
+        bytes32[][] signingAlgosByKeyType
     );
 
     event TeeVersionAdded(
@@ -37,10 +46,10 @@ interface IExtensionManager is ITeeCommonErrors {
         bytes32[] platforms
     );
 
-    event CodeHashPlatformDisabled(
+    event CodeHashPlatformsDisabled(
         uint256 indexed extensionId,
         bytes32 indexed codeHash,
-        bytes32 indexed platform
+        bytes32[] platforms
     );
 
     event SupportedKeyTypesAdded(
@@ -87,6 +96,8 @@ interface IExtensionManager is ITeeCommonErrors {
     error NoSigningAlgos(bytes32 keyType);
     error SigningAlgoEmpty();
     error SigningAlgoAlreadyExists(bytes32 keyType, bytes32 signingAlgo);
+    error SigningAlgoNotFound(bytes32 keyType, bytes32 signingAlgo);
+    error PlatformNotFound(bytes32 platform);
     error InvalidReservedExtensionId();
     error ReservedExtensionIdAlreadyAssigned();
     error InvalidExtensionOwner();
@@ -121,7 +132,7 @@ interface IExtensionManager is ITeeCommonErrors {
      * Emits TeeExtensionRegistered event.
      * @param _extensionId The reserved id to mint (must satisfy 0 < id < 65536).
      * @param _owner The initial owner address (must be non-zero).
-     * Can only be called by the immediate governance address.
+     * Can only be called by the governance.
      */
     function registerReserved(
         uint256 _extensionId,
@@ -162,17 +173,19 @@ interface IExtensionManager is ITeeCommonErrors {
         external;
 
     /**
-     * Disable a TEE code hash and platform.
-     * Emits CodeHashPlatformDisabled event.
+     * Disable one or more platforms of a TEE code hash.
+     * Emits CodeHashPlatformsDisabled event.
      * @param _extensionId The id of the extension.
      * @param _codeHash The code hash.
-     * @param _platform The platform to disable. If empty, all platforms will be disabled.
+     * @param _platforms The non-empty list of platforms to disable. Each platform must belong to the
+     *  code hash version and must not already be disabled. To disable every platform of a code hash,
+     *  pass them all explicitly.
      * Can only be called by the extension owner.
      */
-    function disableCodeHashPlatform(
+    function disableCodeHashPlatforms(
         uint256 _extensionId,
         bytes32 _codeHash,
-        bytes32 _platform
+        bytes32[] calldata _platforms
     )
         external;
 
@@ -198,7 +211,7 @@ interface IExtensionManager is ITeeCommonErrors {
      */
     function removeSupportedKeyTypes(
         uint256 _extensionId,
-        bytes32[] memory _keyTypes
+        bytes32[] calldata _keyTypes
     )
         external;
 
@@ -216,7 +229,7 @@ interface IExtensionManager is ITeeCommonErrors {
         external;
 
     /**
-     * Confirm the ownership of a TEE extension.
+     * Confirm the ownership of a TEE extension. Operator remains unchanged.
      * Emits NewOwnerConfirmed event.
      * @param _extensionId The id of the extension.
      * Can only be called by the proposed new owner.

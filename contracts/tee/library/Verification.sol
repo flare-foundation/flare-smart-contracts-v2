@@ -11,6 +11,7 @@ import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
 import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { MachineEmergencyPause } from "../library/MachineEmergencyPause.sol";
 import { Fdc2ProofVerification } from "../../fdc2/library/Fdc2ProofVerification.sol";
 import { MachineManager } from "./MachineManager.sol";
 import { ExtensionManager } from "./ExtensionManager.sol";
@@ -116,7 +117,7 @@ library Verification {
         ExternalAddresses.State storage ext = ExternalAddresses.getState();
         uint256 currentRewardEpochId = IFlareSystemsManager(ext.flareSystemsManager).getCurrentRewardEpochId();
 
-        if (_proof.signatures.teeSignatures.length > 0) {
+        if (!MachineEmergencyPause.isExtensionEmergencyPaused(0) && _proof.signatures.teeSignatures.length > 0) {
             Fdc2ProofVerification.verifyTeeSignatures(
                 ext.fdc2Verification, _proof.signatures.teeSignatures, messageHash
             );
@@ -368,8 +369,13 @@ library Verification {
             }
         }
 
-        if (_responseBody.codeHash != _teeMachineWithAttestationData.codeHash) return false;
-        if (_responseBody.platform != _teeMachineWithAttestationData.platform) return false;
+        if (_responseBody.codeHash != _teeMachineWithAttestationData.codeHash) {
+            return false;
+        }
+
+        if (_responseBody.platform != _teeMachineWithAttestationData.platform) {
+            return false;
+        }
 
         uint256 lastSigningPolicyId = _responseBody.lastSigningPolicyId;
         if (lastSigningPolicyId != _currentRewardEpochId && lastSigningPolicyId != _currentRewardEpochId + 1) {

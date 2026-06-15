@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IWalletKeyManager, TEE_KEY_EXISTENCE } from "../../userInterfaces/tee/IWalletKeyManager.sol";
 import { IWalletManager, WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManager.sol";

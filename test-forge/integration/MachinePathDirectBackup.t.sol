@@ -92,7 +92,7 @@ contract TestSetupHelperFacet is ITestSetupHelper {
             owner: address(uint160(uint256(uint160(_teeId)) ^ 1)),
             teeProxyId: _teeId,
             status: IMachineManager.TeeStatus.PRODUCTION,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: _codeHash,
             platform: _platform,
             governanceHash: _governanceHash,
@@ -207,6 +207,7 @@ contract MachinePathDirectBackupIntegrationTest is Test {
         addressUpdater = makeAddr("addressUpdater");
         extensionOwner = makeAddr("extensionOwner");
         projectOwner = makeAddr("projectOwner");
+        vm.deal(projectOwner, 1 ether);
 
         flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
@@ -215,7 +216,7 @@ contract MachinePathDirectBackupIntegrationTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 1000,
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
@@ -330,7 +331,7 @@ contract MachinePathDirectBackupIntegrationTest is Test {
 
         vm.prank(projectOwner);
         bytes32 backupInstructionId =
-            flareTeeManager.directBackup(teeA, teeB, walletId, keyId, address(0));
+            flareTeeManager.directBackup{value: 1000}(teeA, teeB, walletId, keyId, address(0));
         assertTrue(backupInstructionId != bytes32(0));
         (uint256 nonceBetween, ) = flareTeeManager.getKeyNonce(teeB, walletId, keyId);
         assertEq(nonceBetween, nonceBefore, "directBackup must not bump destination nonce");
@@ -344,7 +345,7 @@ contract MachinePathDirectBackupIntegrationTest is Test {
         );
 
         vm.prank(projectOwner);
-        flareTeeManager.directRestore(teeB, bid, backupInstructionId, address(0));
+        flareTeeManager.directRestore{value: 1000}(teeB, bid, backupInstructionId, address(0));
         (uint256 nonceAfter, ) = flareTeeManager.getKeyNonce(teeB, walletId, keyId);
         assertEq(nonceAfter, 1, "directRestore must bump destination nonce by exactly +1");
     }
@@ -375,7 +376,7 @@ contract MachinePathDirectBackupIntegrationTest is Test {
 
         // directBackup teeA → teeB works.
         vm.prank(projectOwner);
-        flareTeeManager.directBackup(teeA, teeB, walletId, keyId, address(0));
+        flareTeeManager.directBackup{value: 1000}(teeA, teeB, walletId, keyId, address(0));
 
         // Now sign a NEWER list (list 2) authorizing teeA → teeC (governances A + C) → activates.
         uint256 list2 = _signSingleSourceList(teeA, teeC);
@@ -389,7 +390,7 @@ contract MachinePathDirectBackupIntegrationTest is Test {
 
         // But teeA → teeC works via the newer list.
         vm.prank(projectOwner);
-        flareTeeManager.directBackup(teeA, teeC, walletId, keyId, address(0));
+        flareTeeManager.directBackup{value: 1000}(teeA, teeC, walletId, keyId, address(0));
     }
 
     // =============================================================================================

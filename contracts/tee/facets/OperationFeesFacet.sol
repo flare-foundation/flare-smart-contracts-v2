@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IIOperationFees } from "../interface/IIOperationFees.sol";
 import { IOperationFees } from "../../userInterfaces/tee/IOperationFees.sol";
@@ -56,7 +56,7 @@ contract OperationFeesFacet is IIOperationFees, FlareGovernedAccess {
         external view
         returns (uint256)
     {
-        return OperationFees.getDefaultFee();
+        return OperationFees.getState().defaultFee;
     }
 
     /**

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
@@ -77,9 +77,9 @@ contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, FlareUpg
      * @dev Only governance can call this method.
      */
     function setTypeAndSourceFees(
-        bytes32[] memory _types,
-        bytes32[] memory _sources,
-        uint256[] memory _fees
+        bytes32[] calldata _types,
+        bytes32[] calldata _sources,
+        uint256[] calldata _fees
     )
         external
         onlyGovernance
@@ -97,8 +97,8 @@ contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, FlareUpg
      * @dev Only governance can call this method.
      */
     function removeTypeAndSourceFees(
-        bytes32[] memory _types,
-        bytes32[] memory _sources
+        bytes32[] calldata _types,
+        bytes32[] calldata _sources
     )
         external
         onlyGovernance
@@ -159,9 +159,10 @@ contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, FlareUpg
     )
         internal
     {
+        bytes32 typeAndSourceKey = _joinTypeAndSource(_type, _source);
         // Same as setting this to 0 but we want to emit a different event + gas savings
-        require(typeAndSourceFees[_joinTypeAndSource(_type, _source)] > 0, FeeNotSet());
-        delete typeAndSourceFees[_joinTypeAndSource(_type, _source)];
+        require(typeAndSourceFees[typeAndSourceKey] > 0, FeeNotSet());
+        delete typeAndSourceFees[typeAndSourceKey];
         emit TypeAndSourceFeeRemoved(_type, _source);
     }
 

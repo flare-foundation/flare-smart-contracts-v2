@@ -27,6 +27,7 @@ interface IFdc2Verification {
     error InvalidSigningPolicy();
     error CosignersThresholdNotMet();
     error InvalidCosigner(address cosigner);
+    error SystemExtensionEmergencyPaused();
 
     /**
      * Verifies the signing policy signatures using the signing policy threshold.
@@ -56,6 +57,7 @@ interface IFdc2Verification {
 
     /**
      * Verifies the TEE signatures.
+     * Does not check for empty array - callers must check that at least one signature is provided.
      * @param _signatures The TEE signatures to verify.
      * @param _messageHash The message hash to verify.
      * @return _signingTeeIds The TEE ids of the signing TEE machines.

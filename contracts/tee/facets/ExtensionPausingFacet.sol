@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IExtensionPausing, TEE_PAUSING_ADDRESSES } from "../../userInterfaces/tee/IExtensionPausing.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
@@ -55,6 +55,7 @@ contract ExtensionPausingFacet is IExtensionPausing {
         ExtensionPausing.TeePausingAddressesRecord storage record =
             extensionState.nonceToTeePausingAddresses[nonce];
         for (uint256 i = 0; i < _pausingAddresses.length; i++) {
+            require(_pausingAddresses[i] != address(0), ITeeCommonErrors.InvalidAddress());
             require(
                 record.pausingAddresses.add(_pausingAddresses[i]),
                 PausingAddressAlreadyExists(_pausingAddresses[i])

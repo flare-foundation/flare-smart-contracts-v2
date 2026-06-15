@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.35;
 
+import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
@@ -67,10 +68,11 @@ library ExtensionGovernance {
         bytes32 _governanceHash
     )
         internal view
-        returns (uint64)
+        returns (uint64 _threshold)
     {
-        return getState().extensionStates[_extensionId]
+        _threshold = getState().extensionStates[_extensionId]
             .governanceHashToTeeGovernance[_governanceHash].signersThreshold;
+        require(_threshold > 0, ITeeCommonErrors.InvalidGovernanceHash());
     }
 
     function getState()

@@ -15,8 +15,8 @@ interface IVrf {
 
     event VrfRequested(
         bytes32 indexed walletId,
-        uint64 keyId,
-        bytes32 instructionId
+        uint64 indexed keyId,
+        bytes32 indexed instructionId
     );
 
     event VrfAuthorizationAddressSet(

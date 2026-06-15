@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IOwnerAllowlist } from "../../userInterfaces/tee/IOwnerAllowlist.sol";
 import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
@@ -18,10 +18,10 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
 
     /// @inheritdoc IOwnerAllowlist
     function addAllowedExtensionOwners(
-        address[] memory _owners
+        address[] calldata _owners
     )
         external
-        onlyImmediateGovernance
+        onlyGovernance
     {
         require(_owners.length > 0, NoAddresses());
         OwnerAllowlist.State storage s = OwnerAllowlist.getState();
@@ -34,7 +34,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
 
     /// @inheritdoc IOwnerAllowlist
     function removeAllowedExtensionOwners(
-        address[] memory _owners
+        address[] calldata _owners
     )
         external
         onlyImmediateGovernance
@@ -50,7 +50,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
     /// @inheritdoc IOwnerAllowlist
     function allowAllExtensionOwners()
         external
-        onlyImmediateGovernance
+        onlyGovernance
     {
         OwnerAllowlist.setAllExtensionOwnersAllowed(true);
     }
@@ -66,7 +66,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
     /// @inheritdoc IOwnerAllowlist
     function addAllowedTeeMachineOwners(
         uint256 _extensionId,
-        address[] memory _owners
+        address[] calldata _owners
     )
         external
     {
@@ -86,7 +86,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
     /// @inheritdoc IOwnerAllowlist
     function removeAllowedTeeMachineOwners(
         uint256 _extensionId,
-        address[] memory _owners
+        address[] calldata _owners
     )
         external
     {
@@ -105,7 +105,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
     /// @inheritdoc IOwnerAllowlist
     function addAllowedTeeWalletProjectOwners(
         uint256 _extensionId,
-        address[] memory _owners
+        address[] calldata _owners
     )
         external
     {
@@ -125,7 +125,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
     /// @inheritdoc IOwnerAllowlist
     function removeAllowedTeeWalletProjectOwners(
         uint256 _extensionId,
-        address[] memory _owners
+        address[] calldata _owners
     )
         external
     {

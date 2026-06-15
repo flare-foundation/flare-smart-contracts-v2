@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IMachineManager, TEE_MACHINE_REGISTER } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IMachineEmergencyPause } from "../../userInterfaces/tee/IMachineEmergencyPause.sol";
@@ -105,12 +105,8 @@ contract MachineManagerFacet is IMachineManager {
             MachineManager.getTeeMachineWithAttestationData(teeId);
         require(Verification.verifyAvailabilityCheckProof(teeMachine, status, _proof), InvalidResponseData());
 
-        state.status = TeeStatus.PRODUCTION;
-        state.lastStatusChangeTs = block.timestamp;
-        s.extensionActiveTeeIds[state.extensionId].add(teeId);
-        s.activeTeeIds.add(teeId);
+        MachineManager.changeStatus(teeId, TeeStatus.PRODUCTION);
         Verification.extendAvailability(_proof);
-        emit TeeMachineStatusChanged(teeId, TeeStatus.PRODUCTION);
     }
 
     /// @inheritdoc IMachineManager
@@ -139,11 +135,7 @@ contract MachineManagerFacet is IMachineManager {
             newStatus = TeeStatus.SUSPENDED;
         }
 
-        state.status = newStatus;
-        state.lastStatusChangeTs = block.timestamp;
-        s.extensionActiveTeeIds[state.extensionId].remove(_teeId);
-        s.activeTeeIds.remove(_teeId);
-        emit TeeMachineStatusChanged(_teeId, newStatus);
+        MachineManager.changeStatus(_teeId, newStatus);
     }
 
     /// @inheritdoc IMachineManager
@@ -170,11 +162,7 @@ contract MachineManagerFacet is IMachineManager {
         );
         MachineManager.validateAvailabilityCheckTs(teeId, _proof.header.timestamp);
 
-        state.status = TeeStatus.SUSPENDED;
-        state.lastStatusChangeTs = block.timestamp;
-        s.extensionActiveTeeIds[state.extensionId].remove(teeId);
-        s.activeTeeIds.remove(teeId);
-        emit TeeMachineStatusChanged(teeId, TeeStatus.SUSPENDED);
+        MachineManager.changeStatus(teeId, TeeStatus.SUSPENDED);
     }
 
     /// @inheritdoc IMachineManager
@@ -192,11 +180,7 @@ contract MachineManagerFacet is IMachineManager {
             status == TeeStatus.PAUSED || status == TeeStatus.SUSPENDED || status == TeeStatus.PRODUCTION,
             InvalidTeeStatus()
         );
-        state.status = TeeStatus.BANNED;
-        state.lastStatusChangeTs = block.timestamp;
-        s.extensionActiveTeeIds[state.extensionId].remove(_teeId);
-        s.activeTeeIds.remove(_teeId);
-        emit TeeMachineStatusChanged(_teeId, TeeStatus.BANNED);
+        MachineManager.changeStatus(_teeId, TeeStatus.BANNED);
     }
 
     /// @inheritdoc IMachineManager
@@ -208,9 +192,7 @@ contract MachineManagerFacet is IMachineManager {
         MachineManager.TeeMachineState storage state = MachineManager.getTeeMachineState(_teeId);
         ExtensionManager.checkOnlyExtensionOwner(state.extensionId);
         MachineManager.checkTeeStatus(state.status, TeeStatus.BANNED);
-        state.status = TeeStatus.PAUSED;
-        state.lastStatusChangeTs = block.timestamp;
-        emit TeeMachineStatusChanged(_teeId, TeeStatus.PAUSED);
+        MachineManager.changeStatus(_teeId, TeeStatus.PAUSED);
     }
 
     /// @inheritdoc IMachineManager
@@ -261,12 +243,7 @@ contract MachineManagerFacet is IMachineManager {
         state.url = _url;
         TeeStatus status = state.status;
         if (status == TeeStatus.PRODUCTION || status == TeeStatus.SUSPENDED) {
-            state.status = TeeStatus.PAUSED;
-            state.lastStatusChangeTs = block.timestamp;
-            MachineManager.State storage s = MachineManager.getState();
-            s.extensionActiveTeeIds[state.extensionId].remove(_teeId);
-            s.activeTeeIds.remove(_teeId);
-            emit TeeMachineStatusChanged(_teeId, TeeStatus.PAUSED);
+            MachineManager.changeStatus(_teeId, TeeStatus.PAUSED);
         }
         emit TeeMachineSettingsUpdated(_teeId, _teeProxyId, _url);
     }
@@ -334,7 +311,8 @@ contract MachineManagerFacet is IMachineManager {
         returns (address[] memory _teeIds)
     {
         MachineManager.State storage s = MachineManager.getState();
-        uint256 length = s.extensionActiveTeeIds[_extensionId].length();
+        EnumerableSet.AddressSet storage set = s.extensionActiveTeeIds[_extensionId];
+        uint256 length = set.length();
         require(_count <= length, TooMany());
         (uint256 randomNumber,,) = IRelay(ExternalAddresses.getState().relay).getRandomNumber();
 
@@ -353,7 +331,7 @@ contract MachineManagerFacet is IMachineManager {
 
         _teeIds = new address[](_count);
         for (uint256 i = 0; i < _count; i++) {
-            _teeIds[i] = s.extensionActiveTeeIds[_extensionId].at(indices[i]);
+            _teeIds[i] = set.at(indices[i]);
         }
     }
 
@@ -457,7 +435,7 @@ contract MachineManagerFacet is IMachineManager {
             owner: _teeMachineData.initialOwner,
             teeProxyId: _teeProxyId,
             status: TeeStatus.INITIALIZED,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: _teeMachineData.codeHash,
             platform: _teeMachineData.platform,
             governanceHash: _teeMachineData.governanceHash,

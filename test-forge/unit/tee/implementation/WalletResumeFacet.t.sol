@@ -7,6 +7,7 @@ import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTe
 import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { IWalletResume } from "../../../../contracts/userInterfaces/tee/IWalletResume.sol";
 import { IWalletKeyManager, TEE_KEY_EXISTENCE } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IInstructions } from "../../../../contracts/userInterfaces/tee/IInstructions.sol";
 import { SignedPayload } from "../../../../contracts/utils/lib/SignedPayload.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
@@ -58,7 +59,7 @@ contract TestTeeMachineHelperFacetForResume is ITestTeeMachineHelper {
             owner: _owner,
             teeProxyId: _teeId,
             status: _status,
-            lastStatusChangeTs: block.timestamp,
+            lastStatusChangeTs: uint64(block.timestamp),
             codeHash: bytes32(0),
             platform: bytes32(0),
             governanceHash: bytes32(0),
@@ -101,7 +102,7 @@ contract WalletResumeFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 1000,
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
@@ -217,6 +218,93 @@ contract WalletResumeFacetTest is Test {
         flareTeeManager.resume(walletId, new IWalletResume.ResumeKeyData[](0), address(0));
     }
 
+    function testResumeDeduplicatesTeeIds() public {
+        _setupProductionWallet();
+        (address teeAddr, ) = makeAddrAndKey("productionTee");
+        // Two resume entries pointing at the same teeId+keyId. Without the facet's
+        // removeDuplicates the instruction would target the tee twice and charge 2 * 1000;
+        // dedup collapses it to a single tee, so funding exactly 1000 (one tee) succeeds.
+        IWalletResume.ResumeKeyData[] memory keysData = new IWalletResume.ResumeKeyData[](2);
+        keysData[0] = IWalletResume.ResumeKeyData({ keyId: 0, teeId: teeAddr, nonce: 0 });
+        keysData[1] = keysData[0];
+        vm.expectEmit();
+        emit IWalletResume.WalletResumed(walletId, keysData);
+        vm.prank(projectOwner);
+        flareTeeManager.resume{value: 1000}(walletId, keysData, address(0));
+    }
+
+    function testResumeRevertFeeTooLowWhenNotDeduplicated() public {
+        // Sanity check the fee accounting: a single (already unique) tee costs exactly 1000,
+        // so 999 is too low. This guards the 1000-per-tee assumption the dedup test relies on.
+        _setupProductionWallet();
+        (address teeAddr, ) = makeAddrAndKey("productionTee");
+        IWalletResume.ResumeKeyData[] memory keysData = new IWalletResume.ResumeKeyData[](1);
+        keysData[0] = IWalletResume.ResumeKeyData({ keyId: 0, teeId: teeAddr, nonce: 0 });
+        vm.prank(projectOwner);
+        vm.expectRevert(IInstructions.FeeTooLow.selector);
+        flareTeeManager.resume{value: 999}(walletId, keysData, address(0));
+    }
+
+    function testResumeRevertExtensionIdMismatch() public {
+        _setupProductionWallet();
+        // A TEE registered under a different extension than the wallet's project.
+        address otherTee = makeAddr("otherExtensionTee");
+        teeMachineHelper.setTeeMachineState(
+            otherTee,
+            extensionId + 1,
+            makeAddr("otherTeeOwner"),
+            IMachineManager.TeeStatus.PRODUCTION,
+            "https://tee.url"
+        );
+        IWalletResume.ResumeKeyData[] memory keysData = new IWalletResume.ResumeKeyData[](1);
+        keysData[0] = IWalletResume.ResumeKeyData({ keyId: 0, teeId: otherTee, nonce: 0 });
+        vm.prank(projectOwner);
+        vm.expectRevert(ITeeCommonErrors.ExtensionIdMismatch.selector);
+        flareTeeManager.resume(walletId, keysData, address(0));
+    }
+
+    function testResumeRevertWrongKeyIdWhenTeeDoesNotHoldKey() public {
+        _setupProductionWallet();
+        (address teeAddr, ) = makeAddrAndKey("productionTee");
+        // Key id 99 was never added to the wallet, so the TEE does not hold it.
+        IWalletResume.ResumeKeyData[] memory keysData = new IWalletResume.ResumeKeyData[](1);
+        keysData[0] = IWalletResume.ResumeKeyData({ keyId: 99, teeId: teeAddr, nonce: 0 });
+        vm.prank(projectOwner);
+        vm.expectRevert(IWalletResume.WrongKeyId.selector);
+        flareTeeManager.resume(walletId, keysData, address(0));
+    }
+
+    function testSetPausingAddressesRevertZeroAddress() public {
+        _setupProductionWallet();
+        address[] memory pausingAddresses = new address[](1);
+        pausingAddresses[0] = address(0);
+        vm.prank(projectOwner);
+        vm.expectRevert(ITeeCommonErrors.InvalidAddress.selector);
+        flareTeeManager.setPausingAddresses(walletId, pausingAddresses, address(0));
+    }
+
+    function testSetPausingAddressesRevertDuplicate() public {
+        _setupProductionWallet();
+        address dup = makeAddr("pauser");
+        address[] memory pausingAddresses = new address[](2);
+        pausingAddresses[0] = dup;
+        pausingAddresses[1] = dup;
+        vm.prank(projectOwner);
+        vm.expectRevert(abi.encodeWithSelector(ITeeCommonErrors.AddressAlreadyInSet.selector, dup));
+        flareTeeManager.setPausingAddresses(walletId, pausingAddresses, address(0));
+    }
+
+    function testSetPausingAddresses() public {
+        _setupProductionWallet();
+        address[] memory pausingAddresses = new address[](2);
+        pausingAddresses[0] = makeAddr("pauser1");
+        pausingAddresses[1] = makeAddr("pauser2");
+        vm.expectEmit();
+        emit IWalletResume.PausingAddressesSet(walletId, 0, pausingAddresses);
+        vm.prank(projectOwner);
+        flareTeeManager.setPausingAddresses{value: 1000}(walletId, pausingAddresses, address(0));
+    }
+
     //// helper functions
 
     function _createWallet() internal {
@@ -282,7 +370,7 @@ contract WalletResumeFacetTest is Test {
         );
 
         vm.prank(projectOwner);
-        uint64 keyId = flareTeeManager.addKey{value: 0}(teeAddr, _walletId, address(0));
+        uint64 keyId = flareTeeManager.addKey{value: 1000}(teeAddr, _walletId, address(0));
 
         (PublicKey[] memory adminsPublicKeys, uint64 adminsThreshold) =
             flareTeeManager.getWalletAdminsPublicKeysAndThreshold(_walletId);

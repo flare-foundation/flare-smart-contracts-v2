@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IWalletResume } from "../../userInterfaces/tee/IWalletResume.sol";
 import { IWalletManager, WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManager.sol";
@@ -43,6 +43,13 @@ contract WalletResumeFacet is IWalletResume {
                 || walletStatus == IWalletManager.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus()
         );
+        // The list may be empty, but any provided entry must be a non-zero, unique address.
+        for (uint256 i = 0; i < _pausingAddresses.length; i++) {
+            require(_pausingAddresses[i] != address(0), InvalidAddress());
+            for (uint256 j = i + 1; j < _pausingAddresses.length; j++) {
+                require(_pausingAddresses[i] != _pausingAddresses[j], AddressAlreadyInSet(_pausingAddresses[i]));
+            }
+        }
         TeeIdKeyIdPair[] memory teeIdKeyIdPairs = WalletKeyManager.receivingTeesAndKeys(_walletId);
 
         WalletResume.State storage rs = WalletResume.getState();
@@ -55,9 +62,11 @@ contract WalletResumeFacet is IWalletResume {
         (address[] memory admins, uint64 adminsThreshold) =
             WalletManager.getWalletAdminsAndThreshold(_walletId);
 
+        address[] memory teeIds = _toTeeIds(teeIdKeyIdPairs);
+        Instructions.removeDuplicates(teeIds);
         Instructions.sendInstructions(
             bytes32(0),
-            _toTeeIds(teeIdKeyIdPairs),
+            teeIds,
             IInstructions.TeeInstructionParams(
                 WALLET_OP_TYPE,
                 SET_PAUSING_ADDRESSES,
@@ -67,6 +76,7 @@ contract WalletResumeFacet is IWalletResume {
                 _claimBackAddress
             )
         );
+        emit PausingAddressesSet(_walletId, message.nonce, _pausingAddresses);
     }
 
     /**
@@ -89,24 +99,25 @@ contract WalletResumeFacet is IWalletResume {
 
         uint256 numOfKeys = _keysData.length;
         address[] memory teeIds = new address[](numOfKeys);
-        (, uint64[] memory keyIds, ) = WalletKeyManager.getWalletKeysInfo(_walletId);
+        uint256 extensionId = WalletProjectManager.getExtensionId(WalletManager.getWalletProjectId(_walletId));
         for (uint256 i = 0; i < numOfKeys; i++) {
-            bool found = false;
-            for (uint256 j = 0; j < keyIds.length; j++) {
-                if (keyIds[j] == _keysData[i].keyId) {
-                    found = true;
-                    break;
-                }
-            }
-            require(found, WrongKeyId());
-            MachineManager.checkTeeMachineInProduction(_keysData[i].teeId);
-            teeIds[i] = _keysData[i].teeId;
+            address teeId = _keysData[i].teeId;
+            uint64 keyId = _keysData[i].keyId;
+            // Mirror the validations enforced by every other key-bearing wallet flow: the TEE must
+            // belong to the wallet's project extension, must currently hold the (wallet, key) pair,
+            // and must be in production. The ResumeKeyData.nonce is an off-chain value (not the
+            // on-chain key-management nonce), so it is forwarded to the TEE without on-chain checks.
+            require(extensionId == MachineManager.getExtensionId(teeId), ExtensionIdMismatch());
+            require(WalletKeyManager.isKeyAvailable(teeId, _walletId, keyId), WrongKeyId());
+            MachineManager.checkTeeMachineInProduction(teeId);
+            teeIds[i] = teeId;
         }
 
         Resume memory message = Resume({
             walletId: _walletId,
             keysData: _keysData
         });
+        Instructions.removeDuplicates(teeIds);
         Instructions.sendInstructions(
             bytes32(0),
             teeIds,
@@ -119,6 +130,7 @@ contract WalletResumeFacet is IWalletResume {
                 _claimBackAddress
             )
         );
+        emit WalletResumed(_walletId, _keysData);
     }
 
     function _checkOnlyOwner(

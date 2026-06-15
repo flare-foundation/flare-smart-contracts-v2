@@ -17,7 +17,16 @@ bytes32 constant TEE_MACHINE_REGISTER = bytes32("TEE_MACHINE_REGISTER");
  */
 interface IMachineManager is ITeeCommonErrors {
 
-    enum TeeStatus { INITIALIZED, PRODUCTION, SUSPENDED, PAUSED, BANNED, PAUSED_FOR_UPGRADE, REPLICATING }
+    enum TeeStatus {
+        NONE,
+        INITIALIZED,
+        PRODUCTION,
+        SUSPENDED,
+        PAUSED,
+        BANNED,
+        PAUSED_FOR_UPGRADE,
+        REPLICATING
+    }
 
     struct TeeMachineData {
         uint256 extensionId;
@@ -187,6 +196,7 @@ interface IMachineManager is ITeeCommonErrors {
 
     /**
      * Update TEE machine settings.
+     * Put the TEE machine into PAUSED status if it was in PRODUCTION or SUSPENDED and emits TeeMachineStatusChanged event.
      * Emits TeeMachineSettingsUpdated event.
      * @param _teeId The TEE machine id.
      * @param _teeProxyId The TEE proxy id.

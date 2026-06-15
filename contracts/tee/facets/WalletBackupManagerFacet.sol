@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { IWalletBackupManager } from "../../userInterfaces/tee/IWalletBackupManager.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";

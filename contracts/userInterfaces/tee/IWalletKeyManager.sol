@@ -147,6 +147,7 @@ interface IWalletKeyManager is ITeeCommonErrors {
 
     /**
      * For given wallet id and key id cleans up all tee machines that are not in production status.
+     * Note: key nonce is not incremented, so the key can be re-added to the same tee machine later.
      * Emits WalletKeyDeleted event for each deleted tee id.
      * @param _walletId The wallet id.
      * @param _keyId The key id.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.35;
 
 import { ITeeRewardOffersManager } from "../../userInterfaces/tee/ITeeRewardOffersManager.sol";
 import { RewardOffersManagerProxyBase } from "../../protocol/implementation/RewardOffersManagerProxyBase.sol";
@@ -37,8 +37,7 @@ contract TeeRewardOffersManager is RewardOffersManagerProxyBase, ITeeRewardOffer
         initializer
     {
         initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
-        require(_teeOwnersPPM <= PPM_MAX, InvalidTeeOwnersPPMValue());
-        teeOwnersPPM = _teeOwnersPPM;
+        _setTeeOwnersPPM(_teeOwnersPPM);
     }
 
     /**
@@ -51,8 +50,7 @@ contract TeeRewardOffersManager is RewardOffersManagerProxyBase, ITeeRewardOffer
         external
         onlyGovernance
     {
-        require(_teeOwnersPPM <= PPM_MAX, InvalidTeeOwnersPPMValue());
-        teeOwnersPPM = _teeOwnersPPM;
+        _setTeeOwnersPPM(_teeOwnersPPM);
     }
 
     /**
@@ -76,5 +74,15 @@ contract TeeRewardOffersManager is RewardOffersManagerProxyBase, ITeeRewardOffer
         internal override
     {
         emit InflationRewardsOffered(_nextRewardEpochId, _amount, teeOwnersPPM);
+    }
+
+    function _setTeeOwnersPPM(
+        uint24 _teeOwnersPPM
+    )
+        internal
+    {
+        require(_teeOwnersPPM <= PPM_MAX, InvalidTeeOwnersPPMValue());
+        teeOwnersPPM = _teeOwnersPPM;
+        emit TeeOwnersPPMSet(_teeOwnersPPM);
     }
 }

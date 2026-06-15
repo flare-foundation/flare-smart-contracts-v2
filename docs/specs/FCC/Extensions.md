@@ -76,10 +76,10 @@ Each version is identified by `_codeHash`. The `_platforms` array enumerates the
 A version once added stays unless explicitly disabled:
 
 ```solidity
-function disableCodeHashPlatform(uint256 _extensionId, bytes32 _codeHash, bytes32 _platform) external;
+function disableCodeHashPlatforms(uint256 _extensionId, bytes32 _codeHash, bytes32[] calldata _platforms) external;
 ```
 
-`_platform = 0` disables the version on *all* its platforms. Disabled versions cannot be used to register *new* TEE machines, and TEE machines currently running disabled versions are subject to permissionless pause (see [Machine Lifecycle / Pausing](./MachineLifecycle.md#pausing)).
+`_platforms` must be a non-empty list; each entry must belong to the code-hash version and must not already be disabled (`NoPlatforms()`, `InvalidPlatform()`, `CodeHashPlatformAlreadyDisabled()` otherwise). To disable a version on *all* its platforms, pass them all explicitly — there is no "empty means all" shortcut, which removes the footgun of accidentally disabling every platform by passing a zero value. Disabled versions cannot be used to register *new* TEE machines, and TEE machines currently running disabled versions are subject to permissionless pause (see [Machine Lifecycle / Pausing](./MachineLifecycle.md#pausing)).
 
 ## Configuring key types
 
@@ -120,7 +120,12 @@ Two governance-only methods:
 
 ```solidity
 function addSystemSupportedPlatforms(bytes32[] calldata _platforms) external;
+function removeSystemSupportedPlatforms(bytes32[] calldata _platforms) external;
 function addSystemSupportedKeyTypesAndSigningAlgos(
+    bytes32[] calldata _keyTypes,
+    bytes32[][] calldata _signingAlgosByKeyType
+) external;
+function removeSystemSupportedKeyTypesAndSigningAlgos(
     bytes32[] calldata _keyTypes,
     bytes32[][] calldata _signingAlgosByKeyType
 ) external;
@@ -128,7 +133,12 @@ function addSystemSupportedKeyTypesAndSigningAlgos(
 
 These set the *system-wide* superset of supported platforms and key types. Extension owners then opt into subsets via `addTeeVersion` / `addSupportedKeyTypes`.
 
-Adding a new platform or key type is a one-way operation in this code path — there's no `removeSystemSupported*` method. Removing system support would require a diamond cut (replace `ExtensionManagerFacet` with a version that allows it). This conservatism reflects how disruptive removing platform support would be — every extension that uses it would have to migrate.
+The remove methods are deliberately scoped to **block only new creation**, never existing flows:
+
+- `removeSystemSupportedPlatforms` — each platform must currently be system-supported (`PlatformNotFound(platform)` otherwise). Removing a platform only blocks `addTeeVersion` from referencing it for *new* versions; existing versions keep their own stored platform set and the machines running them are unaffected.
+- `removeSystemSupportedKeyTypesAndSigningAlgos` — mirrors the add method's shape. For each key type the listed signing algorithms are removed (`SigningAlgoNotFound(keyType, signingAlgo)` if one isn't present, `NoSigningAlgos(keyType)` if the per-key-type list is empty), and once a key type has no remaining signing algorithm it is dropped from the system-supported key types. Removal only blocks `createProject` from using that `(keyType, signingAlgo)` combination for *new* projects; existing projects store their own `signingAlgo` and their backup, restore and key operations read that stored value, so they are unaffected.
+
+There is no usage check on removal — a platform / key type / signing algo can be removed even while existing versions or projects still reference it, by design, because the consumers only gate creation.
 
 ## The system extension
 
