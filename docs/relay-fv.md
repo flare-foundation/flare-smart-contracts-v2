@@ -194,9 +194,20 @@ Phase 2 targets the properties bounded model checking can't reach by itself. The
 
 Full FV suite now: **10 contracts, 40 checks — 27 proofs + 13 reachability counterexamples**, all green under the CI gate.
 
-**Blocked in THIS environment (needs Kontrol/KEVM):** the genuinely UNBOUNDED / inductive obligations require Kontrol, which could not be installed here — no Docker, this user is not a trusted Nix user (`trusted-users = root`), and no passwordless `sudo`, so the RuntimeVerification binary cache can't be added and a from-source K/KEVM build is impractical. These remain to be run in an environment with Docker or a trusted-Nix/root setup:
+**Remaining UNBOUNDED / inductive obligations (need Kontrol/KEVM):**
 - **Threshold soundness / no-double-count for unbounded K** (up to `MAX_VOTERS = 300`) via a signature-loop invariant — the Halmos proofs cover K up to 3 and rest on loop uniformity.
 - **Arbitrary-length** random monotonicity (any sequence of `relay()` calls) via multi-transaction induction — Halmos covers the 2-call instance.
 - **`M_0..M_8` memory-slot non-collision** as a machine-checked KEVM lemma — currently a hand-derived argument (re-verified in the round-1/2 audits).
 
-**Kontrol setup recipe (for a capable env):** `kup install kontrol` (Nix + RV cache; needs trusted-user/root or Docker image `runtimeverification/kontrol`), then `kontrol build` against this foundry project and `kontrol prove` with the loop-invariant claims above. The existing `test-forge/fv` harnesses + the modeling contract (§2) are the substrate; the obligations are stated in §4 and here. `verify_fv.py`/the CI gate continue to guard the bounded proofs in the meantime.
+**Kontrol provisioning is currently blocked by an UPSTREAM packaging bug (2026-06-16).** This is *not* an environment limitation: with Docker available, the daemon up, and a root container (so the RuntimeVerification binary cache is usable via `--accept-flake-config`), the cache serves prebuilt artifacts (downloads, zero source builds) — but **every** install path fails at Nix *evaluation*:
+```
+error: lib.customisation.callPackageWith: Function called without required argument "solc_0_8_13"
+       at .../nix/kontrol/default.nix:25, did you mean "solc_0_8_33", "solc_0_8_31" or "solc_0_8_32"?
+```
+Kontrol's `solc` input still references `solc_0_8_13`, which current nixpkgs has removed. Reproduced via raw `nix run github:runtimeverification/kontrol` at HEAD, pinned `v1.0.248`, and `v1.0.241`, **and** via the official `kup install kontrol` — all as root with the working cache. A clean machine doing `kup install kontrol` today hits the same error.
+
+**Paths to run the unbounded proofs (pick per environment):**
+1. **Kontrol with a working pin** — a Kontrol release predating the nixpkgs solc removal, or a `--override-input` pinning a nixpkgs commit that still has `solc_0_8_13`, or RV's `kontrol` GitHub Action (which pins a tested toolchain). Track the upstream fix to the solc reference, then `kontrol build` + `kontrol prove` the loop-invariant claims (§4) against the existing `test-forge/fv` harnesses.
+2. **Certora Prover** — the peer commercial tool for the same unbounded EVM obligations (CVL specs + loop invariants); no Nix/packaging dependency.
+
+`verify_fv.py` / the CI gate continue to guard the bounded proofs in the meantime.
