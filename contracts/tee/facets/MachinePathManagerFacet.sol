@@ -26,10 +26,7 @@ contract MachinePathManagerFacet is IMachinePathManager {
         returns (uint256 _nonce)
     {
         ExtensionManager.checkOnlyExtensionOwnerOrOperator(_extensionId);
-        MachinePathManager.MachinePathList[] storage arr =
-            MachinePathManager.getState().lists[_extensionId];
-        arr.push();
-        _nonce = arr.length;
+        _nonce = ++MachinePathManager.getState().listCount[_extensionId];
         emit MachinePathListStarted(_extensionId, _nonce);
     }
 
@@ -50,7 +47,7 @@ contract MachinePathManagerFacet is IMachinePathManager {
             MachinePath calldata p = _paths[i];
             require(p.sourceTeeIds.length > 0, NoSourceTeeIds());
             require(p.destinationTeeIds.length > 0, NoDestinationTeeIds());
-            MachinePathManager.MachinePathState storage ps = pathList.paths.push();
+            MachinePathManager.MachinePathState storage ps = pathList.paths[pathList.pathCount++];
             for (uint256 j = 0; j < p.sourceTeeIds.length; j++) {
                 address src = p.sourceTeeIds[j];
                 bytes32 hash =
@@ -83,7 +80,7 @@ contract MachinePathManagerFacet is IMachinePathManager {
         ExtensionManager.checkOnlyExtensionOwnerOrOperator(_extensionId);
         MachinePathManager.MachinePathList storage pathList = MachinePathManager.list(_extensionId, _nonce);
         require(pathList.messageHash == bytes32(0), ListAlreadyFinalized());
-        require(pathList.paths.length > 0, NoPaths());
+        require(pathList.pathCount > 0, NoPaths());
         // extensionId + nonce go into the inner dataHash, preventing cross-extension and
         // cross-list signature replay between lists that happen to share path content.
         // Per-path governance hashes are derived deterministically from the teeIds (which
@@ -221,7 +218,7 @@ contract MachinePathManagerFacet is IMachinePathManager {
         external view
         returns (uint256)
     {
-        return MachinePathManager.getState().lists[_extensionId].length;
+        return MachinePathManager.getState().listCount[_extensionId];
     }
 
     /// @inheritdoc IMachinePathManager
@@ -267,11 +264,11 @@ contract MachinePathManagerFacet is IMachinePathManager {
         private view
         returns (MachinePath[] memory _paths)
     {
-        MachinePathManager.MachinePathState[] storage stored =
-            MachinePathManager.list(_extensionId, _nonce).paths;
-        _paths = new MachinePath[](stored.length);
-        for (uint256 i = 0; i < stored.length; i++) {
-            _paths[i] = stored[i].path;
+        MachinePathManager.MachinePathList storage pathList = MachinePathManager.list(_extensionId, _nonce);
+        uint256 count = pathList.pathCount;
+        _paths = new MachinePath[](count);
+        for (uint256 i = 0; i < count; i++) {
+            _paths[i] = pathList.paths[i].path;
         }
     }
 }

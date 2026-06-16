@@ -212,9 +212,9 @@ contract TestStateHelperFacet is ITestStateHelper {
         external
     {
         MachinePathManager.State storage s = MachinePathManager.getState();
-        uint256 nonce = s.lists[_extensionId].length + 1;
-        MachinePathManager.MachinePathList storage list = s.lists[_extensionId].push();
-        MachinePathManager.MachinePathState storage pathState = list.paths.push();
+        uint256 nonce = ++s.listCount[_extensionId];
+        MachinePathManager.MachinePathList storage list = s.lists[_extensionId][nonce];
+        MachinePathManager.MachinePathState storage pathState = list.paths[list.pathCount++];
         pathState.path.sourceTeeIds.push(_sourceTeeId);
         pathState.path.destinationTeeIds.push(_destinationTeeId);
         pathState.sourceTeeIdExists[_sourceTeeId] = true;

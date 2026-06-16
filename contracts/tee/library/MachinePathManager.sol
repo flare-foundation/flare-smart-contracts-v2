@@ -12,8 +12,14 @@ import { MachineManager } from "./MachineManager.sol";
 /**
  * @title MachinePathManager
  * @notice Library for managing per-extension governance-signed TEE machine path lists.
- * @dev Uses ERC-7201 namespaced storage. Lists are addressed by (extensionId, nonce). The list with
- *      nonce `N` lives at array index `N - 1` inside its extension's array. The `extensionActiveListNonce`
+ * @dev Uses ERC-7201 namespaced storage. Lists are addressed by (extensionId, nonce) and stored in a
+ *      nonce-keyed mapping (nonces are 1-based; `listCount` tracks the highest nonce minted per
+ *      extension). Paths within a list are likewise stored in an index-keyed mapping bounded by
+ *      `pathCount`. Both collections deliberately use mappings rather than dynamic arrays: the element
+ *      structs (`MachinePathList`, `MachinePathState`) carry mappings and may gain fields in future
+ *      facet upgrades, and a dynamic array of such structs has a fixed per-element stride that shifts
+ *      when the struct grows — silently corrupting every stored element on an in-place upgrade. Mapping
+ *      values have no such stride, so the layout stays append-safe. The `extensionActiveListNonce`
  *      mapping defaults to 0 to unambiguously mean "no list signed yet" — list nonces start at 1.
  */
 library MachinePathManager {
@@ -30,7 +36,8 @@ library MachinePathManager {
         Signature[] signatures;
         mapping(address signer => bool) signerHasSigned;
         mapping(bytes32 governanceHash => uint64) signatureCount;
-        MachinePathState[] paths;
+        mapping(uint256 index => MachinePathState) paths;
+        uint256 pathCount;
         /// keccak256(abi.encode(...)), set on finalize -> enables signing
         bytes32 messageHash;
         bool listSigned;
@@ -38,7 +45,9 @@ library MachinePathManager {
 
     /// @custom:storage-location erc7201:tee.MachinePathManager.State
     struct State {
-        mapping(uint256 extensionId => MachinePathList[]) lists;
+        // Lists keyed by 1-based nonce; `listCount[extensionId]` is the highest nonce minted.
+        mapping(uint256 extensionId => mapping(uint256 nonce => MachinePathList)) lists;
+        mapping(uint256 extensionId => uint256) listCount;
         mapping(uint256 extensionId => uint256) extensionActiveListNonce;
     }
 
@@ -55,9 +64,9 @@ library MachinePathManager {
         internal view
         returns (MachinePathList storage _listRef)
     {
-        MachinePathList[] storage arr = getState().lists[_extensionId];
-        require(_nonce != 0 && _nonce <= arr.length, ITeeCommonErrors.InvalidNonce());
-        _listRef = arr[_nonce - 1];
+        State storage s = getState();
+        require(_nonce != 0 && _nonce <= s.listCount[_extensionId], ITeeCommonErrors.InvalidNonce());
+        _listRef = s.lists[_extensionId][_nonce];
     }
 
     /**
@@ -91,8 +100,8 @@ library MachinePathManager {
         if (n == 0) {
             return false;
         }
-        MachinePathList storage pathList = s.lists[_extensionId][n - 1];
-        for (uint256 i = 0; i < pathList.paths.length; i++) {
+        MachinePathList storage pathList = s.lists[_extensionId][n];
+        for (uint256 i = 0; i < pathList.pathCount; i++) {
             MachinePathState storage p = pathList.paths[i];
             if (p.sourceTeeIdExists[_sourceTeeId] && p.destinationTeeIdExists[_destinationTeeId]) {
                 return true;
@@ -115,8 +124,8 @@ library MachinePathManager {
         returns (uint256 _nonce)
     {
         _nonce = getActiveListNonce(_extensionId);
-        MachinePathList storage pathList = getState().lists[_extensionId][_nonce - 1];
-        for (uint256 i = 0; i < pathList.paths.length; i++) {
+        MachinePathList storage pathList = getState().lists[_extensionId][_nonce];
+        for (uint256 i = 0; i < pathList.pathCount; i++) {
             MachinePathState storage p = pathList.paths[i];
             if (p.sourceTeeIdExists[_sourceTeeId] && p.destinationTeeIdExists[_destinationTeeId]) {
                 return _nonce;
