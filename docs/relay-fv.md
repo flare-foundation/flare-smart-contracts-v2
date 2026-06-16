@@ -178,6 +178,25 @@ Run locally (from the repo root; `halmos.toml` supplies `loop = 6` + `forge-buil
 ```
 HALMOS=halmos python3 test-forge/fv/verify_fv.py
 ```
-Validated both directions: at `loop = 6` it reports **33 checks — 22 proofs hold, 11 reachability controls live**, exit 0; forced to `--loop 2` it exits 1 with **7 vacuity alarms** (the multi-iteration controls flip to PASS), proving the gate catches a real regression.
+Validated both directions: at `loop = 6` it reports **40 checks — 27 proofs hold, 13 reachability controls live**, exit 0; forced to `--loop 2` it exits 1 with vacuity alarms (the multi-iteration controls flip to PASS), proving the gate catches a real regression.
 
-Wired into GitLab CI as job **`test-fv-halmos`** (`.gitlab-ci.yml`, `foundry:stable` image + `pip install halmos`), triggered on changes to `Relay.sol` / its interfaces / `test-forge/fv/**` / `halmos.toml`.
+Wired into GitLab CI as job **`test-fv-halmos`** (`.gitlab-ci.yml`) — **green in the pipeline**. The runner's `foundry:stable` image is non-root with no Python, so the job runs on `python:3.12` (`pip install --user halmos` + `foundryup`), depends on `build-smart-contracts` and pulls the node_modules cache (forge build needs the `@gnosis.pm` remapping), and is `rules`-scoped to changes in `Relay.sol` / its interfaces / `test-forge/fv/**` / `halmos.toml`.
+
+---
+
+## 9. Phase 2 — inductive / unbounded + multi-transaction (2026-06-16)
+
+Phase 2 targets the properties bounded model checking can't reach by itself. They split by tool:
+
+**Done now (bounded, Halmos):** two Phase-2 caveats from §6 are closed with new harnesses, both gated by reachability controls:
+- **Cross-epoch** no-double-count + threshold soundness on the threshold-INCREASE path (`RelayCrossEpochFV`): an epoch-2 message finalized by the epoch-1 policy raises the effective threshold to `thr × 1.2` (`Relay.sol:960/976`); proofs hold there, and the threshold check also confirms the ×1.2 increase is actually applied. (Closes §6 caveat 2 for the bounded shape.)
+- **Random monotonicity across a 2-call sequence** (`RelayRandomMonotonicityFV`): relaying an older round after a newer one does not regress the live pointer; the pointer advances for a newer round; both rounds stay historically retrievable. The live round is pinned via `_randomTimestamp`. (Bounded instance of the multi-transaction monotonicity obligation.)
+
+Full FV suite now: **10 contracts, 40 checks — 27 proofs + 13 reachability counterexamples**, all green under the CI gate.
+
+**Blocked in THIS environment (needs Kontrol/KEVM):** the genuinely UNBOUNDED / inductive obligations require Kontrol, which could not be installed here — no Docker, this user is not a trusted Nix user (`trusted-users = root`), and no passwordless `sudo`, so the RuntimeVerification binary cache can't be added and a from-source K/KEVM build is impractical. These remain to be run in an environment with Docker or a trusted-Nix/root setup:
+- **Threshold soundness / no-double-count for unbounded K** (up to `MAX_VOTERS = 300`) via a signature-loop invariant — the Halmos proofs cover K up to 3 and rest on loop uniformity.
+- **Arbitrary-length** random monotonicity (any sequence of `relay()` calls) via multi-transaction induction — Halmos covers the 2-call instance.
+- **`M_0..M_8` memory-slot non-collision** as a machine-checked KEVM lemma — currently a hand-derived argument (re-verified in the round-1/2 audits).
+
+**Kontrol setup recipe (for a capable env):** `kup install kontrol` (Nix + RV cache; needs trusted-user/root or Docker image `runtimeverification/kontrol`), then `kontrol build` against this foundry project and `kontrol prove` with the loop-invariant claims above. The existing `test-forge/fv` harnesses + the modeling contract (§2) are the substrate; the obligations are stated in §4 and here. `verify_fv.py`/the CI gate continue to guard the bounded proofs in the meantime.
