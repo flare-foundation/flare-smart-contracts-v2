@@ -22,28 +22,28 @@ interface IPMWPaymentStatus {
      * Request body for PMWPaymentStatus attestation type
      * @param opType Operation type.
      * @param senderAddress Sender address.
-     * @param nonce Nonce of the payment instruction (batch).
-     * @param subNonce Sub-nonce of the payment instruction.
+     * @param nonce Nonce of the payment instruction.
+     * @param paymentId Payment id of the payment instruction.
      */
     struct RequestBody {
         bytes32 opType;
         string senderAddress;
         uint64 nonce;
-        uint64 subNonce;
+        uint64 paymentId;
     }
 
     /**
      * Response body for PMWPaymentStatus attestation type
      * @param recipientAddress Recipient address.
      * @param tokenId Token ID (e.g. address) for the payment, bytes(0) means native token.
-     * @param amount Amount in minimal units that should be send.
+     * @param amount Amount in minimal units that should be sent.
      * @param maxFee Maximum fee in minimal units that can be paid for the transaction.
      * @param paymentReference Payment reference of the transaction.
      * @param transactionStatus Success status of the transaction: 0 - success, 1 - reverted.
      * @param revertReason Revert reason from the blockchain, if transaction status is not success.
      * @param receivedAmount Amount in minimal units received by the receiving address.
      * @param transactionFee Total fee in minimal units used for the transaction.
-     * In the case of batch payments, all proofs for different sub-nonces would have the same transaction fee value.
+     * In the case of batch payments, all proofs for different paymentIds would have the same transaction fee value.
      * @param transactionId ID of the payment transaction.
      * @param blockNumber Number of the block in which the transaction is included.
      * @param blockTimestamp The timestamp of the block in which the transaction is included.

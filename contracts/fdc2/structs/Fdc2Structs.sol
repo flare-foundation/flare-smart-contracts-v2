@@ -5,6 +5,7 @@ import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IPMWPaymentStatus } from "../../userInterfaces/fdc2/IPMWPaymentStatus.sol";
 import { IPMWMultisigAccountConfigured } from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
+import { IPMWMultisigUtxoConfigured } from "../../userInterfaces/fdc2/IPMWMultisigUtxoConfigured.sol";
 import { IPMWFeeProof } from "../../userInterfaces/fdc2/IPMWFeeProof.sol";
 
 
@@ -33,6 +34,23 @@ interface Fdc2Structs {
         external;
     function pmwMultisigAccountConfiguredProofStruct(
         IPMWMultisigAccountConfigured.Proof calldata
+    )
+        external;
+
+    function pmwMultisigUtxoConfiguredAnchorStruct(
+        IPMWMultisigUtxoConfigured.Anchor calldata
+    )
+        external;
+    function pmwMultisigUtxoConfiguredRequestBodyStruct(
+        IPMWMultisigUtxoConfigured.RequestBody calldata
+    )
+        external;
+    function pmwMultisigUtxoConfiguredResponseBodyStruct(
+        IPMWMultisigUtxoConfigured.ResponseBody calldata
+    )
+        external;
+    function pmwMultisigUtxoConfiguredProofStruct(
+        IPMWMultisigUtxoConfigured.Proof calldata
     )
         external;
 

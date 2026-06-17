@@ -89,9 +89,9 @@ contract GovernedTest is Test {
         vm.startPrank(governance);
         governedMock.changeA(3);
 
-        vm.warp(block.timestamp + HOUR);
+        vm.warp(vm.getBlockTimestamp() + HOUR);
         vm.expectEmit();
-        emit GovernedBase.TimelockedGovernanceCallExecuted(selectorChangeA, block.timestamp);
+        emit GovernedBase.TimelockedGovernanceCallExecuted(selectorChangeA, vm.getBlockTimestamp());
         governedMock.executeGovernanceCall(selectorChangeA);
         assertEq(governedMock.a(), 3);
         vm.stopPrank();
@@ -125,7 +125,7 @@ contract GovernedTest is Test {
         vm.startPrank(governance);
         governedMock.changeA(3);
 
-        vm.warp(block.timestamp + HOUR - 60);
+        vm.warp(vm.getBlockTimestamp() + HOUR - 60);
         vm.expectRevert("timelock: not allowed yet");
         governedMock.executeGovernanceCall(selectorChangeA);
     }
@@ -141,7 +141,7 @@ contract GovernedTest is Test {
         vm.startPrank(governance);
         governedMock.changeWithRevert(3);
 
-        vm.warp(block.timestamp + HOUR);
+        vm.warp(vm.getBlockTimestamp() + HOUR);
         vm.expectRevert("this is revert");
         governedMock.executeGovernanceCall(selectorChangeWithRevert);
         vm.stopPrank();
@@ -160,9 +160,9 @@ contract GovernedTest is Test {
         vm.startPrank(governance);
         governedMock.changeA(3);
 
-        vm.warp(block.timestamp + HOUR - 60);
+        vm.warp(vm.getBlockTimestamp() + HOUR - 60);
         vm.expectEmit();
-        emit GovernedBase.TimelockedGovernanceCallCanceled(selectorChangeA, block.timestamp);
+        emit GovernedBase.TimelockedGovernanceCallCanceled(selectorChangeA, vm.getBlockTimestamp());
         governedMock.cancelGovernanceCall(selectorChangeA);
         vm.stopPrank();
     }

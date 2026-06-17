@@ -341,7 +341,7 @@ contract TeeMachineReplicationTest is Test {
         );
 
         // advance time
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
     }
 
     function testRegisterNewTeeExtension() public {
@@ -427,13 +427,13 @@ contract TeeMachineReplicationTest is Test {
             address(0),
             _getSignersAddresses(cosigners),
             cosignersThreshold,
-            uint64(block.timestamp)
+            uint64(vm.getBlockTimestamp())
         );
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             teeId,
             teeProxyId,
             teeUrl,
-            keccak256(abi.encode(teeId, block.timestamp, randomNumber)),
+            keccak256(abi.encode(teeId, vm.getBlockTimestamp(), randomNumber)),
             keccak256(abi.encode(extensionId))
         );
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
@@ -442,7 +442,7 @@ contract TeeMachineReplicationTest is Test {
         );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             codeHash1,
             platforms1[0],
             1,
@@ -474,7 +474,7 @@ contract TeeMachineReplicationTest is Test {
             respBody
         );
 
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(teeMachineOwner);
         vm.expectEmit();
         emit IMachineManager.TeeMachineStatusChanged(teeId, IMachineManager.TeeStatus.PRODUCTION);
@@ -499,7 +499,7 @@ contract TeeMachineReplicationTest is Test {
 
     function testPutTeeMachineToPauseForUpgrade() public {
         testPauseTeeMachine();
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
         vm.prank(teeMachineOwner);
         vm.expectEmit();
         emit IMachineManager.TeeMachineStatusChanged(
@@ -602,13 +602,13 @@ contract TeeMachineReplicationTest is Test {
             address(0),
             _getSignersAddresses(cosigners),
             cosignersThreshold,
-            uint64(block.timestamp)
+            uint64(vm.getBlockTimestamp())
         );
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             newTeeId,
             newTeeProxyId,
             newTeeUrl,
-            keccak256(abi.encode(newTeeId, block.timestamp, randomNumber)),
+            keccak256(abi.encode(newTeeId, vm.getBlockTimestamp(), randomNumber)),
             bytes32("instructionId")
         );
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
@@ -617,7 +617,7 @@ contract TeeMachineReplicationTest is Test {
         );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             codeHash2,
             platforms2[1],
             2,
@@ -649,7 +649,7 @@ contract TeeMachineReplicationTest is Test {
             respBody
         );
 
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(teeMachineOwner);
         vm.expectEmit();
         emit IReplication.TeeMachineReplicationTriggered(teeId, newTeeId, listNonce);
@@ -659,7 +659,7 @@ contract TeeMachineReplicationTest is Test {
 
     function testRequestTeeAttestation() public {
         testReplicateFromTeeMachine();
-        bytes32 challenge = keccak256(abi.encode(teeId, block.timestamp, randomNumber));
+        bytes32 challenge = keccak256(abi.encode(teeId, vm.getBlockTimestamp(), randomNumber));
         vm.expectEmit();
         emit IVerification.TeeAttestationRequested(teeId, challenge);
         flareTeeManager.requestTeeAttestation{value: 150}(teeId, address(0));
@@ -675,13 +675,13 @@ contract TeeMachineReplicationTest is Test {
             address(0),
             _getSignersAddresses(cosigners),
             cosignersThreshold,
-            uint64(block.timestamp)
+            uint64(vm.getBlockTimestamp())
         );
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             teeId,
             newTeeProxyId,
             newTeeUrl,
-            keccak256(abi.encode(teeId, block.timestamp, randomNumber)),
+            keccak256(abi.encode(teeId, vm.getBlockTimestamp(), randomNumber)),
             bytes32("newInstructionId")
         );
         // Post-replication: chain has copied initialTeeId = newTeeId into the old slot, and the
@@ -692,7 +692,7 @@ contract TeeMachineReplicationTest is Test {
         );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             codeHash2,
             platforms2[1],
             2,
@@ -724,7 +724,7 @@ contract TeeMachineReplicationTest is Test {
             respBody
         );
 
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(teeMachineOwner);
         vm.expectEmit();
         emit IReplication.TeeMachineReplicationConfirmed(teeId, newTeeId);

@@ -65,7 +65,7 @@ contract FastUpdaterTest is Test {
             governance,
             addressUpdater,
             flareDaemon,
-            uint32(block.timestamp),
+            uint32(vm.getBlockTimestamp()),
             90,
             SUBMISSION_WINDOW
         );
@@ -109,7 +109,7 @@ contract FastUpdaterTest is Test {
 
         // Initialize feeds via daemonize to fill the circular list
         for (uint256 i = 0; i <= SUBMISSION_WINDOW; i++) {
-            vm.roll(block.number + 1);
+            vm.roll(vm.getBlockNumber() + 1);
             vm.prank(flareDaemon);
             fastUpdater.daemonize();
         }
@@ -147,7 +147,7 @@ contract FastUpdaterTest is Test {
             governance,
             addressUpdater,
             address(0),
-            uint32(block.timestamp),
+            uint32(vm.getBlockTimestamp()),
             90,
             SUBMISSION_WINDOW
         );
@@ -160,7 +160,7 @@ contract FastUpdaterTest is Test {
             governance,
             addressUpdater,
             flareDaemon,
-            uint32(block.timestamp),
+            uint32(vm.getBlockTimestamp()),
             0,
             SUBMISSION_WINDOW
         );
@@ -351,14 +351,14 @@ contract FastUpdaterTest is Test {
 
     function testRevertNumberOfUpdatesInBlockFuture() public {
         vm.expectRevert("The given block is no longer or not yet available");
-        fastUpdater.numberOfUpdatesInBlock(block.number + 1);
+        fastUpdater.numberOfUpdatesInBlock(vm.getBlockNumber() + 1);
     }
 
     function testRevertNumberOfUpdatesInBlockTooOld() public {
         // Advance blocks far enough
         vm.roll(200);
         for (uint256 i = 0; i < SUBMISSION_WINDOW + 1; i++) {
-            vm.roll(block.number + 1);
+            vm.roll(vm.getBlockNumber() + 1);
             vm.prank(flareDaemon);
             fastUpdater.daemonize();
         }
@@ -415,7 +415,7 @@ contract FastUpdaterTest is Test {
         }
 
         IFastUpdater.FastUpdates memory updates = IFastUpdater.FastUpdates({
-            sortitionBlock: block.number,
+            sortitionBlock: vm.getBlockNumber(),
             sortitionCredential: cred,
             deltas: deltas,
             signature: sig
@@ -431,12 +431,12 @@ contract FastUpdaterTest is Test {
         bytes memory deltas = hex"";
 
         // Create a valid ECDSA signature so recover returns a real (but unregistered) address
-        bytes32 msgHash = sha256(abi.encode(block.number, cred, deltas));
+        bytes32 msgHash = sha256(abi.encode(vm.getBlockNumber(), cred, deltas));
         bytes32 ethHash = MessageHashUtils.toEthSignedMessageHash(msgHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKey, ethHash);
 
         IFastUpdater.FastUpdates memory updates = IFastUpdater.FastUpdates({
-            sortitionBlock: block.number,
+            sortitionBlock: vm.getBlockNumber(),
             sortitionCredential: cred,
             deltas: deltas,
             signature: Signature(v, r, s)
@@ -521,7 +521,7 @@ contract FastUpdaterTest is Test {
 
         // Advance time far enough so the feed's votingRoundId=0 becomes too old
         // MAX_FEED_AGE_IN_VOTING_EPOCHS = 20, votingEpochDuration = 90s
-        vm.warp(block.timestamp + 1200000);
+        vm.warp(vm.getBlockTimestamp() + 1200000);
 
         uint256[] memory indices = new uint256[](1);
         indices[0] = 0;
@@ -541,7 +541,7 @@ contract FastUpdaterTest is Test {
 
         // Mock getCurrentFeed to return feed with value = 0
         IFtsoFeedPublisher.Feed memory feed = IFtsoFeedPublisher.Feed(
-            uint32(block.timestamp / 90), testFeedId, 0, 6000, 5
+            uint32(vm.getBlockTimestamp() / 90), testFeedId, 0, 6000, 5
         );
         vm.mockCall(
             ftsoFeedPublisher,
@@ -574,7 +574,7 @@ contract FastUpdaterTest is Test {
         );
 
         // Mock getCurrentFeed with new values and a recent votingRoundId
-        uint32 recentRound = uint32(block.timestamp / 90);
+        uint32 recentRound = uint32(vm.getBlockTimestamp() / 90);
         _mockCurrentFeedWithRound(feedIds[0], 7777, 5, recentRound);
         _mockCurrentFeedWithRound(feedIds[2], 8888, 6, recentRound);
 
@@ -597,7 +597,7 @@ contract FastUpdaterTest is Test {
     // ── Score cutoff ─────────────────────────────────────────────────────────
 
     function testScoreCutoffIncrease() public {
-        uint256 blockNum = block.number;
+        uint256 blockNum = vm.getBlockNumber();
         uint256 scoreCutoff = fastUpdater.blockScoreCutoff(blockNum);
 
         // Increase scale and sample size to simulate incentive offer
@@ -606,7 +606,7 @@ contract FastUpdaterTest is Test {
         _mockIncentiveManager(newScale, newSampleSize);
 
         // Daemonize to pick up new values
-        vm.roll(block.number + 1);
+        vm.roll(vm.getBlockNumber() + 1);
         vm.prank(flareDaemon);
         fastUpdater.daemonize();
 
@@ -615,14 +615,14 @@ contract FastUpdaterTest is Test {
         assertEq(oldCutoff, scoreCutoff);
 
         // New block should have higher cutoff
-        uint256 newBlockNum = block.number;
+        uint256 newBlockNum = vm.getBlockNumber();
         uint256 newCutoff = fastUpdater.blockScoreCutoff(newBlockNum + 1);
         assertGt(newCutoff, scoreCutoff);
     }
 
     function testRevertScoreCutoffNotAvailable() public {
         vm.expectRevert("score cutoff not available for the given block");
-        fastUpdater.blockScoreCutoff(block.number + SUBMISSION_WINDOW + 2);
+        fastUpdater.blockScoreCutoff(vm.getBlockNumber() + SUBMISSION_WINDOW + 2);
     }
 
     // ── Switch to fallback mode ──────────────────────────────────────────────
@@ -675,8 +675,8 @@ contract FastUpdaterTest is Test {
 
     function testDaemonizeEmitsFeedsOnEpochChange() public {
         // Advance time by one voting epoch (90s) to trigger _fetchAllCurrentFeeds
-        vm.warp(block.timestamp + 90);
-        vm.roll(block.number + 1);
+        vm.warp(vm.getBlockTimestamp() + 90);
+        vm.roll(vm.getBlockNumber() + 1);
         vm.prank(flareDaemon);
         fastUpdater.daemonize();
     }
@@ -685,8 +685,8 @@ contract FastUpdaterTest is Test {
 
     function testDaemonizeAdjustsScaleOnRewardEpochChange() public {
         // Advance to next reward epoch (EPOCH_LEN blocks) to trigger _adjustScaleOfFeeds
-        vm.roll(block.number + EPOCH_LEN);
-        vm.warp(block.timestamp + EPOCH_LEN);
+        vm.roll(vm.getBlockNumber() + EPOCH_LEN);
+        vm.warp(vm.getBlockTimestamp() + EPOCH_LEN);
         vm.prank(flareDaemon);
         fastUpdater.daemonize();
     }
@@ -734,7 +734,7 @@ contract FastUpdaterTest is Test {
         _registerVoterFromResult(result, voter, rewardEpochId);
         _buildAndSubmitUpdates(result);
 
-        assertEq(fastUpdater.numberOfUpdatesInBlock(block.number), 1);
+        assertEq(fastUpdater.numberOfUpdatesInBlock(vm.getBlockNumber()), 1);
     }
 
     function testRevertSubmitUpdatesAlreadyProvided() public {
@@ -813,7 +813,7 @@ contract FastUpdaterTest is Test {
         _buildAndSubmitUpdates(result);
 
         // Daemonize to apply deltas via _applySubmitted
-        vm.roll(block.number + 1);
+        vm.roll(vm.getBlockNumber() + 1);
         vm.prank(flareDaemon);
         fastUpdater.daemonize();
 
@@ -885,7 +885,7 @@ contract FastUpdaterTest is Test {
         assertGt(feeds[1], 0);
 
         // Daemonize to exercise _applySubmitted with long deltas
-        vm.roll(block.number + 1);
+        vm.roll(vm.getBlockNumber() + 1);
         vm.prank(flareDaemon);
         fastUpdater.daemonize();
 
@@ -906,12 +906,12 @@ contract FastUpdaterTest is Test {
         _buildAndSubmitUpdates(result);
 
         // Advance block and daemonize — this applies deltas and resets backlog
-        vm.roll(block.number + 1);
+        vm.roll(vm.getBlockNumber() + 1);
         vm.prank(flareDaemon);
         fastUpdater.daemonize();
 
         // Fetch in a new block after daemonize
-        vm.roll(block.number + 1);
+        vm.roll(vm.getBlockNumber() + 1);
         uint256[] memory indices = new uint256[](2);
         indices[0] = 0;
         indices[1] = 1;
@@ -972,14 +972,14 @@ contract FastUpdaterTest is Test {
         string memory _deltasHex
     ) internal returns (bytes memory) {
         uint256 baseSeed = flareSystemMock.getSeed(flareSystemMock.getCurrentRewardEpochId());
-        uint256 scoreCutoff = fastUpdater.blockScoreCutoff(block.number);
+        uint256 scoreCutoff = fastUpdater.blockScoreCutoff(vm.getBlockNumber());
 
         string[] memory command = new string[](8);
         command[0] = "node";
         command[1] = "test-forge/scripts/generate_sortition_data.js";
         command[2] = "submit_update";
         command[3] = vm.toString(baseSeed);
-        command[4] = vm.toString(block.number);
+        command[4] = vm.toString(vm.getBlockNumber());
         command[5] = vm.toString(scoreCutoff);
         command[6] = vm.toString(_ecdsaPrivKey);
         command[7] = _deltasHex;
@@ -1015,7 +1015,7 @@ contract FastUpdaterTest is Test {
         ));
 
         IFastUpdater.FastUpdates memory updates = IFastUpdater.FastUpdates({
-            sortitionBlock: block.number,
+            sortitionBlock: vm.getBlockNumber(),
             sortitionCredential: SortitionCredential(replicate, G1Point(gammax, gammay), c, s),
             deltas: deltas,
             signature: Signature(v, r, ecdsaS)

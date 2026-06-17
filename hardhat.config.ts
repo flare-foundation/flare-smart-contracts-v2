@@ -400,8 +400,12 @@ const config: HardhatUserConfig = {
             enabled: true,
             runs: 200,
           },
-          // keep viaIR off globally to avoid RNat Yul issues
-          viaIR: false,
+          // viaIR for normal builds (TeePaymentsUtxo size / TeePayments stack), but OFF under COVERAGE so
+          // solidity-coverage instrumentation isn't optimized away (accurate reports) — the two TeePayments
+          // contracts are pinned viaIR:true below so they still compile under coverage. Forge tests read
+          // block.timestamp/number via vm.getBlockTimestamp()/vm.getBlockNumber() so viaIR doesn't fold
+          // stale values across vm.warp/vm.roll. RNat is pinned off below (Yul stack issues).
+          viaIR: !COVERAGE,
         },
       },
       {
@@ -445,6 +449,53 @@ const config: HardhatUserConfig = {
             runs: 200,
           },
           viaIR: COVERAGE,
+        },
+      },
+      // Pin RNat to viaIR off (global viaIR triggers Yul stack issues here).
+      "contracts/rNat/implementation/RNat.sol": {
+        version: "0.8.35",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+          viaIR: false,
+        },
+      },
+      "contracts/rNat/implementation/RNatAccount.sol": {
+        version: "0.8.35",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+          viaIR: false,
+        },
+      },
+      // TeePayments contracts always need viaIR (TeePaymentsUtxo size, TeePayments stack), including
+      // under coverage where the global default flips off.
+      "contracts/tee/implementation/TeePayments.sol": {
+        version: "0.8.35",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+          viaIR: true,
+        },
+      },
+      "contracts/tee/implementation/TeePaymentsUtxo.sol": {
+        version: "0.8.35",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+          viaIR: true,
         },
       },
       // EXTRA_OVERRIDES

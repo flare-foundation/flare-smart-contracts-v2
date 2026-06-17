@@ -442,10 +442,10 @@
         {"opType": "F_FDC2", "opCommand": "PROVE", "feeWei": "1"}
     ],
     "teePaymentConfigurations": [
-        {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "XRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}], "maxBatchSize": 1, "maxBatchDurationSeconds": 0},
-        {"opType": "F_BTC", "keyType": "BTC", "sourceConfigs": [{"sourceId": "BTC", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 3600}], "maxBatchSize": 10, "maxBatchDurationSeconds": 600},
-        {"opType": "F_DOGE", "keyType": "DOGE", "sourceConfigs": [{"sourceId": "DOGE", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}], "maxBatchSize": 10, "maxBatchDurationSeconds": 60},
-        {"opType": "F_EVM", "keyType": "EVM", "sourceConfigs": [{"sourceId": "ETH", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}, {"sourceId": "FLR", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 60}, {"sourceId": "SGB", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 60}], "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
+        {"paymentModel": "ACCOUNT", "opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "XRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}], "maxBatchSize": 1, "maxBatchDurationSeconds": 0},
+        {"paymentModel": "UTXO", "opType": "F_BTC", "keyType": "BTC", "sourceConfigs": [{"sourceId": "BTC", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 3600}], "maxBatchSize": 10, "maxBatchDurationSeconds": 600},
+        {"paymentModel": "UTXO", "opType": "F_DOGE", "keyType": "DOGE", "sourceConfigs": [{"sourceId": "DOGE", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}], "maxBatchSize": 10, "maxBatchDurationSeconds": 60},
+        {"paymentModel": "ACCOUNT", "opType": "F_EVM", "keyType": "EVM", "sourceConfigs": [{"sourceId": "ETH", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}, {"sourceId": "FLR", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 60}, {"sourceId": "SGB", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 60}], "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
     ],
     "fdc2MinThresholdBIPS": 3000,
     "fdc2DefaultNumberOfTees": 2,

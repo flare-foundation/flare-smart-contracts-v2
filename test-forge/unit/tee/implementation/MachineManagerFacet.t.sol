@@ -81,7 +81,7 @@ contract MachineManagerFacetTest is Test {
 
     uint256 private randomNumber;
 
-    /// @dev Stores the block.timestamp at which register() was called, used to reconstruct the challenge.
+    /// @dev Stores the vm.getBlockTimestamp() at which register() was called, used to reconstruct the challenge.
     mapping(address teeId => uint256) private registerTimestamps;
 
     function setUp() public {
@@ -262,8 +262,8 @@ contract MachineManagerFacetTest is Test {
             ""
         );
 
-        // Advance time so block.timestamp > 1
-        vm.warp(block.timestamp + 1000);
+        // Advance time so vm.getBlockTimestamp() > 1
+        vm.warp(vm.getBlockTimestamp() + 1000);
 
         // Fund the machine owner so it can pay the (non-zero) registration instruction fee.
         vm.deal(owner, 1 ether);
@@ -335,7 +335,7 @@ contract MachineManagerFacetTest is Test {
             teeId, teeProxyId, owner, extensionId, url, codeHash, platform, governanceHash
         );
         flareTeeManager.register{value: 1000}(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
-        registerTimestamps[teeId] = block.timestamp;
+        registerTimestamps[teeId] = vm.getBlockTimestamp();
     }
 
     // =========================================================================
@@ -391,8 +391,8 @@ contract MachineManagerFacetTest is Test {
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
         // corrupt the response body to make verification fail
         proof.responseBody.codeHash = keccak256("wrong");
-        // Advance time so header.timestamp < block.timestamp (required by verifyAvailabilityCheckProof)
-        vm.warp(block.timestamp + 1);
+        // Advance time so header.timestamp < vm.getBlockTimestamp() (required by verifyAvailabilityCheckProof)
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(owner);
         vm.expectRevert(ITeeCommonErrors.InvalidResponseData.selector);
         flareTeeManager.toProduction(proof);
@@ -411,8 +411,8 @@ contract MachineManagerFacetTest is Test {
         // Advance time past MAX_GRACE_PERIOD_SECONDS (24h) so the
         // MachineEmergencyPause.isExtensionInEmergencyOrGrace overlay short-circuits
         // for an extension with no pause history. Production timestamps always satisfy
-        // this; forge's default block.timestamp = 1 does not.
-        vm.warp(block.timestamp + 1 days + 1);
+        // this; forge's default vm.getBlockTimestamp() = 1 does not.
+        vm.warp(vm.getBlockTimestamp() + 1 days + 1);
         testToProduction();
         vm.expectRevert(IMachineManager.OnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion.selector);
         flareTeeManager.pause(teeId);
@@ -437,7 +437,7 @@ contract MachineManagerFacetTest is Test {
     function testPauseAfterExpiredAvailabilityCheck() public {
         testToProduction();
         // Advance time past availability check validity
-        vm.warp(block.timestamp + 7200);
+        vm.warp(vm.getBlockTimestamp() + 7200);
         // anyone can call pause when availability check expired
         vm.expectEmit();
         emit IMachineManager.TeeMachineStatusChanged(teeId, IMachineManager.TeeStatus.SUSPENDED);
@@ -481,8 +481,8 @@ contract MachineManagerFacetTest is Test {
     function testPauseWithProofRevertInvalidResponseDataOrAvailabilityCheckStatus() public {
         testToProduction();
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
-        // Advance time so header.timestamp < block.timestamp (required by verifyAvailabilityCheckProof)
-        vm.warp(block.timestamp + 1);
+        // Advance time so header.timestamp < vm.getBlockTimestamp() (required by verifyAvailabilityCheckProof)
+        vm.warp(vm.getBlockTimestamp() + 1);
         // A valid proof with OK status should revert since both are valid
         vm.expectRevert(IMachineManager.InvalidResponseDataOrAvailabilityCheckStatus.selector);
         flareTeeManager.pauseWithProof(proof);
@@ -501,8 +501,8 @@ contract MachineManagerFacetTest is Test {
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
         // Make the proof invalid (wrong codeHash) so !responseDataValid is true
         proof.responseBody.codeHash = keccak256("wrong");
-        // Advance time so header.timestamp < block.timestamp (required by verifyAvailabilityCheckProof)
-        vm.warp(block.timestamp + 1);
+        // Advance time so header.timestamp < vm.getBlockTimestamp() (required by verifyAvailabilityCheckProof)
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.expectEmit();
         emit IMachineManager.TeeMachineStatusChanged(teeId, IMachineManager.TeeStatus.SUSPENDED);
         flareTeeManager.pauseWithProof(proof);
@@ -783,7 +783,7 @@ contract MachineManagerFacetTest is Test {
         vm.prank(owner);
         flareTeeManager.register{value: 1000}(
             newTeeMachineData, newTeeMachineDataSignature, teeProxyId, url, address(0));
-        registerTimestamps[newTeeId] = block.timestamp;
+        registerTimestamps[newTeeId] = vm.getBlockTimestamp();
         _changeStateToProductionForTee(newTeeId, teeProxyId, url);
 
         address[] memory teeIds = flareTeeManager.getRandomTeeIds(extensionId, 1);
@@ -853,7 +853,7 @@ contract MachineManagerFacetTest is Test {
         // An availability-check proof with failing response data suspends the machine.
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
         proof.responseBody.codeHash = keccak256("wrong");
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         flareTeeManager.pauseWithProof(proof);
 
         assertTrue(flareTeeManager.getTeeMachineStatus(teeId) == IMachineManager.TeeStatus.SUSPENDED);
@@ -889,7 +889,7 @@ contract MachineManagerFacetTest is Test {
 
     function testGetLastStatusChangeTs() public {
         testRegister();
-        assertEq(flareTeeManager.getLastStatusChangeTs(teeId), block.timestamp);
+        assertEq(flareTeeManager.getLastStatusChangeTs(teeId), vm.getBlockTimestamp());
     }
 
     // =========================================================================
@@ -906,7 +906,7 @@ contract MachineManagerFacetTest is Test {
         string memory _url
     ) private {
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(_teeId, _teeProxyId, _url);
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(owner);
         vm.expectEmit();
         emit IMachineManager.TeeMachineStatusChanged(_teeId, IMachineManager.TeeStatus.PRODUCTION);
@@ -942,7 +942,7 @@ contract MachineManagerFacetTest is Test {
             address(0),
             _getSignersAddresses(cosigners),
             cosignersThreshold,
-            uint64(block.timestamp)
+            uint64(vm.getBlockTimestamp())
         );
 
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
@@ -960,7 +960,7 @@ contract MachineManagerFacetTest is Test {
 
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             codeHash,
             platform,
             1,  // initialSigningPolicyId

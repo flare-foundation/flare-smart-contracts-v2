@@ -130,7 +130,7 @@ contract ExtensionManagerFacetTest is Test {
         opCommand = keccak256("opCommand");
         message = abi.encode("message");
         extensionId = ExtensionManager.PUBLIC_EXTENSION_ID_START;
-        instructionId = keccak256(abi.encode(extensionId, 0, blockhash(block.number - 1)));
+        instructionId = keccak256(abi.encode(extensionId, 0, blockhash(vm.getBlockNumber() - 1)));
         instructionsSenders = new address[](1);
         instructionsSenders[0] = makeAddr("instructionsSender");
         currentRewardEpochId = 1;

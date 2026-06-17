@@ -268,7 +268,7 @@ contract MachineEmergencyPauseFacetTest is Test {
     function testEmergencyUnpauseSetsLastUnpauseTs() public {
         vm.prank(extensionOwner);
         flareTeeManager.emergencyPauseExtension(extensionId);
-        uint64 expectedTs = uint64(block.timestamp);
+        uint64 expectedTs = uint64(vm.getBlockTimestamp());
         vm.expectEmit();
         emit IMachineEmergencyPause.ExtensionEmergencyUnpaused(extensionId, expectedTs);
         vm.prank(extensionOwner);
@@ -420,7 +420,7 @@ contract MachineEmergencyPauseFacetTest is Test {
         flareTeeManager.pause(teeId);
 
         // Halfway through the grace: still protected
-        vm.warp(block.timestamp + GRACE_SECONDS / 2);
+        vm.warp(vm.getBlockTimestamp() + GRACE_SECONDS / 2);
         vm.prank(stranger);
         vm.expectRevert(
             abi.encodeWithSelector(IMachineEmergencyPause.EmergencyProtectionActive.selector, extensionId)
@@ -428,7 +428,7 @@ contract MachineEmergencyPauseFacetTest is Test {
         flareTeeManager.pause(teeId);
 
         // 1 second before grace ends: still protected
-        vm.warp(block.timestamp + GRACE_SECONDS / 2 - 1);
+        vm.warp(vm.getBlockTimestamp() + GRACE_SECONDS / 2 - 1);
         vm.prank(stranger);
         vm.expectRevert(
             abi.encodeWithSelector(IMachineEmergencyPause.EmergencyProtectionActive.selector, extensionId)
@@ -436,7 +436,7 @@ contract MachineEmergencyPauseFacetTest is Test {
         flareTeeManager.pause(teeId);
 
         // At the grace boundary: protection lifted, third-party pause succeeds.
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(stranger);
         flareTeeManager.pause(teeId);
         assertEq(
@@ -487,7 +487,7 @@ contract MachineEmergencyPauseFacetTest is Test {
 
         // After the system extension's grace ends (N was never paused), third-party
         // pause works again (machine's availability is stale by default, owner had time).
-        vm.warp(block.timestamp + GRACE_SECONDS);
+        vm.warp(vm.getBlockTimestamp() + GRACE_SECONDS);
         vm.prank(stranger);
         flareTeeManager.pause(teeId);
         assertEq(

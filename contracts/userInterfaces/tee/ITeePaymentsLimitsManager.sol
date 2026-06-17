@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { ITeePayments } from "./ITeePayments.sol";
+import { ITeePaymentsBase } from "./ITeePaymentsBase.sol";
 import { TeeIdKeyIdPair } from "./ITeeIdKeyIdPair.sol";
 
 /**
@@ -47,7 +47,7 @@ interface ITeePaymentsLimitsManager {
      * Can only be called by the account owner (= project owner).
      */
     function setPaymentLimits(
-        ITeePayments.PMWMultisigAccount calldata _account,
+        ITeePaymentsBase.PMWMultisigAccount calldata _account,
         uint256 _transactionLimit,
         uint256 _dailyLimit,
         address _claimBackAddress
@@ -60,7 +60,7 @@ interface ITeePaymentsLimitsManager {
      * @return _nonce The current nonce.
      */
     function getPaymentLimitsNonce(
-        ITeePayments.PMWMultisigAccount calldata _account
+        ITeePaymentsBase.PMWMultisigAccount calldata _account
     )
         external view
         returns (uint256 _nonce);

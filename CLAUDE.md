@@ -393,9 +393,7 @@ library Config {
         address param;
         uint256 fee;
     }
-    bytes32 internal constant STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("<namespace>.Config.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("<namespace>.Config.State"));
 
     function getState() internal pure returns (State storage _state) {
         bytes32 position = STATE_POSITION;
@@ -413,7 +411,7 @@ library Config {
 
 ### Key Pattern 2: ERC-7201 Namespaced Storage
 
-Every library must use its own isolated storage slot:
+Every library must use its own isolated storage slot, computed with the solc **0.8.35 built-in `erc7201(...)` helper** (not the legacy manual `keccak256(abi.encode(... - 1)) & ~0xff` formula — same value, but the builtin is the canonical form this repo uses):
 
 ```solidity
 /// @custom:storage-location erc7201:<namespace>.<LibName>.State
@@ -421,12 +419,11 @@ struct State {
     /* fields */
 }
 
-bytes32 internal constant STATE_POSITION = keccak256(
-    abi.encode(uint256(keccak256("<namespace>.<LibName>.State")) - 1)
-) & ~bytes32(uint256(0xff));
+bytes32 internal constant STATE_POSITION = bytes32(erc7201("<namespace>.<LibName>.State"));
 ```
 
-- **`@custom:storage-location` annotation is mandatory** on every namespaced State struct. The string after `erc7201:` must match the keccak input verbatim — tooling (Foundry, OZ upgrade tooling, static analyzers) relies on the match to verify storage layout.
+- **`@custom:storage-location` annotation is mandatory** on every namespaced State struct. The string after `erc7201:` must match the `erc7201(...)` argument verbatim — tooling (Foundry, OZ upgrade tooling, static analyzers) relies on the match to verify storage layout.
+- **Toolchain note:** the `erc7201(...)` builtin is not yet understood by Forge's `solar` frontend, so `forge lint`/`forge coverage` report a false-positive "unresolved symbol erc7201" on these contracts (solc compiles them fine). `foundry.toml` sets `lint_on_build = false` for this; `forge coverage` is affected until solar adds support.
 - **Namespace prefix indicates scope.** Module-specific libraries use the module name (e.g. `tee.MachineManager.State` for [contracts/tee/library/MachineManager.sol](contracts/tee/library/MachineManager.sol)). Project-wide libraries use the `flare` prefix (e.g. `flare.FlareGovernance.State`, `flare.LibDiamond.DiamondStorage`, `flare.diamond.AddressUpdatable.ADDRESS_STORAGE_POSITION`).
 - Each library has its own isolated storage slot — no collision between libraries sharing Diamond's storage context.
 - State struct contains all mappings/arrays/values for that domain.

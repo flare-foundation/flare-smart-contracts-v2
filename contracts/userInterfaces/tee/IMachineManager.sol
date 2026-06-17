@@ -196,7 +196,8 @@ interface IMachineManager is ITeeCommonErrors {
 
     /**
      * Update TEE machine settings.
-     * Put the TEE machine into PAUSED status if it was in PRODUCTION or SUSPENDED and emits TeeMachineStatusChanged event.
+     * Put the TEE machine into PAUSED status if it was in PRODUCTION or SUSPENDED and emits
+     * TeeMachineStatusChanged event.
      * Emits TeeMachineSettingsUpdated event.
      * @param _teeId The TEE machine id.
      * @param _teeProxyId The TEE proxy id.

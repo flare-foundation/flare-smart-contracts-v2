@@ -101,7 +101,7 @@ contract PollingFoundationIntegrationTest is Test {
         );
 
         uint32 firstRewardEpochStartVotingRoundId = 10;
-        uint256 firstVotingEpochStartTs = block.timestamp - firstRewardEpochStartVotingRoundId * 3600;
+        uint256 firstVotingEpochStartTs = vm.getBlockTimestamp() - firstRewardEpochStartVotingRoundId * 3600;
         flareSystemsManager = new FlareSystemsManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
@@ -218,11 +218,11 @@ contract PollingFoundationIntegrationTest is Test {
     function testVPBlockSelectionAndVoting() public {
         _mockGetCirculatingSupply(1000);
         // 2 hours before new reward epoch
-        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        uint64 currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
-        vm.roll(block.number + 5000);
+        vm.roll(vm.getBlockNumber() + 5000);
         _mockToSigningPolicyHash(1, bytes32(0));
-        vm.roll(block.number + 128);
+        vm.roll(vm.getBlockNumber() + 128);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.setNewSigningPolicyInitializationStartBlockNumber.selector, 1),
@@ -244,7 +244,7 @@ contract PollingFoundationIntegrationTest is Test {
 
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: true,
-            votingStartTs: block.timestamp,
+            votingStartTs: vm.getBlockTimestamp(),
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 500000,
             thresholdConditionBIPS: 6000,
@@ -260,20 +260,20 @@ contract PollingFoundationIntegrationTest is Test {
         _createSigningPolicySnapshot(1);
         bytes32 newSigningPolicyHash = keccak256("signingPolicyHash1");
         _mockToSigningPolicyHash(1, newSigningPolicyHash);
-        vm.warp(block.timestamp + 5400);
-        vm.roll(block.number + 100);
+        vm.warp(vm.getBlockTimestamp() + 5400);
+        vm.roll(vm.getBlockNumber() + 100);
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getCurrentRewardEpochId(), 1);
 
-        vm.roll(block.number + 100000);
+        vm.roll(vm.getBlockNumber() + 100000);
 
         // move to the next reward epoch (2)
-        currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
-        vm.roll(block.number + 5000);
+        vm.roll(vm.getBlockNumber() + 5000);
         _mockToSigningPolicyHash(2, bytes32(0));
-        vm.roll(block.number + 128);
+        vm.roll(vm.getBlockNumber() + 128);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.setNewSigningPolicyInitializationStartBlockNumber.selector, 1),
@@ -296,13 +296,13 @@ contract PollingFoundationIntegrationTest is Test {
         _createSigningPolicySnapshot(2);
         newSigningPolicyHash = keccak256("signingPolicyHash2");
         _mockToSigningPolicyHash(2, newSigningPolicyHash);
-        vm.warp(block.timestamp + 5400);
-        vm.roll(block.number + 100);
+        vm.warp(vm.getBlockTimestamp() + 5400);
+        vm.roll(vm.getBlockNumber() + 100);
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getCurrentRewardEpochId(), 2);
 
-        vm.roll(block.number + 500);
+        vm.roll(vm.getBlockNumber() + 500);
         _mockGetCirculatingSupply(1200);
         vm.prank(voters[2]);
         wNat.deposit{ value: 200 }();
@@ -314,10 +314,10 @@ contract PollingFoundationIntegrationTest is Test {
         vm.expectRevert("vote power block is too far in the past");
         pollingFoundation.propose("proposalAccept", settings);
 
-        vm.roll(block.number + 5000);
+        vm.roll(vm.getBlockNumber() + 5000);
         // change vpBlockPeriodSeconds such that vp block will be after start of the reward epoch 2
         settings.vpBlockPeriodSeconds = 0;
-        settings.votingStartTs = block.timestamp + 1000;
+        settings.votingStartTs = vm.getBlockTimestamp() + 1000;
         vm.prank(proposers[0]);
         pollingFoundation.propose("proposalAccept", settings);
         uint256 proposalId = _getProposalId("proposalAccept");
@@ -335,7 +335,7 @@ contract PollingFoundationIntegrationTest is Test {
         governanceVotePower.delegate(voters[1]);
 
         // move to start of the voting period
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
         vm.prank(voters[0]);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));
         vm.prank(voters[1]);
@@ -349,7 +349,7 @@ contract PollingFoundationIntegrationTest is Test {
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));
 
         // move to end of the voting period
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
         (uint256 forVotes, uint256 againstVotes) = pollingFoundation.getProposalVotes(proposalId);
         assertEq(forVotes, 700);
         assertEq(againstVotes, 500);
@@ -360,11 +360,11 @@ contract PollingFoundationIntegrationTest is Test {
         assertEq(uint8(pollingFoundation.state(proposalId)), uint8(IGovernor.ProposalState.Executed));
 
          // move to the next reward epoch (3)
-        currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
-        vm.roll(block.number + 5000);
+        vm.roll(vm.getBlockNumber() + 5000);
         _mockToSigningPolicyHash(3, bytes32(0));
-        vm.roll(block.number + 128);
+        vm.roll(vm.getBlockNumber() + 128);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.setNewSigningPolicyInitializationStartBlockNumber.selector, 1),
@@ -387,19 +387,19 @@ contract PollingFoundationIntegrationTest is Test {
         _createSigningPolicySnapshot(3);
         newSigningPolicyHash = keccak256("signingPolicyHash3");
         _mockToSigningPolicyHash(3, newSigningPolicyHash);
-        vm.warp(block.timestamp + 5400);
-        vm.roll(block.number + 100);
+        vm.warp(vm.getBlockTimestamp() + 5400);
+        vm.roll(vm.getBlockNumber() + 100);
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getCurrentRewardEpochId(), 3);
 
-        vm.warp(block.timestamp + 700);
-        vm.roll(block.number + 500);
+        vm.warp(vm.getBlockTimestamp() + 700);
+        vm.roll(vm.getBlockNumber() + 500);
 
         // create another proposal
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: true,
-            votingStartTs: block.timestamp + 500,
+            votingStartTs: vm.getBlockTimestamp() + 500,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 0,
             thresholdConditionBIPS: 9000,
@@ -417,8 +417,8 @@ contract PollingFoundationIntegrationTest is Test {
         assertEq(pollingFoundation.getVotes(voters[3], vpBlock), 50);
         assertEq(circulatingSupply, 1200);
 
-        vm.warp(block.timestamp + 500);
-        vm.roll(block.number + 200);
+        vm.warp(vm.getBlockTimestamp() + 500);
+        vm.roll(vm.getBlockNumber() + 200);
         vm.prank(voters[0]);
         vm.expectEmit();
         emit IGovernor.VoteCast(voters[0], proposalId, uint8(GovernorVotes.VoteType.For), 0, "", 0, 0);
@@ -431,7 +431,7 @@ contract PollingFoundationIntegrationTest is Test {
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));
 
         // move to end of the voting period
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
         // all voted in favor but their combined vote power is not 90 % of the total supply -> proposal is defeated
         assertEq(uint8(pollingFoundation.state(proposalId)), uint8(IGovernor.ProposalState.Defeated));
     }
@@ -497,8 +497,8 @@ contract PollingFoundationIntegrationTest is Test {
             abi.encode(3)
         );
 
-        vm.warp(block.timestamp + 30 * 60 + 1); // after 30 minutes
-        vm.roll(block.number + 21); // after 20 blocks
+        vm.warp(vm.getBlockTimestamp() + 30 * 60 + 1); // after 30 minutes
+        vm.roll(vm.getBlockNumber() + 21); // after 20 blocks
         vm.mockCall(
             mockRelay,
             abi.encodeWithSelector(IIRelay.setSigningPolicy.selector),

@@ -242,7 +242,7 @@ contract ReplicationFacetTest is Test {
 
         // Advance time past challengeValidityDurationSeconds (6000) so registration always
         // generates a fresh attestation challenge rather than reusing a (zero) one.
-        vm.warp(block.timestamp + 10000);
+        vm.warp(vm.getBlockTimestamp() + 10000);
     }
 
     // toPauseForUpgrade
@@ -278,7 +278,7 @@ contract ReplicationFacetTest is Test {
         vm.prank(owner);
         flareTeeManager.pause(teeId);
         // Wait long enough
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
         vm.prank(owner);
         vm.expectEmit();
         emit IReplication.TeeMachinePausedForUpgrade(teeId);
@@ -289,7 +289,7 @@ contract ReplicationFacetTest is Test {
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
         vm.prank(owner);
         flareTeeManager.pause(teeId);
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
 
         address claimBack = makeAddr("claimBack");
         vm.prank(owner);
@@ -314,7 +314,7 @@ contract ReplicationFacetTest is Test {
             newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]
         );
         _signProofWithCosigners(proof);
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(owner);
         flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
         // newTeeId is now REPLICATING — a second replicateFrom with the same pair is a retry (allowed).
@@ -378,7 +378,7 @@ contract ReplicationFacetTest is Test {
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
         vm.prank(owner);
         flareTeeManager.pause(teeId);
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
         vm.prank(owner);
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
 
@@ -386,7 +386,7 @@ contract ReplicationFacetTest is Test {
         // Add version, register, then disable it after registration.
         _addTeeVersion("v2.0.0", codeHash2, platforms1);
 
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         _registerTee(newTeeId, newTeePrivateKey, newTeePublicKey, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]);
 
         // Path list must be signed AFTER newTeeId is registered (path-list eligibility derives its
@@ -411,13 +411,13 @@ contract ReplicationFacetTest is Test {
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
         vm.prank(owner);
         flareTeeManager.pause(teeId);
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
         vm.prank(owner);
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
 
         _addTeeVersion("v2.0.0", codeHash2, platforms1);
 
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         _registerTee(newTeeId, newTeePrivateKey, newTeePublicKey, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]);
 
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(
@@ -433,13 +433,13 @@ contract ReplicationFacetTest is Test {
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
         vm.prank(owner);
         flareTeeManager.pause(teeId);
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
         vm.prank(owner);
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
 
         _addTeeVersion("v2.0.0", codeHash2, platforms1);
 
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         _registerTee(newTeeId, newTeePrivateKey, newTeePublicKey, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]);
 
         // Sign a list that does NOT include newTeeId on the destination side: use a dummy
@@ -497,7 +497,7 @@ contract ReplicationFacetTest is Test {
         proof.responseBody.codeHash = keccak256("wrong");
         // Re-sign with cosigners for the tampered proof
         _signProofWithCosigners(proof);
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(owner);
         vm.expectRevert(ITeeCommonErrors.InvalidResponseData.selector);
         flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
@@ -512,7 +512,7 @@ contract ReplicationFacetTest is Test {
             newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]
         );
         _signProofWithCosigners(proof);
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(owner);
         vm.expectEmit();
         emit IReplication.TeeMachineReplicationTriggered(teeId, newTeeId, expectedNonce);
@@ -527,7 +527,7 @@ contract ReplicationFacetTest is Test {
             newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]
         );
         _signProofWithCosigners(proof);
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(owner);
         vm.expectEmit();
         emit IReplication.TeeMachineReplicationTriggered(teeId, newTeeId, expectedNonce);
@@ -565,10 +565,10 @@ contract ReplicationFacetTest is Test {
         );
         // Override the challenge to use the one from original teeId registration
         proof.requestBody.challenge = keccak256(abi.encode(teeId, teeIdRegistrationTs, randomNumber));
-        proof.header.timestamp = uint64(block.timestamp);
-        proof.responseBody.teeTimestamp = uint64(block.timestamp);
+        proof.header.timestamp = uint64(vm.getBlockTimestamp());
+        proof.responseBody.teeTimestamp = uint64(vm.getBlockTimestamp());
         _signProofWithCosigners(proof);
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(owner);
         vm.expectEmit();
         emit IReplication.TeeMachineReplicationConfirmed(teeId, newTeeId);
@@ -638,7 +638,7 @@ contract ReplicationFacetTest is Test {
             vm, SignedPayload.messageHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(data))), _privateKey
         );
         if (_teeId == teeId) {
-            teeIdRegistrationTs = block.timestamp;
+            teeIdRegistrationTs = vm.getBlockTimestamp();
         }
         vm.prank(owner);
         flareTeeManager.register{value: 100}(data, sig, _teeProxyId, _url, address(0));
@@ -675,13 +675,13 @@ contract ReplicationFacetTest is Test {
             address(0),
             _getSignersAddresses(cosigners),
             cosignersThreshold,
-            uint64(block.timestamp)
+            uint64(vm.getBlockTimestamp())
         );
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             _teeId,
             _teeProxyId,
             _url,
-            keccak256(abi.encode(_teeId, block.timestamp, randomNumber)),
+            keccak256(abi.encode(_teeId, vm.getBlockTimestamp(), randomNumber)),
             keccak256(abi.encode(extensionId))
         );
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
@@ -690,7 +690,7 @@ contract ReplicationFacetTest is Test {
         );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             _codeHash,
             _platform,
             1,
@@ -734,7 +734,7 @@ contract ReplicationFacetTest is Test {
             respBody
         );
 
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(owner);
         flareTeeManager.toProduction(proof);
     }
@@ -815,13 +815,13 @@ contract ReplicationFacetTest is Test {
         // Pause and upgrade old tee
         vm.prank(owner);
         flareTeeManager.pause(teeId);
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
         vm.prank(owner);
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
 
         // Register new tee (status: INITIALIZED — that is fine for path-list membership;
         // the path-list helper no longer requires PRODUCTION on either side).
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         _registerTee(newTeeId, newTeePrivateKey, newTeePublicKey, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]);
 
         // Authorize (teeId, newTeeId) replication path through a signed machine-path list.
@@ -879,13 +879,13 @@ contract ReplicationFacetTest is Test {
             address(0),
             _getSignersAddresses(cosigners),
             cosignersThreshold,
-            uint64(block.timestamp)
+            uint64(vm.getBlockTimestamp())
         );
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             _teeId,
             _teeProxyId,
             _url,
-            keccak256(abi.encode(_teeId, block.timestamp, randomNumber)),
+            keccak256(abi.encode(_teeId, vm.getBlockTimestamp(), randomNumber)),
             keccak256(abi.encode(extensionId))
         );
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
@@ -894,7 +894,7 @@ contract ReplicationFacetTest is Test {
         );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             _codeHash,
             _platform,
             1,
@@ -929,13 +929,13 @@ contract ReplicationFacetTest is Test {
             address(0),
             _getSignersAddresses(cosigners),
             cosignersThreshold,
-            uint64(block.timestamp)
+            uint64(vm.getBlockTimestamp())
         );
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             _oldTeeId,
             _teeProxyId,
             _url,
-            keccak256(abi.encode(_oldTeeId, block.timestamp, randomNumber)),
+            keccak256(abi.encode(_oldTeeId, vm.getBlockTimestamp(), randomNumber)),
             keccak256(abi.encode(extensionId))
         );
         // After replication, old tee's initialTeeId = newTeeId (copied from new state); the
@@ -947,7 +947,7 @@ contract ReplicationFacetTest is Test {
         // After replication copy, old tee will have new tee's codeHash2 and platform
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             codeHash2,
             platforms1[0],
             1,

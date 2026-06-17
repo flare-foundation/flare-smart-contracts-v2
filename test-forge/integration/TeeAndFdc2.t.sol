@@ -174,7 +174,7 @@ contract TeeAndFdc2Test is Test {
         vm.prank(initialGovernance);
         flareTeeManager.setCosigners(_cosignerAddresses(), cosignersThreshold);
 
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
     }
 
     // // IGovernanceSettings mock — test contract acts as governance settings
@@ -473,7 +473,7 @@ contract TeeAndFdc2Test is Test {
         );
 
         address id = PublicKeyHelper.getAddress(_pubKey);
-        registerTimestamps[id] = block.timestamp;
+        registerTimestamps[id] = vm.getBlockTimestamp();
 
         vm.deal(teeOwner, 1 ether);
         vm.prank(teeOwner);
@@ -482,7 +482,7 @@ contract TeeAndFdc2Test is Test {
 
     function _toProduction(address _teeId, address _proxyId, string memory _url) private {
         ITeeAvailabilityCheck.Proof memory proof = _buildAvailabilityCheckProof(_teeId, _proxyId, _url);
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(teeOwner);
         flareTeeManager.toProduction(proof);
     }
@@ -504,7 +504,7 @@ contract TeeAndFdc2Test is Test {
             address(0),
             _cosignerAddresses(),
             cosignersThreshold,
-            uint64(block.timestamp)
+            uint64(vm.getBlockTimestamp())
         );
 
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
@@ -517,7 +517,7 @@ contract TeeAndFdc2Test is Test {
 
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             codeHash,
             platform,
             1, // initialSigningPolicyId

@@ -96,7 +96,7 @@ contract FtsoManagerProxyTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
-            uint32(block.timestamp),
+            uint32(vm.getBlockTimestamp()),
             VOTING_EPOCH_DURATION_SEC,
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
@@ -243,7 +243,7 @@ contract FtsoManagerProxyTest is Test {
     }
 
     function testGetRewardEpochVotePowerBlock() public {
-        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        uint64 currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
 
         _mockToSigningPolicyHash(1, bytes32(0));
@@ -294,7 +294,7 @@ contract FtsoManagerProxyTest is Test {
         assertEq(ftsoManagerProxy.getCurrentVotingEpochId(), 2 * 3360);
 
         // move 5 voting rounds
-        vm.warp(block.timestamp + 5 * 90);
+        vm.warp(vm.getBlockTimestamp() + 5 * 90);
         assertEq(ftsoManagerProxy.getCurrentPriceEpochId(), 2 * 3360 + 5);
         assertEq(ftsoManagerProxy.getCurrentVotingEpochId(), 2 * 3360 + 5);
     }
@@ -314,7 +314,7 @@ contract FtsoManagerProxyTest is Test {
         assertEq(priceEpochStartTimestamp, firstVotingEpochStartTs + 3360 * 90);
         assertEq(priceEpochEndTimestamp, firstVotingEpochStartTs + 3360 * 90 + 90);
         assertEq(priceEpochRevealEndTimestamp, firstVotingEpochStartTs + 3360 * 90 + 90 + 45);
-        assertEq(currentTimestamp, block.timestamp);
+        assertEq(currentTimestamp, vm.getBlockTimestamp());
     }
 
     function testGetPriceEpochConfiguration() public {
@@ -595,7 +595,7 @@ contract FtsoManagerProxyTest is Test {
             abi.encode(bytes32(0))
         );
 
-        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        uint64 currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
         vm.mockCall(
             mockRelay,
@@ -614,7 +614,7 @@ contract FtsoManagerProxyTest is Test {
         flareSystemsManager.daemonize();
 
         // select vote power block
-        vm.roll(block.number + 1);
+        vm.roll(vm.getBlockNumber() + 1);
         vm.mockCall(
             mockRelay,
             abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
@@ -624,7 +624,7 @@ contract FtsoManagerProxyTest is Test {
 
         // initialize signing policy
         vm.warp(currentTime + 30 * 60 + 1); // after 30 minutes
-        vm.roll(block.number + 21); // after 20 blocks
+        vm.roll(vm.getBlockNumber() + 21); // after 20 blocks
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IVoterRegistry.getNumberOfRegisteredVoters.selector, _nextEpochId),
@@ -650,7 +650,7 @@ contract FtsoManagerProxyTest is Test {
             abi.encode(bytes32("signing policy1"))
         ); // define new signing policy
         _mockRegisteredAddresses(_nextEpochId);
-        vm.warp(block.timestamp + 5400); // after end of current reward epoch (_nextEpochId - 1)
+        vm.warp(vm.getBlockTimestamp() + 5400); // after end of current reward epoch (_nextEpochId - 1)
     }
 
     function _mockToSigningPolicyHash(uint256 _epochId, bytes32 _hash) private {

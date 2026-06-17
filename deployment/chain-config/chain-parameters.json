@@ -380,6 +380,14 @@
                     "description": "Payment operation type - F_XRP, F_BTC, F_DOGE, F_EVM,...",
                     "type": "string"
                 },
+                "paymentModel": {
+                    "description": "Payment model - ACCOUNT or UTXO.",
+                    "enum": [
+                        "ACCOUNT",
+                        "UTXO"
+                    ],
+                    "type": "string"
+                },
                 "sourceConfigs": {
                     "description": "Per-source id configuration (source id + fee schedule limits).",
                     "items": {
@@ -393,6 +401,7 @@
                 "maxBatchDurationSeconds",
                 "maxBatchSize",
                 "opType",
+                "paymentModel",
                 "sourceConfigs"
             ],
             "type": "object"
@@ -1004,4 +1013,3 @@
     ],
     "type": "object"
 }
-

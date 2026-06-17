@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { ITeePayments } from "./ITeePayments.sol";
+import { ITeePaymentsBase } from "./ITeePaymentsBase.sol";
+
+/// @dev Default fee schedule: factor 1 (10000 BIPS = 0x2710), delay 0 seconds (0x0000).
+bytes constant DEFAULT_FEE_SCHEDULE = hex"27100000";
 
 /**
  * ITeePaymentsFeeScheduleManager interface.
@@ -124,7 +127,7 @@ interface ITeePaymentsFeeScheduleManager {
      * Can only be called by the account owner.
      */
     function setAccountFeeSchedule(
-        ITeePayments.PMWMultisigAccount calldata _account,
+        ITeePaymentsBase.PMWMultisigAccount calldata _account,
         FeeSchedule[] calldata _schedule
     )
         external;
@@ -137,7 +140,7 @@ interface ITeePaymentsFeeScheduleManager {
      * Can only be called by the account owner.
      */
     function clearAccountFeeSchedule(
-        ITeePayments.PMWMultisigAccount calldata _account
+        ITeePaymentsBase.PMWMultisigAccount calldata _account
     )
         external;
 
@@ -202,7 +205,7 @@ interface ITeePaymentsFeeScheduleManager {
      * @return _schedule The fee schedule entries.
      */
     function getAccountFeeSchedule(
-        ITeePayments.PMWMultisigAccount calldata _account
+        ITeePaymentsBase.PMWMultisigAccount calldata _account
     )
         external view
         returns (FeeSchedule[] memory _schedule);

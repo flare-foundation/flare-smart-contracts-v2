@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import { PaymentModel } from "./ITeePaymentsModel.sol";
+
 /**
  * ITeePaymentsRegistry interface.
  *
@@ -20,7 +22,17 @@ interface ITeePaymentsRegistry {
     /// Input struct for batch registration.
     // NOTE: alphabetical field order for stdJson compatibility.
     struct SourceRegistration {
+        bytes32 keyType;
+        bytes32 opType;
+        PaymentModel paymentModel;
         bytes32 sourceId;
+        address teePayments;
+    }
+
+    struct SourceConfig {
+        bytes32 keyType;
+        bytes32 opType;
+        PaymentModel paymentModel;
         address teePayments;
     }
 
@@ -35,7 +47,11 @@ interface ITeePaymentsRegistry {
     error SourceNotRegistered(bytes32 sourceId);
     error SourceAlreadyRegistered(bytes32 sourceId, address teePayments);
     error TeePaymentsNotContract(address teePayments);
+    error WrongPaymentModel(address teePayments, PaymentModel expected, PaymentModel actual);
     error SourceIdZero(uint256 index);
+    error SourceKeyTypeZero(uint256 index);
+    error SourceOpTypeZero(uint256 index);
+    error SourcePaymentModelUnknown(uint256 index);
 
     /**
      * Returns the TeePayments address bound to the given sourceId, or `address(0)` if unknown.
@@ -49,6 +65,58 @@ interface ITeePaymentsRegistry {
     )
         external view
         returns (address _teePayments);
+
+    /**
+     * Returns the full source configuration, or zero/default values if the source is unknown.
+     * @param _sourceId The sourceId to look up.
+     * @return _sourceConfig The source configuration.
+     */
+    function getSourceConfig(
+        bytes32 _sourceId
+    )
+        external view
+        returns (SourceConfig memory _sourceConfig);
+
+    /**
+     * Returns the operation type and TeePayments address bound to the given sourceId.
+     * @param _sourceId The sourceId to look up.
+     * @return _opType The operation type.
+     * @return _teePayments The bound TeePayments address (zero if not registered).
+     */
+    function getSourceOpTypeAndTeePayments(
+        bytes32 _sourceId
+    )
+        external view
+        returns (
+            bytes32 _opType,
+            address _teePayments
+        );
+
+    /**
+     * Returns the key type and TeePayments address bound to the given sourceId.
+     * @param _sourceId The sourceId to look up.
+     * @return _keyType The key type.
+     * @return _teePayments The bound TeePayments address (zero if not registered).
+     */
+    function getSourceKeyTypeAndTeePayments(
+        bytes32 _sourceId
+    )
+        external view
+        returns (
+            bytes32 _keyType,
+            address _teePayments
+        );
+
+    /**
+     * Returns the payment model bound to the given sourceId (`UNKNOWN` if not registered).
+     * @param _sourceId The sourceId to look up.
+     * @return _paymentModel The payment model.
+     */
+    function getSourcePaymentModel(
+        bytes32 _sourceId
+    )
+        external view
+        returns (PaymentModel _paymentModel);
 
     /**
      * Returns all sourceIds bound to the given TeePayments contract (reverse lookup).

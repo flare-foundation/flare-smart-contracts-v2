@@ -803,6 +803,11 @@ export interface TeePaymentSourceConfig {
 
 export interface TeePaymentConfiguration {
   /**
+   * Payment model - ACCOUNT or UTXO.
+   */
+  paymentModel: "ACCOUNT" | "UTXO";
+
+  /**
    * Payment operation type - F_XRP, F_BTC, F_DOGE, F_EVM,...
    */
   opType: string;

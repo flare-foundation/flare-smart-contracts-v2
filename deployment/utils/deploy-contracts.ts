@@ -81,6 +81,9 @@ import {
   OperationFeesFacetContract,
   OwnerAllowlistFacetContract,
   TeePaymentsContract,
+  TeePaymentsConfigVerifierContract,
+  TeePaymentsConfigVerifierInstance,
+  TeePaymentsConfigVerifierProxyContract,
   TeePaymentsFeeScheduleManagerContract,
   TeePaymentsFeeScheduleManagerInstance,
   TeePaymentsFeeScheduleManagerProxyContract,
@@ -89,6 +92,8 @@ import {
   TeePaymentsRegistryContract,
   TeePaymentsRegistryInstance,
   TeePaymentsRegistryProxyContract,
+  TeePaymentsUtxoContract,
+  TeePaymentsUtxoInstance,
   TeeRewardOffersManagerContract,
   TeeRewardOffersManagerInstance,
   TeeRewardOffersManagerProxyContract,
@@ -111,6 +116,7 @@ import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { Contracts } from "../scripts/Contracts";
 import { Account } from "web3-core";
 import { DAY1_FACETS, deployFacetsAndBuildCuts } from "../scripts/deploy-flare-tee-manager";
+import type { TeePaymentConfiguration } from "../chain-config/chain-parameters";
 import {
   TIMELOCK_SEC,
   systemSettings,
@@ -165,7 +171,8 @@ export interface DeployedContracts {
   readonly teeRewardOffersManager: TeeRewardOffersManagerInstance;
   readonly teePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerInstance;
   readonly teePaymentsRegistry: TeePaymentsRegistryInstance;
-  readonly teePayments: TeePaymentsInstance[];
+  readonly teePaymentsConfigVerifier: TeePaymentsConfigVerifierInstance;
+  readonly teePayments: (TeePaymentsInstance | TeePaymentsUtxoInstance)[];
   readonly fdc2Hub: Fdc2HubInstance;
   readonly fdc2InflationConfigurations: Fdc2InflationConfigurationsInstance;
   readonly fdc2RequestFeeConfigurations: Fdc2RequestFeeConfigurationsInstance;
@@ -247,7 +254,14 @@ export async function deployContracts(
     "TeeRewardOffersManagerProxy"
   ) as TeeRewardOffersManagerProxyContract;
   const TeePayments = hre.artifacts.require("TeePayments") as TeePaymentsContract;
+  const TeePaymentsUtxo = hre.artifacts.require("TeePaymentsUtxo") as TeePaymentsUtxoContract;
   const TeePaymentsProxy = hre.artifacts.require("TeePaymentsProxy") as TeePaymentsProxyContract;
+  const TeePaymentsConfigVerifier = hre.artifacts.require(
+    "TeePaymentsConfigVerifier"
+  ) as TeePaymentsConfigVerifierContract;
+  const TeePaymentsConfigVerifierProxy = hre.artifacts.require(
+    "TeePaymentsConfigVerifierProxy"
+  ) as TeePaymentsConfigVerifierProxyContract;
   const TeePaymentsFeeScheduleManager = hre.artifacts.require(
     "TeePaymentsFeeScheduleManager"
   ) as TeePaymentsFeeScheduleManagerContract;
@@ -655,25 +669,58 @@ export async function deployContracts(
   const teePaymentsRegistry = await TeePaymentsRegistry.at(teePaymentsRegistryProxy.address);
   addressUpdatableContracts.push(teePaymentsRegistry.address);
 
-  const teePaymentsList: TeePaymentsInstance[] = [];
+  // Shared PMW configuration request + verify contract
+  const teePaymentsConfigVerifierImpl = await TeePaymentsConfigVerifier.new();
+  const teePaymentsConfigVerifierProxy = await TeePaymentsConfigVerifierProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address,
+    teePaymentsConfigVerifierImpl.address
+  );
+  const teePaymentsConfigVerifier = await TeePaymentsConfigVerifier.at(teePaymentsConfigVerifierProxy.address);
+  addressUpdatableContracts.push(teePaymentsConfigVerifier.address);
+
+  const teePaymentsList: (TeePaymentsInstance | TeePaymentsUtxoInstance)[] = [];
   const teePaymentsImpl = await TeePayments.new();
-  const sourceRegistrations: { sourceId: string; teePayments: string }[] = [];
+  const teePaymentsUtxoImpl = await TeePaymentsUtxo.new();
+  const teePaymentsDeployments: {
+    address: string;
+    paymentConfig: TeePaymentConfiguration;
+    paymentModel: number;
+  }[] = [];
+  const sourceRegistrations: {
+    keyType: string;
+    opType: string;
+    paymentModel: number;
+    sourceId: string;
+    teePayments: string;
+  }[] = [];
   for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
+    const paymentModel = teePaymentConfig.paymentModel === "UTXO" ? 2 : 1;
+    const implementationAddress =
+      teePaymentConfig.paymentModel === "UTXO" ? teePaymentsUtxoImpl.address : teePaymentsImpl.address;
     const teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings.address,
       governanceAccount.address,
       addressUpdater.address,
-      teePaymentConfig.maxBatchSize,
-      teePaymentConfig.maxBatchDurationSeconds,
-      web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
-      web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0"),
-      teePaymentsImpl.address
+      implementationAddress
     );
-    const teePayments = await TeePayments.at(teePaymentsProxy.address);
+    const teePayments =
+      teePaymentConfig.paymentModel === "UTXO"
+        ? await TeePaymentsUtxo.at(teePaymentsProxy.address)
+        : await TeePayments.at(teePaymentsProxy.address);
     teePaymentsList.push(teePayments);
+    teePaymentsDeployments.push({
+      address: teePayments.address,
+      paymentConfig: teePaymentConfig,
+      paymentModel,
+    });
     addressUpdatableContracts.push(teePayments.address);
     for (const src of teePaymentConfig.sourceConfigs) {
       sourceRegistrations.push({
+        keyType: web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0"),
+        opType: web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
+        paymentModel,
         sourceId: web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
         teePayments: teePayments.address,
       });
@@ -792,6 +839,7 @@ export async function deployContracts(
       Contracts.TEE_REWARD_OFFERS_MANAGER,
       Contracts.TEE_PAYMENTS_FEE_SCHEDULE_MANAGER,
       Contracts.TEE_PAYMENTS_REGISTRY,
+      Contracts.TEE_PAYMENTS_CONFIG_VERIFIER,
     ],
     [
       addressUpdater.address,
@@ -830,6 +878,7 @@ export async function deployContracts(
       teeRewardOffersManager.address,
       teePaymentsFeeScheduleManager.address,
       teePaymentsRegistry.address,
+      teePaymentsConfigVerifier.address,
     ],
     addressUpdatableContracts,
     { from: governanceAccount.address }
@@ -838,6 +887,21 @@ export async function deployContracts(
   // Register sourceId -> TeePayments bindings in the registry
   if (sourceRegistrations.length > 0) {
     await teePaymentsRegistry.registerSources(sourceRegistrations, { from: governanceAccount.address });
+  }
+
+  for (const deployment of teePaymentsDeployments) {
+    if (deployment.paymentModel !== 2) {
+      continue;
+    }
+    const teePaymentsUtxo = await TeePaymentsUtxo.at(deployment.address);
+    for (const src of deployment.paymentConfig.sourceConfigs) {
+      await teePaymentsUtxo.setMaxBatchSettings(
+        web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
+        deployment.paymentConfig.maxBatchSize,
+        deployment.paymentConfig.maxBatchDurationSeconds,
+        { from: governanceAccount.address }
+      );
+    }
   }
 
   await extensionManager.addSystemSupportedPlatforms(
@@ -877,6 +941,9 @@ export async function deployContracts(
   // Configure initial per-sourceId fee schedule limits (generous defaults for tests)
   const allSourceIds = new Set<string>();
   for (const cfg of TEE_PAYMENT_CONFIGURATIONS) {
+    if (cfg.paymentModel !== "ACCOUNT") {
+      continue;
+    }
     for (const src of cfg.sourceConfigs) {
       allSourceIds.add(src.sourceId);
     }
@@ -1126,6 +1193,7 @@ export async function deployContracts(
     teeRewardOffersManager,
     teePaymentsFeeScheduleManager,
     teePaymentsRegistry,
+    teePaymentsConfigVerifier,
     teePayments: teePaymentsList,
     fdc2Hub,
     fdc2InflationConfigurations,

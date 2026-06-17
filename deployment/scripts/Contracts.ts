@@ -89,6 +89,7 @@ export class Contracts {
   public static readonly TEE_PAYMENTS_FEE_SCHEDULE_MANAGER = "TeePaymentsFeeScheduleManager";
   public static readonly TEE_PAYMENTS_LIMITS_MANAGER = "TeePaymentsLimitsManager";
   public static readonly TEE_PAYMENTS_REGISTRY = "TeePaymentsRegistry";
+  public static readonly TEE_PAYMENTS_CONFIG_VERIFIER = "TeePaymentsConfigVerifier";
   public static readonly FDC2_HUB = "Fdc2Hub";
   public static readonly FDC2_INFLATION_CONFIGURATIONS = "Fdc2InflationConfigurations";
   public static readonly FDC2_REQUEST_FEE_CONFIGURATIONS = "Fdc2RequestFeeConfigurations";

@@ -5,6 +5,7 @@ import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgra
 import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
+import { ITeePaymentsBase } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
 import { ITeePaymentsLimitsManager } from "../../userInterfaces/tee/ITeePaymentsLimitsManager.sol";
 import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
@@ -56,14 +57,15 @@ contract TeePaymentsLimitsManager is ITeePaymentsLimitsManager, FlareUpgradeable
      * @inheritdoc ITeePaymentsLimitsManager
      */
     function setPaymentLimits(
-        ITeePayments.PMWMultisigAccount calldata _account,
+        ITeePaymentsBase.PMWMultisigAccount calldata _account,
         uint256 _transactionLimit,
         uint256 _dailyLimit,
         address _claimBackAddress
     )
         external payable
     {
-        address teePayments = teePaymentsRegistry.getTeePaymentsForSource(_account.sourceId);
+        (bytes32 opType, address teePayments) =
+            teePaymentsRegistry.getSourceOpTypeAndTeePayments(_account.sourceId);
         require(teePayments != address(0), UnsupportedSourceId());
         bytes32 walletId = ITeePayments(teePayments).getWalletId(_account);
         require(walletId != bytes32(0), AccountNotRegistered());
@@ -91,7 +93,7 @@ contract TeePaymentsLimitsManager is ITeePaymentsLimitsManager, FlareUpgradeable
         flareTeeManager.sendInstructions{value: msg.value}(
             _toTeeIds(teeIdKeyIdPairs),
             IInstructions.TeeInstructionParams(
-                ITeePayments(teePayments).getOpType(),
+                opType,
                 SET_PAYMENT_LIMITS,
                 encodedMessage,
                 admins,
@@ -112,7 +114,7 @@ contract TeePaymentsLimitsManager is ITeePaymentsLimitsManager, FlareUpgradeable
      * @inheritdoc ITeePaymentsLimitsManager
      */
     function getPaymentLimitsNonce(
-        ITeePayments.PMWMultisigAccount calldata _account
+        ITeePaymentsBase.PMWMultisigAccount calldata _account
     )
         external view
         returns (uint256 _nonce)
@@ -148,7 +150,7 @@ contract TeePaymentsLimitsManager is ITeePaymentsLimitsManager, FlareUpgradeable
     }
 
     function _toAccountHash(
-        ITeePayments.PMWMultisigAccount calldata _account
+        ITeePaymentsBase.PMWMultisigAccount calldata _account
     )
         internal pure
         returns (bytes32)

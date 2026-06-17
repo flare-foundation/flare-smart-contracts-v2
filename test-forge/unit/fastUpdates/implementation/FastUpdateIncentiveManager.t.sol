@@ -306,9 +306,9 @@ contract FastUpdateIncentiveManagerTest is Test {
         assertEq(FPA.Range.unwrap(manager.getRange()), RANGE << 1);
 
         // Advance 10 times (> DURATION=8) to reset the increase
-        // Each advance must be in a new block (circular index uses block.number)
+        // Each advance must be in a new block (circular index uses vm.getBlockNumber())
         for (uint256 i = 0; i < 10; i++) {
-            vm.roll(block.number + 1);
+            vm.roll(vm.getBlockNumber() + 1);
             vm.prank(fastUpdater);
             manager.advance();
         }
@@ -384,7 +384,7 @@ contract FastUpdateIncentiveManagerTest is Test {
         vm.prank(inflation);
         manager.receiveInflation{value: 5000}();
 
-        uint256 time = block.timestamp;
+        uint256 time = vm.getBlockTimestamp();
         assertEq(address(manager).balance, 5000);
 
         // Trigger switchover

@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { TeePaymentsRegistry } from "../../../../contracts/tee/implementation/TeePaymentsRegistry.sol";
 import { TeePaymentsRegistryProxy } from "../../../../contracts/tee/proxy/TeePaymentsRegistryProxy.sol";
 import { ITeePaymentsRegistry } from "../../../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
+import { ITeePaymentsModel, PaymentModel } from "../../../../contracts/userInterfaces/tee/ITeePaymentsModel.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
@@ -13,6 +14,8 @@ contract TeePaymentsRegistryTest is Test {
     bytes32 private constant SOURCE_ID_1 = bytes32("XRP");
     bytes32 private constant SOURCE_ID_2 = bytes32("BTC");
     bytes32 private constant SOURCE_ID_3 = bytes32("ETH");
+    bytes32 private constant OP_TYPE = bytes32("F_XRP");
+    bytes32 private constant KEY_TYPE = bytes32("XRP_KEY");
 
     TeePaymentsRegistry private registry;
     TeePaymentsRegistry private registryImpl;
@@ -29,9 +32,20 @@ contract TeePaymentsRegistryTest is Test {
         teePaymentsA = makeAddr("teePaymentsA");
         teePaymentsB = makeAddr("teePaymentsB");
         otherUser = makeAddr("otherUser");
-        // Registry enforces that teePayments address has deployed code (not EOA).
+        // Registry enforces that teePayments address has deployed code (not EOA) and reads its
+        // paymentModel() during registration.
         vm.etch(teePaymentsA, hex"01");
         vm.etch(teePaymentsB, hex"01");
+        vm.mockCall(
+            teePaymentsA,
+            abi.encodeWithSelector(ITeePaymentsModel.paymentModel.selector),
+            abi.encode(PaymentModel.ACCOUNT)
+        );
+        vm.mockCall(
+            teePaymentsB,
+            abi.encodeWithSelector(ITeePaymentsModel.paymentModel.selector),
+            abi.encode(PaymentModel.ACCOUNT)
+        );
 
         registryImpl = new TeePaymentsRegistry();
         TeePaymentsRegistryProxy proxy = new TeePaymentsRegistryProxy(
@@ -47,7 +61,7 @@ contract TeePaymentsRegistryTest is Test {
     function testRegisterSourcesGovernanceOnly() public {
         ITeePaymentsRegistry.SourceRegistration[] memory inputs =
             new ITeePaymentsRegistry.SourceRegistration[](1);
-        inputs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_1, teePaymentsA);
+        inputs[0] = _reg(SOURCE_ID_1, teePaymentsA);
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         registry.registerSources(inputs);
     }
@@ -55,7 +69,7 @@ contract TeePaymentsRegistryTest is Test {
     function testRegisterSourcesNewSourceId() public {
         ITeePaymentsRegistry.SourceRegistration[] memory inputs =
             new ITeePaymentsRegistry.SourceRegistration[](1);
-        inputs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_1, teePaymentsA);
+        inputs[0] = _reg(SOURCE_ID_1, teePaymentsA);
         vm.expectEmit();
         emit ITeePaymentsRegistry.SourcesRegistered(inputs);
         vm.prank(governance);
@@ -76,9 +90,9 @@ contract TeePaymentsRegistryTest is Test {
     function testRegisterSourcesMultiple() public {
         ITeePaymentsRegistry.SourceRegistration[] memory inputs =
             new ITeePaymentsRegistry.SourceRegistration[](3);
-        inputs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_1, teePaymentsA);
-        inputs[1] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_2, teePaymentsA);
-        inputs[2] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_3, teePaymentsB);
+        inputs[0] = _reg(SOURCE_ID_1, teePaymentsA);
+        inputs[1] = _reg(SOURCE_ID_2, teePaymentsA);
+        inputs[2] = _reg(SOURCE_ID_3, teePaymentsB);
         vm.prank(governance);
         registry.registerSources(inputs);
 
@@ -96,7 +110,7 @@ contract TeePaymentsRegistryTest is Test {
 
         ITeePaymentsRegistry.SourceRegistration[] memory inputs =
             new ITeePaymentsRegistry.SourceRegistration[](1);
-        inputs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_1, teePaymentsB);
+        inputs[0] = _reg(SOURCE_ID_1, teePaymentsB);
         vm.prank(governance);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -113,7 +127,7 @@ contract TeePaymentsRegistryTest is Test {
 
         ITeePaymentsRegistry.SourceRegistration[] memory inputs =
             new ITeePaymentsRegistry.SourceRegistration[](1);
-        inputs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_1, teePaymentsA);
+        inputs[0] = _reg(SOURCE_ID_1, teePaymentsA);
         vm.prank(governance);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -135,7 +149,7 @@ contract TeePaymentsRegistryTest is Test {
 
         ITeePaymentsRegistry.SourceRegistration[] memory inputs =
             new ITeePaymentsRegistry.SourceRegistration[](1);
-        inputs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_1, teePaymentsB);
+        inputs[0] = _reg(SOURCE_ID_1, teePaymentsB);
         vm.expectEmit();
         emit ITeePaymentsRegistry.SourcesRegistered(inputs);
         vm.prank(governance);
@@ -152,7 +166,7 @@ contract TeePaymentsRegistryTest is Test {
     function testRegisterSourcesRevertSourceIdZero() public {
         ITeePaymentsRegistry.SourceRegistration[] memory inputs =
             new ITeePaymentsRegistry.SourceRegistration[](1);
-        inputs[0] = ITeePaymentsRegistry.SourceRegistration(bytes32(0), teePaymentsA);
+        inputs[0] = _reg(bytes32(0), teePaymentsA);
         vm.prank(governance);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -166,7 +180,7 @@ contract TeePaymentsRegistryTest is Test {
     function testRegisterSourcesRevertTeePaymentsZero() public {
         ITeePaymentsRegistry.SourceRegistration[] memory inputs =
             new ITeePaymentsRegistry.SourceRegistration[](1);
-        inputs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_1, address(0));
+        inputs[0] = _reg(SOURCE_ID_1, address(0));
         vm.prank(governance);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -182,7 +196,7 @@ contract TeePaymentsRegistryTest is Test {
         address eoa = makeAddr("notAContract");
         ITeePaymentsRegistry.SourceRegistration[] memory inputs =
             new ITeePaymentsRegistry.SourceRegistration[](1);
-        inputs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_1, eoa);
+        inputs[0] = _reg(SOURCE_ID_1, eoa);
         vm.prank(governance);
         vm.expectRevert(
             abi.encodeWithSelector(ITeePaymentsRegistry.TeePaymentsNotContract.selector, eoa)
@@ -266,6 +280,85 @@ contract TeePaymentsRegistryTest is Test {
         assertEq(contracts.length, 2);
     }
 
+    //// getSourceConfig ////
+    function testGetSourceConfig() public {
+        testRegisterSourcesNewSourceId();
+        ITeePaymentsRegistry.SourceConfig memory config = registry.getSourceConfig(SOURCE_ID_1);
+        assertEq(config.keyType, KEY_TYPE);
+        assertEq(config.opType, OP_TYPE);
+        assertEq(uint256(config.paymentModel), uint256(PaymentModel.ACCOUNT));
+        assertEq(config.teePayments, teePaymentsA);
+    }
+
+    function testGetSourceConfigReturnsDefaultForUnknown() public {
+        ITeePaymentsRegistry.SourceConfig memory config = registry.getSourceConfig(SOURCE_ID_1);
+        assertEq(config.keyType, bytes32(0));
+        assertEq(config.opType, bytes32(0));
+        assertEq(uint256(config.paymentModel), uint256(PaymentModel.UNKNOWN));
+        assertEq(config.teePayments, address(0));
+    }
+
+    //// getSourceOpTypeAndTeePayments ////
+    function testGetSourceOpTypeAndTeePayments() public {
+        testRegisterSourcesNewSourceId();
+        (bytes32 opType, address teePayments) = registry.getSourceOpTypeAndTeePayments(SOURCE_ID_1);
+        assertEq(opType, OP_TYPE);
+        assertEq(teePayments, teePaymentsA);
+    }
+
+    function testGetSourceOpTypeAndTeePaymentsReturnsZeroForUnknown() public {
+        (bytes32 opType, address teePayments) = registry.getSourceOpTypeAndTeePayments(SOURCE_ID_1);
+        assertEq(opType, bytes32(0));
+        assertEq(teePayments, address(0));
+    }
+
+    //// getSourceKeyTypeAndTeePayments ////
+    function testGetSourceKeyTypeAndTeePayments() public {
+        testRegisterSourcesNewSourceId();
+        (bytes32 keyType, address teePayments) = registry.getSourceKeyTypeAndTeePayments(SOURCE_ID_1);
+        assertEq(keyType, KEY_TYPE);
+        assertEq(teePayments, teePaymentsA);
+    }
+
+    function testGetSourceKeyTypeAndTeePaymentsReturnsZeroForUnknown() public {
+        (bytes32 keyType, address teePayments) = registry.getSourceKeyTypeAndTeePayments(SOURCE_ID_1);
+        assertEq(keyType, bytes32(0));
+        assertEq(teePayments, address(0));
+    }
+
+    //// getSourcePaymentModel ////
+    function testGetSourcePaymentModel() public {
+        testRegisterSourcesNewSourceId();
+        assertEq(uint256(registry.getSourcePaymentModel(SOURCE_ID_1)), uint256(PaymentModel.ACCOUNT));
+    }
+
+    function testGetSourcePaymentModelUtxo() public {
+        address teePaymentsUtxo = makeAddr("teePaymentsUtxo");
+        vm.etch(teePaymentsUtxo, hex"01");
+        vm.mockCall(
+            teePaymentsUtxo,
+            abi.encodeWithSelector(ITeePaymentsModel.paymentModel.selector),
+            abi.encode(PaymentModel.UTXO)
+        );
+        ITeePaymentsRegistry.SourceRegistration[] memory inputs =
+            new ITeePaymentsRegistry.SourceRegistration[](1);
+        inputs[0] = ITeePaymentsRegistry.SourceRegistration({
+            keyType: bytes32("BTC_KEY"),
+            opType: bytes32("F_BTC"),
+            paymentModel: PaymentModel.UTXO,
+            sourceId: SOURCE_ID_2,
+            teePayments: teePaymentsUtxo
+        });
+        vm.prank(governance);
+        registry.registerSources(inputs);
+
+        assertEq(uint256(registry.getSourcePaymentModel(SOURCE_ID_2)), uint256(PaymentModel.UTXO));
+    }
+
+    function testGetSourcePaymentModelReturnsUnknownForUnregistered() public {
+        assertEq(uint256(registry.getSourcePaymentModel(SOURCE_ID_1)), uint256(PaymentModel.UNKNOWN));
+    }
+
     //// Upgrade ////
     function testUpgradeProxy() public {
         assertEq(registry.implementation(), address(registryImpl));
@@ -279,6 +372,22 @@ contract TeePaymentsRegistryTest is Test {
         TeePaymentsRegistry newImpl = new TeePaymentsRegistry();
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         registry.upgradeToAndCall(address(newImpl), bytes(""));
+    }
+
+    function _reg(
+        bytes32 _sourceId,
+        address _teePayments
+    )
+        internal pure
+        returns (ITeePaymentsRegistry.SourceRegistration memory)
+    {
+        return ITeePaymentsRegistry.SourceRegistration({
+            keyType: KEY_TYPE,
+            opType: OP_TYPE,
+            paymentModel: PaymentModel.ACCOUNT,
+            sourceId: _sourceId,
+            teePayments: _teePayments
+        });
     }
 
 }

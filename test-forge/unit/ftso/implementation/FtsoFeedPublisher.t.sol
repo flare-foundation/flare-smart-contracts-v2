@@ -74,7 +74,7 @@ contract FtsoFeedPublisherTest is Test {
 
     function testPublish() public {
         uint32 roundId = 2;
-        _mockGetVotingRoundId(block.timestamp, 4);
+        _mockGetVotingRoundId(vm.getBlockTimestamp(), 4);
         IFtsoFeedPublisher.FeedWithProof[] memory proofs = new IFtsoFeedPublisher.FeedWithProof[](2);
         bytes32[] memory merkleProof1 = new bytes32[](1);
         bytes32[] memory merkleProof2 = new bytes32[](1);
@@ -129,20 +129,20 @@ contract FtsoFeedPublisherTest is Test {
     }
 
     function testGetFeedRevertTooOldVotingRound() public {
-        _mockGetVotingRoundId(block.timestamp, 300);
+        _mockGetVotingRoundId(vm.getBlockTimestamp(), 300);
         vm.expectRevert("too old voting round id");
         ftsoFeedPublisher.getFeed(feedId2, 2);
     }
 
     function testGetFeedRevertNotYetPublished() public {
-        _mockGetVotingRoundId(block.timestamp, 4);
+        _mockGetVotingRoundId(vm.getBlockTimestamp(), 4);
         vm.expectRevert("feed not published yet");
         ftsoFeedPublisher.getFeed(feedId2, 2);
     }
 
     function testPublishVotingRoundTooHigh() public {
         uint32 roundId = 2000;
-        _mockGetVotingRoundId(block.timestamp, 4);
+        _mockGetVotingRoundId(vm.getBlockTimestamp(), 4);
         IFtsoFeedPublisher.FeedWithProof[] memory proofs = new IFtsoFeedPublisher.FeedWithProof[](2);
         bytes32[] memory merkleProof1 = new bytes32[](1);
         bytes32[] memory merkleProof2 = new bytes32[](1);
@@ -168,7 +168,7 @@ contract FtsoFeedPublisherTest is Test {
 
     function testPublishRevertInvalidProof() public {
         uint32 roundId = 2;
-        _mockGetVotingRoundId(block.timestamp, 4);
+        _mockGetVotingRoundId(vm.getBlockTimestamp(), 4);
         IFtsoFeedPublisher.FeedWithProof[] memory proofs = new IFtsoFeedPublisher.FeedWithProof[](2);
         bytes32[] memory merkleProof1 = new bytes32[](1);
         bytes32[] memory merkleProof2 = new bytes32[](1);
@@ -202,7 +202,7 @@ contract FtsoFeedPublisherTest is Test {
     function testPublishFeeds() public {
         IFtsoFeedPublisher.Feed memory getFeed;
         testSetFeedsPublisher();
-        _mockGetVotingRoundId(block.timestamp, 4);
+        _mockGetVotingRoundId(vm.getBlockTimestamp(), 4);
         uint32 roundId = 2;
         IFtsoFeedPublisher.Feed memory feed1 = IFtsoFeedPublisher.Feed(
             roundId, feedId1, int32(100), uint16(1000), int8(2));
@@ -240,7 +240,7 @@ contract FtsoFeedPublisherTest is Test {
         assertEq(getFeed.decimals, int8(2));
 
         // move to voting round 15
-        _mockGetVotingRoundId(block.timestamp, 15);
+        _mockGetVotingRoundId(vm.getBlockTimestamp(), 15);
         roundId = 12;
         IFtsoFeedPublisher.Feed memory feed = IFtsoFeedPublisher.Feed(
             roundId, feedId1, int32(8), uint16(18), int8(13));
@@ -282,7 +282,7 @@ contract FtsoFeedPublisherTest is Test {
 
     function testPublishFeedsVotingRoundTooHigh() public {
         testSetFeedsPublisher();
-        _mockGetVotingRoundId(block.timestamp, 4);
+        _mockGetVotingRoundId(vm.getBlockTimestamp(), 4);
         uint32 roundId = 2000;
         IFtsoFeedPublisher.Feed memory feed1 = IFtsoFeedPublisher.Feed(
             roundId, feedId1, int32(100), uint16(1000), int8(2));

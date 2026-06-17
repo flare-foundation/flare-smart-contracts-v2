@@ -156,7 +156,7 @@ contract FlareGovernedBaseTest is Test {
         // Call setValue as the production governance — under production mode this
         // records a timelocked call instead of executing immediately.
         vm.expectEmit(true, true, true, true, address(harness));
-        emit IFlareGovernance.GovernanceCallTimelocked(call, callHash, block.timestamp + TIMELOCK);
+        emit IFlareGovernance.GovernanceCallTimelocked(call, callHash, vm.getBlockTimestamp() + TIMELOCK);
         vm.prank(productionGovernance);
         (bool ok,) = address(harness).call(call);
         assertTrue(ok);
@@ -169,7 +169,7 @@ contract FlareGovernedBaseTest is Test {
         IFlareGovernance(address(harness)).executeGovernanceCall(call);
 
         // Advance time and execute.
-        vm.warp(block.timestamp + TIMELOCK);
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
         vm.expectEmit(true, true, true, true, address(harness));
         emit IFlareGovernance.TimelockedGovernanceCallExecuted(callHash);
         vm.prank(executor);
@@ -185,7 +185,7 @@ contract FlareGovernedBaseTest is Test {
         assertTrue(ok);
 
         _mockIsExecutor(executor, false);
-        vm.warp(block.timestamp + TIMELOCK);
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
         vm.expectRevert(IFlareGovernance.OnlyExecutor.selector);
         vm.prank(executor);
         IFlareGovernance(address(harness)).executeGovernanceCall(call);
@@ -216,7 +216,7 @@ contract FlareGovernedBaseTest is Test {
 
         // After cancel, execute should revert with TimelockInvalidSelector.
         _mockIsExecutor(executor, true);
-        vm.warp(block.timestamp + TIMELOCK);
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
         vm.expectRevert(IFlareGovernance.TimelockInvalidSelector.selector);
         vm.prank(executor);
         IFlareGovernance(address(harness)).executeGovernanceCall(call);

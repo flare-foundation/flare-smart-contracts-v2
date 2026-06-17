@@ -85,7 +85,13 @@ import {Fdc2VerificationProxy} from
     "../../contracts/fdc2/proxy/Fdc2VerificationProxy.sol";
 // TEE UUPS contracts
 import {TeePayments} from "../../contracts/tee/implementation/TeePayments.sol";
+import {TeePaymentsUtxo} from
+    "../../contracts/tee/implementation/TeePaymentsUtxo.sol";
 import {TeePaymentsProxy} from "../../contracts/tee/proxy/TeePaymentsProxy.sol";
+import {TeePaymentsConfigVerifier} from
+    "../../contracts/tee/implementation/TeePaymentsConfigVerifier.sol";
+import {TeePaymentsConfigVerifierProxy} from
+    "../../contracts/tee/proxy/TeePaymentsConfigVerifierProxy.sol";
 import {TeePaymentsFeeScheduleManager} from
     "../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol";
 import {TeePaymentsFeeScheduleManagerProxy} from
@@ -102,6 +108,8 @@ import {TeePaymentsRegistryProxy} from
     "../../contracts/tee/proxy/TeePaymentsRegistryProxy.sol";
 import {ITeePaymentsRegistry} from
     "../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
+import {PaymentModel} from
+    "../../contracts/userInterfaces/tee/ITeePaymentsModel.sol";
 import {TeeRewardOffersManager} from
     "../../contracts/tee/implementation/TeeRewardOffersManager.sol";
 import {TeeRewardOffersManagerProxy} from
@@ -150,6 +158,7 @@ contract DeployTeeContracts is Script {
         uint256 maxBatchDurationSeconds;
         uint256 maxBatchSize;
         string opType;
+        string paymentModel;
         PaymentSourceConfig[] sourceConfigs;
     }
 
@@ -228,6 +237,7 @@ contract DeployTeeContracts is Script {
     address private teePaymentsFeeScheduleManagerAddr;
     address private teePaymentsLimitsManagerAddr;
     address private teePaymentsRegistryAddr;
+    address private teePaymentsConfigVerifierAddr;
 
     // Registry entries — one entry per configured sourceId across all TeePayments proxies.
     ITeePaymentsRegistry.SourceRegistration[] private sourceRegistrations;
@@ -267,6 +277,7 @@ contract DeployTeeContracts is Script {
         // Phase 2: Deploy remaining TEE contracts
         _deployFdc2Contracts();
         _deployTeePaymentsRegistry();
+        _deployTeePaymentsConfigVerifier();
         _deployTeePayments();
         _deployTeePaymentsFeeScheduleManager();
         if (_fullDeploy) {
@@ -287,6 +298,7 @@ contract DeployTeeContracts is Script {
         _configureFdc2RequestFees();
         _configureFdc2InflationConfigurations();
         _registerTeePaymentsSources();
+        _configureUtxoBatchSettings();
         _configureFeeScheduleSourceLimits();
 
         // Phase 4: Switch all governed contracts to production mode
@@ -722,15 +734,25 @@ contract DeployTeeContracts is Script {
         );
 
         TeePayments teePaymentsImpl = new TeePayments();
+        TeePaymentsUtxo teePaymentsUtxoImpl = new TeePaymentsUtxo();
         _logDeployed(
             "TeePaymentsImplementation",
             "TeePayments.sol",
             address(teePaymentsImpl)
         );
+        _logDeployed(
+            "TeePaymentsUtxoImplementation",
+            "TeePaymentsUtxo.sol",
+            address(teePaymentsUtxoImpl)
+        );
 
         for (uint256 i = 0; i < paymentConfigs.length; i++) {
+            PaymentModel model = _paymentModel(paymentConfigs[i].paymentModel);
+            address implementation = model == PaymentModel.UTXO
+                ? address(teePaymentsUtxoImpl)
+                : address(teePaymentsImpl);
             address proxyAddr = _deployTeePaymentsProxy(
-                paymentConfigs[i], address(teePaymentsImpl)
+                implementation
             );
             teePaymentsAddresses.push(proxyAddr);
             _logDeployed(
@@ -749,6 +771,9 @@ contract DeployTeeContracts is Script {
             ) {
                 sourceRegistrations.push(
                     ITeePaymentsRegistry.SourceRegistration({
+                        keyType: bytes32(bytes(paymentConfigs[i].keyType)),
+                        opType: bytes32(bytes(paymentConfigs[i].opType)),
+                        paymentModel: model,
                         sourceId: bytes32(
                             bytes(paymentConfigs[i].sourceConfigs[j].sourceId)
                         ),
@@ -760,23 +785,15 @@ contract DeployTeeContracts is Script {
     }
 
     function _deployTeePaymentsProxy(
-        PaymentConfiguration memory _pc,
         address _impl
     )
         internal
         returns (address)
     {
-        bytes32 opType = bytes32(bytes(_pc.opType));
-        bytes32 keyType = bytes32(bytes(_pc.keyType));
-
         TeePaymentsProxy proxy = new TeePaymentsProxy(
             IGovernanceSettings(governanceSettings),
             deployer,
             deployer,
-            uint64(_pc.maxBatchSize),
-            uint64(_pc.maxBatchDurationSeconds),
-            opType,
-            keyType,
             _impl
         );
         return address(proxy);
@@ -918,6 +935,33 @@ contract DeployTeeContracts is Script {
     }
 
     // =========================================================================
+    // Deploy TeePaymentsConfigVerifier (always deployed, before TeePayments)
+    // =========================================================================
+
+    function _deployTeePaymentsConfigVerifier() internal {
+        TeePaymentsConfigVerifier impl = new TeePaymentsConfigVerifier();
+        _logDeployed(
+            "TeePaymentsConfigVerifierImplementation",
+            "TeePaymentsConfigVerifier.sol",
+            address(impl)
+        );
+
+        TeePaymentsConfigVerifierProxy proxy =
+            new TeePaymentsConfigVerifierProxy(
+                IGovernanceSettings(governanceSettings),
+                deployer,
+                deployer,
+                address(impl)
+            );
+        teePaymentsConfigVerifierAddr = address(proxy);
+        _logDeployed(
+            "TeePaymentsConfigVerifier",
+            "TeePaymentsConfigVerifierProxy.sol",
+            teePaymentsConfigVerifierAddr
+        );
+    }
+
+    // =========================================================================
     // Deploy TeePaymentsLimitsManager (gated by _fullDeploy)
     // =========================================================================
 
@@ -965,6 +1009,7 @@ contract DeployTeeContracts is Script {
         _wireFdc2Verification();
         _wireFdc2InflationConfigurations();
         _wireFdc2RewardOffersManager();
+        _wireTeePaymentsConfigVerifier();
         _wireTeePayments();
         _wireTeeRewardOffersManager();
         _wireTeePaymentsFeeScheduleManager();
@@ -1033,22 +1078,43 @@ contract DeployTeeContracts is Script {
     }
 
     function _wireTeePayments() internal {
-        bytes32[] memory names = new bytes32[](5);
+        bytes32[] memory names = new bytes32[](6);
         names[0] = _encodeContractName("AddressUpdater");
         names[1] = _encodeContractName("FlareTeeManager");
         names[2] = _encodeContractName("FlareSystemsManager");
         names[3] = _encodeContractName("TeePaymentsFeeScheduleManager");
         names[4] = _encodeContractName("TeePaymentsRegistry");
-        address[] memory addrs = new address[](5);
+        names[5] = _encodeContractName("TeePaymentsConfigVerifier");
+        address[] memory addrs = new address[](6);
         addrs[0] = addressUpdater;
         addrs[1] = flareTeeManagerAddress;
         addrs[2] = flareSystemsManager;
         addrs[3] = teePaymentsFeeScheduleManagerAddr;
         addrs[4] = teePaymentsRegistryAddr;
+        addrs[5] = teePaymentsConfigVerifierAddr;
         for (uint256 i = 0; i < teePaymentsAddresses.length; i++) {
             TeePayments(teePaymentsAddresses[i])
                 .updateContractAddresses(names, addrs);
         }
+    }
+
+    function _wireTeePaymentsConfigVerifier() internal {
+        bytes32[] memory names = new bytes32[](6);
+        names[0] = _encodeContractName("AddressUpdater");
+        names[1] = _encodeContractName("FlareTeeManager");
+        names[2] = _encodeContractName("FlareSystemsManager");
+        names[3] = _encodeContractName("TeePaymentsRegistry");
+        names[4] = _encodeContractName("Fdc2Verification");
+        names[5] = _encodeContractName("Fdc2Hub");
+        address[] memory addrs = new address[](6);
+        addrs[0] = addressUpdater;
+        addrs[1] = flareTeeManagerAddress;
+        addrs[2] = flareSystemsManager;
+        addrs[3] = teePaymentsRegistryAddr;
+        addrs[4] = fdc2VerificationAddr;
+        addrs[5] = fdc2HubAddr;
+        TeePaymentsConfigVerifier(teePaymentsConfigVerifierAddr)
+            .updateContractAddresses(names, addrs);
     }
 
     function _wireFdc2InflationConfigurations() internal {
@@ -1152,6 +1218,31 @@ contract DeployTeeContracts is Script {
     // Configure TeePaymentsFeeScheduleManager per-source limits
     // =========================================================================
 
+    function _configureUtxoBatchSettings() internal {
+        PaymentConfiguration[] memory paymentConfigs = abi.decode(
+            vm.parseJson(config, ".teePaymentConfigurations"),
+            (PaymentConfiguration[])
+        );
+
+        for (uint256 i = 0; i < paymentConfigs.length; i++) {
+            if (_paymentModel(paymentConfigs[i].paymentModel) != PaymentModel.UTXO) {
+                continue;
+            }
+            for (uint256 j = 0; j < paymentConfigs[i].sourceConfigs.length; j++) {
+                PaymentSourceConfig memory src = paymentConfigs[i].sourceConfigs[j];
+                bytes32 sourceId = bytes32(bytes(src.sourceId));
+                address teePayments =
+                    TeePaymentsRegistry(teePaymentsRegistryAddr)
+                        .getTeePaymentsForSource(sourceId);
+                TeePaymentsUtxo(teePayments).setMaxBatchSettings(
+                    sourceId,
+                    uint64(paymentConfigs[i].maxBatchSize),
+                    uint64(paymentConfigs[i].maxBatchDurationSeconds)
+                );
+            }
+        }
+    }
+
     function _configureFeeScheduleSourceLimits() internal {
         PaymentConfiguration[] memory paymentConfigs = abi.decode(
             vm.parseJson(config, ".teePaymentConfigurations"),
@@ -1160,6 +1251,9 @@ contract DeployTeeContracts is Script {
 
         uint256 totalSources;
         for (uint256 i = 0; i < paymentConfigs.length; i++) {
+            if (_paymentModel(paymentConfigs[i].paymentModel) != PaymentModel.ACCOUNT) {
+                continue;
+            }
             totalSources += paymentConfigs[i].sourceConfigs.length;
         }
         if (totalSources == 0) return;
@@ -1167,9 +1261,12 @@ contract DeployTeeContracts is Script {
         ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput[] memory inputs =
             new ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput[](
                 totalSources
-            );
+        );
         uint256 k;
         for (uint256 i = 0; i < paymentConfigs.length; i++) {
+            if (_paymentModel(paymentConfigs[i].paymentModel) != PaymentModel.ACCOUNT) {
+                continue;
+            }
             for (uint256 j = 0; j < paymentConfigs[i].sourceConfigs.length; j++) {
                 PaymentSourceConfig memory src = paymentConfigs[i].sourceConfigs[j];
                 inputs[k++] = ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput({
@@ -1298,6 +1395,9 @@ contract DeployTeeContracts is Script {
             .switchToProductionMode();
         // TeePaymentsRegistry (always deployed)
         TeePaymentsRegistry(teePaymentsRegistryAddr)
+            .switchToProductionMode();
+        // TeePaymentsConfigVerifier (always deployed)
+        TeePaymentsConfigVerifier(teePaymentsConfigVerifierAddr)
             .switchToProductionMode();
         // TeePaymentsLimitsManager (only in full deploy)
         if (_fullDeploy) {
@@ -1448,6 +1548,22 @@ contract DeployTeeContracts is Script {
                 vm.toString(_addr)
             )
         );
+    }
+
+    function _paymentModel(
+        string memory _model
+    )
+        internal pure
+        returns (PaymentModel)
+    {
+        bytes32 modelHash = keccak256(bytes(_model));
+        if (modelHash == keccak256(bytes("ACCOUNT"))) {
+            return PaymentModel.ACCOUNT;
+        }
+        if (modelHash == keccak256(bytes("UTXO"))) {
+            return PaymentModel.UTXO;
+        }
+        revert("unknown payment model");
     }
 
     // =========================================================================

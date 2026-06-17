@@ -7,9 +7,12 @@ import {
     IITeePaymentsFeeScheduleManager
 } from "../interface/IITeePaymentsFeeScheduleManager.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
+import { ITeePaymentsBase } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
 import {
+    DEFAULT_FEE_SCHEDULE,
     ITeePaymentsFeeScheduleManager
 } from "../../userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
+import { PaymentModel } from "../../userInterfaces/tee/ITeePaymentsModel.sol";
 import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -30,9 +33,6 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * schedules.
  */
 contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, FlareUpgradeableBase {
-
-    /// @dev default fee schedule: factor 1 (10000 BIPS = 0x2710), delay 0 seconds (0x0000)
-    bytes internal constant DEFAULT_FEE_SCHEDULE = hex"27100000";
 
     /// FlareTeeManager Diamond contract.
     IIFlareTeeManager public flareTeeManager;
@@ -82,7 +82,7 @@ contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, Flare
                 InvalidFeeScheduleConfig(config.sourceId, config.maxSchedules, config.maxDelaySeconds)
             );
             require(
-                teePaymentsRegistry.isSourceRegistered(config.sourceId),
+                teePaymentsRegistry.getSourcePaymentModel(config.sourceId) == PaymentModel.ACCOUNT,
                 UnsupportedSourceId(config.sourceId)
             );
             feeScheduleConfig[config.sourceId] = FeeScheduleConfig({
@@ -146,7 +146,7 @@ contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, Flare
      * @inheritdoc ITeePaymentsFeeScheduleManager
      */
     function setAccountFeeSchedule(
-        ITeePayments.PMWMultisigAccount calldata _account,
+        ITeePaymentsBase.PMWMultisigAccount calldata _account,
         FeeSchedule[] calldata _schedule
     )
         external
@@ -169,7 +169,7 @@ contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, Flare
      * @inheritdoc ITeePaymentsFeeScheduleManager
      */
     function clearAccountFeeSchedule(
-        ITeePayments.PMWMultisigAccount calldata _account
+        ITeePaymentsBase.PMWMultisigAccount calldata _account
     )
         external
     {
@@ -269,7 +269,7 @@ contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, Flare
      * @inheritdoc ITeePaymentsFeeScheduleManager
      */
     function getAccountFeeSchedule(
-        ITeePayments.PMWMultisigAccount calldata _account
+        ITeePaymentsBase.PMWMultisigAccount calldata _account
     )
         external view
         returns (FeeSchedule[] memory _schedule)
@@ -313,7 +313,7 @@ contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, Flare
     }
 
     function _checkAccountProjectOwner(
-        ITeePayments.PMWMultisigAccount calldata _account
+        ITeePaymentsBase.PMWMultisigAccount calldata _account
     )
         internal view
         returns (bytes32 _projectId)
@@ -370,7 +370,7 @@ contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, Flare
     }
 
     function _toAccountHash(
-        ITeePayments.PMWMultisigAccount calldata _account
+        ITeePaymentsBase.PMWMultisigAccount calldata _account
     )
         internal pure
         returns (bytes32)

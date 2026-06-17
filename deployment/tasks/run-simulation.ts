@@ -17,6 +17,7 @@ import {
 } from "../../scripts/libs/protocol/SigningPolicy";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
 import * as util from "../../test/utils/key-to-address";
+import type { TeePaymentConfiguration } from "../chain-config/chain-parameters";
 import { PChainStakeMirrorVerifierInstance } from "../../typechain-truffle";
 import { MockContractInstance, VoterRegistryInstance } from "../../typechain-truffle";
 import { EpochSettings } from "../utils/EpochSettings";
@@ -38,7 +39,6 @@ export const MEMORY_DATABASE_FILE = `${SIMULATION_DUMP_FOLDER}/indexer.db`;
 export const TIMELOCK_SEC = 3600;
 
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
-const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 export function bigIntReplacer(key: string, value: unknown): unknown {
   if (typeof value === "bigint") {
@@ -78,8 +78,9 @@ export const TEE_KEY_CONFIGURATIONS = [
   { keyType: "EVM", signingAlgos: ["keccak256-secp256k1-ecdsa", "keccak256-secp256k1-vrf"] },
 ];
 
-export const TEE_PAYMENT_CONFIGURATIONS = [
+export const TEE_PAYMENT_CONFIGURATIONS: TeePaymentConfiguration[] = [
   {
+    paymentModel: "ACCOUNT",
     opType: "F_XRP",
     keyType: "XRP",
     sourceConfigs: [
@@ -90,6 +91,7 @@ export const TEE_PAYMENT_CONFIGURATIONS = [
     maxBatchDurationSeconds: 0,
   },
   {
+    paymentModel: "UTXO",
     opType: "F_BTC",
     keyType: "BTC",
     sourceConfigs: [{ sourceId: "BTC", maxFeeSchedules: 10, maxFeeDelaySeconds: 3600 }],
@@ -97,6 +99,7 @@ export const TEE_PAYMENT_CONFIGURATIONS = [
     maxBatchDurationSeconds: 600,
   },
   {
+    paymentModel: "UTXO",
     opType: "F_DOGE",
     keyType: "DOGE",
     sourceConfigs: [{ sourceId: "DOGE", maxFeeSchedules: 10, maxFeeDelaySeconds: 600 }],
@@ -104,6 +107,7 @@ export const TEE_PAYMENT_CONFIGURATIONS = [
     maxBatchDurationSeconds: 60,
   },
   {
+    paymentModel: "ACCOUNT",
     opType: "F_EVM",
     keyType: "EVM",
     sourceConfigs: [

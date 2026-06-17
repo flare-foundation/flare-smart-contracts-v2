@@ -106,13 +106,13 @@ contract ValidatorRewardOffersManagerTest is Test {
     function testTriggerInflationOffers() public {
         vm.startPrank(mockInflation);
         // set daily authorized inflation
-        vm.warp(100); // block.timestamp = 100
+        vm.warp(100); // vm.getBlockTimestamp() = 100
         validatorRewardOffersManager.setDailyAuthorizedInflation(5000);
         ( , uint256 authorizedInflation, ) = validatorRewardOffersManager.getTokenPoolSupplyData();
         assertEq(authorizedInflation, 5000);
 
         // receive inflation
-        vm.warp(200); // block.timestamp = 200
+        vm.warp(200); // vm.getBlockTimestamp() = 200
         validatorRewardOffersManager.receiveInflation{value: 5000} ();
         assertEq(address(validatorRewardOffersManager).balance, 5000);
         vm.stopPrank();
@@ -150,13 +150,13 @@ contract ValidatorRewardOffersManagerTest is Test {
     function testTriggerInflationOffers1() public {
         vm.startPrank(mockInflation);
         // set daily authorized inflation
-        vm.warp(100); // block.timestamp = 100
+        vm.warp(100); // vm.getBlockTimestamp() = 100
         validatorRewardOffersManager.setDailyAuthorizedInflation(5000);
         ( , uint256 authorizedInflation, ) = validatorRewardOffersManager.getTokenPoolSupplyData();
         assertEq(authorizedInflation, 5000);
 
         // receive inflation
-        vm.warp(DAY + DAY / 2); // block.timestamp = 200
+        vm.warp(DAY + DAY / 2); // vm.getBlockTimestamp() = 200
         validatorRewardOffersManager.receiveInflation{value: 5000} ();
         assertEq(address(validatorRewardOffersManager).balance, 5000);
         vm.stopPrank();
@@ -181,7 +181,7 @@ contract ValidatorRewardOffersManagerTest is Test {
         assertEq(authorized, 5000);
         assertEq(claimed, 3333);
 
-        vm.warp(block.timestamp + DAY);
+        vm.warp(vm.getBlockTimestamp() + DAY);
         _mockGetCurrentEpochId(3);
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
@@ -232,7 +232,7 @@ contract ValidatorRewardOffersManagerTest is Test {
 
     function _setTimes() internal {
         _mockGetCurrentEpochId(2);
-        vm.warp(100); // block.timestamp = 100
+        vm.warp(100); // vm.getBlockTimestamp() = 100
         _mockCurrentRewardEpochExpectedEndTs(110);
         _mockNewSigningPolicyInitializationStartSeconds(5);
     }

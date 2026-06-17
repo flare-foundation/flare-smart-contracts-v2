@@ -104,7 +104,7 @@ contract FtsoProxyTest is Test {
             governance,
             addressUpdater,
             flareDaemon,
-            uint32(block.timestamp),
+            uint32(vm.getBlockTimestamp()),
             90,
             10
         );

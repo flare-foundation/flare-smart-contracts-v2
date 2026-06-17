@@ -290,13 +290,13 @@ contract FdcHubTest is Test {
 
         vm.startPrank(mockInflation);
         // set daily authorized inflation
-        vm.warp(100); // block.timestamp = 100
+        vm.warp(100); // vm.getBlockTimestamp() = 100
         fdcHub.setDailyAuthorizedInflation(5000);
         ( , uint256 authorizedInflation, ) = fdcHub.getTokenPoolSupplyData();
         assertEq(authorizedInflation, 5000);
 
         // receive inflation
-        vm.warp(200); // block.timestamp = 200
+        vm.warp(200); // vm.getBlockTimestamp() = 200
         fdcHub.receiveInflation{value: 5000} ();
         assertEq(address(fdcHub).balance, 5000);
         vm.stopPrank();

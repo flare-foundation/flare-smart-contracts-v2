@@ -26,6 +26,11 @@ import { SignedPayload } from "../../contracts/utils/lib/SignedPayload.sol";
 import { IWalletBackupManager } from "../../contracts/userInterfaces/tee/IWalletBackupManager.sol";
 import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeePayments } from "../../contracts/userInterfaces/tee/ITeePayments.sol";
+import { ITeePaymentsBase } from "../../contracts/userInterfaces/tee/ITeePaymentsBase.sol";
+import {
+    ITeePaymentsConfigVerifier
+} from "../../contracts/userInterfaces/tee/ITeePaymentsConfigVerifier.sol";
+import { ITeePaymentsModel, PaymentModel } from "../../contracts/userInterfaces/tee/ITeePaymentsModel.sol";
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
 import { IPMWMultisigAccountConfigured } from "../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
@@ -84,6 +89,7 @@ contract WalletPaymentsTest is Test {
     address private relayMock;
     address private fdc2HubMock;
     address private fdc2VerificationMock;
+    address private teePaymentsConfigVerifierMock;
 
     bytes32 private projectId;
     bytes32 private opType;
@@ -105,7 +111,7 @@ contract WalletPaymentsTest is Test {
     uint256 private defaultFee;
 
     string private accountAddress = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
-    ITeePayments.PMWMultisigAccount private account1;
+    ITeePaymentsBase.PMWMultisigAccount private account1;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -127,6 +133,7 @@ contract WalletPaymentsTest is Test {
         relayMock = makeAddr("Relay");
         fdc2HubMock = makeAddr("Fdc2Hub");
         fdc2VerificationMock = makeAddr("Fdc2Verification");
+        teePaymentsConfigVerifierMock = makeAddr("TeePaymentsConfigVerifier");
 
         PublicKey[] memory publicKeys = new PublicKey[](1);
         publicKeys[0] = PublicKey(keccak256("1"), keccak256("1"));
@@ -137,7 +144,7 @@ contract WalletPaymentsTest is Test {
         teeMachine1 = IMachineManager.TeeMachine(teeId1, makeAddr("teeProxyId1"), "url1");
         teeMachine2 = IMachineManager.TeeMachine(teeId2, makeAddr("teeProxyId2"), "url2");
 
-        account1 = ITeePayments.PMWMultisigAccount({
+        account1 = ITeePaymentsBase.PMWMultisigAccount({
             sourceId: XRP_SOURCE_ID,
             accountAddress: accountAddress
         });
@@ -189,18 +196,20 @@ contract WalletPaymentsTest is Test {
             governanceSettings,
             governance,
             addressUpdater,
-            1,
-            1,
-            XRP_OP_TYPE,
-            XRP_KEY_TYPE,
             address(teePaymentsImpl)
         );
         teePayments = TeePayments(address(teePaymentsProxy));
 
-        // Register sourceId -> TeePayments in the registry
+        // Register sourceId -> TeePayments (account model) in the registry
         ITeePaymentsRegistry.SourceRegistration[] memory regs =
             new ITeePaymentsRegistry.SourceRegistration[](1);
-        regs[0] = ITeePaymentsRegistry.SourceRegistration(XRP_SOURCE_ID, address(teePayments));
+        regs[0] = ITeePaymentsRegistry.SourceRegistration({
+            keyType: XRP_KEY_TYPE,
+            opType: XRP_OP_TYPE,
+            paymentModel: PaymentModel.ACCOUNT,
+            sourceId: XRP_SOURCE_ID,
+            teePayments: address(teePayments)
+        });
         vm.prank(governance);
         teePaymentsRegistry.registerSources(regs);
 
@@ -230,23 +239,21 @@ contract WalletPaymentsTest is Test {
         );
 
         // TeePayments resolves: AddressUpdater, FlareTeeManager, FlareSystemsManager,
-        // TeePaymentsFeeScheduleManager, TeePaymentsRegistry, Fdc2Verification, Fdc2Hub
-        contractNameHashes = new bytes32[](7);
-        contractAddresses = new address[](7);
+        // TeePaymentsFeeScheduleManager, TeePaymentsRegistry, TeePaymentsConfigVerifier
+        contractNameHashes = new bytes32[](6);
+        contractAddresses = new address[](6);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("FlareTeeManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("TeePaymentsFeeScheduleManager"));
         contractNameHashes[4] = keccak256(abi.encode("TeePaymentsRegistry"));
-        contractNameHashes[5] = keccak256(abi.encode("Fdc2Verification"));
-        contractNameHashes[6] = keccak256(abi.encode("Fdc2Hub"));
+        contractNameHashes[5] = keccak256(abi.encode("TeePaymentsConfigVerifier"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = address(flareTeeManager);
         contractAddresses[2] = flareSystemsManagerMock;
         contractAddresses[3] = address(teePaymentsFeeScheduleManager);
         contractAddresses[4] = address(teePaymentsRegistry);
-        contractAddresses[5] = fdc2VerificationMock;
-        contractAddresses[6] = fdc2HubMock;
+        contractAddresses[5] = teePaymentsConfigVerifierMock;
         teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
 
         // TeePaymentsFeeScheduleManager resolves: AddressUpdater, FlareTeeManager, TeePaymentsRegistry
@@ -412,17 +419,10 @@ contract WalletPaymentsTest is Test {
     function testAddPMWMultisigAccount() public {
         testWalletCreation();
 
-        // TeePayments verifies the proof in-contract via Fdc2ProofVerification: it cross-checks the
-        // proof's threshold + public keys against the wallet's confirmed keys (read from the real Diamond
-        // via getWalletPublicKeys) and verifies the signing-policy signatures via Fdc2Verification. The
-        // signing-policy signatures are empty here, so we mock Fdc2Verification to return the current
-        // reward epoch id (13); the Diamond's verification cosigner set is empty (never configured), so the
-        // cosigner check is a no-op.
-        vm.mockCall(
-            fdc2VerificationMock,
-            abi.encodeWithSelector(IFdc2Verification.verifySigningPolicySignatures.selector),
-            abi.encode(uint256(13))
-        );
+        // Proof verification now lives in the shared TeePaymentsConfigVerifier; the payment contract calls
+        // verifyAccountConfiguredProof (validate-only, returns void) and then reads the verified fields straight
+        // from the calldata proof. Mock it to pass; the proof below carries sourceId/accountAddress/sequence.
+        _mockVerifyAccountConfiguredProof();
         // Wallet was created with two confirmed keys (publicKey == abi.encode("publicKey")) and threshold 2.
         bytes[] memory pmwPublicKeys = new bytes[](2);
         pmwPublicKeys[0] = abi.encode("publicKey");
@@ -440,7 +440,7 @@ contract WalletPaymentsTest is Test {
                 proofOwner: address(0),
                 cosigners: new address[](0),
                 cosignersThreshold: 0,
-                timestamp: uint64(block.timestamp)
+                timestamp: uint64(vm.getBlockTimestamp())
         }),
             requestBody: IPMWMultisigAccountConfigured.RequestBody({
                 accountAddress: accountAddress,
@@ -454,26 +454,21 @@ contract WalletPaymentsTest is Test {
         });
 
         // only wallet owner can add PMW account
-        vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
+        vm.expectRevert(ITeePaymentsBase.OnlyWalletOwner.selector);
         teePayments.addPMWMultisigAccount(walletId, pmwAccountProof, authorizationAddress);
 
         vm.prank(projectOwner);
         teePayments.addPMWMultisigAccount(walletId, pmwAccountProof, authorizationAddress);
-        ITeePayments.PMWMultisigAccount[] memory accounts = teePayments.getWalletAccounts(walletId);
+        ITeePaymentsBase.PMWMultisigAccount[] memory accounts = teePayments.getWalletAccounts(walletId);
         assertEq(accounts.length, 1, "wrong number of accounts");
         assertEq(accounts[0].accountAddress, accountAddress, "wrong account address");
         assertEq(accounts[0].sourceId, XRP_SOURCE_ID, "wrong sourceId");
         assertEq(teePayments.getWalletId(account1), walletId, "wrong walletId");
-        // set account settings
-        vm.prank(projectOwner);
-        teePayments.setBatchSettings(account1, 1, 0);
-        (uint64 batchSize, uint64 batchDurationSeconds) = teePayments.getBatchSettings(account1);
-        assertEq(batchSize, 1, "wrong batch size");
-        assertEq(batchDurationSeconds, 0, "wrong batch duration");
 
-        // sourceId needs to be supported
+        // sourceId needs to be supported: if the proof's sourceId resolves to an unregistered source,
+        // _checkAccountRegistration reverts UnsupportedSourceId.
         pmwAccountProof.header.sourceId = bytes32("NOT_XRP");
-        vm.expectRevert(ITeePayments.UnsupportedSourceId.selector);
+        vm.expectRevert(ITeePaymentsBase.UnsupportedSourceId.selector);
         vm.prank(projectOwner);
         teePayments.addPMWMultisigAccount(walletId, pmwAccountProof, authorizationAddress);
     }
@@ -492,7 +487,7 @@ contract WalletPaymentsTest is Test {
         flareTeeManager.setOperationFees(opTypes, opCommands, fees);
         string memory recipient = "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B";
         bytes32 paymentReference = bytes32("paymentReference");
-        ITeePayments.PaymentInstruction memory instruction = ITeePayments.PaymentInstruction({
+        ITeePaymentsBase.PaymentInstruction memory instruction = ITeePaymentsBase.PaymentInstruction({
             recipientAddress: recipient,
             tokenId: bytes(""),
             amount: 1000,
@@ -501,11 +496,13 @@ contract WalletPaymentsTest is Test {
         });
 
         // only authorization address can submit payment instructions
-        vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
+        vm.expectRevert(ITeePaymentsBase.OnlyAuthorizationAddress.selector);
         teePayments.pay(account1, instruction, address(0));
 
+        // first payment: paymentId 1, native nonce = sequence (2) + paymentId (1) - 1 = 2.
+        // The instruction id binds the native nonce, not the paymentId.
         bytes32 instructionId = keccak256(abi.encode(
-            XRP_OP_TYPE, bytes32("PAY"), XRP_SOURCE_ID, account1.accountAddress, 2
+            XRP_OP_TYPE, bytes32("PAY"), XRP_SOURCE_ID, account1.accountAddress, uint64(2)
         ));
         IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
         teeMachines[0] = teeMachine1;
@@ -522,8 +519,7 @@ contract WalletPaymentsTest is Test {
             feeSchedule: abi.encodePacked(int16(10000), uint16(0)),
             paymentReference: instruction.paymentReference,
             nonce: 2,
-            subNonce: 2,
-            batchEndTs: uint64(block.timestamp)
+            paymentId: 1
         });
 
         // if fee too low revert
@@ -554,25 +550,28 @@ contract WalletPaymentsTest is Test {
         testAddPMWMultisigAccount();
         string memory recipient = "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B";
         bytes32 paymentReference = bytes32("paymentReference");
-        ITeePayments.PaymentInstruction memory instruction = ITeePayments.PaymentInstruction({
+        ITeePaymentsBase.PaymentInstruction memory instruction = ITeePaymentsBase.PaymentInstruction({
             recipientAddress: recipient,
             tokenId: bytes(""),
             amount: 1000,
             maxFee: 15,
             paymentReference: paymentReference
         });
-        ITeePayments.PaymentInstruction[] memory instructions = new ITeePayments.PaymentInstruction[](1);
+        ITeePaymentsBase.PaymentInstruction[] memory instructions = new ITeePaymentsBase.PaymentInstruction[](1);
         instructions[0] = instruction;
         uint256[] memory reissueFees = new uint256[](1);
         reissueFees[0] = 30;
         int16[][] memory factorsBIPSPerPayment = new int16[][](1);
         factorsBIPSPerPayment[0] = new int16[](0);
         uint16[] memory delaysSeconds = new uint16[](0);
+        // batchPaymentId 5 was never issued for this account -> the stored payment hash is empty,
+        // so the submitted instruction's hash cannot match. (Use a non-zero id: id 0 would trip the
+        // _nativeNonce paymentId>0 guard first.)
         vm.prank(authorizationAddress);
-        vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
+        vm.expectRevert(ITeePaymentsBase.PaymentHashMismatch.selector);
         teePayments.reissue{value: 50}(
-            account1, 0, 0, instructions,
-            ITeePayments.ReissueFeeParams(reissueFees, factorsBIPSPerPayment, delaysSeconds),
+            account1, 5, instructions,
+            ITeePaymentsBase.ReissueFeeParams(reissueFees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -581,14 +580,14 @@ contract WalletPaymentsTest is Test {
         testPay();
         string memory recipient = "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B";
         bytes32 paymentReference = bytes32("paymentReference");
-        ITeePayments.PaymentInstruction memory instruction = ITeePayments.PaymentInstruction({
+        ITeePaymentsBase.PaymentInstruction memory instruction = ITeePaymentsBase.PaymentInstruction({
             recipientAddress: recipient,
             tokenId: bytes(""),
             amount: 1000,
             maxFee: 15,
             paymentReference: paymentReference
         });
-        ITeePayments.PaymentInstruction[] memory instructions = new ITeePayments.PaymentInstruction[](1);
+        ITeePaymentsBase.PaymentInstruction[] memory instructions = new ITeePaymentsBase.PaymentInstruction[](1);
         instructions[0] = instruction;
         uint256[] memory reissueFees = new uint256[](1);
         reissueFees[0] = 30;
@@ -596,15 +595,16 @@ contract WalletPaymentsTest is Test {
         factorsBIPSPerPayment[0] = new int16[](0);
         uint16[] memory delaysSeconds = new uint16[](0);
 
+        // reissue the payment created in testPay (paymentId 1, native nonce 2); reissueNumber starts at 0.
+        // The instruction id binds the native nonce, not the paymentId.
         uint256 reissueNumber = 0;
         bytes32 instructionId = keccak256(abi.encode(
-            XRP_OP_TYPE, bytes32("REISSUE"), XRP_SOURCE_ID, account1.accountAddress, 2, reissueNumber
+            XRP_OP_TYPE, bytes32("REISSUE"), XRP_SOURCE_ID, account1.accountAddress, uint64(2), reissueNumber
         ));
         IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
         teeMachines[0] = teeMachine1;
         teeMachines[1] = teeMachine2;
-        // move to the end of batch
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         ITeePayments.PaymentInstructionMessage memory message = ITeePayments.PaymentInstructionMessage({
             walletId: walletId,
             teeIdKeyIdPairs: flareTeeManager.receivingTeesAndKeys(walletId),
@@ -617,8 +617,7 @@ contract WalletPaymentsTest is Test {
             feeSchedule: abi.encodePacked(int16(10000), uint16(0)),
             paymentReference: instruction.paymentReference,
             nonce: 2,
-            subNonce: 2,
-            batchEndTs: uint64(block.timestamp)
+            paymentId: 1
         });
 
         vm.expectEmit();
@@ -637,8 +636,8 @@ contract WalletPaymentsTest is Test {
         );
         vm.prank(authorizationAddress);
         teePayments.reissue{value: 60}(
-            account1, 2, 2, instructions,
-            ITeePayments.ReissueFeeParams(reissueFees, factorsBIPSPerPayment, delaysSeconds),
+            account1, 1, instructions,
+            ITeePaymentsBase.ReissueFeeParams(reissueFees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -681,6 +680,14 @@ contract WalletPaymentsTest is Test {
         uint256[2] memory publicKeyPair = [uint256(_pk.x), uint256(_pk.y)];
         bytes32 hash = keccak256(abi.encodePacked(publicKeyPair));
         return address(uint160(uint256(hash)));
+    }
+
+    function _mockVerifyAccountConfiguredProof() internal {
+        vm.mockCall(
+            teePaymentsConfigVerifierMock,
+            abi.encodeWithSelector(ITeePaymentsConfigVerifier.verifyAccountConfiguredProof.selector),
+            ""
+        );
     }
 
     function _createSignature(

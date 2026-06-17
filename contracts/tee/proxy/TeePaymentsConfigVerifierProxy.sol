@@ -3,10 +3,10 @@ pragma solidity ^0.8.35;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { TeePaymentsBase } from "../implementation/TeePaymentsBase.sol";
+import { TeePaymentsConfigVerifier } from "../implementation/TeePaymentsConfigVerifier.sol";
 
 
-contract TeePaymentsProxy is ERC1967Proxy {
+contract TeePaymentsConfigVerifierProxy is ERC1967Proxy {
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -15,7 +15,7 @@ contract TeePaymentsProxy is ERC1967Proxy {
     )
         ERC1967Proxy(_implementationAddress,
             abi.encodeCall(
-                TeePaymentsBase.initialize,
+                TeePaymentsConfigVerifier.initialize,
                 (
                     _governanceSettings,
                     _initialGovernance,

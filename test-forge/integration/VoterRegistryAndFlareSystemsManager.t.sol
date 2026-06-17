@@ -152,7 +152,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
-            uint32(block.timestamp),
+            uint32(vm.getBlockTimestamp()),
             VOTING_EPOCH_DURATION_SEC,
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
@@ -252,7 +252,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     function testRegisterVoters1() public {
         _registerAddressesAndNodes();
 
-        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        uint64 currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
         _mockToSigningPolicyHash(1, bytes32(0));
         vm.roll(128);
@@ -357,7 +357,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         _registerAddressesAndNodes();
 
-        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        uint64 currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
         _mockToSigningPolicyHash(1, bytes32(0));
         vm.roll(128);
@@ -470,7 +470,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     function testRegisterVoters3() public {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             // register voters' addresses, public keys and node IDs
-            vm.roll(block.number + 10);
+            vm.roll(vm.getBlockNumber() + 10);
             vm.startPrank(initialVoters[i]);
             entityManager.proposeDelegationAddress(initialDelegationAddresses[i]);
             entityManager.proposeSubmitAddress(initialSubmitAddresses[i]);
@@ -487,7 +487,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             // set pChain voter power
             for (uint256 j = 0; j < i; j++) {
                 if (i == 3 && j == 2) {
-                    vm.roll(block.number + 20);
+                    vm.roll(vm.getBlockNumber() + 20);
                 }
                 mockNodePossessionVerification.setVoterAndNodeId(initialVoters[i], initialNodeIds[i][j]);
                 entityManager.registerNodeId(
@@ -500,7 +500,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
             // confirm addresses
             if (i != 3) {
-                vm.roll(block.number + 15);
+                vm.roll(vm.getBlockNumber() + 15);
                 vm.prank(initialDelegationAddresses[i]);
                 entityManager.confirmDelegationAddressRegistration(initialVoters[i]);
                 vm.prank(initialSubmitAddresses[i]);
@@ -513,7 +513,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         }
 
         // select voter power block and set new signing policy initialization start block number
-        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        uint64 currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
         _mockToSigningPolicyHash(1, bytes32(0));
         vm.roll(128);
@@ -542,7 +542,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             abi.encode(0)
         );
 
-        vm.roll(block.number + 15);
+        vm.roll(vm.getBlockNumber() + 15);
         vm.prank(initialDelegationAddresses[3]);
         entityManager.confirmDelegationAddressRegistration(initialVoters[3]);
         vm.prank(initialSubmitAddresses[3]);
@@ -654,8 +654,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // move to the reward epoch 1
         newSigningPolicyHash = keccak256("signingPolicyHash1");
         _mockToSigningPolicyHash(1, newSigningPolicyHash);
-        vm.warp(block.timestamp + 5400);
-        vm.roll(block.number + 100);
+        vm.warp(vm.getBlockTimestamp() + 5400);
+        vm.roll(vm.getBlockNumber() + 100);
         vm.startPrank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getCurrentRewardEpochId(), 1);
@@ -688,7 +688,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
 
         // select vote power block for the reward epoch 2
-        currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
         _mockToSigningPolicyHash(2, bytes32(0));
         vm.startPrank(flareDaemon);
@@ -702,7 +702,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         );
         flareSystemsManager.daemonize();
         epochVpBlock = flareSystemsManager.getVotePowerBlock(2);
-        assertEq(epochVpBlock, block.number - 55);
+        assertEq(epochVpBlock, vm.getBlockNumber() - 55);
         vm.stopPrank();
         _setVotePowers(epochVpBlock);
 
@@ -809,8 +809,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         // move to the reward epoch 2
         _mockToSigningPolicyHash(2, keccak256("signingPolicy2"));
-        vm.warp(block.timestamp + 5400);
-        vm.roll(block.number + 100);
+        vm.warp(vm.getBlockTimestamp() + 5400);
+        vm.roll(vm.getBlockNumber() + 100);
         vm.startPrank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getCurrentRewardEpochId(), 2);
@@ -826,10 +826,10 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
 
         // select vote power block for the reward epoch 3
-        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        uint64 currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
         _mockToSigningPolicyHash(3, bytes32(0));
-        vm.roll(block.number + 75);
+        vm.roll(vm.getBlockNumber() + 75);
         vm.startPrank(flareDaemon);
         flareSystemsManager.daemonize();
         vm.warp(currentTime + uint64(11));
@@ -866,7 +866,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             initialSigningPolicyAddresses[1],
             initialVoters[1],
             uptimeHash,
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             false
         );
         flareSystemsManager.signUptimeVote(1, uptimeHash, signatureFSM);
@@ -906,7 +906,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             2,
             initialSigningPolicyAddresses[2],
             initialVoters[2],
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             true
         );
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signatureFSM);
@@ -973,8 +973,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         // move to the reward epoch 3
         _mockToSigningPolicyHash(3, keccak256("signingPolicy3"));
-        vm.warp(block.timestamp + 5400);
-        vm.roll(block.number + 100);
+        vm.warp(vm.getBlockTimestamp() + 5400);
+        vm.roll(vm.getBlockNumber() + 100);
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getCurrentRewardEpochId(), 3);
@@ -994,7 +994,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             3,
             initialSigningPolicyAddresses[1],
             initialVoters[1],
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             false
         );
         flareSystemsManager.signNewSigningPolicy(3, newSigningPolicyHash, signatureFSM);
@@ -1007,7 +1007,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             3,
             initialSigningPolicyAddresses[3],
             initialVoters[3],
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             true
         );
         flareSystemsManager.signNewSigningPolicy(3, newSigningPolicyHash, signatureFSM);
@@ -1033,10 +1033,10 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         entityManager.confirmSubmitAddressRegistration(initialVoters[3]);
 
         // select vote power block for the reward epoch 4
-        currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
         _mockToSigningPolicyHash(4, bytes32(0));
-        vm.roll(block.number + 75);
+        vm.roll(vm.getBlockNumber() + 75);
         vm.startPrank(flareDaemon);
         flareSystemsManager.daemonize();
         vm.warp(currentTime + uint64(11));
@@ -1192,7 +1192,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             4,
             initialSigningPolicyAddresses[1],
             initialVoters[1],
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             false
         );
         flareSystemsManager.signNewSigningPolicy(4, newSigningPolicyHash, signatureFSM);
@@ -1209,23 +1209,23 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             4,
             initialSigningPolicyAddresses[3],
             initialVoters[3],
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             true
         );
         flareSystemsManager.signNewSigningPolicy(4, newSigningPolicyHash, signatureFSM);
 
         // move to the reward epoch 4
-        vm.warp(block.timestamp + 5400);
-        vm.roll(block.number + 100);
+        vm.warp(vm.getBlockTimestamp() + 5400);
+        vm.roll(vm.getBlockNumber() + 100);
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getCurrentRewardEpochId(), 4);
 
         // select vote power block for the reward epoch 5
-        currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
         _mockToSigningPolicyHash(5, bytes32(0));
-        vm.roll(block.number + 75);
+        vm.roll(vm.getBlockNumber() + 75);
         vm.startPrank(flareDaemon);
         flareSystemsManager.daemonize();
         vm.warp(currentTime + uint64(11));
@@ -1263,7 +1263,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             5,
             initialSigningPolicyAddresses[0],
             initialVoters[0],
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             false
         );
         flareSystemsManager.signNewSigningPolicy(5, newSigningPolicyHash, signatureFSM);
@@ -1281,7 +1281,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             5,
             newSigningPolicyAddress,
             initialVoters[1],
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             false
         );
         flareSystemsManager.signNewSigningPolicy(5, newSigningPolicyHash, signatureFSM);
@@ -1293,7 +1293,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             5,
             initialSigningPolicyAddresses[3],
             initialVoters[3],
-            uint64(block.timestamp),
+            uint64(vm.getBlockTimestamp()),
             true
         );
         flareSystemsManager.signNewSigningPolicy(5, newSigningPolicyHash, signatureFSM);
@@ -1305,7 +1305,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         vm.prank(governance);
         flareSystemsManager.setVoterRegistrationTriggerContract(voterPreRegistry);
 
-        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        uint64 currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
         _mockToSigningPolicyHash(1, bytes32(0));
         vm.roll(128);
@@ -1364,8 +1364,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // move to the reward epoch 1
         newSigningPolicyHash = keccak256("signingPolicyHash1");
         _mockToSigningPolicyHash(1, newSigningPolicyHash);
-        vm.warp(block.timestamp + 5400);
-        vm.roll(block.number + 100);
+        vm.warp(vm.getBlockTimestamp() + 5400);
+        vm.roll(vm.getBlockNumber() + 100);
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getCurrentRewardEpochId(), 1);
@@ -1381,7 +1381,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         assertEq(registeredAddresses.length, 0);
 
         // move to registration period
-        currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        currentTime = uint64(vm.getBlockTimestamp()) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
         _mockToSigningPolicyHash(2, bytes32(0));
         vm.startPrank(flareDaemon);
@@ -1393,7 +1393,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(55, true, currentTime + 1)
         );
-        _setVotePowers(block.number - 55);
+        _setVotePowers(vm.getBlockNumber() - 55);
         initialVotersRegistrationWeight = new uint256[](4);
         initialVotersRegistrationWeight[0] = _calculateWeight(100);
         initialVotersRegistrationWeight[1] = _calculateWeight(200 + 20);
@@ -1426,7 +1426,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     function _registerAddressesAndNodes() internal {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             // register voters' addresses, public keys and node IDs
-            vm.roll(block.number + 10);
+            vm.roll(vm.getBlockNumber() + 10);
             vm.startPrank(initialVoters[i]);
             entityManager.proposeDelegationAddress(initialDelegationAddresses[i]);
             entityManager.proposeSubmitAddress(initialSubmitAddresses[i]);
@@ -1443,7 +1443,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             // set pChain voter power
             for (uint256 j = 0; j < i; j++) {
                 if (i == 3 && j == 2) {
-                    vm.roll(block.number + 20);
+                    vm.roll(vm.getBlockNumber() + 20);
                 }
                 mockNodePossessionVerification.setVoterAndNodeId(initialVoters[i], initialNodeIds[i][j]);
                 entityManager.registerNodeId(
@@ -1455,7 +1455,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             vm.stopPrank();
 
             // confirm addresses
-            vm.roll(block.number + 15);
+            vm.roll(vm.getBlockNumber() + 15);
             vm.prank(initialDelegationAddresses[i]);
             entityManager.confirmDelegationAddressRegistration(initialVoters[i]);
             vm.prank(initialSubmitAddresses[i]);
@@ -1587,8 +1587,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     }
 
     function _createSigningPolicySnapshot() internal {
-        vm.warp(block.timestamp + 30 * 60 + 1); // after 30 minutes
-        vm.roll(block.number + 21); // after 20 blocks
+        vm.warp(vm.getBlockTimestamp() + 30 * 60 + 1); // after 30 minutes
+        vm.roll(vm.getBlockNumber() + 21); // after 20 blocks
         vm.mockCall(
             mockRelay,
             abi.encodeWithSelector(IIRelay.setSigningPolicy.selector),

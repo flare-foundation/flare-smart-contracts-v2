@@ -67,6 +67,9 @@ import {
   SubmissionContract,
   SubmissionInstance,
   TeePaymentsContract,
+  TeePaymentsConfigVerifierContract,
+  TeePaymentsConfigVerifierInstance,
+  TeePaymentsConfigVerifierProxyContract,
   TeePaymentsFeeScheduleManagerContract,
   TeePaymentsFeeScheduleManagerInstance,
   TeePaymentsFeeScheduleManagerProxyContract,
@@ -139,6 +142,10 @@ const TeeRewardOffersManagerProxy: TeeRewardOffersManagerProxyContract =
   artifacts.require("TeeRewardOffersManagerProxy");
 const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
 const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
+const TeePaymentsConfigVerifier: TeePaymentsConfigVerifierContract = artifacts.require("TeePaymentsConfigVerifier");
+const TeePaymentsConfigVerifierProxy: TeePaymentsConfigVerifierProxyContract = artifacts.require(
+  "TeePaymentsConfigVerifierProxy"
+);
 const TeePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerContract = artifacts.require(
   "TeePaymentsFeeScheduleManager"
 );
@@ -405,6 +412,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
   let teePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerInstance;
   let teePaymentsLimitsManager: TeePaymentsLimitsManagerInstance;
   let teePaymentsRegistry: TeePaymentsRegistryInstance;
+  let teePaymentsConfigVerifier: TeePaymentsConfigVerifierInstance;
   let fdc2Hub: Fdc2HubInstance;
   let fdc2RequestFeeConfigurations: Fdc2RequestFeeConfigurationsInstance;
   let fdc2Verification: Fdc2VerificationInstance;
@@ -886,15 +894,22 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     teePaymentsRegistry = await TeePaymentsRegistry.at(teePaymentsRegistryProxy.address);
     addressUpdatableContracts.push(teePaymentsRegistry.address);
 
+    // Deploy shared PMW configuration request + verify contract
+    const teePaymentsConfigVerifierImpl = await TeePaymentsConfigVerifier.new();
+    const teePaymentsConfigVerifierProxy = await TeePaymentsConfigVerifierProxy.new(
+      governanceSettings.address,
+      accounts[0],
+      addressUpdater.address,
+      teePaymentsConfigVerifierImpl.address
+    );
+    teePaymentsConfigVerifier = await TeePaymentsConfigVerifier.at(teePaymentsConfigVerifierProxy.address);
+    addressUpdatableContracts.push(teePaymentsConfigVerifier.address);
+
     const teePaymentsImpl: TeePaymentsInstance = await TeePayments.new();
     let teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings.address,
       accounts[0],
       addressUpdater.address,
-      1,
-      0,
-      web3.utils.utf8ToHex("F_XRP").padEnd(66, "0"),
-      web3.utils.utf8ToHex("XRP").padEnd(66, "0"),
       teePaymentsImpl.address
     );
     teePaymentsXRP = await TeePayments.at(teePaymentsProxy.address);
@@ -904,10 +919,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       governanceSettings.address,
       accounts[0],
       addressUpdater.address,
-      1,
-      0,
-      web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"),
-      web3.utils.utf8ToHex("EVM").padEnd(66, "0"),
       teePaymentsImpl.address
     );
     teePaymentsEVM = await TeePayments.at(teePaymentsProxy.address);
@@ -995,6 +1006,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         Contracts.TEE_PAYMENTS_FEE_SCHEDULE_MANAGER,
         Contracts.TEE_PAYMENTS_LIMITS_MANAGER,
         Contracts.TEE_PAYMENTS_REGISTRY,
+        Contracts.TEE_PAYMENTS_CONFIG_VERIFIER,
       ],
       [
         addressUpdater.address,
@@ -1026,14 +1038,27 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         teePaymentsFeeScheduleManager.address,
         teePaymentsLimitsManager.address,
         teePaymentsRegistry.address,
+        teePaymentsConfigVerifier.address,
       ],
       addressUpdatableContracts,
       { from: accounts[0] }
     );
     // Register sourceId -> TeePayments bindings in the registry
     await teePaymentsRegistry.registerSources([
-      { sourceId: XRP_SOURCE_ID, teePayments: teePaymentsXRP.address },
-      { sourceId: FLR_SOURCE_ID, teePayments: teePaymentsEVM.address },
+      {
+        keyType: web3.utils.utf8ToHex("XRP").padEnd(66, "0"),
+        opType: web3.utils.utf8ToHex("F_XRP").padEnd(66, "0"),
+        paymentModel: 1, // ACCOUNT
+        sourceId: XRP_SOURCE_ID,
+        teePayments: teePaymentsXRP.address,
+      },
+      {
+        keyType: web3.utils.utf8ToHex("EVM").padEnd(66, "0"),
+        opType: web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"),
+        paymentModel: 1, // ACCOUNT
+        sourceId: FLR_SOURCE_ID,
+        teePayments: teePaymentsEVM.address,
+      },
     ]);
     // set system supported platforms
     await flareTeeManager.addSystemSupportedPlatforms(
@@ -2094,7 +2119,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       const tx = await flareTeeManager.toProduction(proof, { from: TEE_OWNERS[i] });
       expectEvent(tx, "TeeMachineStatusChanged", {
         teeId: TEE_IDS[i],
-        newStatus: "1", // TEE_MACHINE_STATUS.PRODUCTION
+        newStatus: "2", // TeeStatus.PRODUCTION (NONE=0, INITIALIZED=1, PRODUCTION=2)
       });
     }
   });
@@ -2491,7 +2516,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       },
       requestBody: web3.eth.abi.encodeParameter(pmwMultisigAccountConfiguredRequestBodyStruct, requestBody),
     };
-    const tx = await teePaymentsXRP.requestPMWMultisigAccountConfiguredAttestation(
+    const tx = await teePaymentsConfigVerifier.requestAccountConfiguredAttestation(
       WALLET1_ID,
       XRP_SOURCE_ID,
       "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
@@ -2520,7 +2545,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       },
       requestBody: web3.eth.abi.encodeParameter(pmwMultisigAccountConfiguredRequestBodyStruct, requestBody2),
     };
-    const tx2 = await teePaymentsEVM.requestPMWMultisigAccountConfiguredAttestation(
+    const tx2 = await teePaymentsConfigVerifier.requestAccountConfiguredAttestation(
       WALLET2_ID,
       FLR_SOURCE_ID,
       accounts[200],
@@ -2581,10 +2606,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       walletId: WALLET1_ID,
       sourceId: XRP_SOURCE_ID,
       accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
-      initialNonce: "2",
       authorizationAddress: TEE_WALLET_AUTHORIZATION_ADDRESSES[0],
-      batchSize: "1",
-      batchDurationSeconds: "0",
     });
 
     const proof2 = {
@@ -2630,41 +2652,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       walletId: WALLET2_ID,
       sourceId: FLR_SOURCE_ID,
       accountAddress: accounts[200],
-      initialNonce: "1",
       authorizationAddress: TEE_WALLET_AUTHORIZATION_ADDRESSES[1],
-      batchSize: "1",
-      batchDurationSeconds: "0",
-    });
-  });
-
-  it("Should set TEE payment wallet settings", async () => {
-    // set wallet 1 settings
-    const tx = await teePaymentsXRP.setBatchSettings(
-      { sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" },
-      1,
-      0,
-      { from: TEE_WALLET_OWNERS[0] }
-    );
-    expectEvent(tx, "BatchSettingsSet", {
-      walletId: WALLET1_ID,
-      sourceId: XRP_SOURCE_ID,
-      accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
-      batchSize: "1",
-      batchDurationSeconds: "0",
-    });
-
-    const tx2 = await teePaymentsEVM.setBatchSettings(
-      { sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] },
-      1,
-      0,
-      { from: TEE_WALLET_OWNERS[1] }
-    );
-    expectEvent(tx2, "BatchSettingsSet", {
-      walletId: WALLET2_ID,
-      sourceId: FLR_SOURCE_ID,
-      accountAddress: accounts[200],
-      batchSize: "1",
-      batchDurationSeconds: "0",
     });
   });
 
@@ -2704,8 +2692,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       feeSchedule: defaultFeeSchedule,
       paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a",
       nonce: 2,
-      subNonce: 2,
-      batchEndTs: (await time.latest()).toString(),
+      paymentId: 1,
     };
     const event = requiredEventArgsFrom(tx, flareTeeManager, "TeeInstructionsSent") as any;
     expect(event.rewardEpochId).to.be.equal("2");
@@ -2742,8 +2729,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       feeSchedule: defaultFeeSchedule,
       paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797",
       nonce: 1,
-      subNonce: 1,
-      batchEndTs: (await time.latest()).toString(),
+      paymentId: 1,
     };
     const event2 = requiredEventArgsFrom(tx2, flareTeeManager, "TeeInstructionsSent") as any;
     expect(event2.rewardEpochId).to.be.equal("2");
@@ -2762,8 +2748,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     await time.increase(1);
     const tx = await teePaymentsXRP.reissue(
       { sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" },
-      2,
-      2,
+      1,
       [
         {
           recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B",
@@ -2793,8 +2778,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       feeSchedule: defaultFeeSchedule,
       paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a",
       nonce: 2,
-      subNonce: 2,
-      batchEndTs: (await time.latest()).toString(),
+      paymentId: 1,
     };
     const event = requiredEventArgsFrom(tx, flareTeeManager, "TeeInstructionsSent") as any;
     expect(event.rewardEpochId).to.be.equal("2");
@@ -2804,7 +2788,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
 
     const tx2 = await teePaymentsEVM.reissue(
       { sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] },
-      1,
       1,
       [
         {
@@ -2836,8 +2819,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       feeSchedule: defaultFeeSchedule,
       paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797",
       nonce: 1,
-      subNonce: 1,
-      batchEndTs: (await time.latest()).toString(),
+      paymentId: 1,
     };
     const event2 = requiredEventArgsFrom(tx2, flareTeeManager, "TeeInstructionsSent") as any;
     expect(event2.rewardEpochId).to.be.equal("2");

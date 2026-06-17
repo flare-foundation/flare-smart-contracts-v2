@@ -132,10 +132,13 @@ A few accounting contracts sit *outside* the diamond, deployed as their own UUPS
 
 | Contract | Role |
 |----------|------|
-| [`TeePayments`](../../../contracts/tee/implementation/TeePayments.sol) | Holds payment state for extensions that need ongoing accounting (e.g. PMW tracks per-wallet fees). |
+| [`TeePaymentsBase`](../../../contracts/tee/implementation/TeePaymentsBase.sol) | Abstract base for the payment contracts: UUPS/governance/`AddressUpdatable`, shared account/auth/wallet-status state and the `pay`/`reissue` plumbing. |
+| [`TeePayments`](../../../contracts/tee/implementation/TeePayments.sol) | Account-model payment contract (e.g. XRPL): one native nonce per account, `paymentId`-keyed payments and single-instruction reissue. |
+| [`TeePaymentsUtxo`](../../../contracts/tee/implementation/TeePaymentsUtxo.sol) | UTXO/anchor-model payment contract (e.g. BTC): per-anchor nonce streams with round-robin anchor selection, grow-only anchor sets, payment batches, and reissue/replacement tracking (records the exact reissue block list). |
+| [`TeePaymentsConfigVerifier`](../../../contracts/tee/implementation/TeePaymentsConfigVerifier.sol) | Shared request + verify contract for PMW multisig configuration attestations (both account and UTXO). Requests live only here; the payment contracts call `verify{Account,Utxo}ConfiguredProof` and write state from the returned data. Reuses [`Fdc2ProofVerification`](../../../contracts/fdc2/library/Fdc2ProofVerification.sol). |
 | [`TeePaymentsFeeScheduleManager`](../../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol) | Per-extension fee schedules (which operations cost how much, when changes take effect). |
 | [`TeePaymentsLimitsManager`](../../../contracts/tee/implementation/TeePaymentsLimitsManager.sol) | Per-extension payment caps and rate limits. |
-| [`TeePaymentsRegistry`](../../../contracts/tee/implementation/TeePaymentsRegistry.sol) | Registry of payment-handling contracts; the diamond's `OperationFeesFacet` consults this to know where to forward extension-level fees. |
+| [`TeePaymentsRegistry`](../../../contracts/tee/implementation/TeePaymentsRegistry.sol) | Registry of `sourceId → TeePayments` bindings (with each source's `keyType`/`opType`/`paymentModel`); the diamond's `OperationFeesFacet` and the payment/verifier/manager contracts consult it. |
 | [`TeeRewardOffersManager`](../../../contracts/tee/implementation/TeeRewardOffersManager.sol) | Inflation receiver / community offers manager for FCC. Mirrors `FtsoRewardOffersManager` and `FdcHub` — see [Rewarding](./Rewarding.md). |
 | [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) | Stand-alone VRF verifier contract. Verifies VRF proofs produced by FCC's `VrfFacet`. |
 

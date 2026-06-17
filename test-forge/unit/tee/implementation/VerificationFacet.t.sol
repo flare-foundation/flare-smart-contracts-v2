@@ -526,7 +526,7 @@ contract VerificationFacetTest is Test {
         flareTeeManager.requestTeeAttestation{value: 1000}(teeId, address(0));
 
         vm.warp(2 minutes);
-        challenge = keccak256(abi.encode(teeId, block.timestamp, randomNumber));
+        challenge = keccak256(abi.encode(teeId, vm.getBlockTimestamp(), randomNumber));
         vm.expectEmit();
         emit IVerification.TeeAttestationRequested(teeId, challenge);
         flareTeeManager.requestTeeAttestation{value: 1000}(teeId, address(0));

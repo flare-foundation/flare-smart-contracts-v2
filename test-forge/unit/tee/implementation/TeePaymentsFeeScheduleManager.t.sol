@@ -15,6 +15,8 @@ import {
 } from "../../../../contracts/userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
 import { ITeePaymentsRegistry } from "../../../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { ITeePayments } from "../../../../contracts/userInterfaces/tee/ITeePayments.sol";
+import { ITeePaymentsBase } from "../../../../contracts/userInterfaces/tee/ITeePaymentsBase.sol";
+import { ITeePaymentsModel, PaymentModel } from "../../../../contracts/userInterfaces/tee/ITeePaymentsModel.sol";
 import {
     IWalletProjectManager
 } from "../../../../contracts/userInterfaces/tee/IWalletProjectManager.sol";
@@ -29,6 +31,8 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
 
     bytes32 private constant SOURCE_ID = bytes32("XRP");
     bytes32 private constant OTHER_SOURCE_ID = bytes32("BTC");
+    bytes32 private constant OP_TYPE = bytes32("F_XRP");
+    bytes32 private constant KEY_TYPE = bytes32("XRP_KEY");
     bytes32 private constant PROJECT_ID = bytes32("projectId");
     bytes32 private constant OTHER_PROJECT_ID = bytes32("otherProjectId");
     bytes32 private constant WALLET_ID = bytes32("walletId");
@@ -46,7 +50,7 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
     address private otherUser;
 
     string private accountAddress = "accountAddress";
-    ITeePayments.PMWMultisigAccount private account;
+    ITeePaymentsBase.PMWMultisigAccount private account;
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -77,11 +81,28 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
         );
         registry = TeePaymentsRegistry(address(registryProxy));
 
-        // Register SOURCE_ID + OTHER_SOURCE_ID -> teePayments mock
+        // Register SOURCE_ID + OTHER_SOURCE_ID -> teePayments mock (account model)
+        vm.mockCall(
+            teePayments,
+            abi.encodeWithSelector(ITeePaymentsModel.paymentModel.selector),
+            abi.encode(PaymentModel.ACCOUNT)
+        );
         ITeePaymentsRegistry.SourceRegistration[] memory regs =
             new ITeePaymentsRegistry.SourceRegistration[](2);
-        regs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID, teePayments);
-        regs[1] = ITeePaymentsRegistry.SourceRegistration(OTHER_SOURCE_ID, teePayments);
+        regs[0] = ITeePaymentsRegistry.SourceRegistration({
+            keyType: KEY_TYPE,
+            opType: OP_TYPE,
+            paymentModel: PaymentModel.ACCOUNT,
+            sourceId: SOURCE_ID,
+            teePayments: teePayments
+        });
+        regs[1] = ITeePaymentsRegistry.SourceRegistration({
+            keyType: KEY_TYPE,
+            opType: OP_TYPE,
+            paymentModel: PaymentModel.ACCOUNT,
+            sourceId: OTHER_SOURCE_ID,
+            teePayments: teePayments
+        });
         vm.prank(governance);
         registry.registerSources(regs);
 
@@ -664,7 +685,7 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
     function _mockGetWalletId(address _teePayments, bytes32 _walletId) internal {
         vm.mockCall(
             _teePayments,
-            abi.encodeWithSelector(ITeePayments.getWalletId.selector),
+            abi.encodeWithSelector(ITeePaymentsBase.getWalletId.selector),
             abi.encode(_walletId)
         );
     }

@@ -14,8 +14,36 @@ fs_permissions = [
 ]
 optimizer = true
 optimizer_runs = 200
-via_ir = false
+# viaIR enabled globally (needed to keep TeePaymentsUtxo under the contract size limit). Tests read
+# block.timestamp/number via vm.getBlockTimestamp()/vm.getBlockNumber() so viaIR's constant-folding of
+# those reads across vm.warp/vm.roll does not return stale values. RNat/P256/NodePossession/mocks are
+# pinned to viaIR off below (Yul stack/unimplemented issues).
+via_ir = true
 ffi = true
+
+[[profile.default.additional_compiler_profiles]]
+name = "no-via-ir"
+via_ir = false
+
+[[profile.default.compilation_restrictions]]
+paths = "contracts/rNat/implementation/RNat.sol"
+via_ir = false
+
+[[profile.default.compilation_restrictions]]
+paths = "contracts/rNat/implementation/RNatAccount.sol"
+via_ir = false
+
+[[profile.default.compilation_restrictions]]
+paths = "dependencies/@openzeppelin-contracts-5.4.0/utils/cryptography/P256.sol"
+via_ir = false
+
+[[profile.default.compilation_restrictions]]
+paths = "contracts/protocol/implementation/NodePossessionVerifier.sol"
+via_ir = false
+
+[[profile.default.compilation_restrictions]]
+paths = "contracts/mock/*.sol"
+via_ir = false
 
 [lint]
 # Forge runs its built-in linter (solar) on `forge build` and fails the build on findings. Solar does
@@ -50,3 +78,18 @@ staging = "${STAGING_RPC}"
 remappings = [
   "@openzeppelin/contracts/utils/cryptography/P256.sol=contracts/mock/MockP256.sol"
 ]
+
+# forge coverage disables the optimizer + viaIR globally for accurate line coverage, but the TeePayments
+# contracts only compile with viaIR (stack too deep otherwise). Pin just those two back to viaIR so
+# coverage can build; every other contract keeps the accurate non-viaIR instrumentation.
+[[profile.coverage.additional_compiler_profiles]]
+name = "via-ir"
+via_ir = true
+
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/tee/implementation/TeePayments.sol"
+via_ir = true
+
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/tee/implementation/TeePaymentsUtxo.sol"
+via_ir = true
