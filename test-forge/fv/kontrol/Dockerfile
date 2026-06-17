@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # ==============================================================================================
 #  Reproducible Kontrol 1.0.248 toolchain for the Relay formal-verification proofs
 #  (test-forge/fv/kontrol/*.t.sol). Everything is PINNED:
@@ -63,20 +64,38 @@ ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
 RUN nix profile install github:runtimeverification/kup --accept-flake-config
 RUN git clone --depth 1 --branch "${KONTROL_REF}" https://github.com/runtimeverification/kontrol /kontrol
 WORKDIR /kontrol
-RUN kup install k.openssl.secp256k1 --version "v$(cat deps/k_release)"
+# ulimit raised here too: the K/kore package-set nix eval overflows the default stack (SIGSEGV under Rosetta).
+RUN ulimit -s 1048576 || true; kup install k.openssl.secp256k1 --version "v$(cat deps/k_release)"
 
 # 4) Python deps via the nix Python (never uv's own standalone download, which can't exec on NixOS),
-#    then patch pyk's kdist to a fork-based pool (the default 'spawn' pool deadlocks under Rosetta).
+#    then patch pyk's kdist to a SERIAL in-process build loop. The default multiprocessing pool
+#    (ProcessPoolExecutor) deadlocks under Rosetta with BOTH spawn and fork; replacing the pool with
+#    a serial loop is the fix that reliably builds the kdist. (kompile still spawns its own subprocesses.)
 RUN UV_PYTHON_DOWNLOADS=never uv sync --python "$(command -v python3.11)"
-RUN sed -i "s/get_context('spawn')/get_context('fork')/g" \
-      /kontrol/.venv/lib/python3.11/site-packages/pyk/kdist/_kdist.py
+RUN python3 <<'PY'
+f = "/kontrol/.venv/lib/python3.11/site-packages/pyk/kdist/_kdist.py"
+s = open(f).read()
+assert "ProcessPoolExecutor(max_workers=jobs" in s, "kdist build() shape changed; re-derive the serial patch"
+start = s.index("        with ProcessPoolExecutor(max_workers=jobs")
+end = s.index("pending.pop(future)") + len("pending.pop(future)")
+new = (
+"        while target_graph.is_active():\n"
+"            for target_id in target_graph.get_ready():\n"
+"                result = self._build_target(target_id=target_id, args=args, log_level=log_level, force=force, verbose=verbose, clean=clean)\n"
+"                print(result, flush=True)\n"
+"                target_graph.done(target_id)\n"
+)
+open(f, "w").write(s[:start] + new + s[end:])
+print("patched _kdist.py to serial in-process build")
+PY
 
-# 5) Build the KEVM/Kontrol kdist (pinned by deps/k_release + uv.lock). taskset -c 0 forces a single
-#    core so the LLVM-backend parallel compile cannot deadlock under Rosetta; ulimit raises the Nix
-#    evaluator stack. On native x86_64 you may drop `taskset -c 0` to build in parallel.
+# 5) Build the KEVM/Kontrol kdist (pinned by deps/k_release + uv.lock). Pin to a single CPU via
+#    sched_setaffinity (inherited by the kompile subprocesses) so the LLVM-backend parallel compile
+#    cannot deadlock under Rosetta; ulimit raises the Nix evaluator stack. On a native x86_64 host you
+#    may replace the python wrapper with a plain `uv run kdist --verbose build "kontrol.*"` for speed.
 RUN export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"; \
     ulimit -s 1048576 || true; \
-    taskset -c 0 uv run kdist --verbose build "kontrol.*"
+    python3 -c "import os; os.sched_setaffinity(0, {0}); os.execvp('uv', ['uv','run','kdist','--verbose','build','kontrol.*'])"
 RUN uv run kontrol version
 
 # kontrol on PATH for `docker run ... kontrol prove`

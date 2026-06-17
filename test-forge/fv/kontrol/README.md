@@ -16,8 +16,7 @@ to a fixed depth; these are ∀-over-the-iteration-count via k-induction).
 
 ## Latest verdicts (Kontrol 1.0.248, `kontrol-local:ready`)
 
-`RelaySigLoopFV` (N=3 voter model; the proof structure is parametric in N — an N=5 variant runs the
-same obligations):
+`RelaySigLoopFV` (N=3 voter model; also re-validated at N=5 — same 5 PROVE + 2 CEX, prove ~2.25 h):
 `prove_base_invariant` ✅ · `prove_step_preserves_invariant` ✅ · `prove_lemma_prefix_monotone` ✅ ·
 `prove_accept_implies_threshold_exceeded` ✅ · `prove_insufficientWeight_cannotAccept` ✅ ·
 `prove_reach_stepNeedsGuard` → counterexample (G2/no-double-count guard is load-bearing) ·
