@@ -91,17 +91,34 @@ sigs, `vm.assume(Σ provided weights ≤ thr)`, prove cannot-accept. For the thr
 Use for: unbounded-K loop invariants; arbitrary-length multi-tx invariants; memory-slot (`M_0..M_8`)
 non-collision lemmas. Properties are Foundry `prove_*` tests + (for unbounded loops) a **loop invariant**.
 
-**Provisioning (the part that breaks):** Kontrol installs via Nix (`kup install kontrol`). On a host where
-the user is NOT a trusted Nix user (`nix show-config | grep trusted-users`), the RV binary cache can't be
-added → use a **root Docker container** (`nixos/nix`) where `--accept-flake-config` lets Nix use the RV
-cache (downloads, no source build). KNOWN UPSTREAM BUG (2026): recent releases fail nix eval with
-`callPackageWith: ... required argument "solc_0_8_13"` because nixpkgs removed that solc (security bug,
-nixpkgs#182498) while Kontrol still references it. Work-arounds, cheapest first: (a) `--override-input` the
-solc/nixpkgs input to a commit that still has `solc_0_8_13`; (b) a Kontrol release predating the removal;
-(c) the README "build from source" path (`kup install k... --version $(cat deps/k_release)` + `uv run kdist
-build "kontrol.*"`) which bypasses the broken nix `kontrol/default.nix`; (d) RV's `kontrol` GitHub Action
-(pins a tested toolchain); (e) wait for upstream fix; or use **Certora** for the same unbounded obligations.
-Bake the working setup into a reusable `kontrol-local` Docker image. See `docs/relay-fv.md §9`.
+**Provisioning — SOLVED; working recipe baked into Docker image `kontrol-local:ready` (Kontrol 1.0.248).**
+The flake path (`kup install kontrol` / `nix run …kontrol`) is UPSTREAM-BROKEN: nix eval aborts with
+`callPackageWith: … required argument "solc_0_8_13"` (nixpkgs dropped that solc — security bug nixpkgs#182498 —
+while Kontrol's `nix/kontrol/default.nix` still references it; `--override-input` does NOT fix it, the solc
+comes from the `foundry`/shazow overlay scope). So BYPASS it with a from-source build. The validated recipe
+(in a root `nixos/nix` container; full detail + exact package list in `CHECKPOINT.md §18` of this engagement):
+1. **Run x86_64, not aarch64** — RV publishes no aarch64-linux Haskell backend (`kore`) cache, so aarch64
+   source-builds kore and dies on `time-compat`'s test suite. On Apple Silicon: `docker run --platform linux/amd64`
+   (uses Rosetta 2 — fast, NOT slow QEMU-TCG). x86_64 cache is fully populated.
+2. **Docker VM ≥ 16 GB** (default ~4 GB OOMs even the K install).
+3. **Add RV caches with the right mode:** `cachix use k-framework-binary -m root-nixconf` + `cachix use
+   k-framework -m root-nixconf` (mode is `root-nixconf`/`user-nixconf`/`nixos`, NOT `nixconf`). The `-binary`
+   cache holds prebuilt `kore`/`llvm-backend`; without it ~120 derivations (incl `time-compat`) source-build.
+4. **nix.conf:** `accept-flake-config = true`, `filter-syscalls = false`, `sandbox = false` (last two fix the
+   QEMU/Rosetta `seccomp BPF: Invalid argument`); and **`ulimit -s 1048576`** (emulated Nix evaluator else
+   stack-overflows on the kore pkg set).
+5. `kup install k.openssl.secp256k1 --version v$(cat deps/k_release)` (kore/llvm-backend/clang fetched, ~7 min).
+6. **uv must use a nix Python, not its own:** `UV_PYTHON_DOWNLOADS=never; uv sync --python $(command -v python3.11)`
+   (uv's standalone CPython is a generic-FHS ELF → `failed to open elf at /lib64/ld-linux…` on NixOS).
+7. **`uv run kdist build "kontrol.*"` needs JDK17 + a clang/cmake/perl/sed C++ toolchain** for the crypto
+   plugin (`gnumake cmake clang perl gnused gawk openssl.dev gmp.dev mpfr.dev boost.dev secp256k1 cryptopp …`,
+   installed ONE AT A TIME — `nix profile install` is transactional; use clang NOT gcc to avoid the cc/c++
+   collision) and **`CMAKE_POLICY_VERSION_MINIMUM=3.5`** (nixpkgs CMake v4 rejects libff's old minimum).
+8. The KEVM-semantics kompile is a **one-time** cost (~hours, but baked into the image — proofs never repeat
+   it). The kdist wrapper may DEADLOCK at the very end AFTER all targets finish `status=0`; harmless — the
+   artifacts are built and `kontrol version` works, just `docker commit` the container.
+Then add `nixpkgs#foundry` (forge) and commit → `kontrol-local:ready`. Alternative for the same unbounded
+obligations without any of this: **Certora** (cloud, no nix). See `docs/relay-fv.md §9` + `CHECKPOINT.md §18`.
 
 **Run:** `kontrol build` (kompiles the project to KEVM — heavy, slow, memory-hungry) then
 `kontrol prove --match-test '<Contract>.<test>'`. Reuse the Halmos `test-forge/fv` harnesses (or use
