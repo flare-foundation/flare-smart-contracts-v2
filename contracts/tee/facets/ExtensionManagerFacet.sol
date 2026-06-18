@@ -5,7 +5,6 @@ import { IIExtensionManager } from "../interface/IIExtensionManager.sol";
 import { IExtensionManager } from "../../userInterfaces/tee/IExtensionManager.sol";
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
-import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
 import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
 import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";

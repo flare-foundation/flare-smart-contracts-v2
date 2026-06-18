@@ -14,7 +14,6 @@ import {
     ITeePaymentsFeeScheduleManager
 } from "../../../../contracts/userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
 import { ITeePaymentsRegistry } from "../../../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
-import { ITeePayments } from "../../../../contracts/userInterfaces/tee/ITeePayments.sol";
 import { ITeePaymentsBase } from "../../../../contracts/userInterfaces/tee/ITeePaymentsBase.sol";
 import { ITeePaymentsModel, PaymentModel } from "../../../../contracts/userInterfaces/tee/ITeePaymentsModel.sol";
 import {

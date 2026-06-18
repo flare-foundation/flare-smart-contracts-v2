@@ -5,7 +5,7 @@ A TEE machine's signed responses are only useful if you can **verify** them — 
 Three FCC facets provide the on-chain verification layer:
 
 - [`VerificationFacet`](../../../contracts/tee/facets/VerificationFacet.sol) + [`library/Verification`](../../../contracts/tee/library/Verification.sol) — the central verification logic for TEE attestation proofs and availability checks. State stored in `Verification.State` includes the per-machine challenge, challenge timestamp, and the per-machine validity window.
-- [`library/SystemStateVerifier`](../../../contracts/tee/library/SystemStateVerifier.sol) — cross-checks the TEE-attested system-state payload (`TeeSystemState { status, initialTeeId }`) against the chain's stored `initialTeeId` for the same `teeId`. Consumed library-internally by `Verification._validateResponseBody`; not exposed as a diamond facet. See [System state verification](#system-state-verification).
+- [`library/SystemStateVerifier`](../../../contracts/tee/library/SystemStateVerifier.sol) — validates the TEE-attested system-state payload, which must now be **empty**, and requires the machine's stored `initialTeeId` to be zero. Consumed library-internally by `Verification._validateResponseBody`; not exposed as a diamond facet. See [System state verification](#system-state-verification).
 - [`VrfFacet`](../../../contracts/tee/facets/VrfFacet.sol) + [`library/Vrf`](../../../contracts/tee/library/Vrf.sol) — VRF proof verification, plus an external [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) UUPS contract for stand-alone verification outside the diamond.
 
 ## The TEE attestation flow
@@ -28,9 +28,9 @@ When a TEE machine registers ([Machine Lifecycle / Registration](./MachineLifecy
 
 `Verification.verifyAvailabilityCheckProof(teeMachine, status, proof)` does the on-chain verification:
 
-- **Recover the signer** from `proof.signature` and confirm it's the machine's `teeId` (or, for some statuses, the signer is allowed to be a machine in the same replication group).
+- **Recover the signer** from `proof.signature` and confirm it's the machine's `teeId`.
 - **Match the challenge** — `proof.requestBody.challenge == vs.challenges[teeId]`. A reused or wrong challenge fails.
-- **Match the request body** to the on-chain machine data (`teeId`, `initialTeeId`, `url`, `codeHash`, `platform`).
+- **Match the request body** to the on-chain machine data (`teeId`, `url`, `codeHash`, `platform`).
 - **Validate timestamps** — the proof's `header.timestamp` must be ≥ the on-chain machine's `lastStatusChangeTs` (rejects stale proofs from before a recent status change).
 - **Apply transition-specific rules** — e.g. for `INITIALIZED → PRODUCTION`, the proof's `responseBody.initialSigningPolicyId` is recorded as the machine's permanent anchor.
 
@@ -43,35 +43,28 @@ A machine with an expired availability check (`endTs < block.timestamp`, or a `l
 
 ## System state verification
 
-`SystemStateVerifier.verifyTeeSystemState(teeId, stateVersion, state)` is invoked from `Verification._validateResponseBody` for every availability-check proof. It decodes the TEE-signed `state` bytes into:
+`SystemStateVerifier.verifyTeeSystemState(teeId, systemStateVersion, systemState)` is invoked from `Verification._validateResponseBody` for every availability-check proof. The TEE-signed system-state payload must be **empty**, and the machine's stored `initialTeeId` must be zero:
 
 ```solidity
-struct TeeSystemState {
-    TeeMachineStatus status;       // enum { ACTIVE, PAUSED, PAUSED_FOR_UPGRADE }
-    address initialTeeId;
-}
+// library/SystemStateVerifier.sol
+return _stateVersion == bytes32(0) &&
+    _state.length == 0 &&
+    MachineManager.getInitialTeeId(_teeId) == address(0);
 ```
 
-The check is a **single uniform strict compare** against the chain's stored `initialTeeId`:
+Concretely:
 
-- Empty payload (`stateVersion == 0 && state.length == 0`) — accepted only if the machine's stored `initialTeeId` is zero (binary signalled non-replication at first attestation, or hasn't attested yet).
-- Populated payload — requires `state.status == ACTIVE && state.initialTeeId == stored`.
+- `systemStateVersion` must be `bytes32(0)`.
+- `systemState` must be empty (`length == 0`).
+- `MachineManager.getInitialTeeId(teeId)` must be `address(0)` — which it always is, because `initialTeeId` is a dormant field (see [Machine Lifecycle / Registration](./MachineLifecycle.md#registration)).
 
-The "capture vs compare" distinction sits in the callers, not the verifier. When the machine is `INITIALIZED` and the proof carries a populated `systemState`, `MachineManagerFacet.toProduction` and `ReplicationFacet.replicateFrom` **pre-commit** the expected `initialTeeId` (the machine's own `teeId` for `toProduction`, the new machine's `newTeeId` for `replicateFrom`) to chain state *before* invoking the verifier. The verifier then simply confirms the chain value matches what the TEE signed. State changes roll back on revert, so the pre-write pattern is safe — a failed verification reverts the pre-write along with everything else.
+Any non-empty payload is rejected. The `systemState` / `systemStateVersion` fields are still carried on the [`ITeeAvailabilityCheck`](../../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol) response (`TeeState`), but the TEE must leave them empty for the proof to validate.
 
-This makes the verifier purely a value-comparison primitive (the library is also exposed without an external facet wrapper, since no production contract calls it through the diamond — `Verification._validateResponseBody` consumes it directly as a library call).
+The library is exposed only as a library (`SystemStateVerifier`), not as a diamond facet. No production contract calls the verifier through the diamond — `Verification._validateResponseBody` consumes it directly as a library call.
 
-The library is exposed only as a library (`SystemStateVerifier`), not as a diamond facet. No production contract calls the verifier through the diamond — `Verification._validateResponseBody` consumes it directly. Off-chain consumers of an availability-check proof who need the machine's `initialTeeId` should read it via `IMachineManager.getTeeMachineWithAttestationData(teeId).initialTeeId`.
+### Why `initialTeeId` is retained
 
-### Why `initialTeeId` is load-bearing
-
-`initialTeeId` is the address derived from the keypair the TEE generated at provisioning — **fixed for the lifetime of the physical TEE machine** and not changed by anything the chain does. After replication, `_replicate` writes `oldState.initialTeeId = newState.initialTeeId` on chain, so the chain expects the *new* machine's provisioning identity in subsequent proofs at the old `teeId` slot. If a caller points the chain flow at the *old* machine's proxy after replication (skipping the off-chain key migration), the old machine's TEE software responds with its own `initialTeeId` — the old one — and the comparison fails. Without this field the chain would have no way to tell which physical machine actually answered: cosigner signatures only attest that *some* TEE-at-this-URL produced the response, not that it's the one the chain expects.
-
-`status == ACTIVE` is a freshness check: the TEE must believe itself active when it signs.
-
-### Why the empty-payload signal
-
-The TEE's choice between empty and populated `TeeSystemState` at first attestation is **how the binary itself dictates replication capability** on chain. A binary built without replication code can't synthesise an `initialTeeId` attestation; it signs empty. A replication-capable binary signs populated. The chain captures the result into `MachineManager.TeeMachineState.initialTeeId`, which then gates `ReplicationFacet.toPauseForUpgrade` and `ReplicationFacet.replicateFrom` (both require `initialTeeId != 0 && governanceHash != 0` via the `NotReplicationCapable` check). See [Replication](./Replication.md) and [Machine Lifecycle / Registration](./MachineLifecycle.md#registration).
+`initialTeeId` is preserved on-chain (in `MachineManager.TeeMachineState`, `getInitialTeeId`, and `IMachineManager.TeeMachineWithAttestationData`) as a dormant field — it is `address(0)` for every machine. Keeping the slot in storage means functionality that depends on a per-machine provisioning identity can be re-introduced later without a storage-layout migration on the deployed diamond. Off-chain consumers of an availability-check proof can read it via `IMachineManager.getTeeMachineWithAttestationData(teeId).initialTeeId`; today it always reads zero.
 
 ## VRF
 

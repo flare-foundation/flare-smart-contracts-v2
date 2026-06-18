@@ -115,7 +115,7 @@ import { AbiItem } from "web3-utils";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { Contracts } from "../scripts/Contracts";
 import { Account } from "web3-core";
-import { DAY1_FACETS, deployFacetsAndBuildCuts } from "../scripts/deploy-flare-tee-manager";
+import { FACETS, deployFacetsAndBuildCuts } from "../scripts/deploy-flare-tee-manager";
 import type { TeePaymentConfiguration } from "../chain-config/chain-parameters";
 import {
   TIMELOCK_SEC,
@@ -575,8 +575,8 @@ export async function deployContracts(
   // Deploy FlareTeeManager Diamond
   // =========================================================================
 
-  // Deploy day-1 facets and build FacetCut array
-  const { facetCuts } = await deployFacetsAndBuildCuts(hre, DAY1_FACETS);
+  // Deploy facets and build FacetCut array
+  const { facetCuts } = await deployFacetsAndBuildCuts(hre, FACETS);
 
   // Deploy FlareTeeManagerInit and encode init calldata
   const FlareTeeManagerInit = hre.artifacts.require("FlareTeeManagerInit") as FlareTeeManagerInitContract;

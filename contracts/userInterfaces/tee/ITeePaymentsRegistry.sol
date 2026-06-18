@@ -7,10 +7,10 @@ import { PaymentModel } from "./ITeePaymentsModel.sol";
  * ITeePaymentsRegistry interface.
  *
  * Single source of truth mapping `sourceId` -> `TeePayments` contract. Used by:
- *  - TeePayments.addPMWMultisigAccount to verify the source is bound to this contract.
- *  - TeePaymentsFeeScheduleManager and TeePaymentsLimitsManager to resolve the
- *    TeePayments instance for a given account's sourceId (and from there, the
- *    walletId -> projectId -> owner chain).
+ *  - The TeePayments / TeePaymentsUtxo `addPMWMultisigAccount` to verify the source is bound
+ *    to this contract.
+ *  - TeePaymentsFeeScheduleManager to resolve the TeePayments instance for a given
+ *    account's sourceId (and from there, the walletId -> projectId -> owner chain).
  *
  * Governance-only register/unregister. Strict semantics: `registerSources` reverts if any
  * sourceId is already registered; `unregisterSources` reverts if any sourceId is not.

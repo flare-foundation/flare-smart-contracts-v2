@@ -23,9 +23,7 @@ interface IMachineManager is ITeeCommonErrors {
         PRODUCTION,
         SUSPENDED,
         PAUSED,
-        BANNED,
-        PAUSED_FOR_UPGRADE,
-        REPLICATING
+        BANNED
     }
 
     struct TeeMachineData {
@@ -84,7 +82,6 @@ interface IMachineManager is ITeeCommonErrors {
         string url
     );
 
-    error OnlyTeeReplicationContract();
     error InvalidTeePublicKey();
     error InvalidTeeProxyId();
     error InvalidTeePublicKeyOrSignature();

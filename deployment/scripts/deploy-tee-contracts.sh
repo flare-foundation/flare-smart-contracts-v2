@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: scripts/deploy-tee-contracts.sh <network> <fullDeploy:boolean> [--dry-run]
-# Example: scripts/deploy-tee-contracts.sh coston2 true
-# Example: scripts/deploy-tee-contracts.sh coston2 false --dry-run
+# Usage: scripts/deploy-tee-contracts.sh <network> [--dry-run]
+# Example: scripts/deploy-tee-contracts.sh coston2
+# Example: scripts/deploy-tee-contracts.sh coston2 --dry-run
 #
 # Deploys FlareTeeManager diamond, FDC2 contracts, TeePayments proxies,
 # TeeRewardOffersManager, VrfVerifier, and wires them all up.
-# The fullDeploy flag controls whether later facets (replication, governance,
-# version manager) are added to the diamond.
 # Use --dry-run to simulate against a forked network without broadcasting.
 
-if [[ $# -lt 2 ]]; then
-  echo "Usage: $0 <network> <fullDeploy:boolean> [--dry-run]" >&2
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <network> [--dry-run]" >&2
   exit 2
 fi
 
 NETWORK="$1"
-FULL_DEPLOY="$2"
-DRY_RUN="${3:-}"
+DRY_RUN="${2:-}"
 
 # Convert network to uppercase and build env var name
 NETWORK_UPPER=$(echo "$NETWORK" | tr '[:lower:]' '[:upper:]')
@@ -49,7 +46,7 @@ mkdir -p "$OUTPUT_DIR"
 FORGE_CMD=(forge script deployment/scripts/DeployTeeContracts.s.sol:DeployTeeContracts
   --rpc-url "${!RPC_ENV_VAR}"
   --private-key "$DEPLOYER_PRIVATE_KEY"
-  --sig "run(bool)" "$FULL_DEPLOY")
+  --sig "run()")
 
 if [[ "$DRY_RUN" == "--dry-run" ]]; then
   echo "Running in dry-run mode (no broadcast)"

@@ -312,7 +312,7 @@ contract WalletBackupManagerFacetTest is Test {
         // Deploy FlareTeeManager Diamond
         // =====================================================================
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: governanceSettings,
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
@@ -323,11 +323,6 @@ contract WalletBackupManagerFacetTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
-        vm.startPrank(initialGovernance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
 
         // =====================================================================
         // Add TestStateHelperFacet to the diamond
@@ -660,13 +655,11 @@ contract WalletBackupManagerFacetTest is Test {
         _registerPath(keyHolderTeeId, teeId);
         // Destination in any non-PRODUCTION status reverts at backup-creation time. Both source
         // and destination need to be live to produce + receive a meaningful backup blob.
-        IMachineManager.TeeStatus[] memory nonProd = new IMachineManager.TeeStatus[](6);
+        IMachineManager.TeeStatus[] memory nonProd = new IMachineManager.TeeStatus[](4);
         nonProd[0] = IMachineManager.TeeStatus.INITIALIZED;
         nonProd[1] = IMachineManager.TeeStatus.SUSPENDED;
         nonProd[2] = IMachineManager.TeeStatus.PAUSED;
-        nonProd[3] = IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE;
-        nonProd[4] = IMachineManager.TeeStatus.REPLICATING;
-        nonProd[5] = IMachineManager.TeeStatus.BANNED;
+        nonProd[3] = IMachineManager.TeeStatus.BANNED;
         for (uint256 i = 0; i < nonProd.length; i++) {
             ITestStateHelper(address(flareTeeManager)).setTeeMachineState(
                 teeId,

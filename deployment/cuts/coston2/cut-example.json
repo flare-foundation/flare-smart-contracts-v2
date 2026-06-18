@@ -18,10 +18,7 @@
     "ExternalAddressesFacet",
     "MachinePathManagerFacet",
     "WalletProjectPauseFacet",
-    "MachineEmergencyPauseFacet",
-    "ReplicationFacet",
-    "ExtensionPausingFacet",
-    "WalletResumeFacet"
+    "MachineEmergencyPauseFacet"
   ],
   "deleteAllOldMethods": false,
   "deleteSelectorSigs": [],

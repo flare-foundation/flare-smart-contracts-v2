@@ -20,7 +20,7 @@ contract DiamondLoupeFacetTest is Test {
         addressUpdater = makeAddr("AddressUpdater");
         governanceSettings = IGovernanceSettings(makeAddr("governanceSettings"));
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: governanceSettings,
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
@@ -31,23 +31,18 @@ contract DiamondLoupeFacetTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
-        vm.startPrank(initialGovernance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
 
         loupe = IDiamondLoupe(address(flareTeeManager));
     }
 
     function testFacets() public view {
         IDiamondLoupe.Facet[] memory allFacets = loupe.facets();
-        assertEq(allFacets.length, 21, "deployer creates 21 facets");
+        assertEq(allFacets.length, 18, "deployer creates 18 facets");
     }
 
     function testFacetAddresses() public view {
         address[] memory addresses = loupe.facetAddresses();
-        assertEq(addresses.length, 21, "should have 21 unique facet addresses");
+        assertEq(addresses.length, 18, "should have 18 unique facet addresses");
     }
 
     function testFacetFunctionSelectors() public view {

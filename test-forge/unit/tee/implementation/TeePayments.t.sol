@@ -18,11 +18,9 @@ import { PaymentModel } from "../../../../contracts/userInterfaces/tee/ITeePayme
 import {
     ITeePaymentsFeeScheduleManager
 } from "../../../../contracts/userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
-import { IInstructions } from "../../../../contracts/userInterfaces/tee/IInstructions.sol";
 import {
     IWalletProjectManager
 } from "../../../../contracts/userInterfaces/tee/IWalletProjectManager.sol";
-import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { IWalletKeyManager } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
 import { IOperationFees } from "../../../../contracts/userInterfaces/tee/IOperationFees.sol";
 import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";

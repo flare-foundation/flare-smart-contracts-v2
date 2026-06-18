@@ -85,19 +85,13 @@ contract Fdc2Hub is IFdc2Hub, FlareUpgradeableBase {
         require(_cosigners.length >= _cosignersThreshold, CosignersThresholdInvalid());
         require(thresholdBIPS == 0 || thresholdBIPS >= MAX_BIPS / 2 ||
             _cosignersThreshold > _cosigners.length / 2, MultipleResponsesPossible());
-        IMachineManager.TeeMachine[] memory teeMachines;
         if (_teeIds.length == 0) {
             if (_numberOfTees == 0) {
                 _numberOfTees = defaultNumberOfTees;
             }
-            _teeIds = flareTeeManager.getRandomTeeIds(0, _numberOfTees);
             // all random tee machines are in PRODUCTION status and belong to the system extension
-            teeMachines = new IMachineManager.TeeMachine[](_teeIds.length);
-            for (uint256 i = 0; i < _teeIds.length; i++) {
-                teeMachines[i] = flareTeeManager.getTeeMachine(_teeIds[i]);
-            }
+            _teeIds = flareTeeManager.getRandomTeeIds(0, _numberOfTees);
         } else {
-            teeMachines = new IMachineManager.TeeMachine[](_teeIds.length);
             // For all TEE machines check their status and that they belong to the system extension.
             for (uint256 i = 0; i < _teeIds.length; i++) {
                 address teeId = _teeIds[i];
@@ -105,23 +99,13 @@ contract Fdc2Hub is IFdc2Hub, FlareUpgradeableBase {
                 for (uint256 j = i + 1; j < _teeIds.length; j++) {
                     require(teeId != _teeIds[j], DuplicatedTeeId(teeId));
                 }
-                // check the TEE machine status
+                // require the TEE machine to be in INITIALIZED or PRODUCTION status
                 IMachineManager.TeeStatus status = flareTeeManager.getTeeMachineStatus(teeId);
-                if (status == IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE) {
-                    // if the TEE machine is PAUSED_FOR_UPGRADE use its replicating TEE machine if exists, else revert
-                    address replicatingTeeId = flareTeeManager.getReplicatingTeeId(teeId);
-                    require(replicatingTeeId != address(0), TeeMachineNotAvailable());
-                    teeMachines[i] = flareTeeManager.getTeeMachine(replicatingTeeId);
-                    teeMachines[i].teeId = teeId; // keep the original teeId
-                } else {
-                    // else require the TEE machine to be in INITIALIZED or PRODUCTION status
-                    require(
-                        status == IMachineManager.TeeStatus.INITIALIZED ||
-                        status == IMachineManager.TeeStatus.PRODUCTION,
-                        TeeMachineNotAvailable()
-                    );
-                    teeMachines[i] = flareTeeManager.getTeeMachine(teeId);
-                }
+                require(
+                    status == IMachineManager.TeeStatus.INITIALIZED ||
+                    status == IMachineManager.TeeStatus.PRODUCTION,
+                    TeeMachineNotAvailable()
+                );
                 // check that the TEE machine belongs to the system extension
                 require(
                     flareTeeManager.getExtensionId(teeId) == 0,
@@ -137,7 +121,7 @@ contract Fdc2Hub is IFdc2Hub, FlareUpgradeableBase {
         rewardManager.receiveRewards{value: fee}(flareSystemsManager.getCurrentRewardEpochId(), false);
 
         bytes32 instructionId = _sendRequestAttestationInstructions(
-            teeMachines,
+            _teeIds,
             abi.encode(_attestationRequest),
             _cosigners,
             _cosignersThreshold,
@@ -222,7 +206,7 @@ contract Fdc2Hub is IFdc2Hub, FlareUpgradeableBase {
     }
 
     function _sendRequestAttestationInstructions(
-        IMachineManager.TeeMachine[] memory _teeMachines,
+        address[] memory _teeIds,
         bytes memory _message,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
@@ -234,7 +218,7 @@ contract Fdc2Hub is IFdc2Hub, FlareUpgradeableBase {
     {
         return flareTeeManager.sendSystemInstructions{value: _instructionsFee}(
             bytes32(0),
-            _teeMachines,
+            _teeIds,
             IInstructions.TeeInstructionParams(
                 FDC2_OP_TYPE,
                 PROVE,

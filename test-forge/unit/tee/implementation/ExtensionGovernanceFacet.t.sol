@@ -31,7 +31,7 @@ contract ExtensionGovernanceFacetTest is Test {
         initialGovernance = makeAddr("initialGovernance");
         addressUpdater = makeAddr("addressUpdater");
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,

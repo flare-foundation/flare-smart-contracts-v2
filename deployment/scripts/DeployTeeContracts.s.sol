@@ -9,7 +9,6 @@ import {IGovernanceSettings} from
 import {IFlareContractRegistry} from
     "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
 import {IDiamond} from "../../contracts/diamond/interfaces/IDiamond.sol";
-import {IDiamondCut} from "../../contracts/diamond/interfaces/IDiamondCut.sol";
 import {IIFlareTeeManager} from
     "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import {FlareTeeManager} from
@@ -17,9 +16,7 @@ import {FlareTeeManager} from
 // Diamond init contracts
 import {FlareTeeManagerInit} from
     "../../contracts/tee/facets/FlareTeeManagerInit.sol";
-import {ReplicationInit} from
-    "../../contracts/tee/facets/ReplicationInit.sol";
-// Day-1 facets
+// Facets
 import {DiamondGovernanceFacet} from
     "../../contracts/tee/facets/DiamondGovernanceFacet.sol";
 import {DiamondLoupeFacet} from
@@ -55,13 +52,6 @@ import {WalletProjectPauseFacet} from
     "../../contracts/tee/facets/WalletProjectPauseFacet.sol";
 import {MachineEmergencyPauseFacet} from
     "../../contracts/tee/facets/MachineEmergencyPauseFacet.sol";
-// Later facets
-import {ReplicationFacet} from
-    "../../contracts/tee/facets/ReplicationFacet.sol";
-import {ExtensionPausingFacet} from
-    "../../contracts/tee/facets/ExtensionPausingFacet.sol";
-import {WalletResumeFacet} from
-    "../../contracts/tee/facets/WalletResumeFacet.sol";
 // FDC2 contracts
 import {Fdc2Hub} from "../../contracts/fdc2/implementation/Fdc2Hub.sol";
 import {Fdc2HubProxy} from "../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
@@ -98,10 +88,6 @@ import {TeePaymentsFeeScheduleManagerProxy} from
     "../../contracts/tee/proxy/TeePaymentsFeeScheduleManagerProxy.sol";
 import {ITeePaymentsFeeScheduleManager} from
     "../../contracts/userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
-import {TeePaymentsLimitsManager} from
-    "../../contracts/tee/implementation/TeePaymentsLimitsManager.sol";
-import {TeePaymentsLimitsManagerProxy} from
-    "../../contracts/tee/proxy/TeePaymentsLimitsManagerProxy.sol";
 import {TeePaymentsRegistry} from
     "../../contracts/tee/implementation/TeePaymentsRegistry.sol";
 import {TeePaymentsRegistryProxy} from
@@ -118,7 +104,7 @@ import {VrfVerifier} from "../../contracts/tee/implementation/VrfVerifier.sol";
 
 // solhint-disable no-console
 // solhint-disable-next-line max-line-length
-// forge script deployment/scripts/DeployTeeContracts.s.sol:DeployTeeContracts --private-key $DEPLOYER_PRIVATE_KEY --rpc-url $COSTON2_RPC_URL --broadcast --sig "run(bool)" true
+// forge script deployment/scripts/DeployTeeContracts.s.sol:DeployTeeContracts --private-key $DEPLOYER_PRIVATE_KEY --rpc-url $COSTON2_RPC_URL --broadcast --sig "run()"
 
 // solhint-disable max-states-count
 contract DeployTeeContracts is Script {
@@ -198,10 +184,9 @@ contract DeployTeeContracts is Script {
     // FlareTeeManager diamond
     IIFlareTeeManager private flareTeeManager;
     address private flareTeeManagerAddress;
-    IDiamond.FacetCut[] private day1Facets;
-    IDiamond.FacetCut[] private laterFacets;
+    IDiamond.FacetCut[] private facets;
 
-    // Day-1 facet instances (for logging)
+    // Facet instances (for logging)
     DiamondGovernanceFacet private diamondCutFacet;
     DiamondLoupeFacet private diamondLoupeFacet;
     ExtensionManagerFacet private extensionManagerFacet;
@@ -221,11 +206,6 @@ contract DeployTeeContracts is Script {
     WalletProjectPauseFacet private walletProjectPauseFacet;
     MachineEmergencyPauseFacet private machineEmergencyPauseFacet;
 
-    // Later facet instances (for logging)
-    ReplicationFacet private replicationFacet;
-    ExtensionPausingFacet private extensionPausingFacet;
-    WalletResumeFacet private walletResumeFacet;
-
     // Deployed contract addresses
     address private fdc2HubAddr;
     address private fdc2FeeAddr;
@@ -235,7 +215,6 @@ contract DeployTeeContracts is Script {
     address[] private teePaymentsAddresses;
     address private teeRewardOffersManagerAddr;
     address private teePaymentsFeeScheduleManagerAddr;
-    address private teePaymentsLimitsManagerAddr;
     address private teePaymentsRegistryAddr;
     address private teePaymentsConfigVerifierAddr;
 
@@ -246,7 +225,7 @@ contract DeployTeeContracts is Script {
     // Entry point
     // =========================================================================
 
-    function run(bool _fullDeploy) external {
+    function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         deployer = vm.addr(deployerPrivateKey);
 
@@ -261,18 +240,10 @@ contract DeployTeeContracts is Script {
         vm.startBroadcast();
 
         // Phase 1: Deploy FlareTeeManager diamond
-        _deployDay1Facets();
-        _logDay1FacetAddresses();
+        _deployFacets();
+        _logFacetAddresses();
         _createDiamond();
         _configureDiamond();
-
-        if (_fullDeploy) {
-            _deployLaterFacets();
-            _addLaterFacetsToDiamond();
-            _logLaterFacetAddresses();
-        } else {
-            console2.log("Skipping later facets as per input flag");
-        }
 
         // Phase 2: Deploy remaining TEE contracts
         _deployFdc2Contracts();
@@ -280,21 +251,14 @@ contract DeployTeeContracts is Script {
         _deployTeePaymentsConfigVerifier();
         _deployTeePayments();
         _deployTeePaymentsFeeScheduleManager();
-        if (_fullDeploy) {
-            _deployTeePaymentsLimitsManager();
-        } else {
-            console2.log(
-                "Skipping TeePaymentsLimitsManager as per input flag"
-            );
-        }
         _deployTeeRewardOffersManager();
         _deployFdc2InflationConfigurations();
         _deployFdc2RewardOffersManager();
         _deployVrfVerifier();
 
         // Phase 3: Wire up and configure
-        _wireUpContractAddresses(_fullDeploy);
-        _registerSystemInstructionsSenders(_fullDeploy);
+        _wireUpContractAddresses();
+        _registerSystemInstructionsSenders();
         _configureFdc2RequestFees();
         _configureFdc2InflationConfigurations();
         _registerTeePaymentsSources();
@@ -302,7 +266,7 @@ contract DeployTeeContracts is Script {
         _configureFeeScheduleSourceLimits();
 
         // Phase 4: Switch all governed contracts to production mode
-        _switchToProductionMode(_fullDeploy);
+        _switchToProductionMode();
 
         vm.stopBroadcast();
     }
@@ -387,7 +351,7 @@ contract DeployTeeContracts is Script {
         });
     }
 
-    function _deployDay1Facets() internal {
+    function _deployFacets() internal {
         diamondCutFacet = new DiamondGovernanceFacet();
         diamondLoupeFacet = new DiamondLoupeFacet();
         extensionManagerFacet = new ExtensionManagerFacet();
@@ -407,60 +371,60 @@ contract DeployTeeContracts is Script {
         walletProjectPauseFacet = new WalletProjectPauseFacet();
         machineEmergencyPauseFacet = new MachineEmergencyPauseFacet();
 
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(diamondCutFacet), "DiamondGovernanceFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(diamondLoupeFacet), "DiamondLoupeFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(extensionManagerFacet), "ExtensionManagerFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(instructionsFacet), "InstructionsFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(machineManagerFacet), "MachineManagerFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(verificationFacet), "VerificationFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(operationFeesFacet), "OperationFeesFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(ownerAllowlistFacet), "OwnerAllowlistFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(walletManagerFacet), "WalletManagerFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(walletKeyManagerFacet), "WalletKeyManagerFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(walletProjectManagerFacet),
             "WalletProjectManagerFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(walletBackupManagerFacet),
             "WalletBackupManagerFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(vrfFacet), "VrfFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(externalAddressesFacet), "ExternalAddressesFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(extensionGovernanceFacet), "ExtensionGovernanceFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(machinePathManagerFacet), "MachinePathManagerFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(walletProjectPauseFacet), "WalletProjectPauseFacet"
         ));
-        day1Facets.push(_addFacet(
+        facets.push(_addFacet(
             address(machineEmergencyPauseFacet), "MachineEmergencyPauseFacet"
         ));
     }
@@ -507,7 +471,7 @@ contract DeployTeeContracts is Script {
         );
 
         FlareTeeManager diamond = new FlareTeeManager(
-            day1Facets,
+            facets,
             FlareTeeManager.DiamondArgs({
                 init: address(flareTeeManagerInit),
                 initCalldata: initCalldata
@@ -610,48 +574,6 @@ contract DeployTeeContracts is Script {
             keyTypes.length
         );
         flareTeeManager.addSupportedKeyTypes(0, keyTypeBytes);
-    }
-
-    // =========================================================================
-    // Later facets (replication, governance, version manager)
-    // =========================================================================
-
-    function _deployLaterFacets() internal {
-        replicationFacet = new ReplicationFacet();
-        extensionPausingFacet = new ExtensionPausingFacet();
-        walletResumeFacet = new WalletResumeFacet();
-
-        laterFacets.push(_addFacet(
-            address(replicationFacet), "ReplicationFacet"
-        ));
-        laterFacets.push(_addFacet(
-            address(extensionPausingFacet), "ExtensionPausingFacet"
-        ));
-        laterFacets.push(_addFacet(
-            address(walletResumeFacet), "WalletResumeFacet"
-        ));
-    }
-
-    function _addLaterFacetsToDiamond() internal {
-        uint256 pauseBeforeUpgradeMinDurationSeconds =
-            vm.parseJsonUint(
-                config, ".teePauseBeforeUpgradeMinDurationSeconds"
-            );
-        ReplicationInit replicationInit = new ReplicationInit();
-        IDiamondCut(flareTeeManagerAddress).diamondCut(
-            laterFacets,
-            address(replicationInit),
-            abi.encodeWithSelector(
-                ReplicationInit.init.selector,
-                pauseBeforeUpgradeMinDurationSeconds
-            )
-        );
-
-        _logDeployed(
-            "ReplicationInit",
-            "ReplicationInit.sol",
-            address(replicationInit)
-        );
     }
 
     // =========================================================================
@@ -962,33 +884,6 @@ contract DeployTeeContracts is Script {
     }
 
     // =========================================================================
-    // Deploy TeePaymentsLimitsManager (gated by _fullDeploy)
-    // =========================================================================
-
-    function _deployTeePaymentsLimitsManager() internal {
-        TeePaymentsLimitsManager impl = new TeePaymentsLimitsManager();
-        _logDeployed(
-            "TeePaymentsLimitsManagerImplementation",
-            "TeePaymentsLimitsManager.sol",
-            address(impl)
-        );
-
-        TeePaymentsLimitsManagerProxy proxy =
-            new TeePaymentsLimitsManagerProxy(
-                IGovernanceSettings(governanceSettings),
-                deployer,
-                deployer,
-                address(impl)
-            );
-        teePaymentsLimitsManagerAddr = address(proxy);
-        _logDeployed(
-            "TeePaymentsLimitsManager",
-            "TeePaymentsLimitsManagerProxy.sol",
-            teePaymentsLimitsManagerAddr
-        );
-    }
-
-    // =========================================================================
     // Deploy VrfVerifier
     // =========================================================================
 
@@ -1003,7 +898,7 @@ contract DeployTeeContracts is Script {
     // Wire up contract addresses
     // =========================================================================
 
-    function _wireUpContractAddresses(bool _fullDeploy) internal {
+    function _wireUpContractAddresses() internal {
         _wireFlareTeeManager();
         _wireFdc2Hub();
         _wireFdc2Verification();
@@ -1014,9 +909,6 @@ contract DeployTeeContracts is Script {
         _wireTeeRewardOffersManager();
         _wireTeePaymentsFeeScheduleManager();
         _wireTeePaymentsRegistry();
-        if (_fullDeploy) {
-            _wireTeePaymentsLimitsManager();
-        }
     }
 
     function _wireTeePaymentsRegistry() internal {
@@ -1173,39 +1065,17 @@ contract DeployTeeContracts is Script {
             .updateContractAddresses(names, addrs);
     }
 
-    function _wireTeePaymentsLimitsManager() internal {
-        bytes32[] memory names = new bytes32[](3);
-        names[0] = _encodeContractName("AddressUpdater");
-        names[1] = _encodeContractName("FlareTeeManager");
-        names[2] = _encodeContractName("TeePaymentsRegistry");
-        address[] memory addrs = new address[](3);
-        addrs[0] = addressUpdater;
-        addrs[1] = flareTeeManagerAddress;
-        addrs[2] = teePaymentsRegistryAddr;
-        TeePaymentsLimitsManager(teePaymentsLimitsManagerAddr)
-            .updateContractAddresses(names, addrs);
-    }
-
     // =========================================================================
     // Register system instructions senders
     // =========================================================================
 
-    function _registerSystemInstructionsSenders(
-        bool _fullDeploy
-    )
-        internal
-    {
-        uint256 extraSenders = _fullDeploy ? 2 : 1;
+    function _registerSystemInstructionsSenders() internal {
         address[] memory senders =
-            new address[](teePaymentsAddresses.length + extraSenders);
+            new address[](teePaymentsAddresses.length + 1);
         for (uint256 i = 0; i < teePaymentsAddresses.length; i++) {
             senders[i] = teePaymentsAddresses[i];
         }
         senders[teePaymentsAddresses.length] = fdc2HubAddr;
-        if (_fullDeploy) {
-            senders[teePaymentsAddresses.length + 1] =
-                teePaymentsLimitsManagerAddr;
-        }
         console2.log(
             "Registering system instructions senders, count:",
             senders.length
@@ -1365,7 +1235,7 @@ contract DeployTeeContracts is Script {
     // Switch to production mode
     // =========================================================================
 
-    function _switchToProductionMode(bool _fullDeploy) internal {
+    function _switchToProductionMode() internal {
         console2.log(
             "Switching to production mode"
         );
@@ -1399,11 +1269,6 @@ contract DeployTeeContracts is Script {
         // TeePaymentsConfigVerifier (always deployed)
         TeePaymentsConfigVerifier(teePaymentsConfigVerifierAddr)
             .switchToProductionMode();
-        // TeePaymentsLimitsManager (only in full deploy)
-        if (_fullDeploy) {
-            TeePaymentsLimitsManager(teePaymentsLimitsManagerAddr)
-                .switchToProductionMode();
-        }
     }
 
     // =========================================================================
@@ -1424,7 +1289,7 @@ contract DeployTeeContracts is Script {
     // =========================================================================
     // Logging (format matches save-deployed-addresses.ts parser)
     // =========================================================================
-    function _logDay1FacetAddresses() internal view {
+    function _logFacetAddresses() internal view {
         _logDeployed(
             "DiamondGovernanceFacet",
             "DiamondGovernanceFacet.sol",
@@ -1514,24 +1379,6 @@ contract DeployTeeContracts is Script {
             "MachineEmergencyPauseFacet",
             "MachineEmergencyPauseFacet.sol",
             address(machineEmergencyPauseFacet)
-        );
-    }
-
-    function _logLaterFacetAddresses() internal view {
-        _logDeployed(
-            "ReplicationFacet",
-            "ReplicationFacet.sol",
-            address(replicationFacet)
-        );
-        _logDeployed(
-            "ExtensionPausingFacet",
-            "ExtensionPausingFacet.sol",
-            address(extensionPausingFacet)
-        );
-        _logDeployed(
-            "WalletResumeFacet",
-            "WalletResumeFacet.sol",
-            address(walletResumeFacet)
         );
     }
 

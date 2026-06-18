@@ -86,7 +86,7 @@ contract MachineEmergencyPauseFacetTest is Test {
         addrs[0] = makeAddr("addr1");
         addrs[1] = makeAddr("addr2");
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
@@ -97,11 +97,6 @@ contract MachineEmergencyPauseFacetTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: GRACE_SECONDS
         }));
-        vm.startPrank(initialGovernance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
 
         // Add a test helper facet to inject TEE machine state directly
         TestEmHelperFacet helperImpl = new TestEmHelperFacet();

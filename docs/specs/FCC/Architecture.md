@@ -1,6 +1,6 @@
 # FCC Architecture
 
-FCC is a single EIP-2535 diamond proxy. One address (`FlareTeeManager`) on Flare; internally, every state-changing call is routed via `delegatecall` to one of around 22 facets, each holding a small slice of behavior. State lives in **ERC-7201 namespaced storage** so facets can be added, replaced, or removed without storage collisions.
+FCC is a single EIP-2535 diamond proxy. One address (`FlareTeeManager`) on Flare; internally, every state-changing call is routed via `delegatecall` to one of 18 facets, each holding a small slice of behavior. State lives in **ERC-7201 namespaced storage** so facets can be added, replaced, or removed without storage collisions.
 
 This page describes the on-chain layout: how the diamond is constructed, how facets and libraries split responsibilities, the storage model, and how the auxiliary `TeePayments*` contracts plug in around the diamond.
 
@@ -48,34 +48,31 @@ The on-chain code separates into three layers:
 - `contracts/userInterfaces/tee/I*.sol` — public ABI surface (what consumers and integrators see). Examples: `IFlareTeeManager`, `IInstructions`, `IMachineManager`, `IOperationFees`.
 - `contracts/tee/interface/II*.sol` — internal interfaces used between FCC pieces and by other modules (`Fdc2Hub` imports `IIFlareTeeManager`). The `II*` prefix marks these as internal.
 
-The 22 facets and what they expose:
+The 18 facets and what they expose:
 
 | Facet | Library | What it does |
 |-------|---------|--------------|
 | [`DiamondGovernanceFacet`](../../../contracts/tee/facets/DiamondGovernanceFacet.sol) | (`LibDiamond`) | The `diamondCut` entry point — adds, replaces, or removes facets. Also exposes `IFlareGovernance` (set initial governance, time-locked governance changes). |
-| [`ExtensionGovernanceFacet`](../../../contracts/tee/facets/ExtensionGovernanceFacet.sol) | `ExtensionGovernance` | Per-extension governance: configure signers and threshold, expose the latest governance hash and per-hash signer/threshold getters. Day-1 facet. |
-| [`ExtensionPausingFacet`](../../../contracts/tee/facets/ExtensionPausingFacet.sol) | `ExtensionPausing` | Per-extension pausing-addresses records bound to one or more governance hashes; per-approval signature collection; per-hash threshold-met events. Later facet. |
+| [`ExtensionGovernanceFacet`](../../../contracts/tee/facets/ExtensionGovernanceFacet.sol) | `ExtensionGovernance` | Per-extension governance: configure signers and threshold, expose the latest governance hash and per-hash signer/threshold getters. |
 | [`ExtensionManagerFacet`](../../../contracts/tee/facets/ExtensionManagerFacet.sol) | `ExtensionManager` | Register / configure extensions; manage owner allowlists, supported `(codeHash, platform)` versions per extension. |
 | [`ExternalAddressesFacet`](../../../contracts/tee/facets/ExternalAddressesFacet.sol) | `ExternalAddresses` | The diamond's `AddressUpdatable` hook. Stores `flareSystemsManager`, `rewardManager`, etc. in the diamond's own ERC-7201 slot. |
 | [`FlareGovernedAccess`](../../../contracts/governance/implementation/FlareGovernedAccess.sol) (inherited by every non-governance facet) and [`DiamondGovernanceFacet`](../../../contracts/tee/facets/DiamondGovernanceFacet.sol) (inherits [`FlareGovernedBase`](../../../contracts/governance/implementation/FlareGovernedBase.sol) for the public API) | (`FlareGovernance`) | Diamond-internal `onlyGovernance` modifier (all facets) and the public `Governed` accessors / `diamondCut` (only `DiamondGovernanceFacet`). |
 | [`InstructionsFacet`](../../../contracts/tee/facets/InstructionsFacet.sol) | `Instructions` | The main `sendInstructions` entry — fee-validated TEE instruction dispatch. Also: register / unregister system-instructions sender contracts. |
-| [`MachineEmergencyPauseFacet`](../../../contracts/tee/facets/MachineEmergencyPauseFacet.sol) | `MachineEmergencyPause` | Per-extension emergency-pause overlay + pauser/unpauser delegation lists. While an extension is emergency-paused, `Instructions.sendInstructions` rejects every dispatch (regular and system opTypes) targeting machines in the paused extension. Statuses and active sets are untouched; off-chain readers should consult `isExtensionEmergencyPaused`. After unpause, a governance-tunable grace window blocks third-party expired-availability `pause()` calls so owners can refresh attestations. Day-1 facet. |
-| [`MachineManagerFacet`](../../../contracts/tee/facets/MachineManagerFacet.sol) | `MachineManager` | TEE machine registration, status changes (initialized → production → paused → upgraded), ownership transfers, attestation acceptance. |
-| [`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) | `MachinePathManager` | Per-extension governance-signed allow-list of `(sourceTeeIds[], destinationTeeIds[])` paths. Generic primitive; gates [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) and [`ReplicationFacet.replicateFrom`](../../../contracts/tee/facets/ReplicationFacet.sol). Day-1 facet. |
+| [`MachineEmergencyPauseFacet`](../../../contracts/tee/facets/MachineEmergencyPauseFacet.sol) | `MachineEmergencyPause` | Per-extension emergency-pause overlay + pauser/unpauser delegation lists. While an extension is emergency-paused, `Instructions.sendInstructions` rejects every dispatch (regular and system opTypes) targeting machines in the paused extension. Statuses and active sets are untouched; off-chain readers should consult `isExtensionEmergencyPaused`. After unpause, a governance-tunable grace window blocks third-party expired-availability `pause()` calls so owners can refresh attestations. |
+| [`MachineManagerFacet`](../../../contracts/tee/facets/MachineManagerFacet.sol) | `MachineManager` | TEE machine registration, status changes (initialized → production → paused), ownership transfers, attestation acceptance. |
+| [`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) | `MachinePathManager` | Per-extension governance-signed allow-list of `(sourceTeeIds[], destinationTeeIds[])` paths. Generic primitive; gates [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol). |
 | [`OperationFeesFacet`](../../../contracts/tee/facets/OperationFeesFacet.sol) | `OperationFees` | Per-extension, per-`(opType, opCommand)` fee schedule. Lookup methods used by `InstructionsFacet` to compute the required fee. |
 | [`OwnerAllowlistFacet`](../../../contracts/tee/facets/OwnerAllowlistFacet.sol) | `OwnerAllowlist` | Per-extension allowlist of TEE-machine owners. Only allowlisted addresses can register machines for that extension. |
-| [`ReplicationFacet`](../../../contracts/tee/facets/ReplicationFacet.sol) | `Replication` | TEE machine replication: pair primary and replicate machines, control replication state. Authorisation is delegated to [`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol). |
-| (library only) `SystemStateVerifier` | — | Cross-checks the TEE-attested `TeeSystemState { status, initialTeeId }` payload against the chain's stored `initialTeeId`. Library-only (no diamond facet exposes it externally); consumed by `Verification._validateResponseBody`. Single uniform strict-compare path — callers `toProduction` / `replicateFrom` pre-commit the expected `initialTeeId` at `INITIALIZED → out` transitions so the comparison succeeds iff the TEE attests it. |
+| (library only) `SystemStateVerifier` | — | Validates the TEE-attested system-state payload, which must now be empty (`systemStateVersion == 0 && systemState.length == 0`) and requires the machine's stored `initialTeeId` to be zero. Library-only (no diamond facet exposes it externally); consumed by `Verification._validateResponseBody`. |
 | [`VerificationFacet`](../../../contracts/tee/facets/VerificationFacet.sol) | `Verification` | Verify TEE attestation data (availability checks, code hash, platform), signing policies, challenges. |
 | [`VrfFacet`](../../../contracts/tee/facets/VrfFacet.sol) | `Vrf` | Verifiable random function over TEE keys. |
 | [`WalletBackupManagerFacet`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) | `WalletKeyManager` | Wallet key backup (Shamir secret-sharing) — submit shares, finalize backup. |
 | [`WalletKeyManagerFacet`](../../../contracts/tee/facets/WalletKeyManagerFacet.sol) | `WalletKeyManager` | Generate / delete keys; restore keys from admin shares. |
 | [`WalletManagerFacet`](../../../contracts/tee/facets/WalletManagerFacet.sol) | `WalletManager` | Per-extension wallet creation, owner administration, key admin set updates. |
 | [`WalletProjectManagerFacet`](../../../contracts/tee/facets/WalletProjectManagerFacet.sol) | `WalletProjectManager` | Project-level configuration (a *project* groups multiple wallets under one owner). |
-| [`WalletProjectPauseFacet`](../../../contracts/tee/facets/WalletProjectPauseFacet.sol) | `WalletProjectPause` | Per-project pauser/unpauser delegation lists, plus the `pauseWallets`/`unpauseWallets` batch actions. The project owner adds addresses to the pauser list (authorized to pause project wallets, `PRODUCTION → PAUSED`) and the unpauser list (authorized to resume from `PAUSED → PRODUCTION`). Day-1 facet. |
-| [`WalletResumeFacet`](../../../contracts/tee/facets/WalletResumeFacet.sol) | `WalletResume` | Resume wallet operations after pause / upgrade. |
+| [`WalletProjectPauseFacet`](../../../contracts/tee/facets/WalletProjectPauseFacet.sol) | `WalletProjectPause` | Per-project pauser/unpauser delegation lists, plus the `pauseWallets`/`unpauseWallets` batch actions. The project owner adds addresses to the pauser list (authorized to pause project wallets, `PRODUCTION → PAUSED`) and the unpauser list (authorized to resume from `PAUSED → PRODUCTION`). |
 
-Two non-facet init helpers ([`FlareTeeManagerInit`](../../../contracts/tee/facets/FlareTeeManagerInit.sol), [`ReplicationInit`](../../../contracts/tee/facets/ReplicationInit.sol)) are used only during `diamondCut` for initial / migration-time storage setup.
+One non-facet init helper ([`FlareTeeManagerInit`](../../../contracts/tee/facets/FlareTeeManagerInit.sol)) is used only during `diamondCut` for initial storage setup.
 
 ## ERC-7201 namespaced storage
 
@@ -111,24 +108,21 @@ ExtensionManager ←── MachineManager ←── Instructions ←── (most
                   ↑                  ↑
                   │                  ├── OperationFees
                   │                  ├── Verification
-                  │                  ├── SystemStateVerifier
-                  │                  └── Replication
+                  │                  └── SystemStateVerifier
                   │
                   └── WalletProjectManager ←── WalletManager ←── WalletKeyManager
                                                                       │
-                                                                      ├── WalletBackupManager (uses same lib)
-                                                                      └── WalletResume
+                                                                      └── WalletBackupManager (uses same lib)
                                             MachinePathManager ←── ExtensionGovernance
                                                                     ↑
-                                                         (read by ReplicationFacet.replicateFrom and
-                                                          WalletBackupManager.directBackup/directRestore)
+                                                         (read by WalletBackupManager.directBackup/directRestore)
                                             Vrf (own state, calls MachineManager)
                                             OwnerAllowlist (own state)
 ```
 
 ## TeePayments — outside the diamond
 
-A few contracts sit *outside* the diamond, deployed as their own UUPS-upgradeable proxies. The `TeePayments*` suite instructs **PMW (Protocol Managed Wallet) payments** — turning `pay`/`reissue` calls into signed TEE instructions — plus the fee schedules and limits for extension-level payment operations (separate from the per-instruction fees collected by `OperationFees` inside the diamond). The payment design (account vs UTXO models, anchors, batches, reissue) is documented in [Payments](./Payments.md); the contracts:
+A few contracts sit *outside* the diamond, deployed as their own UUPS-upgradeable proxies. The `TeePayments*` suite instructs **PMW (Protocol Managed Wallet) payments** — turning `pay`/`reissue` calls into signed TEE instructions — plus the fee schedules for extension-level payment operations (separate from the per-instruction fees collected by `OperationFees` inside the diamond). The payment design (account vs UTXO models, anchors, batches, reissue) is documented in [Payments](./Payments.md); the contracts:
 
 | Contract | Role |
 |----------|------|
@@ -137,7 +131,6 @@ A few contracts sit *outside* the diamond, deployed as their own UUPS-upgradeabl
 | [`TeePaymentsUtxo`](../../../contracts/tee/implementation/TeePaymentsUtxo.sol) | UTXO/anchor-model payment contract (e.g. BTC): per-anchor nonce streams with round-robin anchor selection, grow-only anchor sets, payment batches, and reissue/replacement tracking (records the exact reissue block list). |
 | [`TeePaymentsConfigVerifier`](../../../contracts/tee/implementation/TeePaymentsConfigVerifier.sol) | Shared request + verify contract for PMW multisig configuration attestations (both account and UTXO). Requests live only here; the payment contracts call `verify{Account,Utxo}ConfiguredProof` (validate-only — reverts on an invalid proof, returns nothing) and write state read directly from the calldata proof. Reuses [`Fdc2ProofVerification`](../../../contracts/fdc2/library/Fdc2ProofVerification.sol). |
 | [`TeePaymentsFeeScheduleManager`](../../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol) | Per-extension fee schedules (which operations cost how much, when changes take effect). |
-| [`TeePaymentsLimitsManager`](../../../contracts/tee/implementation/TeePaymentsLimitsManager.sol) | Per-extension payment caps and rate limits. |
 | [`TeePaymentsRegistry`](../../../contracts/tee/implementation/TeePaymentsRegistry.sol) | Registry of `sourceId → TeePayments` bindings (with each source's `keyType`/`opType`/`paymentModel`); the diamond's `OperationFeesFacet` and the payment/verifier/manager contracts consult it. |
 | [`TeeRewardOffersManager`](../../../contracts/tee/implementation/TeeRewardOffersManager.sol) | Inflation receiver / community offers manager for FCC. Mirrors `FtsoRewardOffersManager` and `FdcHub` — see [Rewarding](./Rewarding.md). |
 | [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) | Stand-alone VRF verifier contract. Verifies VRF proofs produced by FCC's `VrfFacet`. |
@@ -152,7 +145,6 @@ Cross-library structs live in [`contracts/tee/structs/`](../../../contracts/tee/
 - `TeeInstructionsStructs` — `TeeInstructionParams` (the body of an instruction), `TeeOperationParams`.
 - `TeePaymentsStructs` — payment / fee schedule structs.
 - `TeeWalletStructs` — wallet, key, admin set structs.
-- `TeeReplicationStructs` — replication payload structs (`PauseForUpgrade`, `ReplicateTeeMachine`).
 - `TeeMachinePathStructs` — machine path lists (`MachinePath` exposer for ABI codegen).
 - `TeeVerificationStructs`, `TeeVrfStructs` — verification-flow specifics.
 
@@ -162,13 +154,11 @@ Cross-library structs live in [`contracts/tee/structs/`](../../../contracts/tee/
 |----------------------------------------------|------------------------------|
 | Instruction dispatch | TEE payment accounting |
 | Machine registration / lifecycle | Fee schedule (per extension) |
-| Replication groups | Limits / rate caps |
 | Wallet / key / admin management | Reward offers manager |
 | Operation fees & schedule lookup | VRF verifier (stand-alone) |
 | Diamond governance (ERC-2535 cut) | |
 | Per-extension governance | |
 | Owner allowlist | |
-| Upgrade manager | |
 | Verification | |
 
 The split was deliberate: anything that needs a stable address that *other* contracts (like `Fdc2Hub`) call into, or that needs its own UUPS upgradeability separate from a diamond cut, lives outside. Everything else is a facet.

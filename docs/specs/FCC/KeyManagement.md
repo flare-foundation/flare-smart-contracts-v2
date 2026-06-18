@@ -58,7 +58,7 @@ The threshold $k$ is what governs restore: any $k$-of-$n$ admins, working togeth
 
 ## Key restoration
 
-When a TEE machine custodying a wallet has failed (no replication sibling left, machine `BANNED` or unrecoverable), the keys can be restored to a freshly-registered TEE via the admin-threshold path:
+When a TEE machine custodying a wallet has failed (machine `BANNED` or otherwise unrecoverable, with no other TEE in the wallet's set still holding the key), the keys can be restored to a freshly-registered TEE via the admin-threshold path:
 
 1. The wallet owner registers a new TEE (or selects an existing fresh one) and pairs it with the wallet through `WalletKeyManagerFacet`'s restore-init entry.
 2. The on-chain layer emits an instruction to the new TEE to begin restore, generating a fresh ephemeral encryption key bound to that machine.
@@ -161,7 +161,7 @@ The two paths coexist — neither replaces the other. They share the restore-sid
 3. The TEE produces a VRF output using its key and the seed; emits a proof.
 4. The off-chain layer relays the proof back; consumer contracts verify it using [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) (a stand-alone UUPS contract outside the diamond).
 
-Since VRF outputs are deterministic given (key, seed), they're reproducible across a wallet's replicated TEEs — every replica produces the same output for the same input.
+Since VRF outputs are deterministic given (key, seed), they're reproducible across all TEEs in a wallet's set — every TEE holding the key produces the same output for the same input.
 
 ## Key type support and disabling
 

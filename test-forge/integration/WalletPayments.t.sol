@@ -30,7 +30,7 @@ import { ITeePaymentsBase } from "../../contracts/userInterfaces/tee/ITeePayment
 import {
     ITeePaymentsConfigVerifier
 } from "../../contracts/userInterfaces/tee/ITeePaymentsConfigVerifier.sol";
-import { ITeePaymentsModel, PaymentModel } from "../../contracts/userInterfaces/tee/ITeePaymentsModel.sol";
+import { PaymentModel } from "../../contracts/userInterfaces/tee/ITeePaymentsModel.sol";
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
 import { IPMWMultisigAccountConfigured } from "../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
@@ -39,7 +39,6 @@ import { ProtocolsV2Interface } from "../../contracts/userInterfaces/LTS/Protoco
 import { IFdc2Verification } from "../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
 import { IFdc2Hub } from "../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { MachineManager } from "../../contracts/tee/library/MachineManager.sol";
 
 /**
@@ -150,7 +149,7 @@ contract WalletPaymentsTest is Test {
         });
 
         defaultFee = 3;
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: governanceSettings,
             initialGovernance: governance,
             addressUpdater: addressUpdater,
@@ -161,11 +160,6 @@ contract WalletPaymentsTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
-        vm.startPrank(governance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
 
         // =====================================================================
         // Deploy TeePayments (separate UUPS proxy)

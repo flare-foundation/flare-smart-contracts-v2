@@ -33,7 +33,6 @@ The FCC reward pool is split (off-chain) across:
 - **Relay clients** — registered FSP voters that monitor `TeeInstructionsSent` events, sign instructions with their `signingPolicyAddress`, and forward to the relevant TEE proxies. Reward is proportional to participation: signing the right instructions, with the right signing-policy address, before the deadline. Late or wrong signatures get burned.
 - **TEE operators** — for each TEE machine that successfully executed an instruction, the owner is rewarded. Includes the `lastStatusChangeTs` / availability-check freshness as eligibility factors — TEE operators that let their attestations expire don't get paid.
 - **Cosigners** — when an instruction includes a `cosigners[]` array and the `cosignersThreshold` is met, the participating cosigners share a portion of the pool.
-- **Replication participants** — TEE operators participating in active replication groups can earn for the additional service of running replicas.
 - **Project owners and key admins** — application-level rewards, where the on-chain economics flow through to the off-chain admin set the FCC infrastructure is supporting. Less standardized, depends on extension.
 
 The exact percentages and per-extension rules are an off-chain concern; the on-chain layer just emits the events the calculator needs and holds the FLR until claims become live.

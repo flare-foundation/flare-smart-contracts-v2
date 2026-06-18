@@ -92,13 +92,6 @@ contract MachineManagerFacet is IMachineManager {
 
         if (status == TeeStatus.INITIALIZED) {
             state.initialSigningPolicyId = _proof.responseBody.initialSigningPolicyId;
-            // Pre-commit the TEE's replication-capability signal so `SystemStateVerifier`'s
-            // single strict-compare path validates `state.initialTeeId == teeId`. Empty
-            // payload (non-replication binary) leaves the slot at zero and the verifier's
-            // empty-payload branch passes. State changes roll back on any subsequent revert.
-            if (_proof.responseBody.state.systemState.length > 0) {
-                state.initialTeeId = teeId;
-            }
         }
 
         IMachineManager.TeeMachineWithAttestationData memory teeMachine =
@@ -425,10 +418,8 @@ contract MachineManagerFacet is IMachineManager {
     {
         _state.teeMachineStates[_teeId] = MachineManager.TeeMachineState({
             extensionId: _teeMachineData.extensionId,
-            // initialTeeId is deferred: the TEE attests it in its first availability check via
-            // a populated `TeeSystemState`. A machine whose binary does not support replication
-            // attests empty, leaving the value at zero — which is the on-chain marker that the
-            // machine cannot be replicated.
+            // initialTeeId is a dormant field: it stays zero for every machine. The slot is kept
+            // so replication support can be reintroduced later without a storage migration.
             initialTeeId: address(0),
             teePublicKey: _teeMachineData.publicKey,
             initialSigningPolicyId: 0,
@@ -443,7 +434,7 @@ contract MachineManagerFacet is IMachineManager {
         });
 
         // Registration path: attesting on the machine itself (no prior challenge exists yet).
-        Verification.requestTeeAttestation(_teeId, _teeId, _claimBackAddress);
+        Verification.requestTeeAttestation(_teeId, _claimBackAddress);
         emit TeeMachineRegistered(
             _teeId,
             _teeProxyId,

@@ -120,7 +120,7 @@ contract MachinePathManagerFacetTest is Test {
         codeHashB = keccak256("codeHashB");
         codeHashC = keccak256("codeHashC");
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
@@ -131,11 +131,6 @@ contract MachinePathManagerFacetTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
-        vm.startPrank(initialGovernance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
 
         // Wire external addresses through the addressUpdater.
         bytes32[] memory nameHashes = new bytes32[](6);
@@ -355,14 +350,12 @@ contract MachinePathManagerFacetTest is Test {
     function testAddMachinePathsAcceptsAllStatuses() public {
         // Every status is accepted by the path-manager helper as long as a governance hash is set;
         // status checks are the caller's responsibility (e.g. directBackup requires PRODUCTION).
-        IMachineManager.TeeStatus[] memory statuses = new IMachineManager.TeeStatus[](7);
+        IMachineManager.TeeStatus[] memory statuses = new IMachineManager.TeeStatus[](5);
         statuses[0] = IMachineManager.TeeStatus.INITIALIZED;
         statuses[1] = IMachineManager.TeeStatus.PRODUCTION;
         statuses[2] = IMachineManager.TeeStatus.SUSPENDED;
         statuses[3] = IMachineManager.TeeStatus.PAUSED;
-        statuses[4] = IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE;
-        statuses[5] = IMachineManager.TeeStatus.REPLICATING;
-        statuses[6] = IMachineManager.TeeStatus.BANNED;
+        statuses[4] = IMachineManager.TeeStatus.BANNED;
 
         for (uint256 i = 0; i < statuses.length; i++) {
             helper.setTeeMachineState(teeA1, extensionId, codeHashA, platform, govHashA, statuses[i]);

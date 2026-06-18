@@ -10,9 +10,6 @@ import { IMachineManager, TEE_MACHINE_REGISTER } from "../../../../contracts/use
 import {
     TEE_SOURCE_ID
 } from "../../../../contracts/userInterfaces/tee/IVerification.sol";
-import {
-    ISystemStateVerifier
-} from "../../../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 
@@ -131,7 +128,7 @@ contract MachineManagerFacetTest is Test {
         cosignersThreshold = 2;
 
         // Deploy the diamond
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
@@ -142,11 +139,6 @@ contract MachineManagerFacetTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
-        vm.startPrank(initialGovernance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
 
         // Update contract addresses
         bytes32[] memory nameHashes = new bytes32[](6);
@@ -759,9 +751,7 @@ contract MachineManagerFacetTest is Test {
         IMachineManager.TeeMachineWithAttestationData memory teeMachineAttData =
             flareTeeManager.getTeeMachineWithAttestationData(teeId);
         assertEq(teeMachineAttData.teeId, teeId);
-        // `initialTeeId` is deferred — registration leaves it zero, and it is captured at the
-        // first successful availability check (in `toProduction`) when the TEE attests a
-        // populated `TeeSystemState`.
+        // `initialTeeId` is a dormant field: it stays zero for every machine.
         assertEq(teeMachineAttData.initialTeeId, address(0));
         assertEq(teeMachineAttData.url, url);
         assertEq(teeMachineAttData.codeHash, codeHash);
@@ -953,11 +943,6 @@ contract MachineManagerFacetTest is Test {
             keccak256(abi.encode(extensionId))
         );
 
-        ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
-            ISystemStateVerifier.TeeMachineStatus.ACTIVE,
-            _teeId
-        );
-
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             uint64(vm.getBlockTimestamp()),
@@ -965,7 +950,7 @@ contract MachineManagerFacetTest is Test {
             platform,
             1,  // initialSigningPolicyId
             1,  // lastSigningPolicyId
-            ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
+            ITeeAvailabilityCheck.TeeState(new bytes(0), bytes32(0), new bytes(0), bytes32(0))
         );
 
         bytes32 messageHash = SignedPayload.messageHash(

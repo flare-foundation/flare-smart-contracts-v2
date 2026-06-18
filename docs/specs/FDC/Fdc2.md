@@ -49,7 +49,7 @@ If `_teeIds[]` is empty, the hub picks `_numberOfTees` (or `defaultNumberOfTees`
 If `_teeIds[]` is provided, each is checked individually:
 
 - No duplicates.
-- Status must be `INITIALIZED` or `PRODUCTION`. If `PAUSED_FOR_UPGRADE`, the hub looks up the **replicating** TEE (`flareTeeManager.getReplicatingTeeId(teeId)`) and substitutes it (preserving the original `teeId` for the consumer's view); reverts if there is no replicating machine.
+- Status must be `INITIALIZED` or `PRODUCTION`; otherwise the attestation reverts `TeeMachineNotAvailable`.
 - Must belong to the system extension (`extensionId == 0`).
 
 ### Fee handling and routing

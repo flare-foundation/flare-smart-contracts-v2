@@ -112,7 +112,7 @@ contract VrfFacetTest is Test {
         flareSystemsManagerMock = makeAddr("FlareSystemsManager");
         rewardManagerMock = makeAddr("RewardManager");
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: governance,
             addressUpdater: addressUpdater,
@@ -123,11 +123,6 @@ contract VrfFacetTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
-        vm.startPrank(governance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
 
         // Update contract addresses
         bytes32[] memory nameHashes = new bytes32[](6);

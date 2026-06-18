@@ -62,7 +62,6 @@ library MachineManager {
         } else if (
             _newStatus == IMachineManager.TeeStatus.PAUSED ||
             _newStatus == IMachineManager.TeeStatus.SUSPENDED ||
-            _newStatus == IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE ||
             _newStatus == IMachineManager.TeeStatus.BANNED
         ) {
             s.extensionActiveTeeIds[state.extensionId].remove(_teeId);

@@ -158,7 +158,7 @@ contract ExtensionManagerFacetTest is Test {
         flareSystemsManager = makeAddr("FlareSystemsManager");
         rewardManager = makeAddr("RewardManager");
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
@@ -169,11 +169,6 @@ contract ExtensionManagerFacetTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
-        vm.startPrank(initialGovernance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
 
         // Add test helper facet to the diamond
         testSetupFacet = new TestTeeMachineSetupFacet();
@@ -1070,28 +1065,6 @@ contract ExtensionManagerFacetTest is Test {
         );
     }
 
-    function testSendSystemInstructionsRevertOnlySystemInstructionsSender2() public {
-        IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
-        teeMachines[0] = IMachineManager.TeeMachine(
-            teeIds[0],
-            teeIds[0],
-            url
-        );
-        teeMachines[1] = IMachineManager.TeeMachine(
-            teeIds[1],
-            teeIds[1],
-            url
-        );
-        vm.expectRevert(IInstructions.OnlySystemInstructionsSender.selector);
-        flareTeeManager.sendSystemInstructions(
-            instructionId,
-            teeMachines,
-            IInstructions.TeeInstructionParams(
-                opType, opCommand, message, new address[](0), 0, address(0)
-            )
-        );
-    }
-
     function testSendSystemInstructions() public {
         testRegisterSystemInstructionsSenders();
         IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
@@ -1127,45 +1100,6 @@ contract ExtensionManagerFacetTest is Test {
         flareTeeManager.sendSystemInstructions{value: 2000}(
             instructionId,
             teeIds,
-            IInstructions.TeeInstructionParams(opType, opCommand, message, cosigners, 1, address(0))
-        );
-    }
-
-    function testSendSystemInstructions2() public {
-        testRegisterSystemInstructionsSenders();
-        IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
-        teeMachines[0] = IMachineManager.TeeMachine(
-            teeIds[0],
-            teeIds[0],
-            url
-        );
-        teeMachines[1] = IMachineManager.TeeMachine(
-            teeIds[1],
-            teeIds[1],
-            url
-        );
-        vm.expectEmit();
-        address[] memory cosigners = new address[](2);
-        cosigners[0] = makeAddr("cosigner1");
-        cosigners[1] = makeAddr("cosigner2");
-        emit IInstructions.TeeInstructionsSent(
-            extensionId,
-            instructionId,
-            currentRewardEpochId,
-            teeMachines,
-            opType,
-            opCommand,
-            message,
-            cosigners,
-            1,
-            address(0),
-            2000
-        );
-        vm.deal(instructionsSenders[0], 1 ether);
-        vm.prank(instructionsSenders[0]);
-        flareTeeManager.sendSystemInstructions{value: 2000}(
-            instructionId,
-            teeMachines,
             IInstructions.TeeInstructionParams(opType, opCommand, message, cosigners, 1, address(0))
         );
     }

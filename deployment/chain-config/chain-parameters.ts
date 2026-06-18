@@ -502,11 +502,6 @@ export interface ChainParameters {
   teeDefaultFeeWei: string;
 
   /**
-   * Minimal duration that TEE should be in status pause before pause for upgrade can be triggered, in seconds (e.g. 10 minutes).
-   */
-  teePauseBeforeUpgradeMinDurationSeconds: integer;
-
-  /**
    * The TEE availability check validity duration, in seconds (e.g. 1 day).
    * In order to receive rewards, TEE must be checked for availability at least once in this period.
    */

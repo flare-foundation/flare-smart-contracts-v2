@@ -8,7 +8,6 @@ import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { Verification } from "../library/Verification.sol";
 import { MachineManager } from "../library/MachineManager.sol";
-import { Replication } from "../library/Replication.sol";
 import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
@@ -26,8 +25,7 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
     )
         external payable
     {
-        // Public path: attest via the replicating sibling if one is mid-upgrade.
-        Verification.requestTeeAttestation(_teeId, _getAttestingTeeId(_teeId), _claimBackAddress);
+        Verification.requestTeeAttestation(_teeId, _claimBackAddress);
     }
 
     /// @inheritdoc IVerification
@@ -45,8 +43,7 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
             s.challengeTs[_teeId] + s.challengeValidityDurationSeconds > block.timestamp,
             ChallengeExpired(s.challengeTs[_teeId])
         );
-        address attestingTeeId = _getAttestingTeeId(_teeId);
-        IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(attestingTeeId);
+        IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(_teeId);
         ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
             teeId: _teeId,
             teeProxyId: teeMachine.teeProxyId,
@@ -57,10 +54,8 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
 
         address[] memory registrationCosigners = new address[](0);
         uint64 registrationCosignersThreshold = 0;
-        IMachineManager.TeeStatus status = MachineManager.getTeeMachineStatus(attestingTeeId);
-        if (status == IMachineManager.TeeStatus.INITIALIZED ||
-            status == IMachineManager.TeeStatus.REPLICATING)
-        {
+        IMachineManager.TeeStatus status = MachineManager.getTeeMachineStatus(_teeId);
+        if (status == IMachineManager.TeeStatus.INITIALIZED) {
             registrationCosigners = s.cosigners.values();
             registrationCosignersThreshold = s.cosignersThreshold;
         }
@@ -181,21 +176,5 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
         )
     {
         return Verification.getAvailabilityCheckValidity(_teeId);
-    }
-
-    // =========================================================================
-    // Internal
-    // =========================================================================
-
-    function _getAttestingTeeId(
-        address _teeId
-    )
-        private view
-        returns (address _attestingTeeId)
-    {
-        _attestingTeeId = Replication.getReplicatingTeeId(_teeId);
-        if (_attestingTeeId == address(0)) {
-            _attestingTeeId = _teeId;
-        }
     }
 }

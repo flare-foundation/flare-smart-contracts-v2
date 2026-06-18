@@ -10,7 +10,6 @@ import { TeePaymentsRegistryProxy } from "../../../../contracts/tee/proxy/TeePay
 import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { ITeePaymentsBase } from "../../../../contracts/userInterfaces/tee/ITeePaymentsBase.sol";
 import { ITeePaymentsUtxo } from "../../../../contracts/userInterfaces/tee/ITeePaymentsUtxo.sol";
-import { IITeePaymentsUtxo } from "../../../../contracts/tee/interface/IITeePaymentsUtxo.sol";
 import {
     ITeePaymentsConfigVerifier
 } from "../../../../contracts/userInterfaces/tee/ITeePaymentsConfigVerifier.sol";

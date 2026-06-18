@@ -305,7 +305,7 @@ contract WalletKeyManagerFacetTest is Test {
         // Deploy FlareTeeManager Diamond
         // =====================================================================
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
@@ -316,11 +316,6 @@ contract WalletKeyManagerFacetTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
-        vm.startPrank(initialGovernance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
 
         // =====================================================================
         // Add TestKeyManagerHelperFacet to the diamond
@@ -564,7 +559,7 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId,
             teeMachineOwner,
-            IMachineManager.TeeStatus.REPLICATING,
+            IMachineManager.TeeStatus.PAUSED,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -1059,7 +1054,7 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId,
             teeMachineOwner,
-            IMachineManager.TeeStatus.REPLICATING,
+            IMachineManager.TeeStatus.PAUSED,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"

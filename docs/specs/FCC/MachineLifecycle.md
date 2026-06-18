@@ -6,13 +6,12 @@ A TEE machine progresses through a state machine from registration to operation 
 
 ```solidity
 enum TeeStatus {
-    INITIALIZED,         // 0 — registered, awaiting first availability check
-    PRODUCTION,          // 1 — live, accepting instructions
-    SUSPENDED,           // 2 — failed availability check or stale; can be revived with a fresh proof
-    PAUSED,              // 3 — voluntarily paused by owner, or version disabled
-    PAUSED_FOR_UPGRADE,  // 4 — paused as part of an extension upgrade
-    REPLICATING,         // 5 — being copied to a new machine in the same replication group
-    BANNED               // 6 — removed by extension owner; cannot return to PRODUCTION
+    NONE,                // 0 — not registered
+    INITIALIZED,         // 1 — registered, awaiting first availability check
+    PRODUCTION,          // 2 — live, accepting instructions
+    SUSPENDED,           // 3 — failed availability check or stale; can be revived with a fresh proof
+    PAUSED,              // 4 — voluntarily paused by owner, or version disabled
+    BANNED               // 5 — removed by extension owner; cannot return to PRODUCTION
 }
 ```
 
@@ -22,7 +21,7 @@ The machine's state lives in `MachineManager.TeeMachineState`:
 struct TeeMachineState {
     uint256 extensionId;             // 0 = system extension, otherwise a registered extension
     PublicKey teePublicKey;          // tee identity public key
-    address initialTeeId;            // the address derived from the original public key (immutable)
+    address initialTeeId;            // dormant — always address(0); retained for forward compatibility
     uint32 initialSigningPolicyId;   // FSP signing policy at first PRODUCTION; binds the machine's identity to a policy
     address owner;                   // the TEE operator
     address teeProxyId;              // off-chain TEE proxy address
@@ -51,14 +50,14 @@ function register(
 Caller is the proposed owner (`msg.sender == _teeMachineData.initialOwner`). `TeeMachineData` carries the extension id, the TEE public key, the initial owner, the `(codeHash, platform)` pair, **and a `governanceHash`** committing the registration to a specific extension-governance signer set (or to zero if the registrant doesn't yet want to participate in governance-signed flows). Validation:
 
 - The caller's address must be on the **owner allowlist** for the target extension ([`OwnerAllowlist.isAllowedTeeMachineOwner`](../../../contracts/tee/library/OwnerAllowlist.sol)). If not, `OwnerNotAllowed()`.
-- `governanceHash` must be either `bytes32(0)` *or* the extension's current `latestTeeGovernanceHash` (the most recent value set by `ExtensionGovernanceFacet.setNewTeeGovernance`). Earlier or unrelated hashes are rejected with `InvalidGovernanceHash()`. The hash is then stored on the machine's `TeeMachineState.governanceHash` slot and consumed later by `MachinePathManager` (see [Governance / Machine path manager](./Governance.md#machine-path-manager)) and by `ReplicationFacet` — both require a non-zero stored hash.
+- `governanceHash` must be either `bytes32(0)` *or* the extension's current `latestTeeGovernanceHash` (the most recent value set by `ExtensionGovernanceFacet.setNewTeeGovernance`). Earlier or unrelated hashes are rejected with `InvalidGovernanceHash()`. The hash is then stored on the machine's `TeeMachineState.governanceHash` slot and consumed later by `MachinePathManager` (see [Governance / Machine path manager](./Governance.md#machine-path-manager)), which requires a non-zero stored hash.
 - `publicKey` must be a valid uncompressed secp256k1 public key.
 - `_teeMachineDataSignature` must be the EIP-191 signature, by the corresponding TEE private key, over `SignedPayload.messageHash(TEE_MACHINE_REGISTER, keccak256(abi.encode(_teeMachineData)))`. The recovered address becomes the `teeId`. The [`SignedPayload`](../../../contracts/utils/lib/SignedPayload.sol) envelope adds the `TEE_MACHINE_REGISTER` domain prefix and binds `block.chainid`, so the same TEE registration signature cannot be replayed across Flare networks. Since the inner `dataHash` covers the full `_teeMachineData` struct (including `governanceHash`), the TEE itself commits to the governance it's registering under.
 - `_teeProxyId != 0`, `_url` non-empty.
 - `(codeHash, platform)` must be on the extension's supported version list ([`ExtensionManager.isCodeHashPlatformSupported`](../../../contracts/tee/library/ExtensionManager.sol)).
 - `teeId` must not already be registered (`AlreadyRegistered()`).
 
-On success the state row is initialized at `INITIALIZED` with `initialTeeId = 0`. The `initialTeeId` slot is **deferred** — it is captured at the first successful availability check (in `toProduction` or `replicateFrom`) from the TEE's signed `TeeSystemState` payload. A TEE binary that supports replication signs a populated payload; the chain stores the attested value. A binary that doesn't support replication signs empty, and `initialTeeId` stays zero permanently — which is the on-chain marker that the machine cannot be replicated, even if its `governanceHash` is non-zero. See [Verification / System state verification](./Verification.md#system-state-verification) for the verifier semantics.
+On success the state row is initialized at `INITIALIZED` with `initialTeeId = 0`. The `initialTeeId` slot is currently **dormant** — it stays `address(0)` for every machine throughout its lifecycle. The field is retained on-chain (in `TeeMachineState`, `getInitialTeeId`, and `IMachineManager.TeeMachineWithAttestationData`) so that future functionality requiring it can be re-introduced without a storage migration. The TEE-signed system-state payload presented at availability checks must be empty; see [Verification / System state verification](./Verification.md#system-state-verification) for the verifier semantics.
 
 The facet then fires an **initial availability-check instruction** — a system-only `(F_REG, "TEE_ATTESTATION")` instruction directed at this single machine, with a random `challenge`. The challenge is stored in `Verification.State.challenges[teeId]` so the response can be matched. The fee paid (`msg.value`) covers the instruction fee.
 
@@ -98,7 +97,7 @@ All three paths emit `TeeMachineStatusChanged(teeId, newStatus)`.
 
 Per-extension **emergency pause** is a boolean overlay maintained by [`MachineEmergencyPauseFacet`](../../../contracts/tee/facets/MachineEmergencyPauseFacet.sol) + [`library/MachineEmergencyPause`](../../../contracts/tee/library/MachineEmergencyPause.sol). It is a separate concern from a machine's `TeeStatus` — **machine statuses are not mutated** when the overlay flips, and neither are the active sets. While `emergencyPaused[extensionId]` is `true`, the single on-chain effect is:
 
-- [`Instructions.sendInstructions`](../../../contracts/tee/library/Instructions.sol) reverts `EmergencyPauseActive(extensionId)`. Every dispatch path funnels through this library function — `InstructionsFacet.sendInstructions`, `InstructionsFacet.sendSystemInstructions` (both overloads), `VrfFacet.requestVrf`, `WalletResumeFacet.setPausingAddresses`, and every wallet-key / backup / resume flow that emits an instruction. Both regular and system opTypes are blocked.
+- [`Instructions.sendInstructions`](../../../contracts/tee/library/Instructions.sol) reverts `EmergencyPauseActive(extensionId)`. Every dispatch path funnels through this library function — `InstructionsFacet.sendInstructions`, `InstructionsFacet.sendSystemInstructions` (both overloads), `VrfFacet.requestVrf`, and every wallet-key / backup flow that emits an instruction. Both regular and system opTypes are blocked.
 
 Read getters — `getActiveTeeMachines`, `getAllActiveTeeMachines`, `getRandomTeeIds` — are intentionally **not** filtered; the active sets remain authoritative for status. Off-chain consumers that need "is this usable right now" should also call `isExtensionEmergencyPaused(extensionId)`. Verification / key-confirmation flows (`VerificationFacet.confirmAvailability`, `WalletKeyManagerFacet.confirmKey`) are not blocked either — they only record TEE-produced proofs whose generation is independent of the overlay (FDC2 attestations are signed by system-extension TEEs, and key-existence proofs are produced off-chain by the wallet's own TEEs). Blocking them would only delay submission, not prevent any state advance, so the overlay leaves them untouched.
 
@@ -144,7 +143,7 @@ Setting `_newOwner = address(0)` is how an owner cancels a previously-made propo
 function updateTeeMachineSettings(address _teeId, address _teeProxyId, string calldata _url) external;
 ```
 
-The owner can change the proxy address and URL anytime. **Side effect**: if the machine is `PRODUCTION` or `SUSPENDED`, the change forces it to `PAUSED` (the network needs a fresh availability check at the new endpoint before trusting it again). `INITIALIZED`, `PAUSED`, `PAUSED_FOR_UPGRADE`, `REPLICATING`, `BANNED` are unchanged.
+The owner can change the proxy address and URL anytime. **Side effect**: if the machine is `PRODUCTION` or `SUSPENDED`, the change forces it to `PAUSED` (the network needs a fresh availability check at the new endpoint before trusting it again). `INITIALIZED`, `PAUSED`, `BANNED` are unchanged.
 
 ## Random selection
 
@@ -174,7 +173,3 @@ The `Active` views skip everything outside `PRODUCTION`. Off-chain selectors (e.
 ## Why initial signing policy ID matters
 
 `initialSigningPolicyId` is set once, when a machine first reaches `PRODUCTION`. It records *the FSP signing policy that was active when the machine became trusted*. This is the floor of provenance: a TEE machine signing a message that references a signing policy *older* than its `initialSigningPolicyId` is signing about a state it never witnessed, and the verification layer (see [Verification](./Verification.md)) rejects it. This anchor prevents replay of pre-existing TEE keys against future state.
-
-## What replication looks like in this state machine
-
-`REPLICATING` is the transient status of the **new** machine being paired into an upgrade — see [Replication](./Replication.md). The upgrade source (`_oldTeeId`) moves `PRODUCTION → PAUSED → PAUSED_FOR_UPGRADE` and, on `confirmReplicate`, back to `PRODUCTION` carrying the new machine's identity; the new machine starts at `INITIALIZED`, is moved to `REPLICATING` by `replicateFrom`, and has its state row deleted when `confirmReplicate` absorbs it into the source's row. Until the upgrade finishes, both machines are out of the active sets.

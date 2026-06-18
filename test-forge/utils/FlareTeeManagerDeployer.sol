@@ -7,7 +7,7 @@ import { IDiamond } from "../../contracts/diamond/interfaces/IDiamond.sol";
 import { IDiamondCut } from "../../contracts/diamond/interfaces/IDiamondCut.sol";
 import { DiamondLoupeFacet } from "../../contracts/diamond/facets/DiamondLoupeFacet.sol";
 
-// TEE facets — day-1
+// TEE facets
 import { DiamondGovernanceFacet } from "../../contracts/tee/facets/DiamondGovernanceFacet.sol";
 import { ExtensionManagerFacet } from "../../contracts/tee/facets/ExtensionManagerFacet.sol";
 import { InstructionsFacet } from "../../contracts/tee/facets/InstructionsFacet.sol";
@@ -26,21 +26,14 @@ import { ExtensionGovernanceFacet } from "../../contracts/tee/facets/ExtensionGo
 import { MachinePathManagerFacet } from "../../contracts/tee/facets/MachinePathManagerFacet.sol";
 import { MachineEmergencyPauseFacet } from "../../contracts/tee/facets/MachineEmergencyPauseFacet.sol";
 
-// TEE facets — later
-import { ReplicationFacet } from "../../contracts/tee/facets/ReplicationFacet.sol";
-import { ExtensionPausingFacet } from "../../contracts/tee/facets/ExtensionPausingFacet.sol";
-import { WalletResumeFacet } from "../../contracts/tee/facets/WalletResumeFacet.sol";
-
 // Init contracts
 import { FlareTeeManagerInit } from "../../contracts/tee/facets/FlareTeeManagerInit.sol";
-import { ReplicationInit } from "../../contracts/tee/facets/ReplicationInit.sol";
 
 // TEE interfaces (for selector references)
 import { IIExtensionManager } from "../../contracts/tee/interface/IIExtensionManager.sol";
 import { IIInstructions } from "../../contracts/tee/interface/IIInstructions.sol";
 import { IIVerification } from "../../contracts/tee/interface/IIVerification.sol";
 import { IIOperationFees } from "../../contracts/tee/interface/IIOperationFees.sol";
-import { IIReplication } from "../../contracts/tee/interface/IIReplication.sol";
 import { IExtensionManager } from "../../contracts/userInterfaces/tee/IExtensionManager.sol";
 import { IInstructions } from "../../contracts/userInterfaces/tee/IInstructions.sol";
 import { IMachineEmergencyPause } from "../../contracts/userInterfaces/tee/IMachineEmergencyPause.sol";
@@ -48,8 +41,6 @@ import { IIMachineEmergencyPause } from "../../contracts/tee/interface/IIMachine
 import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { IOwnerAllowlist } from "../../contracts/userInterfaces/tee/IOwnerAllowlist.sol";
 import { IExtensionGovernance } from "../../contracts/userInterfaces/tee/IExtensionGovernance.sol";
-import { IExtensionPausing } from "../../contracts/userInterfaces/tee/IExtensionPausing.sol";
-import { IReplication } from "../../contracts/userInterfaces/tee/IReplication.sol";
 import { IVerification } from "../../contracts/userInterfaces/tee/IVerification.sol";
 import { IMachinePathManager } from "../../contracts/userInterfaces/tee/IMachinePathManager.sol";
 import { IOperationFees } from "../../contracts/userInterfaces/tee/IOperationFees.sol";
@@ -57,7 +48,6 @@ import { IWalletProjectManager } from "../../contracts/userInterfaces/tee/IWalle
 import { IWalletKeyManager } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
 import { IWalletManager } from "../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { IWalletProjectPause } from "../../contracts/userInterfaces/tee/IWalletProjectPause.sol";
-import { IWalletResume } from "../../contracts/userInterfaces/tee/IWalletResume.sol";
 import { IWalletBackupManager } from "../../contracts/userInterfaces/tee/IWalletBackupManager.sol";
 import { IVrf } from "../../contracts/userInterfaces/tee/IVrf.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
@@ -70,13 +60,11 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * @title FlareTeeManagerDeployer
  * @notice Shared test utility for deploying the FlareTeeManager Diamond.
  *         Mirrors the production deployment pattern (DeployTeeContracts.s.sol):
- *         - deployDay1Facets(): creates diamond with 18 day-1 facets + FlareTeeManagerInit
- *         - deployLaterFacets(): adds 3 later facets via diamondCut + ReplicationInit
- *           Caller must vm.prank(initialGovernance) before calling deployLaterFacets.
+ *         - deployFacets(): creates diamond with 18 facets + FlareTeeManagerInit
  */
 library FlareTeeManagerDeployer {
 
-    struct Day1DeployParams {
+    struct DeployParams {
         IGovernanceSettings governanceSettings;
         address initialGovernance;
         address addressUpdater;
@@ -88,12 +76,8 @@ library FlareTeeManagerDeployer {
         uint256 emergencyUnpauseGracePeriodSeconds;
     }
 
-    struct LaterDeployParams {
-        uint256 pauseBeforeUpgradeMinDurationSeconds;
-    }
-
-    function deployDay1Facets(Day1DeployParams memory _params) internal returns (IIFlareTeeManager) {
-        IDiamond.FacetCut[] memory cuts = _buildDay1FacetCuts();
+    function deployFacets(DeployParams memory _params) internal returns (IIFlareTeeManager) {
+        IDiamond.FacetCut[] memory cuts = _buildFacetCuts();
 
         FlareTeeManagerInit initContract = new FlareTeeManagerInit();
         bytes memory initCalldata = abi.encodeCall(
@@ -122,32 +106,11 @@ library FlareTeeManagerDeployer {
         return IIFlareTeeManager(address(diamond));
     }
 
-    function deployLaterFacets(
-        IIFlareTeeManager _diamond,
-        LaterDeployParams memory _params
-    )
-        internal
-    {
-        IDiamond.FacetCut[] memory cuts = _buildLaterFacetCuts();
-
-        ReplicationInit replicationInit = new ReplicationInit();
-        bytes memory initCalldata = abi.encodeCall(
-            ReplicationInit.init,
-            (_params.pauseBeforeUpgradeMinDurationSeconds)
-        );
-
-        IDiamondCut(address(_diamond)).diamondCut(
-            cuts,
-            address(replicationInit),
-            initCalldata
-        );
-    }
-
     // =========================================================================
-    // Day-1 facet cuts (18 facets)
+    // Facet cuts (18 facets)
     // =========================================================================
 
-    function _buildDay1FacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
+    function _buildFacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
         cuts = new IDiamond.FacetCut[](18);
 
         // 0: DiamondGovernanceFacet (diamondCut + FlareGovernance selectors)
@@ -217,20 +180,15 @@ library FlareTeeManagerDeployer {
 
         // 3: InstructionsFacet
         {
-            bytes4[] memory s = new bytes4[](6);
+            bytes4[] memory s = new bytes4[](5);
             s[0] = IInstructions.sendInstructions.selector;
-            // sendSystemInstructions overloads
             s[1] = bytes4(keccak256(
                 "sendSystemInstructions(bytes32,address[],"
                 "(bytes32,bytes32,bytes,address[],uint64,address))"
             ));
-            s[2] = bytes4(keccak256(
-                "sendSystemInstructions(bytes32,(address,address,string)[],"
-                "(bytes32,bytes32,bytes,address[],uint64,address))"
-            ));
-            s[3] = IIInstructions.registerSystemInstructionsSenders.selector;
-            s[4] = IIInstructions.unregisterSystemInstructionsSenders.selector;
-            s[5] = IInstructions.getSystemInstructionsSenders.selector;
+            s[2] = IIInstructions.registerSystemInstructionsSenders.selector;
+            s[3] = IIInstructions.unregisterSystemInstructionsSenders.selector;
+            s[4] = IInstructions.getSystemInstructionsSenders.selector;
             cuts[3] = IDiamond.FacetCut(
                 address(new InstructionsFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -485,50 +443,6 @@ library FlareTeeManagerDeployer {
             s[13] = IMachineEmergencyPause.getEmergencyUnpauseGracePeriodSeconds.selector;
             cuts[17] = IDiamond.FacetCut(
                 address(new MachineEmergencyPauseFacet()), IDiamond.FacetCutAction.Add, s
-            );
-        }
-    }
-
-    // =========================================================================
-    // Later facet cuts (3 facets)
-    // =========================================================================
-
-    function _buildLaterFacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
-        cuts = new IDiamond.FacetCut[](3);
-
-        // 0: ReplicationFacet
-        {
-            bytes4[] memory s = new bytes4[](5);
-            s[0] = IReplication.toPauseForUpgrade.selector;
-            s[1] = IReplication.replicateFrom.selector;
-            s[2] = IReplication.confirmReplicate.selector;
-            s[3] = IReplication.getReplicatingTeeId.selector;
-            s[4] = IIReplication.setPauseBeforeUpgradeMinDurationSeconds.selector;
-            cuts[0] = IDiamond.FacetCut(
-                address(new ReplicationFacet()), IDiamond.FacetCutAction.Add, s
-            );
-        }
-
-        // 1: ExtensionPausingFacet
-        {
-            bytes4[] memory s = new bytes4[](5);
-            s[0] = IExtensionPausing.setTeePausingAddresses.selector;
-            s[1] = IExtensionPausing.signTeePausingAddresses.selector;
-            s[2] = IExtensionPausing.getTeePausingAddresses.selector;
-            s[3] = IExtensionPausing.getLatestTeePausingAddresses.selector;
-            s[4] = IExtensionPausing.hasSignedTeePausingAddresses.selector;
-            cuts[1] = IDiamond.FacetCut(
-                address(new ExtensionPausingFacet()), IDiamond.FacetCutAction.Add, s
-            );
-        }
-
-        // 2: WalletResumeFacet
-        {
-            bytes4[] memory s = new bytes4[](2);
-            s[0] = IWalletResume.setPausingAddresses.selector;
-            s[1] = IWalletResume.resume.selector;
-            cuts[2] = IDiamond.FacetCut(
-                address(new WalletResumeFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
     }

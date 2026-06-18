@@ -52,9 +52,6 @@ const teeContractNames = new Set([
   // TeePaymentsFeeScheduleManager (impl + proxy)
   "TeePaymentsFeeScheduleManagerImplementation",
   "TeePaymentsFeeScheduleManager",
-  // TeePaymentsLimitsManager (impl + proxy, deployed only on full deploys)
-  "TeePaymentsLimitsManagerImplementation",
-  "TeePaymentsLimitsManager",
   // TeeRewardOffersManager (impl + proxy)
   "TeeRewardOffersManagerImplementation",
   "TeeRewardOffersManager",
@@ -78,12 +75,8 @@ const teeContractNames = new Set([
   "VrfFacet",
   "ExternalAddressesFacet",
   "ExtensionGovernanceFacet",
-  "ReplicationFacet",
-  "ExtensionPausingFacet",
-  "WalletResumeFacet",
   "WalletProjectPauseFacet",
   "MachineEmergencyPauseFacet",
-  "ReplicationInit",
 ]);
 
 // Also match TeePayments_ prefixed entries (e.g. TeePayments_F_XRP)

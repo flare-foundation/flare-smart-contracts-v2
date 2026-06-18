@@ -144,6 +144,6 @@ Routing 100% of the paid value into `RewardManager` (rather than refunding exces
 | `F_VRF` | `VrfFacet` | VRF proof generation |
 | `F_FDC2` | `Fdc2Hub` (external — registered as system instructions sender) | FDC2 attestation requests |
 | `F_GET` | various | Read-only queries to TEEs (e.g. fetch backup material) |
-| `F_POLICY` | `MachineManagerFacet`, `ExtensionGovernanceFacet`, `ExtensionPausingFacet` | Policy initialization / update |
+| `F_POLICY` | `MachineManagerFacet`, `ExtensionGovernanceFacet` | Policy initialization / update |
 
 The full catalog of system commands lives in [flare-specs/FCC/Commands](https://github.com/flare-foundation/flare-specs/tree/main/src/FCC/Commands).

@@ -29,7 +29,7 @@ contract DiamondGovernanceFacetTest is Test {
         addressUpdater = makeAddr("AddressUpdater");
         governanceSettings = IGovernanceSettings(makeAddr("governanceSettings"));
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: governanceSettings,
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
@@ -40,11 +40,6 @@ contract DiamondGovernanceFacetTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
-        vm.startPrank(initialGovernance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
     }
 
     function testGovernance() public {

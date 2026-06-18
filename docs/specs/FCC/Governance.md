@@ -3,11 +3,11 @@
 FCC has its own governance system, distinct from system-wide [`Governor`](../Governance.md). The diamond holds two governance layers:
 
 - **Diamond governance** — controls the diamond itself: `diamondCut` (add / replace / remove facets), update diamond-init-time settings, governance-only setters on every facet that has them. Implemented by [`DiamondGovernanceFacet`](../../../contracts/tee/facets/DiamondGovernanceFacet.sol) (inherits [`FlareGovernedBase`](../../../contracts/governance/implementation/FlareGovernedBase.sol) for the public API) + [`FlareGovernedAccess`](../../../contracts/governance/implementation/FlareGovernedAccess.sol) (modifiers-only base for the other facets) + [`FlareGovernance`](../../../contracts/governance/lib/FlareGovernance.sol) library (ERC-7201 namespaced storage, hash-based timelock).
-- **Extension governance** — per-extension governance signer sets that approve TEE software upgrades and pausing-address records for that extension. The signer-set + threshold management lives in [`ExtensionGovernanceFacet`](../../../contracts/tee/facets/ExtensionGovernanceFacet.sol) + [`library/ExtensionGovernance`](../../../contracts/tee/library/ExtensionGovernance.sol). Pausing-addresses (multi-hash-pinned approval records signed by those signers) live in the separate later facet [`ExtensionPausingFacet`](../../../contracts/tee/facets/ExtensionPausingFacet.sol) + [`library/ExtensionPausing`](../../../contracts/tee/library/ExtensionPausing.sol).
+- **Extension governance** — per-extension governance signer sets that approve TEE software upgrades for that extension. The signer-set + threshold management lives in [`ExtensionGovernanceFacet`](../../../contracts/tee/facets/ExtensionGovernanceFacet.sol) + [`library/ExtensionGovernance`](../../../contracts/tee/library/ExtensionGovernance.sol).
 
 Plus related authorization primitives:
 
-- [`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) + [`library/MachinePathManager`](../../../contracts/tee/library/MachinePathManager.sol) — per-extension governance-signed allow-list of authorized `(sourceTeeIds[], destinationTeeIds[])` paths. A *generic* primitive (no protocol semantics of its own); currently gates [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) and [`ReplicationFacet.replicateFrom`](../../../contracts/tee/facets/ReplicationFacet.sol). This is the *only* per-extension governance-signed authorization primitive.
+- [`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) + [`library/MachinePathManager`](../../../contracts/tee/library/MachinePathManager.sol) — per-extension governance-signed allow-list of authorized `(sourceTeeIds[], destinationTeeIds[])` paths. A *generic* primitive (no protocol semantics of its own); currently gates [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol). This is the *only* per-extension governance-signed authorization primitive.
 - [`OwnerAllowlistFacet`](../../../contracts/tee/facets/OwnerAllowlistFacet.sol) + [`library/OwnerAllowlist`](../../../contracts/tee/library/OwnerAllowlist.sol) — per-extension allowlist of TEE machine owners. Maintained by extension owners.
 - [`WalletProjectPauseFacet`](../../../contracts/tee/facets/WalletProjectPauseFacet.sol) + [`library/WalletProjectPause`](../../../contracts/tee/library/WalletProjectPause.sol) — per-project pauser/unpauser delegation lists (project-owner-gated). Members of these lists can pause / unpause wallets in the project alongside the project owner. See [Wallet Management](./WalletManagement.md).
 - [`MachineEmergencyPauseFacet`](../../../contracts/tee/facets/MachineEmergencyPauseFacet.sol) + [`library/MachineEmergencyPause`](../../../contracts/tee/library/MachineEmergencyPause.sol) — per-extension emergency-pause overlay (extension-owner-gated, with delegated pauser/unpauser lists) + a governance-tunable post-unpause grace window that blocks third-party expired-availability `pause()` calls. See [Machine Lifecycle](./MachineLifecycle.md#emergency-pause).
@@ -29,7 +29,7 @@ FlareGovernance.initialise(_governanceSettings, _initialGovernance);
 
 `DiamondGovernanceFacet` provides:
 
-- `diamondCut(FacetCut[], address init, bytes calldata)` — the standard EIP-2535 cut entry. Adds, replaces, or removes selectors. The optional `init` argument is `delegatecall`ed for migration logic. Both [`FlareTeeManagerInit`](../../../contracts/tee/facets/FlareTeeManagerInit.sol) and [`ReplicationInit`](../../../contracts/tee/facets/ReplicationInit.sol) are designed to be passed as the `init` argument during specific cut events.
+- `diamondCut(FacetCut[], address init, bytes calldata)` — the standard EIP-2535 cut entry. Adds, replaces, or removes selectors. The optional `init` argument is `delegatecall`ed for migration logic. [`FlareTeeManagerInit`](../../../contracts/tee/facets/FlareTeeManagerInit.sol) is passed as the `init` argument during the initial cut.
 - the public governance API inherited from `FlareGovernedBase` (the seven functions listed above): `executeGovernanceCall` / `cancelGovernanceCall` run or drop a pending timelocked call, `switchToProductionMode` locks in the timelock, and `governance` / `governanceSettings` / `productionMode` / `isExecutor` are views. There is **no** governance transfer/claim entry point — the effective governance address comes from the central `IGovernanceSettings` (`getGovernanceAddress()`), and rotating it is a settings-level action, not a diamond method.
 
 The governance settings contract (`IGovernanceSettings`) provides the timelock and the executor list; the diamond's governance respects it just like any other `Governed` contract.
@@ -53,31 +53,20 @@ function setNewTeeGovernance(
 ) external;
 ```
 
-Only the extension owner can call. It sets the extension's *latest* governance hash to `keccak256(abi.encode(_signers, _signersThreshold))` and emits `NewTeeGovernanceSet`. Previously-registered signer sets are retained — a signer of an older set can still sign records bound to that older hash (see Pausing addresses below and the machine-path-list flow).
+Only the extension owner can call. It sets the extension's *latest* governance hash to `keccak256(abi.encode(_signers, _signersThreshold))` and emits `NewTeeGovernanceSet`. Previously-registered signer sets are retained — a signer of an older set can still sign records bound to that older hash (see the machine-path-list flow).
 
 `NewTeeGovernanceSet` (signer-set changes), `MachinePathListSigned` (a path list fully signed), and similar events are emitted as governance activity progresses.
 
-### Pausing addresses
-
-A second use of the extension's governance signer set, run by the separate later facet [`ExtensionPausingFacet`](../../../contracts/tee/facets/ExtensionPausingFacet.sol) + [`library/ExtensionPausing`](../../../contracts/tee/library/ExtensionPausing.sol). The extension owner — or the extension operator, if set; see [Extension operator](#extension-operator) — posts a record consisting of:
-
-- An array of **pausing addresses** (off-chain consumers act on these to pause TEE machinery).
-- An array of **governance hashes** to which the record is bound. The hashes must be known to the extension (validated via `isGovernanceHashValid`) and must be distinct. Each bound hash gets its own *approval* (signers, signatures, and a per-hash `thresholdMet` flag).
-
-The signed `messageHash` is `SignedPayload.messageHash(TEE_PAUSING_ADDRESSES, keccak256(abi.encode(extensionId, nonce, governanceHashes, pausingAddresses)))` — the outer [`SignedPayload`](../../../contracts/utils/lib/SignedPayload.sol) envelope adds the `TEE_PAUSING_ADDRESSES` domain prefix and binds `block.chainid`; the inner `dataHash` binds the record body. Signers EIP-191 sign this hash. A single `signTeePausingAddresses(extensionId, nonce, signature)` call iterates the bound hash list and deposits the signature into **every** approval the signer is valid under (a signer in two hashes contributes to both). When any approval's signature count first reaches its hash-specific threshold, `TeePausingAddressesThresholdMet(extensionId, nonce, governanceHash)` fires; signature collection continues across all approvals regardless.
-
-Because each record's bound hash list is immutable once set, "old signers can still sign" is preserved automatically: if governance rotates to a new hash after a record is created, the rotated-out signers from the bound hash can still sign that record indefinitely.
-
 ## Machine path manager
 
-[`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) is a *generic* governance-signed allow-list of authorized `(sourceTeeIds[], destinationTeeIds[])` paths. It carries no protocol semantics of its own — it just records which TEE machine pairs an extension's governance has approved for some downstream flow. Two facets currently consume it: [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) and [`ReplicationFacet.replicateFrom`](../../../contracts/tee/facets/ReplicationFacet.sol). The primitive is reusable for any future "governance-attested TEE-to-TEE authorization" need.
+[`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) is a *generic* governance-signed allow-list of authorized `(sourceTeeIds[], destinationTeeIds[])` paths. It carries no protocol semantics of its own — it just records which TEE machine pairs an extension's governance has approved for some downstream flow. It is currently consumed by [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol). The primitive is reusable for any future "governance-attested TEE-to-TEE authorization" need.
 
 ### Shape
 
 A **path list** lives at `(extensionId, nonce)`. Storage is per-extension: each extension keys its lists by 1-based nonce in a `mapping(nonce => MachinePathList)`, and `listCount[extensionId]` is the highest nonce minted. (A nonce-keyed mapping rather than a dynamic array is deliberate: `MachinePathList` / `MachinePathState` carry mappings and could gain fields in a future facet upgrade, and a dynamic array of such structs would shift every element's storage on an in-place upgrade — mapping values stay append-safe.) Nonces start at 1 per extension. A list contains:
 
 - **Paths** — a `mapping(index => MachinePathState)` keyed `0..pathCount` (same append-safe rationale as the list mapping above), each `MachinePathState` wrapping a `MachinePath { address[] sourceTeeIds; address[] destinationTeeIds; }` plus per-path source/destination membership lookups. Semantics within one path are many-to-many: any source ∈ A may authorize the action against any destination ∈ B.
-- **Involved governance hashes** — the union of the per-machine `governanceHash` of every teeId ever added to any path on this list, regardless of role. Each teeId's hash is read directly from `MachineManager.TeeMachineState.governanceHash`, which the machine committed to at registration time (and which is updated when a machine is the destination of a replication). The teeId must have a non-zero hash recorded (`GovernanceHashZero(teeId)` otherwise); no status check is enforced — a freshly registered destination in `INITIALIZED` status is eligible, which is what makes the path-list authorization for replication possible. A single path may mix multiple governances within its source list, its destination list, or both — the primitive treats it as a list-wide set; no per-path hash tracking.
+- **Involved governance hashes** — the union of the per-machine `governanceHash` of every teeId ever added to any path on this list, regardless of role. Each teeId's hash is read directly from `MachineManager.TeeMachineState.governanceHash`, which the machine committed to at registration time. The teeId must have a non-zero hash recorded (`GovernanceHashZero(teeId)` otherwise); no status check is enforced — a freshly registered destination in `INITIALIZED` status is eligible. A single path may mix multiple governances within its source list, its destination list, or both — the primitive treats it as a list-wide set; no per-path hash tracking.
 - **Signatures** — collected from every involved governance, stored once per unique signer in a global array. A signature counts toward every involved governance the signer belongs to (a signer in two governances contributes to both with a single submission).
 - **`messageHash`** — set when the list is finalized; computed as `SignedPayload.messageHash(TEE_MACHINE_PATH_LIST, keccak256(abi.encode(extensionId, nonce, paths)))`. The [`SignedPayload`](../../../contracts/utils/lib/SignedPayload.sol) envelope adds the `TEE_MACHINE_PATH_LIST` domain prefix and binds `block.chainid`; the inner `dataHash` binds `(extensionId, nonce, paths)`. Signers EIP-191 sign this hash. The same content with a different `(extensionId, nonce)` produces a different hash, preventing cross-chain, cross-extension, and cross-list signature replay.
 
@@ -88,7 +77,7 @@ Steps 1–3 are the *prep* steps: they record state that is inert until governan
 1. **Create** — `createNewMachinePathList(extensionId)`. A fresh nonce is allocated; the list is empty.
 2. **Add paths** — `addMachinePaths(extensionId, nonce, paths)` (potentially across multiple calls). For each teeId in each path, the library:
    - Verifies the teeId belongs to this extension (`ExtensionIdMismatch` from `ITeeCommonErrors` otherwise).
-   - Reads the teeId's stored `governanceHash` from `MachineManager.TeeMachineState` and verifies it is non-zero (`GovernanceHashZero(teeId)` otherwise). Any TEE status — including `INITIALIZED` — is accepted; the consuming facet re-checks status at trigger time (`directBackup` requires `PRODUCTION`, `replicateFrom` requires `PAUSED_FOR_UPGRADE` / `INITIALIZED` / `REPLICATING`).
+   - Reads the teeId's stored `governanceHash` from `MachineManager.TeeMachineState` and verifies it is non-zero (`GovernanceHashZero(teeId)` otherwise). Any TEE status — including `INITIALIZED` — is accepted; the consuming facet re-checks status at trigger time (`directBackup` requires `PRODUCTION`).
    - Adds the governance hash to the list's involved-governance set.
    - Rejects duplicate teeIds within a single path (`SourceTeeIdAlreadyExists`, `DestinationTeeIdAlreadyExists`).
 3. **Finalize** — `finalizeMachinePathList(extensionId, nonce)`. The library computes `messageHash` and emits `MachinePathListFinalized` with the involved-governance hashes so off-chain signers know which sets need to sign. After this, no further paths can be added.
@@ -101,7 +90,7 @@ Only the **latest-nonce signed list** per extension is active. Older signed list
 
 - The active pointer is `extensionActiveListNonce[extensionId]`, set during sign-completion when `_nonce > current`.
 - Signing an older-nonce list *after* a newer one is already active does **not** demote the newer one — the older list becomes "signed but not active".
-- Consumers (`directBackup` / `directRestore`, `replicateFrom`) look up paths via [`MachinePathManager.requireActiveListNonceForPath`](../../../contracts/tee/library/MachinePathManager.sol), which reverts `NoActiveMachinePathList` if the extension has none yet and `InvalidMachinePath` if the pair isn't present in the currently-active list.
+- Consumers (`directBackup` / `directRestore`) look up paths via [`MachinePathManager.requireActiveListNonceForPath`](../../../contracts/tee/library/MachinePathManager.sol), which reverts `NoActiveMachinePathList` if the extension has none yet and `InvalidMachinePath` if the pair isn't present in the currently-active list.
 
 The nonce binding (in `messageHash`) and the latest-wins activation rule together produce a clean "rotate-by-replacement" pattern: extension governance signs a new list, and the old paths are immediately superseded.
 
@@ -123,14 +112,13 @@ The allowlist is separate from the **governance signers** because an extension m
 
 Each extension can optionally designate one **operator** address. The operator is a *prep helper*: it can drive the multi-step owner-only flows whose effective security gate is a downstream governance threshold signature, but it cannot do anything an owner can do unilaterally.
 
-Concretely, the operator (when set) may call exactly four prep methods:
+Concretely, the operator (when set) may call exactly three prep methods:
 
 - `MachinePathManagerFacet.createNewMachinePathList`
 - `MachinePathManagerFacet.addMachinePaths`
 - `MachinePathManagerFacet.finalizeMachinePathList`
-- `ExtensionPausingFacet.setTeePausingAddresses`
 
-All four create records that remain inert until the extension's governance signers sign them on-chain — the operator cannot produce that signature.
+All three create records that remain inert until the extension's governance signers sign them on-chain — the operator cannot produce that signature.
 
 The operator is set (and cleared, by passing `address(0)`) by the extension owner via `ExtensionManagerFacet.setExtensionOperator(extensionId, operator)`. It is the *owner*, not the operator, who controls who the operator is — an operator cannot rotate themselves. The setter works for every extension, including the system extension id 0; for id 0 the caller must be the FlareGovernance governance address (i.e. a direct tx from the governance multisig). The current operator is read back via `getExtensionOperator(extensionId)` and may be `address(0)` if no operator is set. The `ExtensionOperatorSet` event carries `(extensionId, oldOperator, newOperator)`.
 

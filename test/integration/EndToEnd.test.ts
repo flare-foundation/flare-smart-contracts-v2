@@ -74,9 +74,6 @@ import {
   TeePaymentsFeeScheduleManagerInstance,
   TeePaymentsFeeScheduleManagerProxyContract,
   TeePaymentsInstance,
-  TeePaymentsLimitsManagerContract,
-  TeePaymentsLimitsManagerInstance,
-  TeePaymentsLimitsManagerProxyContract,
   TeePaymentsRegistryContract,
   TeePaymentsRegistryInstance,
   TeePaymentsRegistryProxyContract,
@@ -133,7 +130,6 @@ const PollingFoundation: PollingFoundationContract = artifacts.require("PollingF
 const PollingManagementGroup: PollingManagementGroupContract = artifacts.require("PollingManagementGroup");
 const FlareTeeManager = artifacts.require("FlareTeeManager");
 const FlareTeeManagerInit = artifacts.require("FlareTeeManagerInit");
-const ReplicationInit = artifacts.require("ReplicationInit");
 const IDiamondCut = artifacts.require("IDiamondCut");
 const IIFlareTeeManager = artifacts.require("IIFlareTeeManager");
 const IMachineManager = artifacts.require("IMachineManager");
@@ -151,10 +147,6 @@ const TeePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerContract = art
 );
 const TeePaymentsFeeScheduleManagerProxy: TeePaymentsFeeScheduleManagerProxyContract = artifacts.require(
   "TeePaymentsFeeScheduleManagerProxy"
-);
-const TeePaymentsLimitsManager: TeePaymentsLimitsManagerContract = artifacts.require("TeePaymentsLimitsManager");
-const TeePaymentsLimitsManagerProxy: TeePaymentsLimitsManagerProxyContract = artifacts.require(
-  "TeePaymentsLimitsManagerProxy"
 );
 const TeePaymentsRegistry: TeePaymentsRegistryContract = artifacts.require("TeePaymentsRegistry");
 const TeePaymentsRegistryProxy: TeePaymentsRegistryProxyContract = artifacts.require("TeePaymentsRegistryProxy");
@@ -410,7 +402,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
   let teePaymentsXRP: TeePaymentsInstance;
   let teePaymentsEVM: TeePaymentsInstance;
   let teePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerInstance;
-  let teePaymentsLimitsManager: TeePaymentsLimitsManagerInstance;
   let teePaymentsRegistry: TeePaymentsRegistryInstance;
   let teePaymentsConfigVerifier: TeePaymentsConfigVerifierInstance;
   let fdc2Hub: Fdc2HubInstance;
@@ -752,7 +743,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     addressUpdatableContracts.push(pollingManagementGroup.address);
 
     // Deploy FlareTeeManager Diamond
-    const DAY1_FACET_NAMES = [
+    const FACET_NAMES = [
       "DiamondGovernanceFacet",
       "DiamondLoupeFacet",
       "ExtensionManagerFacet",
@@ -772,11 +763,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       "WalletProjectPauseFacet",
       "MachineEmergencyPauseFacet",
     ];
-    const LATER_FACET_NAMES = ["ReplicationFacet", "ExtensionPausingFacet", "WalletResumeFacet"];
 
     const facetCuts = [];
     const usedSelectors = new Set<string>();
-    for (const facetName of DAY1_FACET_NAMES) {
+    for (const facetName of FACET_NAMES) {
       const FacetArtifact = artifacts.require(facetName as any);
       const facetInstance = await FacetArtifact.new();
       const selectors = getSelectors(FacetArtifact.abi).filter((s) => !usedSelectors.has(s));
@@ -798,27 +788,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       init: flareTeeManagerInit.address,
       initCalldata: flareTeeManagerInitCalldata,
     });
-
-    // Add later facets
-    const laterFacetCuts = [];
-    for (const facetName of LATER_FACET_NAMES) {
-      const FacetArtifact = artifacts.require(facetName as any);
-      const facetInstance = await FacetArtifact.new();
-      const selectors = getSelectors(FacetArtifact.abi).filter((s) => !usedSelectors.has(s));
-      selectors.forEach((s) => usedSelectors.add(s));
-      laterFacetCuts.push({
-        facetAddress: facetInstance.address,
-        action: 0,
-        functionSelectors: selectors,
-      });
-    }
-    const replicationInit = await ReplicationInit.new();
-    const replicationInitCalldata = web3.eth.abi.encodeFunctionCall(
-      ReplicationInit.abi.find((item: any) => item.name === "init"),
-      ["60"]
-    );
     const flareTeeManagerDiamondCut = await IDiamondCut.at(flareTeeManagerDiamond.address);
-    await flareTeeManagerDiamondCut.diamondCut(laterFacetCuts, replicationInit.address, replicationInitCalldata);
 
     // Test-only facet: lets us retrofit a non-zero governance hash onto an existing codeHash
     // binding so MachinePathManager flows can be exercised without going through the full TEE
@@ -871,17 +841,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     );
     teePaymentsFeeScheduleManager = await TeePaymentsFeeScheduleManager.at(teePaymentsFeeScheduleManagerProxy.address);
     addressUpdatableContracts.push(teePaymentsFeeScheduleManager.address);
-
-    // Deploy TeePaymentsLimitsManager (code available; not yet registered as system instructions sender in this test)
-    const teePaymentsLimitsManagerImpl = await TeePaymentsLimitsManager.new();
-    const teePaymentsLimitsManagerProxy = await TeePaymentsLimitsManagerProxy.new(
-      governanceSettings.address,
-      accounts[0],
-      addressUpdater.address,
-      teePaymentsLimitsManagerImpl.address
-    );
-    teePaymentsLimitsManager = await TeePaymentsLimitsManager.at(teePaymentsLimitsManagerProxy.address);
-    addressUpdatableContracts.push(teePaymentsLimitsManager.address);
 
     // Deploy TeePaymentsRegistry (shared source-of-truth for sourceId -> TeePayments)
     const teePaymentsRegistryImpl = await TeePaymentsRegistry.new();
@@ -1004,7 +963,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         Contracts.FDC2_REQUEST_FEE_CONFIGURATIONS,
         Contracts.TEE_REWARD_OFFERS_MANAGER,
         Contracts.TEE_PAYMENTS_FEE_SCHEDULE_MANAGER,
-        Contracts.TEE_PAYMENTS_LIMITS_MANAGER,
         Contracts.TEE_PAYMENTS_REGISTRY,
         Contracts.TEE_PAYMENTS_CONFIG_VERIFIER,
       ],
@@ -1036,7 +994,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         fdc2RequestFeeConfigurations.address,
         teeRewardOffersManager.address,
         teePaymentsFeeScheduleManager.address,
-        teePaymentsLimitsManager.address,
         teePaymentsRegistry.address,
         teePaymentsConfigVerifier.address,
       ],
@@ -1072,7 +1029,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     await flareTeeManager.registerSystemInstructionsSenders([
       teePaymentsXRP.address,
       teePaymentsEVM.address,
-      teePaymentsLimitsManager.address,
       fdc2Hub.address,
     ]);
     // configure initial per-sourceId fee schedule config
@@ -2826,61 +2782,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     expect(event2.opType).to.be.equal(web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"));
     expect(event2.opCommand).to.be.equal(web3.utils.utf8ToHex("REISSUE").padEnd(66, "0"));
     expect(event2.message).to.be.equal(web3.eth.abi.encodeParameter(paymentInstructionMessageStruct, message2));
-  });
-
-  it("Should set payment limits via TeePaymentsLimitsManager", async () => {
-    const setPaymentLimitsStruct = getStruct("TeePaymentsStructs", "setPaymentLimitsStruct");
-    const account = { sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" };
-    const transactionLimit = "100";
-    const dailyLimit = "1000";
-
-    expect((await teePaymentsLimitsManager.getPaymentLimitsNonce(account)).toString()).to.be.equal("0");
-
-    const tx = await teePaymentsLimitsManager.setPaymentLimits(
-      account,
-      transactionLimit,
-      dailyLimit,
-      constants.ZERO_ADDRESS,
-      { value: "10", from: TEE_WALLET_OWNERS[0] }
-    );
-
-    expectEvent(tx, "PaymentLimitsSet", {
-      walletId: WALLET1_ID,
-      sourceId: XRP_SOURCE_ID,
-      accountAddress: account.accountAddress,
-      transactionLimit: transactionLimit,
-      dailyLimit: dailyLimit,
-    });
-
-    const message = {
-      walletId: WALLET1_ID,
-      sourceId: XRP_SOURCE_ID,
-      accountAddress: account.accountAddress,
-      nonce: "0",
-      teeIdKeyIdPairs: [
-        { teeId: TEE_IDS[0], keyId: "0" },
-        { teeId: TEE_IDS[1], keyId: "1" },
-        { teeId: TEE_IDS[0], keyId: "2" },
-      ],
-      transactionLimit: transactionLimit,
-      dailyLimit: dailyLimit,
-    };
-    const event = requiredEventArgsFrom(tx, flareTeeManager, "TeeInstructionsSent") as any;
-    expect(event.opType).to.be.equal(web3.utils.utf8ToHex("F_XRP").padEnd(66, "0"));
-    expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("SET_PAYMENT_LIMITS").padEnd(66, "0"));
-    expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(setPaymentLimitsStruct, message));
-
-    expect((await teePaymentsLimitsManager.getPaymentLimitsNonce(account)).toString()).to.be.equal("1");
-  });
-
-  it("Should revert when non-owner calls setPaymentLimits", async () => {
-    const account = { sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" };
-    await expectRevert.unspecified(
-      teePaymentsLimitsManager.setPaymentLimits(account, "100", "1000", constants.ZERO_ADDRESS, {
-        value: "1",
-        from: TEE_WALLET_OWNERS[1],
-      })
-    );
   });
 
   it("Should request VRF", async () => {

@@ -26,7 +26,6 @@ import { IDiamondCut } from "../../../../contracts/diamond/interfaces/IDiamondCu
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import { MachineManager } from "../../../../contracts/tee/library/MachineManager.sol";
 import { Verification } from "../../../../contracts/tee/library/Verification.sol";
-import { Replication } from "../../../../contracts/tee/library/Replication.sol";
 import { ExtensionManager } from "../../../../contracts/tee/library/ExtensionManager.sol";
 import { WalletManager } from "../../../../contracts/tee/library/WalletManager.sol";
 import { WalletKeyManager } from "../../../../contracts/tee/library/WalletKeyManager.sol";
@@ -56,11 +55,6 @@ interface ITestVerificationStateHelper {
     function setTeeMachineStatus(
         address _teeId,
         IMachineManager.TeeStatus _status
-    ) external;
-
-    function setReplicatingTeeId(
-        address _oldTeeId,
-        address _newTeeId
     ) external;
 
     function setupCodeHashPlatform(
@@ -193,15 +187,6 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
         }
     }
 
-    function setReplicatingTeeId(
-        address _oldTeeId,
-        address _newTeeId
-    )
-        external
-    {
-        Replication.getState().replicatingTeeIds[_oldTeeId] = _newTeeId;
-    }
-
     function setupCodeHashPlatform(
         uint256 _extensionId,
         bytes32 _codeHash,
@@ -283,10 +268,6 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
 // solhint-disable-next-line max-states-count
 contract VerificationFacetTest is Test {
 
-    bytes4 private constant SEND_SYSTEM_INSTRUCTIONS_SELECTOR = bytes4(keccak256(
-        "sendSystemInstructions(bytes32,(address,address,string)[],(bytes32,bytes32,bytes,address[],uint64,address))"
-    ));
-
     IIFlareTeeManager private flareTeeManager;
     ITestVerificationStateHelper private stateHelper;
 
@@ -354,7 +335,7 @@ contract VerificationFacetTest is Test {
         fdc2Verification = makeAddr("Fdc2Verification");
         rewardManager = makeAddr("RewardManager");
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
@@ -365,11 +346,6 @@ contract VerificationFacetTest is Test {
             publicExtensionCreationEnabled: true,
             emergencyUnpauseGracePeriodSeconds: 7200
         }));
-        vm.startPrank(initialGovernance);
-        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-        vm.stopPrank();
 
         // Add TestVerificationStateHelper facet to the diamond
         TestVerificationStateHelper helperImpl = new TestVerificationStateHelper();
@@ -381,17 +357,16 @@ contract VerificationFacetTest is Test {
             "setTeeMachineState(address,uint256,address,uint8)"
         ));
 
-        bytes4[] memory uniqueSelectors = new bytes4[](10);
+        bytes4[] memory uniqueSelectors = new bytes4[](9);
         uniqueSelectors[0] = sel10Param;
         uniqueSelectors[1] = ITestVerificationStateHelper.setTeeMachineStatus.selector;
-        uniqueSelectors[2] = ITestVerificationStateHelper.setReplicatingTeeId.selector;
-        uniqueSelectors[3] = ITestVerificationStateHelper.setupCodeHashPlatform.selector;
-        uniqueSelectors[4] = ITestVerificationStateHelper.setExtensionStateVerifier.selector;
-        uniqueSelectors[5] = ITestVerificationStateHelper.setTeeMachineInitialTeeId.selector;
-        uniqueSelectors[6] = ITestVerificationStateHelper.setChallenge.selector;
-        uniqueSelectors[7] = ITestVerificationStateHelper.setWalletState.selector;
-        uniqueSelectors[8] = ITestVerificationStateHelper.setKeyState.selector;
-        uniqueSelectors[9] = sel4Param;
+        uniqueSelectors[2] = ITestVerificationStateHelper.setupCodeHashPlatform.selector;
+        uniqueSelectors[3] = ITestVerificationStateHelper.setExtensionStateVerifier.selector;
+        uniqueSelectors[4] = ITestVerificationStateHelper.setTeeMachineInitialTeeId.selector;
+        uniqueSelectors[5] = ITestVerificationStateHelper.setChallenge.selector;
+        uniqueSelectors[6] = ITestVerificationStateHelper.setWalletState.selector;
+        uniqueSelectors[7] = ITestVerificationStateHelper.setKeyState.selector;
+        uniqueSelectors[8] = sel4Param;
 
         IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
         cuts[0] = IDiamond.FacetCut(
@@ -434,9 +409,9 @@ contract VerificationFacetTest is Test {
             proof.responseBody.codeHash,
             proof.responseBody.platform,
             signingPolicyId,
-            // initialTeeId left at zero so the verifier's non-INITIALIZED branch accepts an empty
-            // TeeSystemState (the default in this test's proof). Tests that want a populated
-            // payload mismatch set a non-zero initialTeeId via `setTeeMachineInitialTeeId`.
+            // initialTeeId left at zero so the verifier accepts an empty system-state payload (the
+            // default in this test's proof). Tests that want a rejection set a non-zero
+            // initialTeeId via `setTeeMachineInitialTeeId`.
             address(0)
         );
 
@@ -444,9 +419,6 @@ contract VerificationFacetTest is Test {
         stateHelper.setupCodeHashPlatform(
             extensionId, proof.responseBody.codeHash, proof.responseBody.platform, true
         );
-
-        // Set replication: teeId maps to teeId (no replication)
-        stateHelper.setReplicatingTeeId(teeId, teeId);
 
         // Mock external contract calls
         _mockVerifySigningPolicySignatures(rewardEpochId);
@@ -505,7 +477,7 @@ contract VerificationFacetTest is Test {
     function testInitialize() public {
         vm.expectEmit();
         emit IVerification.SettingsUpdated(1 hours, 1, 1 minutes);
-        FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
+        FlareTeeManagerDeployer.deployFacets(FlareTeeManagerDeployer.DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
@@ -579,7 +551,6 @@ contract VerificationFacetTest is Test {
 
     function testRequestAvailabilityCheckAttestation() public {
         stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
-        stateHelper.setReplicatingTeeId(teeId, address(0));
         flareTeeManager.requestAvailabilityCheckAttestation(teeId, instructionId, teeId, address(0), address(0));
     }
 
@@ -587,7 +558,6 @@ contract VerificationFacetTest is Test {
         address proofOwner = makeAddr("proofOwner");
         address claimBack = makeAddr("claimBack");
         stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
-        stateHelper.setReplicatingTeeId(teeId, address(0));
         vm.expectCall(
             fdc2Hub,
             _buildAvailabilityCheckExpectCallData(proofOwner, claimBack)
@@ -667,9 +637,8 @@ contract VerificationFacetTest is Test {
     }
 
     function testConfirmAvailabilityRevertInvalidResponseData1() public {
-        // Mark the machine as replication-capable (`stored initialTeeId != 0`) without populating
-        // the proof's `TeeSystemState`. The verifier's non-INITIALIZED branch then rejects the
-        // empty payload (it would have accepted it only if stored `initialTeeId` were zero).
+        // Mark the machine with a non-zero stored `initialTeeId`. The verifier requires the stored
+        // `initialTeeId` to be zero for an empty system-state payload, so the payload is rejected.
         stateHelper.setTeeMachineInitialTeeId(proof.requestBody.teeId, makeAddr("storedInitialTeeId"));
         vm.expectRevert(ITeeCommonErrors.InvalidResponseData.selector);
         flareTeeManager.confirmAvailability(proof);
@@ -874,32 +843,6 @@ contract VerificationFacetTest is Test {
 
     function _addMockTeeSignatureToProof() private {
         proof.signatures.teeSignatures.push(Signature(27, bytes32(uint256(1)), bytes32(uint256(2))));
-    }
-
-    function _buildTeeAttestationExpectCallData(
-        address _claimBack
-    ) private view returns (bytes memory) {
-        IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](1);
-        teeMachines[0] = IMachineManager.TeeMachine(teeId, teeProxyId, url);
-        IVerification.TeeAttestation memory message = IVerification.TeeAttestation({
-            teeMachine: IMachineManager.TeeMachineWithAttestationData(
-                teeId, teeId, url, proof.responseBody.codeHash, proof.responseBody.platform
-            ),
-            challenge: bytes32(0)
-        });
-        return abi.encodeWithSelector(
-            SEND_SYSTEM_INSTRUCTIONS_SELECTOR,
-            bytes32(0),
-            teeMachines,
-            IInstructions.TeeInstructionParams(
-                bytes32("F_REG"),
-                bytes32("TEE_ATTESTATION"),
-                abi.encode(message),
-                new address[](0),
-                uint64(0),
-                _claimBack
-            )
-        );
     }
 
     function _buildAvailabilityCheckExpectCallData(

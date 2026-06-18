@@ -8,8 +8,6 @@ import { IDiamondLoupe } from "../../contracts/diamond/interfaces/IDiamondLoupe.
 import { IMachineManager, TEE_MACHINE_REGISTER } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { SignedPayload } from "../../contracts/utils/lib/SignedPayload.sol";
 import { TEE_SOURCE_ID } from "../../contracts/userInterfaces/tee/IVerification.sol";
-import { IExtensionPausing } from "../../contracts/userInterfaces/tee/IExtensionPausing.sol";
-import { ISystemStateVerifier } from "../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IWalletManager } from "../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { IWalletKeyManager, TEE_KEY_EXISTENCE } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
@@ -40,7 +38,7 @@ import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardMana
 
 /**
  * @title TeeAndFdc2Test
- * @notice End-to-end integration test for the TEE day-1 diamond (16 facets, no later facets)
+ * @notice End-to-end integration test for the TEE diamond (18 facets)
  *         together with the FDC2 contracts (Fdc2Hub, Fdc2Verification, Fdc2RequestFeeConfigurations).
  *         Only truly external infrastructure is mocked: Relay, FlareSystemsManager, RewardManager.
  */
@@ -116,11 +114,11 @@ contract TeeAndFdc2Test is Test {
         cosignersThreshold = 1;
 
         // =====================================================================
-        // Deploy day-1 only TEE diamond
+        // Deploy the TEE diamond
         // =====================================================================
 
-        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(
-            FlareTeeManagerDeployer.Day1DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployFacets(
+            FlareTeeManagerDeployer.DeployParams({
                 governanceSettings: IGovernanceSettings(address(this)),
                 initialGovernance: initialGovernance,
                 addressUpdater: addressUpdater,
@@ -189,24 +187,6 @@ contract TeeAndFdc2Test is Test {
 
     function testDay1_facetCount() public {
         assertEq(IDiamondLoupe(address(flareTeeManager)).facets().length, 18);
-    }
-
-    function testDay1_excludedSelectorsRevert() public {
-        // ExtensionGovernanceFacet is day-1; pick a selector that is still later-only:
-        // ExtensionPausingFacet.setTeePausingAddresses.
-        vm.expectRevert(
-            abi.encodeWithSignature(
-                "FunctionNotFound(bytes4)", IExtensionPausing.setTeePausingAddresses.selector
-            )
-        );
-        address(flareTeeManager).call(
-            abi.encodeWithSelector(
-                IExtensionPausing.setTeePausingAddresses.selector,
-                0,
-                new bytes32[](0),
-                new address[](0)
-            )
-        );
     }
 
     // =========================================================================
@@ -370,7 +350,7 @@ contract TeeAndFdc2Test is Test {
     }
 
     // =========================================================================
-    // G. FDC2 contracts wired to day-1 diamond
+    // G. FDC2 contracts wired to the diamond
     // =========================================================================
 
     function testDay1_fdc2DeployAndInitialize() public {
@@ -511,10 +491,6 @@ contract TeeAndFdc2Test is Test {
             _teeId, _proxyId, _url, challenge, keccak256(abi.encode(extensionId))
         );
 
-        ISystemStateVerifier.TeeSystemState memory sysState = ISystemStateVerifier.TeeSystemState(
-            ISystemStateVerifier.TeeMachineStatus.ACTIVE, _teeId
-        );
-
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             uint64(vm.getBlockTimestamp()),
@@ -522,7 +498,7 @@ contract TeeAndFdc2Test is Test {
             platform,
             1, // initialSigningPolicyId
             1, // lastSigningPolicyId
-            ITeeAvailabilityCheck.TeeState(abi.encode(sysState), bytes32("v1"), new bytes(0), bytes32(0))
+            ITeeAvailabilityCheck.TeeState(new bytes(0), bytes32(0), new bytes(0), bytes32(0))
         );
 
         bytes32 messageHash = SignedPayload.messageHash(

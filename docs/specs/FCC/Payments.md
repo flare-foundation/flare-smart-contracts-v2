@@ -15,7 +15,7 @@ Supporting contracts, all outside the diamond:
 
 - [`TeePaymentsRegistry`](../../../contracts/tee/implementation/TeePaymentsRegistry.sol) — maps each `sourceId` to its `(keyType, opType, paymentModel, TeePayments)` binding.
 - [`TeePaymentsConfigVerifier`](../../../contracts/tee/implementation/TeePaymentsConfigVerifier.sol) — requests and validates the PMW configuration attestations used to register accounts/anchors.
-- [`TeePaymentsFeeScheduleManager`](../../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol) / [`TeePaymentsLimitsManager`](../../../contracts/tee/implementation/TeePaymentsLimitsManager.sol) — per-extension fee schedules and payment caps (see [Operation Fees](./OperationFees.md)).
+- [`TeePaymentsFeeScheduleManager`](../../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol) — per-extension fee schedules (see [Operation Fees](./OperationFees.md)).
 
 ## Shared base — registration, authorization, dispatch
 
@@ -128,12 +128,11 @@ A `ReplacementAttempt { uint64 id; uint64 nextPaymentId; uint64 emittedCount; ui
 
 `setBatchSettings(account, batchSize, batchDurationSeconds)` (wallet-owner) sets the account's preferred batch size/duration (effective from the next batch). Governance caps them per source via `setMaxBatchSettings` and sets the per-source anchor reuse delay via `setDefaultAnchorReuseDelay`. Getters: `getBatchSettings`, `getMaxBatchSettings`, `getDefaultAnchorReuseDelay`, `getAnchor`, `getAnchorCount`.
 
-## Fees and limits
+## Fees
 
-Payment fee schedules and caps are **not** part of the instruction-dispatch contracts:
+Payment fee schedules are **not** part of the instruction-dispatch contracts:
 
 - [`TeePaymentsFeeScheduleManager`](../../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol) holds per-source fee schedules; `pay`/`reissue` read the effective schedule via `getEffectiveSchedule` and embed it in the message. Reissue may override it via `reissueFeeParams` (a single zero-delay factor schedule; scheduled signatures are not supported — `ScheduledSignaturesUnsupported`).
-- [`TeePaymentsLimitsManager`](../../../contracts/tee/implementation/TeePaymentsLimitsManager.sol) holds per-extension payment caps, set through its own `SET_PAYMENT_LIMITS` instruction path.
 
 See [Operation Fees](./OperationFees.md) for how these relate to the in-diamond per-instruction `OperationFees`.
 

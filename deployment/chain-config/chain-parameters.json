@@ -835,10 +835,6 @@
             "description": "The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).",
             "type": "integer"
         },
-        "teePauseBeforeUpgradeMinDurationSeconds": {
-            "description": "Minimal duration that TEE should be in status pause before pause for upgrade can be triggered, in seconds (e.g. 10 minutes).",
-            "type": "integer"
-        },
         "teePaymentConfigurations": {
             "description": "The TEE payment configurations.",
             "items": {
@@ -996,7 +992,6 @@
         "teeEmergencyUnpauseGracePeriodSeconds",
         "teeOperationFees",
         "teeOwnersPPM",
-        "teePauseBeforeUpgradeMinDurationSeconds",
         "teePaymentConfigurations",
         "teePublicExtensionCreationEnabled",
         "teeSigningPolicyValidityDurationInRewardEpochs",

@@ -11,15 +11,12 @@ import { IVerification } from "./IVerification.sol";
 import { IOperationFees } from "./IOperationFees.sol";
 import { IOwnerAllowlist } from "./IOwnerAllowlist.sol";
 import { IWalletManager } from "./IWalletManager.sol";
-import { IWalletResume } from "./IWalletResume.sol";
 import { IWalletKeyManager } from "./IWalletKeyManager.sol";
 import { IWalletProjectManager } from "./IWalletProjectManager.sol";
 import { IWalletProjectPause } from "./IWalletProjectPause.sol";
 import { IWalletBackupManager } from "./IWalletBackupManager.sol";
 import { IVrf } from "./IVrf.sol";
-import { IReplication } from "./IReplication.sol";
 import { IExtensionGovernance } from "./IExtensionGovernance.sol";
-import { IExtensionPausing } from "./IExtensionPausing.sol";
 import { IExternalAddresses } from "./IExternalAddresses.sol";
 import { IMachinePathManager } from "./IMachinePathManager.sol";
 import { IDiamondGovernance } from "./IDiamondGovernance.sol";
@@ -45,15 +42,12 @@ interface IFlareTeeManager is
     IOperationFees,
     IOwnerAllowlist,
     IWalletManager,
-    IWalletResume,
     IWalletKeyManager,
     IWalletProjectManager,
     IWalletProjectPause,
     IWalletBackupManager,
     IVrf,
-    IReplication,
     IExtensionGovernance,
-    IExtensionPausing,
     IExternalAddresses,
     IMachinePathManager,
     IDiamondGovernance

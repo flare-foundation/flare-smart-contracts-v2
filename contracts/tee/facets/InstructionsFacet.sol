@@ -4,7 +4,6 @@ pragma solidity ^0.8.35;
 import { IIInstructions } from "../interface/IIInstructions.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { IExtensionManager } from "../../userInterfaces/tee/IExtensionManager.sol";
-import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { MachineManager } from "../library/MachineManager.sol";
 import { Instructions } from "../library/Instructions.sol";
@@ -27,14 +26,9 @@ contract InstructionsFacet is IIInstructions, FlareGovernedAccess {
         returns (bytes32)
     {
         Instructions.removeDuplicates(_teeIds);
-        IMachineManager.TeeMachine[] memory teeMachines =
-            new IMachineManager.TeeMachine[](_teeIds.length);
-        for (uint256 i = 0; i < _teeIds.length; i++) {
-            teeMachines[i] = MachineManager.getTeeMachine(_teeIds[i]);
-        }
         // Validate sender for non-system callers
-        require(teeMachines.length > 0, NoTeeMachinesSpecified());
-        uint256 extensionId = MachineManager.getExtensionId(teeMachines[0].teeId);
+        require(_teeIds.length > 0, NoTeeMachinesSpecified());
+        uint256 extensionId = MachineManager.getExtensionId(_teeIds[0]);
         if (!Instructions.isSystemInstructionsSender(msg.sender)) {
             require(
                 msg.sender == ExtensionManager.getExtensionInstructionsSender(extensionId),
@@ -45,7 +39,7 @@ contract InstructionsFacet is IIInstructions, FlareGovernedAccess {
                 SystemOpTypeNotAllowed(_instructionParams.opType)
             );
         }
-        return Instructions.sendInstructions(bytes32(0), teeMachines, _instructionParams);
+        return Instructions.sendInstructions(bytes32(0), _teeIds, _instructionParams);
     }
 
     /// @inheritdoc IIInstructions
@@ -62,28 +56,7 @@ contract InstructionsFacet is IIInstructions, FlareGovernedAccess {
             OnlySystemInstructionsSender()
         );
         Instructions.removeDuplicates(_teeIds);
-        IMachineManager.TeeMachine[] memory teeMachines =
-            new IMachineManager.TeeMachine[](_teeIds.length);
-        for (uint256 i = 0; i < _teeIds.length; i++) {
-            teeMachines[i] = MachineManager.getTeeMachine(_teeIds[i]);
-        }
-        return Instructions.sendInstructions(_instructionId, teeMachines, _instructionParams);
-    }
-
-    /// @inheritdoc IIInstructions
-    function sendSystemInstructions(
-        bytes32 _instructionId,
-        IMachineManager.TeeMachine[] memory _teeMachines,
-        TeeInstructionParams memory _instructionParams
-    )
-        external payable
-        returns (bytes32)
-    {
-        require(
-            Instructions.isSystemInstructionsSender(msg.sender),
-            OnlySystemInstructionsSender()
-        );
-        return Instructions.sendInstructions(_instructionId, _teeMachines, _instructionParams);
+        return Instructions.sendInstructions(_instructionId, _teeIds, _instructionParams);
     }
 
     /// @inheritdoc IIInstructions

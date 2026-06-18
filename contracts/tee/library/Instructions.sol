@@ -51,13 +51,13 @@ library Instructions {
 
     function sendInstructions(
         bytes32 _instructionId,
-        IMachineManager.TeeMachine[] memory _teeMachines,
+        address[] memory _teeIds,
         IInstructions.TeeInstructionParams memory _instructionParams
     )
         internal
         returns (bytes32)
     {
-        require(_teeMachines.length > 0, IInstructions.NoTeeMachinesSpecified());
+        require(_teeIds.length > 0, IInstructions.NoTeeMachinesSpecified());
         require(_instructionParams.opType != bytes32(0), IInstructions.OperationTypeEmpty());
         require(_instructionParams.opCommand != bytes32(0), IInstructions.OperationCommandEmpty());
         require(_instructionParams.message.length > 0, IInstructions.MessageEmpty());
@@ -66,10 +66,12 @@ library Instructions {
             IInstructions.CosignersThresholdTooHigh()
         );
 
+        // Resolve full TEE machine data internally (needed for the emitted event payload).
+        IMachineManager.TeeMachine[] memory teeMachines =
+            new IMachineManager.TeeMachine[](_teeIds.length);
         uint256 extensionId;
         {
-            address[] memory teeIds = new address[](_teeMachines.length);
-            extensionId = MachineManager.getExtensionId(_teeMachines[0].teeId);
+            extensionId = MachineManager.getExtensionId(_teeIds[0]);
             // Block every dispatch path (regular + system opTypes) when the destination
             // extension is in emergency pause. All machines are validated below to share
             // this extensionId, so a single check covers the whole batch.
@@ -82,8 +84,8 @@ library Instructions {
             }
 
             bool _isSystemOpType = isSystemOpType(_instructionParams.opType);
-            for (uint256 i = 0; i < _teeMachines.length; i++) {
-                address teeId = _teeMachines[i].teeId;
+            for (uint256 i = 0; i < _teeIds.length; i++) {
+                address teeId = _teeIds[i];
                 require(
                     i == 0 || MachineManager.getExtensionId(teeId) == extensionId,
                     ITeeCommonErrors.ExtensionIdMismatch()
@@ -95,11 +97,11 @@ library Instructions {
                         ITeeCommonErrors.TeeMachineNotAvailable()
                     );
                 }
-                teeIds[i] = teeId;
+                teeMachines[i] = MachineManager.getTeeMachine(teeId);
             }
 
             uint256 calculatedFee = OperationFees.calculateFeeByTeeIds(
-                _instructionParams.opType, _instructionParams.opCommand, teeIds
+                _instructionParams.opType, _instructionParams.opCommand, _teeIds
             );
             require(calculatedFee <= msg.value, IInstructions.FeeTooLow());
         }
@@ -116,7 +118,7 @@ library Instructions {
             extensionId,
             _instructionId,
             uint32(currentRewardEpochId),
-            _teeMachines,
+            teeMachines,
             _instructionParams.opType,
             _instructionParams.opCommand,
             _instructionParams.message,
@@ -127,25 +129,6 @@ library Instructions {
         );
 
         return _instructionId;
-    }
-
-    /**
-     * Convenience overload that accepts TEE IDs and resolves TeeMachine data internally.
-     */
-    function sendInstructions(
-        bytes32 _instructionId,
-        address[] memory _teeIds,
-        IInstructions.TeeInstructionParams memory _instructionParams
-    )
-        internal
-        returns (bytes32)
-    {
-        IMachineManager.TeeMachine[] memory teeMachines =
-            new IMachineManager.TeeMachine[](_teeIds.length);
-        for (uint256 i = 0; i < _teeIds.length; i++) {
-            teeMachines[i] = MachineManager.getTeeMachine(_teeIds[i]);
-        }
-        return sendInstructions(_instructionId, teeMachines, _instructionParams);
     }
 
     function isSystemInstructionsSender(

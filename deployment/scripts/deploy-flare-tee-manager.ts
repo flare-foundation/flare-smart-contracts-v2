@@ -14,8 +14,8 @@ import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
 import { ChainParameters, TeeKeyTypeWithSigningAlgos, TeePaymentConfiguration } from "../chain-config/chain-parameters";
 
-// Day-1 facets (deployed in initial diamond cut)
-export const DAY1_FACETS = [
+// Facets (deployed in the diamond cut)
+export const FACETS = [
   "DiamondGovernanceFacet",
   "DiamondLoupeFacet",
   "ExtensionManagerFacet",
@@ -35,9 +35,6 @@ export const DAY1_FACETS = [
   "WalletProjectPauseFacet",
   "MachineEmergencyPauseFacet",
 ];
-
-// Deploy-later facets (added via diamondCut after initial deployment)
-export const LATER_FACETS = ["ReplicationFacet", "ExtensionPausingFacet", "WalletResumeFacet"];
 
 export enum FacetCutAction {
   Add = 0,
@@ -102,31 +99,6 @@ export async function deployFacetsAndBuildCuts(
   return { facetCuts, facetAddresses };
 }
 
-/**
- * Deploys later facets and adds them to an existing FlareTeeManager Diamond via diamondCut.
- */
-export async function addLaterFacetsToDiamond(
-  hre: HardhatRuntimeEnvironment,
-  flareTeeManagerAddress: string,
-  pauseBeforeUpgradeMinDurationSeconds: string
-): Promise<void> {
-  const { facetCuts } = await deployFacetsAndBuildCuts(hre, LATER_FACETS);
-
-  // Deploy ReplicationInit for the replication facet init
-  const ReplicationInit = hre.artifacts.require("ReplicationInit");
-  const replicationInit = await ReplicationInit.new();
-
-  const initCalldata = hre.web3.eth.abi.encodeFunctionCall(
-    (ReplicationInit.abi as AbiItem[]).find((item: AbiItem) => item.name === "init")!,
-    [pauseBeforeUpgradeMinDurationSeconds]
-  );
-
-  // Execute diamondCut on FlareTeeManager
-  const IDiamondCut = hre.artifacts.require("IDiamondCut");
-  const flareTeeManager = await IDiamondCut.at(flareTeeManagerAddress);
-  await flareTeeManager.diamondCut(facetCuts, replicationInit.address, initCalldata);
-}
-
 export async function deployFlareTeeManager(
   hre: HardhatRuntimeEnvironment,
   oldContracts: Contracts,
@@ -136,10 +108,10 @@ export async function deployFlareTeeManager(
 ): Promise<string> {
   const governanceSettings = oldContracts.getContractAddress(Contracts.GOVERNANCE_SETTINGS);
 
-  // 1. Deploy all day-1 facet contracts
-  const { facetCuts, facetAddresses } = await deployFacetsAndBuildCuts(hre, DAY1_FACETS);
+  // 1. Deploy all facet contracts
+  const { facetCuts, facetAddresses } = await deployFacetsAndBuildCuts(hre, FACETS);
 
-  for (const facetName of DAY1_FACETS) {
+  for (const facetName of FACETS) {
     spewNewContractInfo(contracts, null, facetName, `${facetName}.sol`, facetAddresses[facetName], quiet);
   }
 
@@ -219,37 +191,4 @@ export async function deployFlareTeeManager(
   );
 
   return flareTeeManager.address;
-}
-
-/**
- * Deploys later facets (replication, governance, version manager)
- * and adds them to the existing FlareTeeManager Diamond via diamondCut.
- */
-export async function addLaterFacets(
-  hre: HardhatRuntimeEnvironment,
-  flareTeeManagerAddress: string,
-  contracts: Contracts,
-  parameters: ChainParameters,
-  quiet: boolean = false
-): Promise<void> {
-  const { facetCuts, facetAddresses } = await deployFacetsAndBuildCuts(hre, LATER_FACETS);
-
-  for (const facetName of LATER_FACETS) {
-    spewNewContractInfo(contracts, null, facetName, `${facetName}.sol`, facetAddresses[facetName], quiet);
-  }
-
-  // Deploy ReplicationInit for the replication facet init
-  const ReplicationInit = hre.artifacts.require("ReplicationInit");
-  const replicationInit = await ReplicationInit.new();
-  spewNewContractInfo(contracts, null, "ReplicationInit", "ReplicationInit.sol", replicationInit.address, quiet);
-
-  const initCalldata = hre.web3.eth.abi.encodeFunctionCall(
-    (ReplicationInit.abi as AbiItem[]).find((item: AbiItem) => item.name === "init")!,
-    [parameters.teePauseBeforeUpgradeMinDurationSeconds.toString()]
-  );
-
-  // Execute diamondCut on FlareTeeManager
-  const IDiamondCut = hre.artifacts.require("IDiamondCut");
-  const flareTeeManager = await IDiamondCut.at(flareTeeManagerAddress);
-  await flareTeeManager.diamondCut(facetCuts, replicationInit.address, initCalldata);
 }

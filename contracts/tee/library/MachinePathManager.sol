@@ -2,11 +2,9 @@
 pragma solidity ^0.8.35;
 
 import { IMachinePathManager } from "../../userInterfaces/tee/IMachinePathManager.sol";
-import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { ExtensionManager } from "./ExtensionManager.sol";
 import { MachineManager } from "./MachineManager.sol";
 
 /**
@@ -141,7 +139,7 @@ library MachinePathManager {
      * then returns that governance hash. Helper used by the facet when appending paths.
      * @dev Status is intentionally not checked here: a freshly registered TEE (status INITIALIZED)
      *      that has chosen the current latest governance at registration time is a legitimate
-     *      destination for replication path lists. Callers that need stricter status semantics
+     *      destination for machine path lists. Callers that need stricter status semantics
      *      (e.g. directBackup requiring PRODUCTION) check status themselves.
      */
     function assertEligibleAndDeriveGovernanceHash(

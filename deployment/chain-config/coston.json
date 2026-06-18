@@ -455,7 +455,6 @@
         {"keyType": "EVM", "signingAlgos": ["keccak256-secp256k1-ecdsa", "keccak256-secp256k1-vrf"]}
     ],
     "teeDefaultFeeWei": "1000",
-    "teePauseBeforeUpgradeMinDurationSeconds": 600,
     "teeAvailabilityCheckValidityDurationSeconds": 21600,
     "teeSigningPolicyValidityDurationInRewardEpochs": 100,
     "teeChallengeValidityDurationSeconds": 600,

@@ -82,7 +82,7 @@ Different extensions have different reward weights for these classes. The operat
 
 ## What about PMW / per-wallet payments
 
-The PMW extension has additional fees that are **not** per-instruction — they're per-wallet upkeep, accruing over time. Those are handled by [`TeePaymentsFeeScheduleManager`](../../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol) and [`TeePaymentsLimitsManager`](../../../contracts/tee/implementation/TeePaymentsLimitsManager.sol), which are stand-alone UUPS contracts outside the diamond. The PMW extension consults these when calculating "what does this wallet owe right now" and surfaces the answer through a per-extension payment-stream mechanism.
+The PMW extension has additional fees that are **not** per-instruction — they're per-wallet upkeep, accruing over time. Those are handled by [`TeePaymentsFeeScheduleManager`](../../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol), a stand-alone UUPS contract outside the diamond. The PMW extension consults it when calculating "what does this wallet owe right now" and surfaces the answer through a per-extension payment-stream mechanism.
 
 The split — per-instruction fees in `OperationFees` (in the diamond), per-wallet streams in `TeePayments*` (outside) — exists because:
 

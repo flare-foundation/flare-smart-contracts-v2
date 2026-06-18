@@ -129,10 +129,8 @@ library Verification {
             );
         }
 
-        // Cosigner check for initial availability check or active replication
-        if (_status == IMachineManager.TeeStatus.INITIALIZED ||
-            _status == IMachineManager.TeeStatus.REPLICATING)
-        {
+        // Cosigner check for initial availability check
+        if (_status == IMachineManager.TeeStatus.INITIALIZED) {
             Fdc2ProofVerification.verifyCosignerSignatures(
                 ext.fdc2Verification,
                 messageHash,
@@ -171,17 +169,14 @@ library Verification {
 
     /**
      * Reuses a still-valid challenge for `_teeId` or generates a fresh one, builds the
-     * `TEE_ATTESTATION` registration message from `_attestingTeeId`'s machine data (with the
-     * teeId fields set to `_teeId`), dispatches the instruction, and emits
-     * `TeeAttestationRequested`. `_attestingTeeId` equals `_teeId` except during replication,
-     * where the attesting work is done on the replicating sibling.
+     * `TEE_ATTESTATION` registration message from `_teeId`'s machine data, dispatches the
+     * instruction, and emits `TeeAttestationRequested`.
      * @dev At registration no challenge exists yet (`challengeTs == 0`), so on a real chain —
      *      where `block.timestamp` far exceeds `challengeValidityDurationSeconds` — a fresh
      *      challenge is always generated. Auth (who may request) is the caller's responsibility.
      */
     function requestTeeAttestation(
         address _teeId,
-        address _attestingTeeId,
         address _claimBackAddress
     )
         internal
@@ -198,22 +193,18 @@ library Verification {
         }
 
         IMachineManager.TeeMachineWithAttestationData memory teeMachineWithAttestationData =
-            MachineManager.getTeeMachineWithAttestationData(_attestingTeeId);
-        IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(_attestingTeeId);
-        teeMachineWithAttestationData.teeId = _teeId;
-        teeMachine.teeId = _teeId;
+            MachineManager.getTeeMachineWithAttestationData(_teeId);
 
         IVerification.TeeAttestation memory message = IVerification.TeeAttestation({
             teeMachine: teeMachineWithAttestationData,
             challenge: challenge
         });
-        IMachineManager.TeeMachine[] memory teeMachines =
-            new IMachineManager.TeeMachine[](1);
-        teeMachines[0] = teeMachine;
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = _teeId;
 
         Instructions.sendInstructions(
             bytes32(0),
-            teeMachines,
+            teeIds,
             IInstructions.TeeInstructionParams(
                 REG_OP_TYPE,
                 TEE_ATTESTATION,
@@ -350,9 +341,7 @@ library Verification {
         returns (bool)
     {
         // Check signing policy validity
-        if (_status == IMachineManager.TeeStatus.INITIALIZED ||
-            _status == IMachineManager.TeeStatus.REPLICATING)
-        {
+        if (_status == IMachineManager.TeeStatus.INITIALIZED) {
             if (_responseBody.initialSigningPolicyId > _currentRewardEpochId ||
                 !isSigningPolicyValid(_responseBody.initialSigningPolicyId, _currentRewardEpochId))
             {

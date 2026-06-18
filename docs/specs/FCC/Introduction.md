@@ -10,7 +10,7 @@ The on-chain side of FCC lives in [`contracts/tee/`](../../../contracts/tee/) an
 
 Three things, layered:
 
-1. **Manage TEE machines.** Register them, attest to their state, replicate them for high-availability, control their lifecycle (initialized → production → paused → upgraded). Owners are administered via an allowlist; only allowlisted addresses can register machines for a given extension.
+1. **Manage TEE machines.** Register them, attest to their state, control their lifecycle (initialized → production → paused). Owners are administered via an allowlist; only allowlisted addresses can register machines for a given extension.
 2. **Manage protocol-managed wallets and keys.** A *wallet* is a secret key (or set of keys) generated and stored across one or more TEE machines. Users create wallets, generate keys, back them up via Shamir secret sharing, and restore them. Each key has a **key admin** set that participates in backup decryption and restore approval.
 3. **Execute signed instructions.** Users submit instructions through smart contracts on Flare; the orchestrator routes them to a chosen set of TEE machines, which verify them, execute the requested operation, and sign the response. Different operation types do different things — sign an XRPL payment, verify an FDC2 attestation, prove a VRF, run an extension's custom logic.
 
@@ -48,7 +48,7 @@ The on-chain contracts mostly emit and verify; the heavy lifting (running TEE ma
 
 ## Why a diamond proxy
 
-FCC is large. The full set of functionality — machine lifecycle, replication, key management across multiple wallets, multiple operation types, fee schedule, governance, replication groups, payments, registry, upgrade flow — easily exceeds the EIP-170 24KB contract-size limit. The diamond proxy lets the system run as a single externally-addressable contract while internally splitting logic across many facets. Each facet is small (often under 5KB); each library holds the per-namespace business logic and storage.
+FCC is large. The full set of functionality — machine lifecycle, key management across multiple wallets, multiple operation types, fee schedule, governance, payments, registry, upgrade flow — easily exceeds the EIP-170 24KB contract-size limit. The diamond proxy lets the system run as a single externally-addressable contract while internally splitting logic across many facets. Each facet is small (often under 5KB); each library holds the per-namespace business logic and storage.
 
 The split also gives FCC a natural upgrade story: governance can replace one facet (say, swap out `MachineManagerFacet` to fix a bug or add a feature) without touching the others. This is more granular than a UUPS-style "upgrade the whole implementation" model.
 

@@ -12,16 +12,12 @@ import { IIMachineEmergencyPause } from "./IIMachineEmergencyPause.sol";
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IWalletKeyManager } from "../../userInterfaces/tee/IWalletKeyManager.sol";
 import { IOwnerAllowlist } from "../../userInterfaces/tee/IOwnerAllowlist.sol";
-import { ISystemStateVerifier } from "../../userInterfaces/tee/ISystemStateVerifier.sol";
 import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
-import { IWalletResume } from "../../userInterfaces/tee/IWalletResume.sol";
 import { IWalletProjectManager } from "../../userInterfaces/tee/IWalletProjectManager.sol";
 import { IWalletProjectPause } from "../../userInterfaces/tee/IWalletProjectPause.sol";
 import { IWalletBackupManager } from "../../userInterfaces/tee/IWalletBackupManager.sol";
 import { IVrf } from "../../userInterfaces/tee/IVrf.sol";
-import { IIReplication } from "./IIReplication.sol";
 import { IExtensionGovernance } from "../../userInterfaces/tee/IExtensionGovernance.sol";
-import { IExtensionPausing } from "../../userInterfaces/tee/IExtensionPausing.sol";
 import { IMachinePathManager } from "../../userInterfaces/tee/IMachinePathManager.sol";
 import { IIExternalAddresses } from "./IIExternalAddresses.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
@@ -46,16 +42,12 @@ interface IIFlareTeeManager is
     IIOperationFees,
     IOwnerAllowlist,
     IWalletKeyManager,
-    ISystemStateVerifier,
     IWalletManager,
-    IWalletResume,
     IWalletProjectManager,
     IWalletProjectPause,
     IWalletBackupManager,
     IVrf,
-    IIReplication,
     IExtensionGovernance,
-    IExtensionPausing,
     IMachinePathManager,
     IIExternalAddresses
 {

@@ -6,7 +6,6 @@ import { Fdc2Hub } from "../../../../contracts/fdc2/implementation/Fdc2Hub.sol";
 import { Fdc2HubProxy } from "../../../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
 import { IOperationFees } from "../../../../contracts/userInterfaces/tee/IOperationFees.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
-import { IReplication } from "../../../../contracts/userInterfaces/tee/IReplication.sol";
 import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2RequestFeeConfigurations } from
     "../../../../contracts/userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
@@ -171,8 +170,7 @@ contract Fdc2HubTest is Test {
 
     function testRequestAttestationRevertDuplicatedTeeId() public {
         address teeId = makeAddr("teeId");
-        _mockGetTeeMachineStatus(teeId, IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE);
-        _mockGetTeeReplicatingTeeId(teeId, address(0));
+        _mockGetTeeMachineStatus(teeId, IMachineManager.TeeStatus.PRODUCTION);
         teeIds = new address[](2);
         teeIds[0] = teeId;
         teeIds[1] = teeId;
@@ -193,8 +191,7 @@ contract Fdc2HubTest is Test {
 
     function testRequestAttestationRevertTeeMachineNotAvailable() public {
         address teeId = makeAddr("teeId");
-        _mockGetTeeMachineStatus(teeId, IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE);
-        _mockGetTeeReplicatingTeeId(teeId, address(0));
+        _mockGetTeeMachineStatus(teeId, IMachineManager.TeeStatus.PAUSED);
         teeIds = new address[](1);
         teeIds[0] = teeId;
         vm.expectRevert(IFdc2Hub.TeeMachineNotAvailable.selector);
@@ -376,17 +373,6 @@ contract Fdc2HubTest is Test {
         );
     }
 
-    function _mockGetTeeReplicatingTeeId(address _teeId, address _replicatingTeeId) internal {
-        vm.mockCall(
-            flareTeeManager,
-            abi.encodeWithSelector(
-                IReplication.getReplicatingTeeId.selector,
-                _teeId
-            ),
-            abi.encode(_replicatingTeeId)
-        );
-    }
-
     function _mockGetTypeAndSourceFee() internal {
         vm.mockCall(
             mockFdc2RequestFeeConfigurations,
@@ -449,10 +435,10 @@ contract Fdc2HubTest is Test {
     }
 
     function _mockSendSystemInstructions() internal {
-        // sendSystemInstructions(bytes32,(address,address,string)[],(bytes32,bytes32,bytes,address[],uint64,address))
+        // sendSystemInstructions(bytes32,address[],(bytes32,bytes32,bytes,address[],uint64,address))
         bytes4 sel = bytes4(keccak256(
             "sendSystemInstructions(bytes32,"
-            "(address,address,string)[],"
+            "address[],"
             "(bytes32,bytes32,bytes,address[],uint64,address))"
         ));
         vm.mockCall(
@@ -462,20 +448,4 @@ contract Fdc2HubTest is Test {
         );
     }
 
-    function _getTeeMachines(
-        uint256 _num
-    )
-        internal view
-        returns (IMachineManager.TeeMachine[] memory _teeMachines)
-    {
-        _teeMachines = new IMachineManager.TeeMachine[](_num);
-
-        for (uint256 i = 0; i < _num; i++) {
-            _teeMachines[i] = IMachineManager.TeeMachine({
-                teeId: teeIds[i],
-                teeProxyId: teeIds[i], // for testing purposes
-                url: urls[i]
-            });
-        }
-    }
 }

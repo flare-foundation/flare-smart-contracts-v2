@@ -1,6 +1,6 @@
 # Wallet Management
 
-A **wallet** in FCC is a logical container for one or more keys, owned by a project, hosted on a set of TEE machines (one or more, typically a replication group). Wallets are how applications group keys and bind them to off-chain identities (e.g. an XRPL multisig account).
+A **wallet** in FCC is a logical container for one or more keys, owned by a project, hosted on a set of TEE machines. Wallets are how applications group keys and bind them to off-chain identities (e.g. an XRPL multisig account).
 
 The on-chain pieces:
 
@@ -8,7 +8,6 @@ The on-chain pieces:
 - [`WalletProjectManagerFacet`](../../../contracts/tee/facets/WalletProjectManagerFacet.sol) + [`library/WalletProjectManager`](../../../contracts/tee/library/WalletProjectManager.sol) — *project*-level grouping (a project owns multiple wallets and is administered by a single project owner).
 - [`WalletProjectPauseFacet`](../../../contracts/tee/facets/WalletProjectPauseFacet.sol) + [`library/WalletProjectPause`](../../../contracts/tee/library/WalletProjectPause.sol) — per-project pauser/unpauser delegation lists + the batch `pauseWallets` (`PRODUCTION → PAUSED`) and `unpauseWallets` (`PAUSED → PRODUCTION`) actions. The project owner adds addresses to either list; list members can pause / resume any wallet in their project alongside the owner.
 - [`WalletBackupManagerFacet`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) — admin-share-based key restore (`backupRestore`) AND the path-list-gated direct backup/restore between two TEE machines (`directBackup` / `directRestore`). See [Key management → direct backup / restore](./KeyManagement.md#direct-backup--restore).
-- [`WalletResumeFacet`](../../../contracts/tee/facets/WalletResumeFacet.sol) + [`library/WalletResume`](../../../contracts/tee/library/WalletResume.sol) — resume wallet operations after a pause / upgrade.
 
 ## The hierarchy
 
@@ -64,8 +63,6 @@ State transitions:
 - `PRODUCTION → PAUSED` — `pauseWallets` (batch) on [`WalletProjectPauseFacet`](../../../contracts/tee/facets/WalletProjectPauseFacet.sol), callable by the project owner or a project pauser.
 - `PAUSED → PRODUCTION` — `unpauseWallets` (batch) on `WalletProjectPauseFacet`, callable by the project owner or a project unpauser.
 
-[`WalletResumeFacet`](../../../contracts/tee/facets/WalletResumeFacet.sol) does *not* change `WalletStatus`; it sends TEE instructions: `setPausingAddresses` (configure the off-chain pausing addresses for a wallet) and `resume` (resume off-chain wallet operations after a pause / upgrade). Both require the wallet to be in `PRODUCTION` or `PAUSED`. `resume` validates every `ResumeKeyData` entry the same way the other key-bearing flows do — the TEE must belong to the wallet's project extension (`ExtensionIdMismatch`), must currently hold the `(wallet, key)` pair (`WrongKeyId`), and must be in production (`TeeMachineNotAvailable`). The `ResumeKeyData.nonce` is an off-chain value (distinct from the on-chain key-management nonce), so it is forwarded to the TEE unchecked. `setPausingAddresses` accepts an empty list but rejects a zero address (`InvalidAddress`) or duplicate entries (`AddressAlreadyInSet`).
-
 ## Setting the key admin set
 
 The wallet's key admin set (admins are who can recover the wallet if all TEEs fail) is configured during the `CREATED` phase, before the wallet is initialized:
@@ -95,7 +92,7 @@ The wallet owner is the Flare address authorized to:
 
 - Generate, delete, and rotate keys (see [Key Management](./KeyManagement.md)).
 - Configure the admin / cosigner sets (during the `CREATED` phase only) and initialize / enable the wallet.
-- Pause and unpause the wallet (via `WalletProjectPauseFacet`), and configure pausing addresses / resume operations (via `WalletResumeFacet`). Pause / unpause authority can also be delegated to per-project pauser / unpauser lists.
+- Pause and unpause the wallet (via `WalletProjectPauseFacet`). Pause / unpause authority can also be delegated to per-project pauser / unpauser lists.
 - Submit instructions that produce signed operations using the wallet's keys (e.g. signing an XRPL payment).
 
 The owner does **not** hold the keys themselves and cannot extract them. The off-chain TEE machines do; the on-chain owner just authorizes which operations they should perform.
