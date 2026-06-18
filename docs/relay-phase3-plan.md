@@ -54,3 +54,24 @@ every unbounded Kontrol result apply to the real bytecode, not a model); then th
 ## Out of practical scope (document as accepted, not proven)
 
 - `uint32 votingRoundId` wrap (~386 yr out), `rewardEpochId` truncation (~47 yr out).
+
+## Verified status (live)
+
+| Obligation | Harness | Status |
+|-----------|---------|--------|
+| **R5** cross-epoch threshold scaling never weakens the gate | `RelayThresholdScalingFV` | ✅ verified (Halmos) |
+| **L1** `setSigningPolicy` strict +1 epoch advance | `RelayEpochAdvanceFV` | ✅ verified |
+| **AC-1** `setSigningPolicy` access control (only setter) | `RelayAccessControlFV` | ✅ verified |
+| **AC-11 + L4 + RLY-11** constructor config validation | `RelayConstructorFV` | ✅ verified |
+| **Step 2** assembly review | `docs/relay-assembly-review.md` | ✅ delivered |
+| **L7** random monotonicity (non-monotone sequences) | `RelayRandomMonotonicityFV` (+ Kontrol) | ✅ already covered |
+| cross-epoch threshold soundness | `RelayCrossEpochFV` | ✅ already covered |
+| **L3** finalization window | — | ⏳ needs multi-tx (advance epoch past window) |
+| **L8** cross-epoch must-use-new-policy gate | — | ⏳ needs initialized-state setup |
+| **AC-3** no state write on reject | — | ⏳ largely an EVM-revert corollary |
+| **AC-6** Mode-1 policy-rotation validation | — | ⏳ needs Mode-1 relay setup |
+| **AC-10** nonce replay protection (RLY-02) | — | ⏳ needs multi-tx relay |
+| Step 5 Merkle soundness / Step 6 integration / Step 3+7 Kontrol | — | ⏳ pending |
+
+Note: harnesses with a symbolic 16-bit product (e.g. R5 `neverWeakens`) need
+`--solver-timeout-assertion 0` (above Halmos's 60s default).
