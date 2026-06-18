@@ -146,6 +146,9 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsConfigVerifier"));
     }
 
+    // flareTeeManager is a trusted system contract set via AddressUpdatable, not an arbitrary address.
+    // The disable sits on the function (where slither anchors arbitrary-send-eth), not the call line.
+    //slither-disable-next-line arbitrary-send-eth
     function _sendPaymentInstructions(
         bytes32 _opType,
         bytes32 _instructionId,

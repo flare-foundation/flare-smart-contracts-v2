@@ -13,6 +13,8 @@ library Vrf {
         mapping(bytes32 walletId => address) vrfAuthorizationAddresses;
     }
 
+    // erc7201 builtin not recognized by slither's parser; the constant is initialized at declaration
+    //slither-disable-next-line uninitialized-state
     bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.Vrf.State"));
 
     function getState()

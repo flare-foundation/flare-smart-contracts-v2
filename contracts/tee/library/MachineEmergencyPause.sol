@@ -62,6 +62,8 @@ library MachineEmergencyPause {
     /// availability-refresh flow) are routed exclusively to TEEs in this extension.
     uint256 internal constant SYSTEM_EXTENSION_ID = 0;
 
+    // erc7201 builtin not recognized by slither's parser; the constant is initialized at declaration
+    //slither-disable-next-line uninitialized-state
     bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.MachineEmergencyPause.State"));
 
     /// Validates the input against `[MIN_GRACE_PERIOD_SECONDS, MAX_GRACE_PERIOD_SECONDS]`,

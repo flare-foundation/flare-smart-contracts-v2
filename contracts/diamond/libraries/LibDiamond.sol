@@ -28,6 +28,8 @@ error InitializationFunctionReverted(address _initializationContractAddress, byt
 // solhint-disable no-inline-assembly
 // solhint-disable ordering
 library LibDiamond {
+    // erc7201 builtin not recognized by slither's parser; the constant is initialized at declaration
+    //slither-disable-next-line uninitialized-state
     bytes32 internal constant DIAMOND_STORAGE_POSITION = bytes32(erc7201("flare.LibDiamond.DiamondStorage"));
 
     struct FacetAddressAndSelectorPosition {
@@ -165,8 +167,7 @@ library LibDiamond {
         if (!success) {
             if (err.length > 0) {
                 // bubble up error
-                /// @solidity memory-safe-assembly
-                assembly {
+                assembly ("memory-safe") {
                     let returndata_size := mload(err)
                     revert(add(32, err), returndata_size)
                 }

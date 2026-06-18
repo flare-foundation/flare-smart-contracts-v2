@@ -150,6 +150,12 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         bytes32 instructionId = keccak256(abi.encode(
             sourceOpType, PAY, _account.sourceId, _account.accountAddress, state.batchAnchorIndex, state.batchNonce
         ));
+        // Checks-effects-interactions: close the batch (state write) before the external instruction send.
+        // The message and instructionId are already built above, so closing here does not affect them.
+        if (batchFull) {
+            _closeBatch(accountHash, _account.sourceId, state, uint64(block.timestamp));
+        }
+
         _sendPaymentInstructions(
             sourceOpType,
             instructionId,
@@ -161,10 +167,6 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
             _claimBackAddress,
             msg.value
         );
-
-        if (batchFull) {
-            _closeBatch(accountHash, _account.sourceId, state, uint64(block.timestamp));
-        }
     }
 
     /**

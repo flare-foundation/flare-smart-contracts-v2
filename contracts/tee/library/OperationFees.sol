@@ -20,6 +20,8 @@ library OperationFees {
         mapping(bytes32 opType => mapping(bytes32 opCommand => uint256 fee)) operationFee;
     }
 
+    // erc7201 builtin not recognized by slither's parser; the constant is initialized at declaration
+    //slither-disable-next-line uninitialized-state
     bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.OperationFees.State"));
 
     /// Writes the default fee into ERC-7201 storage and emits

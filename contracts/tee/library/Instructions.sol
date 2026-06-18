@@ -31,6 +31,8 @@ library Instructions {
         mapping(uint256 extensionId => uint256 counter) instructionIdsCounter;
     }
 
+    // erc7201 builtin not recognized by slither's parser; the constant is initialized at declaration
+    //slither-disable-next-line uninitialized-state
     bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.Instructions.State"));
 
     /// Prefix reserved for system-owned extension.

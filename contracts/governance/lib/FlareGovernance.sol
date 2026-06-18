@@ -30,6 +30,8 @@ library FlareGovernance {
     }
 
     // ERC-7201 namespaced storage slot
+    // erc7201 builtin not recognized by slither's parser; the constant is initialized at declaration
+    //slither-disable-next-line uninitialized-state
     bytes32 private constant STATE_POSITION = bytes32(erc7201("flare.FlareGovernance.State"));
 
     /**

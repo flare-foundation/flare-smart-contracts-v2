@@ -33,6 +33,8 @@ library WalletKeyManager {
         mapping(bytes32 walletId => TeeWalletKeysState) walletKeys;
     }
 
+    // erc7201 builtin not recognized by slither's parser; the constant is initialized at declaration
+    //slither-disable-next-line uninitialized-state
     bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.WalletKeyManager.State"));
 
     function increaseKeyNonce(

@@ -26,6 +26,8 @@ library WalletProjectManager {
         mapping(bytes32 projectId => address) proposedProjectOwner;
     }
 
+    // erc7201 builtin not recognized by slither's parser; the constant is initialized at declaration
+    //slither-disable-next-line uninitialized-state
     bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.WalletProjectManager.State"));
 
     function getOwner(
