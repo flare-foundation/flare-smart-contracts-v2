@@ -70,7 +70,7 @@ every unbounded Kontrol result apply to the real bytecode, not a model); then th
 | **L8** cross-epoch must-use-new-policy gate | — | ⏳ needs initialized-state setup |
 | **AC-3** no state write on reject | — | ⏳ largely an EVM-revert corollary |
 | **AC-6** Mode-1 policy-rotation validation | — | ⏳ needs Mode-1 relay setup |
-| **AC-10** nonce replay protection (RLY-02) | — | ⏳ needs multi-tx relay |
+| **AC-10** nonce replay protection (RLY-02) | `RelayGovernanceNonceFV` | ✅ verified (multi-tx, symbolic nonce) |
 | Step 5 Merkle soundness / Step 6 integration / Step 3+7 Kontrol | — | ⏳ pending |
 
 Note: harnesses with a symbolic 16-bit product (e.g. R5 `neverWeakens`) need
