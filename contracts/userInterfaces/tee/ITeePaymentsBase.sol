@@ -43,6 +43,7 @@ interface ITeePaymentsBase is ITeePaymentsModel {
     error LengthsMismatch();
     error PaymentHashMismatch();
     error PMWMultisigAccountAddressAlreadySet();
+    error PMWMultisigAccountNotRegistered();
     error OnlyProductionOrPausedStatus();
     error UnsupportedSourceId();
     error PaymentAmountZero();
@@ -118,4 +119,21 @@ interface ITeePaymentsBase is ITeePaymentsModel {
     )
         external view
         returns (address _authorizationAddress);
+
+    /**
+     * Returns the fee required to send an operation (e.g. PAY or REISSUE) for the given account.
+     * Resolves the wallet and operation type from the account, then returns the same fee a real
+     * `pay`/`reissue` would charge (per-tee fee times the deduplicated receiving tee count).
+     * Reverts with `PMWMultisigAccountNotRegistered` if the account is not registered, and with
+     * `ThresholdNotMet` if the wallet does not have enough available keys.
+     * @param _account The PMW multisig account.
+     * @param _opCommand The operation command (e.g. `bytes32("PAY")` or `bytes32("REISSUE")`).
+     * @return _fee The fee required, in wei, to send the operation.
+     */
+    function getPaymentFee(
+        PMWMultisigAccount calldata _account,
+        bytes32 _opCommand
+    )
+        external view
+        returns (uint256 _fee);
 }

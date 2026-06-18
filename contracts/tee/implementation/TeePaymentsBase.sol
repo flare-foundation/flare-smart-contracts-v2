@@ -110,6 +110,22 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
     }
 
     /**
+     * @inheritdoc ITeePaymentsBase
+     */
+    function getPaymentFee(
+        PMWMultisigAccount calldata _account,
+        bytes32 _opCommand
+    )
+        external view
+        returns (uint256 _fee)
+    {
+        bytes32 walletId = _getWalletId(_account);
+        require(walletId != 0, PMWMultisigAccountNotRegistered());
+        bytes32 opType = _sourceOpType(_account.sourceId);
+        return flareTeeManager.calculateFeeByWalletId(walletId, opType, _opCommand);
+    }
+
+    /**
      * Updates external contract addresses.
      */
     function _updateContractAddresses(
@@ -270,7 +286,7 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
         internal view
         returns (bytes32)
     {
-        return accountHashToWalletId[_toAccountHash(_account.sourceId, _account.accountAddress)];
+        return accountHashToWalletId[_toAccountHash(_account)];
     }
 
     function _toTeeIds(

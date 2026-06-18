@@ -172,6 +172,22 @@ interface IWalletKeyManager is ITeeCommonErrors {
         returns (TeeIdKeyIdPair[] memory _teeIdKeyIdPairs);
 
     /**
+     * Returns the deduplicated list of tee ids that would receive instructions for the wallet -
+     * the read-only twin of `receivingTeesAndKeys`. The list matches the tee ids the dispatch
+     * path feeds the fee calculation, so `calculateFeeByTeeIds` (or `calculateFeeByWalletId`)
+     * applied to it yields the same fee a real `pay`/`reissue` charges.
+     * Reverts with `ThresholdNotMet` if not enough receiving tees are available, and emits no
+     * event (safe to call via `eth_call`).
+     * @param _walletId The wallet id.
+     * @return _teeIds The deduplicated list of receiving tee ids.
+     */
+    function getReceivingTeeIds(
+        bytes32 _walletId
+    )
+        external view
+        returns (address[] memory _teeIds);
+
+    /**
      * Returns the list of tee ids that hold the wallet key.
      * @param _walletId The wallet id.
      * @param _keyId The key id.

@@ -21,6 +21,7 @@ import {
     IWalletProjectManager
 } from "../../../../contracts/userInterfaces/tee/IWalletProjectManager.sol";
 import { IWalletKeyManager } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IOperationFees } from "../../../../contracts/userInterfaces/tee/IOperationFees.sol";
 import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import {
     IPMWMultisigUtxoConfigured
@@ -440,6 +441,23 @@ contract TeePaymentsUtxoTest is Test {
             factorsBIPSPerPayment: new int16[][](0),
             delaysSeconds: new uint16[](0)
         });
+    }
+
+    function testGetPaymentFeePay() public {
+        _addAccount(2);
+        uint256 expectedFee = 900;
+        vm.mockCall(
+            flareTeeManager,
+            abi.encodeWithSelector(
+                IOperationFees.calculateFeeByWalletId.selector, walletId, OP_TYPE, bytes32("PAY")),
+            abi.encode(expectedFee)
+        );
+        assertEq(teePayments.getPaymentFee(account, bytes32("PAY")), expectedFee);
+    }
+
+    function testGetPaymentFeeRevertNotRegistered() public {
+        vm.expectRevert(ITeePaymentsBase.PMWMultisigAccountNotRegistered.selector);
+        teePayments.getPaymentFee(account, bytes32("PAY"));
     }
 
     function _addAccount(uint32 _anchorCount) internal {

@@ -1112,6 +1112,142 @@ contract WalletKeyManagerFacetTest is Test {
     }
 
     // =========================================================================
+    // getReceivingTeeIds
+    // =========================================================================
+
+    function testGetReceivingTeeIds() public {
+        testConfirmKeyNotInWallet();
+        address[] memory teeIds = flareTeeManager.getReceivingTeeIds(walletId);
+        assertEq(teeIds.length, 1);
+        assertEq(teeIds[0], teeId);
+    }
+
+    function testGetReceivingTeeIdsDeduplicates() public {
+        // Two keys both held by the same PRODUCTION teeId -> deduplicated to a single tee id,
+        // matching what the dispatch path feeds the fee calculation.
+        address[] memory keyTeeIds = new address[](1);
+        keyTeeIds[0] = teeId;
+        helper.setKeyState(walletId, 0, abi.encode("pk0"), keyTeeIds, 2);
+        helper.setKeyState(walletId, 1, abi.encode("pk1"), keyTeeIds, 2);
+        uint64[] memory keyIds = new uint64[](2);
+        keyIds[0] = 0;
+        keyIds[1] = 1;
+        helper.setKeyIds(walletId, keyIds);
+
+        address[] memory teeIds = flareTeeManager.getReceivingTeeIds(walletId);
+        assertEq(teeIds.length, 1);
+        assertEq(teeIds[0], teeId);
+    }
+
+    function testGetReceivingTeeIdsMultipleDistinctTees() public {
+        // key0 held by teeId, key1 held by newTeeId -> two distinct receiving tee ids.
+        address[] memory key0Tees = new address[](1);
+        key0Tees[0] = teeId;
+        address[] memory key1Tees = new address[](1);
+        key1Tees[0] = newTeeId;
+        helper.setKeyState(walletId, 0, abi.encode("pk0"), key0Tees, 2);
+        helper.setKeyState(walletId, 1, abi.encode("pk1"), key1Tees, 2);
+        uint64[] memory keyIds = new uint64[](2);
+        keyIds[0] = 0;
+        keyIds[1] = 1;
+        helper.setKeyIds(walletId, keyIds);
+
+        address[] memory teeIds = flareTeeManager.getReceivingTeeIds(walletId);
+        assertEq(teeIds.length, 2);
+        assertEq(teeIds[0], teeId);
+        assertEq(teeIds[1], newTeeId);
+    }
+
+    function testGetReceivingTeeIdsExcludesNonProduction() public {
+        // key0 held by teeId (PRODUCTION) plus a PAUSED tee; only the PRODUCTION one is returned.
+        address pausedTee = makeAddr("pausedTee");
+        helper.setTeeMachineState(
+            pausedTee,
+            extensionId,
+            teeMachineOwner,
+            IMachineManager.TeeStatus.PAUSED,
+            PublicKey(bytes32(0), bytes32(0)),
+            1,
+            "https://paused.url"
+        );
+        address[] memory key0Tees = new address[](2);
+        key0Tees[0] = teeId;
+        key0Tees[1] = pausedTee;
+        helper.setKeyState(walletId, 0, abi.encode("pk0"), key0Tees, 1);
+        uint64[] memory keyIds = new uint64[](1);
+        keyIds[0] = 0;
+        helper.setKeyIds(walletId, keyIds);
+
+        address[] memory teeIds = flareTeeManager.getReceivingTeeIds(walletId);
+        assertEq(teeIds.length, 1);
+        assertEq(teeIds[0], teeId);
+    }
+
+    function testGetReceivingTeeIdsRevertThresholdNotMet() public {
+        testConfirmKeyNotInWallet();
+        vm.prank(owner);
+        flareTeeManager.setMultisigThreshold(walletId, 2);
+        vm.expectRevert(IWalletKeyManager.ThresholdNotMet.selector);
+        flareTeeManager.getReceivingTeeIds(walletId);
+    }
+
+    // =========================================================================
+    // calculateFeeByWalletId
+    // =========================================================================
+
+    function testCalculateFeeByWalletIdDefaultFee() public {
+        // Single distinct receiving tee, no operation-specific fee -> default fee (1000).
+        testConfirmKeyNotInWallet();
+        assertEq(
+            flareTeeManager.calculateFeeByWalletId(walletId, bytes32("F_XRP"), bytes32("PAY")),
+            1000
+        );
+    }
+
+    function testCalculateFeeByWalletIdWithOperationFee() public {
+        testConfirmKeyNotInWallet();
+        bytes32[] memory opTypes = new bytes32[](1);
+        bytes32[] memory opCommands = new bytes32[](1);
+        uint256[] memory fees = new uint256[](1);
+        opTypes[0] = bytes32("F_XRP");
+        opCommands[0] = bytes32("PAY");
+        fees[0] = 100;
+        vm.prank(initialGovernance);
+        flareTeeManager.setOperationFees(opTypes, opCommands, fees);
+
+        // one distinct receiving tee -> 100 * 1
+        assertEq(
+            flareTeeManager.calculateFeeByWalletId(walletId, bytes32("F_XRP"), bytes32("PAY")),
+            100
+        );
+    }
+
+    function testCalculateFeeByWalletIdDeduplicated() public {
+        // Two keys held by the same tee -> deduplicated to 1 -> fee = perFee * 1 (default 1000).
+        address[] memory keyTeeIds = new address[](1);
+        keyTeeIds[0] = teeId;
+        helper.setKeyState(walletId, 0, abi.encode("pk0"), keyTeeIds, 2);
+        helper.setKeyState(walletId, 1, abi.encode("pk1"), keyTeeIds, 2);
+        uint64[] memory keyIds = new uint64[](2);
+        keyIds[0] = 0;
+        keyIds[1] = 1;
+        helper.setKeyIds(walletId, keyIds);
+
+        assertEq(
+            flareTeeManager.calculateFeeByWalletId(walletId, bytes32("F_XRP"), bytes32("PAY")),
+            1000
+        );
+    }
+
+    function testCalculateFeeByWalletIdRevertThresholdNotMet() public {
+        testConfirmKeyNotInWallet();
+        vm.prank(owner);
+        flareTeeManager.setMultisigThreshold(walletId, 2);
+        vm.expectRevert(IWalletKeyManager.ThresholdNotMet.selector);
+        flareTeeManager.calculateFeeByWalletId(walletId, bytes32("F_XRP"), bytes32("PAY"));
+    }
+
+    // =========================================================================
     // getWalletKeysInfo
     // =========================================================================
 

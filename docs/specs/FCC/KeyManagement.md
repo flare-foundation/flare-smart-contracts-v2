@@ -167,6 +167,28 @@ Since VRF outputs are deterministic given (key, seed), they're reproducible acro
 
 When the extension owner removes a key type from the extension's supported set (`removeSupportedKeyTypes`, extension-owner-only), existing keys of that type are not deleted — they're just immobilized. Any new key-generate of that type fails; existing keys can still sign existing operations until the wallet owner explicitly deletes them. This soft-deprecation lets the system retire deprecated cryptographic primitives without breaking running wallets immediately.
 
+## Receiving TEEs for a wallet
+
+When a wallet operation (a PMW `PAY`/`REISSUE`, see [Payments](./Payments.md)) is dispatched, the
+instruction is sent to the set of TEEs that currently hold the wallet's keys. That set is computed
+by [`WalletKeyManager.receivingTeesAndKeys`](../../../contracts/tee/library/WalletKeyManager.sol):
+
+- For each of the wallet's key ids, it collects the TEEs holding that key that are in `PRODUCTION`
+  status (others are skipped — a key with no available holder is reported via the
+  `WalletKeysNotAvailable` event).
+- It requires the number of available keys to be at least the wallet's `multisigThreshold`,
+  reverting `ThresholdNotMet()` otherwise.
+- It returns `(teeId, keyId)` pairs — one per available holder, so a TEE holding two of the
+  wallet's keys appears twice.
+
+`receivingTeesAndKeys` is **not** a view (it emits `WalletKeysNotAvailable`), so it cannot be read
+via `eth_call`. Its read-only twin `getReceivingTeeIds(walletId)` returns just the **deduplicated**
+list of receiving TEE ids — identical to what the dispatch path feeds the fee calculation, because
+[`InstructionsFacet`](../../../contracts/tee/facets/InstructionsFacet.sol) deduplicates the TEE list
+before charging. It applies the same `ThresholdNotMet()` revert and emits nothing. A wallet uses it
+(or the convenience [`calculateFeeByWalletId`](./OperationFees.md#setting-per-operation-fees)) to
+pre-flight the fee before submitting a payment.
+
 ## What's stored on-chain per key
 
 Per key, the [`KeyDefinition`](../../../contracts/tee/library/WalletKeyManager.sol) struct holds:

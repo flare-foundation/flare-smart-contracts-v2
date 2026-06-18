@@ -38,6 +38,8 @@ Because the whole FDC2 proof (header + request body + response body) is signatur
 
 **Dispatch** — `_sendPaymentInstructions` forwards `msg.value` to [`FlareTeeManager.sendSystemInstructions`](../../../contracts/tee/facets/InstructionsFacet.sol) with the computed `instructionId`, the receiving TEEs, the op type/command, the ABI-encoded message, and the wallet's cosigner set. That emits the `TeeInstructionsSent` event the off-chain pipeline consumes.
 
+**Fee pre-flight** — `pay`/`reissue` are `payable` and revert `FeeTooLow()` if `msg.value` is short of the per-instruction fee (see [Operation Fees](./OperationFees.md)). A wallet computes the exact amount to send with the read-only `getPaymentFee(account, opCommand)` on `TeePaymentsBase` (shared by both models): it resolves the wallet from the account (`accountHashToWalletId`, reverting `PMWMultisigAccountNotRegistered()` for an unknown account) and the op type from the source (`_sourceOpType`), then returns `FlareTeeManager.calculateFeeByWalletId(walletId, opType, opCommand)`. Pass `bytes32("PAY")` or `bytes32("REISSUE")` as `opCommand`; the result equals what the corresponding dispatch will charge (it reverts `ThresholdNotMet()` if the wallet has too few available keys).
+
 ## Config verifier
 
 [`TeePaymentsConfigVerifier`](../../../contracts/tee/implementation/TeePaymentsConfigVerifier.sol) is the single place that both requests and verifies PMW configuration attestations, for both models:

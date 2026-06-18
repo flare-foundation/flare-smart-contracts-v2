@@ -24,6 +24,7 @@ import {
 } from "../../../../contracts/userInterfaces/tee/IWalletProjectManager.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { IWalletKeyManager } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IOperationFees } from "../../../../contracts/userInterfaces/tee/IOperationFees.sol";
 import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import {
     IPMWMultisigAccountConfigured,
@@ -278,6 +279,36 @@ contract TeePaymentsTest is Test {
         vm.expectRevert(ITeePaymentsBase.WalletNotInProduction.selector);
         vm.prank(authorizationAddress);
         teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
+    }
+
+    //// getPaymentFee ////
+
+    function testGetPaymentFeePay() public {
+        _addAccount();
+        uint256 expectedFee = 500;
+        vm.mockCall(
+            flareTeeManager,
+            abi.encodeWithSelector(IOperationFees.calculateFeeByWalletId.selector, walletId, OP_TYPE, PAY),
+            abi.encode(expectedFee)
+        );
+        assertEq(teePayments.getPaymentFee(pmwMultisigAccount, PAY), expectedFee);
+    }
+
+    function testGetPaymentFeeReissue() public {
+        _addAccount();
+        uint256 expectedFee = 700;
+        vm.mockCall(
+            flareTeeManager,
+            abi.encodeWithSelector(IOperationFees.calculateFeeByWalletId.selector, walletId, OP_TYPE, REISSUE),
+            abi.encode(expectedFee)
+        );
+        assertEq(teePayments.getPaymentFee(pmwMultisigAccount, REISSUE), expectedFee);
+    }
+
+    function testGetPaymentFeeRevertNotRegistered() public {
+        // Account never registered -> walletId resolves to 0.
+        vm.expectRevert(ITeePaymentsBase.PMWMultisigAccountNotRegistered.selector);
+        teePayments.getPaymentFee(pmwMultisigAccount, PAY);
     }
 
     //// reissue ////

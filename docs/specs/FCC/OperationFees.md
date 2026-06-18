@@ -55,6 +55,7 @@ Reading is open:
 - `getOperationFee(opType, opCommand)` — returns the configured fee for that pair, or `0` if it falls back to default.
 - `getDefaultFee()` — current default.
 - `calculateFeeByTeeIds(opType, opCommand, teeIds[])` — full fee for a hypothetical instruction.
+- `calculateFeeByWalletId(walletId, opType, opCommand)` — full fee for a PMW wallet operation. It resolves the wallet's receiving TEEs the same way `pay`/`reissue` do — via [`WalletKeyManager.getReceivingTeeIds`](../../../contracts/tee/library/WalletKeyManager.sol) (the deduplicated, PRODUCTION-only TEE set, see [Key Management](./KeyManagement.md#receiving-tees-for-a-wallet)) — then multiplies by the per-operation fee. Reverts with `ThresholdNotMet()` if the wallet does not currently have enough available keys. This is what a wallet should call to pre-flight the fee for a `PAY` or `REISSUE` before submitting.
 
 ## Why this scheme
 

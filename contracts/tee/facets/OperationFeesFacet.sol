@@ -4,6 +4,7 @@ pragma solidity ^0.8.35;
 import { IIOperationFees } from "../interface/IIOperationFees.sol";
 import { IOperationFees } from "../../userInterfaces/tee/IOperationFees.sol";
 import { OperationFees } from "../library/OperationFees.sol";
+import { WalletKeyManager } from "../library/WalletKeyManager.sol";
 import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 
 /**
@@ -84,5 +85,20 @@ contract OperationFeesFacet is IIOperationFees, FlareGovernedAccess {
         returns (uint256 _fee)
     {
         return OperationFees.calculateFeeByTeeIds(_opType, _opCommand, _teeIds);
+    }
+
+    /**
+     * @inheritdoc IOperationFees
+     */
+    function calculateFeeByWalletId(
+        bytes32 _walletId,
+        bytes32 _opType,
+        bytes32 _opCommand
+    )
+        external view
+        returns (uint256 _fee)
+    {
+        address[] memory teeIds = WalletKeyManager.getReceivingTeeIds(_walletId);
+        return OperationFees.calculateFeeByTeeIds(_opType, _opCommand, teeIds);
     }
 }

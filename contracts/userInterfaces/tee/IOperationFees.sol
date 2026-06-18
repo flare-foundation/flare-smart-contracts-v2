@@ -58,4 +58,21 @@ interface IOperationFees is ITeeCommonErrors {
     )
         external view
         returns (uint256 _fee);
+
+    /**
+     * Calculates the fee for an operation on the given wallet, resolving the receiving tee ids
+     * the same way `pay`/`reissue` do (deduplicated PRODUCTION tee ids). Reverts with
+     * `ThresholdNotMet` if the wallet does not have enough available keys.
+     * @param _walletId The wallet id.
+     * @param _opType The operation type.
+     * @param _opCommand The operation command.
+     * @return _fee The calculated fee.
+     */
+    function calculateFeeByWalletId(
+        bytes32 _walletId,
+        bytes32 _opType,
+        bytes32 _opCommand
+    )
+        external view
+        returns (uint256 _fee);
 }

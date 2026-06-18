@@ -5,6 +5,7 @@ import { IWalletKeyManager } from "../../userInterfaces/tee/IWalletKeyManager.so
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { MachineManager } from "./MachineManager.sol";
+import { Instructions } from "./Instructions.sol";
 
 /**
  * @title WalletKeyManager
@@ -51,6 +52,8 @@ library WalletKeyManager {
     /**
      * Returns wallet's receiving tees and keys.
      * Reverts if not enough receiving tees are available.
+     * NOTE: If some keys are unavailable (e.g. some TEEs being down), `WalletKeysNotAvailable`
+     * event is emitted. This is the dispatch-path variant used by `pay`/`reissue`.
      */
     function receivingTeesAndKeys(
         bytes32 _walletId
@@ -58,51 +61,34 @@ library WalletKeyManager {
         internal
         returns (TeeIdKeyIdPair[] memory _teeIdKeyIdPairs)
     {
-        TeeWalletKeysState storage keys = getState().walletKeys[_walletId];
-        uint256 keyIdsLength = keys.keyIds.length;
-        uint256 count = 0;
-        for (uint256 i = 0; i < keyIdsLength; i++) {
-            count += keys.keyDefinitions[keys.keyIds[i]].teeIds.length;
-        }
-        uint64[] memory unavailableKeyIds = new uint64[](keyIdsLength);
-        address[] memory teeIds = new address[](count);
-        uint64[] memory keyIds = new uint64[](count);
-        count = 0;
-        uint256 threshold = 0;
-        uint256 unavailableKeyIdsCounter = 0;
-        for (uint256 i = 0; i < keyIdsLength; i++) {
-            bool keyAvailable = false;
-            uint64 keyId = keys.keyIds[i];
-            KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
-            for (uint256 j = 0; j < keyDefinition.teeIds.length; j++) {
-                IMachineManager.TeeStatus status =
-                    MachineManager.getTeeMachineStatus(keyDefinition.teeIds[j]);
-                if (status == IMachineManager.TeeStatus.PRODUCTION) {
-                    keyAvailable = true;
-                    teeIds[count] = keyDefinition.teeIds[j];
-                    keyIds[count] = keyId;
-                    count++;
-                }
-            }
-            if (keyAvailable) {
-                threshold++;
-            } else {
-                unavailableKeyIds[unavailableKeyIdsCounter++] = keyId;
-            }
-        }
-        require(threshold >= keys.multisigThreshold, IWalletKeyManager.ThresholdNotMet());
-        _teeIdKeyIdPairs = new TeeIdKeyIdPair[](count);
-        for (uint256 i = 0; i < count; i++) {
-            _teeIdKeyIdPairs[i] = TeeIdKeyIdPair({
-                teeId: teeIds[i],
-                keyId: keyIds[i]
-            });
-        }
-        if (unavailableKeyIdsCounter > 0) {
-            // solhint-disable-next-line no-inline-assembly
-            assembly { mstore(unavailableKeyIds, unavailableKeyIdsCounter) }
+        uint64[] memory unavailableKeyIds;
+        (_teeIdKeyIdPairs, unavailableKeyIds) = _collectReceivingTeesAndKeys(_walletId);
+        if (unavailableKeyIds.length > 0) {
             emit IWalletKeyManager.WalletKeysNotAvailable(_walletId, unavailableKeyIds);
         }
+    }
+
+    /**
+     * Read-only twin of `receivingTeesAndKeys` returning only the deduplicated list of tee ids
+     * that would receive instructions for the wallet. This matches exactly the tee ids the
+     * dispatch path feeds the fee calculation (`InstructionsFacet` deduplicates before
+     * `Instructions.sendInstructions`), so `OperationFees.calculateFeeByTeeIds` applied to this
+     * list yields the same fee a real `pay`/`reissue` charges.
+     * Reverts with `ThresholdNotMet` if not enough receiving tees are available - mirroring the
+     * dispatch path - and emits no event (safe to call via `eth_call`).
+     */
+    function getReceivingTeeIds(
+        bytes32 _walletId
+    )
+        internal view
+        returns (address[] memory _teeIds)
+    {
+        (TeeIdKeyIdPair[] memory pairs, ) = _collectReceivingTeesAndKeys(_walletId);
+        _teeIds = new address[](pairs.length);
+        for (uint256 i = 0; i < pairs.length; i++) {
+            _teeIds[i] = pairs[i].teeId;
+        }
+        Instructions.removeDuplicates(_teeIds);
     }
 
     function getWalletKeysInfo(
@@ -188,5 +174,63 @@ library WalletKeyManager {
         assembly {
             _state.slot := position
         }
+    }
+
+    /**
+     * Shared core for `receivingTeesAndKeys` and `getReceivingTeeIds`: collects the PRODUCTION
+     * (teeId, keyId) pairs for the wallet and the list of unavailable key ids, and enforces the
+     * multisig threshold. Pure data only - no event emission - so it is safe for `view` callers.
+     */
+    function _collectReceivingTeesAndKeys(
+        bytes32 _walletId
+    )
+        private view
+        returns (
+            TeeIdKeyIdPair[] memory _teeIdKeyIdPairs,
+            uint64[] memory _unavailableKeyIds
+        )
+    {
+        TeeWalletKeysState storage keys = getState().walletKeys[_walletId];
+        uint256 keyIdsLength = keys.keyIds.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < keyIdsLength; i++) {
+            count += keys.keyDefinitions[keys.keyIds[i]].teeIds.length;
+        }
+        _unavailableKeyIds = new uint64[](keyIdsLength);
+        address[] memory teeIds = new address[](count);
+        uint64[] memory keyIds = new uint64[](count);
+        count = 0;
+        uint256 threshold = 0;
+        uint256 unavailableKeyIdsCounter = 0;
+        for (uint256 i = 0; i < keyIdsLength; i++) {
+            bool keyAvailable = false;
+            uint64 keyId = keys.keyIds[i];
+            KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
+            for (uint256 j = 0; j < keyDefinition.teeIds.length; j++) {
+                IMachineManager.TeeStatus status =
+                    MachineManager.getTeeMachineStatus(keyDefinition.teeIds[j]);
+                if (status == IMachineManager.TeeStatus.PRODUCTION) {
+                    keyAvailable = true;
+                    teeIds[count] = keyDefinition.teeIds[j];
+                    keyIds[count] = keyId;
+                    count++;
+                }
+            }
+            if (keyAvailable) {
+                threshold++;
+            } else {
+                _unavailableKeyIds[unavailableKeyIdsCounter++] = keyId;
+            }
+        }
+        require(threshold >= keys.multisigThreshold, IWalletKeyManager.ThresholdNotMet());
+        _teeIdKeyIdPairs = new TeeIdKeyIdPair[](count);
+        for (uint256 i = 0; i < count; i++) {
+            _teeIdKeyIdPairs[i] = TeeIdKeyIdPair({
+                teeId: teeIds[i],
+                keyId: keyIds[i]
+            });
+        }
+        // solhint-disable-next-line no-inline-assembly
+        assembly { mstore(_unavailableKeyIds, unavailableKeyIdsCounter) }
     }
 }

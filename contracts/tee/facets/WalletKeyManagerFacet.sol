@@ -257,6 +257,18 @@ contract WalletKeyManagerFacet is IWalletKeyManager {
     /**
      * @inheritdoc IWalletKeyManager
      */
+    function getReceivingTeeIds(
+        bytes32 _walletId
+    )
+        external view
+        returns (address[] memory _teeIds)
+    {
+        return WalletKeyManager.getReceivingTeeIds(_walletId);
+    }
+
+    /**
+     * @inheritdoc IWalletKeyManager
+     */
     function getWalletKeysInfo(
         bytes32 _walletId
     )

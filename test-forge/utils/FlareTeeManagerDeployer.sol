@@ -282,12 +282,13 @@ library FlareTeeManagerDeployer {
 
         // 7: OperationFeesFacet
         {
-            bytes4[] memory s = new bytes4[](5);
+            bytes4[] memory s = new bytes4[](6);
             s[0] = IIOperationFees.setOperationFees.selector;
             s[1] = IIOperationFees.setDefaultFee.selector;
             s[2] = IOperationFees.getDefaultFee.selector;
             s[3] = IOperationFees.getOperationFee.selector;
             s[4] = IOperationFees.calculateFeeByTeeIds.selector;
+            s[5] = IOperationFees.calculateFeeByWalletId.selector;
             cuts[6] = IDiamond.FacetCut(
                 address(new OperationFeesFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -351,7 +352,7 @@ library FlareTeeManagerDeployer {
 
         // 12: WalletKeyManagerFacet
         {
-            bytes4[] memory s = new bytes4[](11);
+            bytes4[] memory s = new bytes4[](12);
             s[0] = IWalletKeyManager.addKey.selector;
             s[1] = IWalletKeyManager.confirmKey.selector;
             s[2] = IWalletKeyManager.setMultisigThreshold.selector;
@@ -363,6 +364,7 @@ library FlareTeeManagerDeployer {
             s[8] = IWalletKeyManager.getWalletKeyTeeIds.selector;
             s[9] = IWalletKeyManager.getKeyNonce.selector;
             s[10] = IWalletKeyManager.getWalletPublicKeys.selector;
+            s[11] = IWalletKeyManager.getReceivingTeeIds.selector;
             cuts[10] = IDiamond.FacetCut(
                 address(new WalletKeyManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
