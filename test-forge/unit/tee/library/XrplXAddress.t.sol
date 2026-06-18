@@ -298,8 +298,10 @@ contract XrplXAddressTest is Test {
     }
 
     function testValidateAddressRejectsInvalid() public view {
-        _assertFormat("rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpg", XrplXAddress.AddressFormat.Invalid); // bad classic checksum
-        _assertFormat("XVLhHMPHU98es4dbozjVtdWzVrDjtVoUhWS5SgMMoLoBzqR", XrplXAddress.AddressFormat.Invalid); // bad X checksum
+        // bad classic checksum
+        _assertFormat("rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpg", XrplXAddress.AddressFormat.Invalid);
+        // bad X checksum
+        _assertFormat("XVLhHMPHU98es4dbozjVtdWzVrDjtVoUhWS5SgMMoLoBzqR", XrplXAddress.AddressFormat.Invalid);
         _assertFormat("", XrplXAddress.AddressFormat.Invalid); // empty
         _assertFormat("1GWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpf", XrplXAddress.AddressFormat.Invalid); // unknown prefix
     }
