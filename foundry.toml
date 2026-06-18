@@ -74,14 +74,10 @@ coston = "${COSTON2_RPC}"
 staging = "${STAGING_RPC}"
 
 [profile.coverage]
-# Remap OZ P256 library to mock library to avoid stack to deep in coverage
-remappings = [
-  "@openzeppelin/contracts/utils/cryptography/P256.sol=contracts/mock/MockP256.sol"
-]
-
-# forge coverage disables the optimizer + viaIR globally for accurate line coverage, but the TeePayments
-# contracts only compile with viaIR (stack too deep otherwise). Pin just those two back to viaIR so
-# coverage can build; every other contract keeps the accurate non-viaIR instrumentation.
+# forge coverage disables the optimizer + viaIR globally for accurate line coverage, but a few contracts
+# only compile with viaIR (stack too deep otherwise): the TeePayments contracts, OZ's P256 library and
+# NodePossessionVerifier (which imports it). Pin just those back to viaIR so coverage can build (same as
+# the Hardhat config); every other contract keeps the accurate non-viaIR instrumentation.
 [[profile.coverage.additional_compiler_profiles]]
 name = "via-ir"
 via_ir = true
@@ -92,4 +88,12 @@ via_ir = true
 
 [[profile.coverage.compilation_restrictions]]
 paths = "contracts/tee/implementation/TeePaymentsUtxo.sol"
+via_ir = true
+
+[[profile.coverage.compilation_restrictions]]
+paths = "dependencies/@openzeppelin-contracts-5.4.0/utils/cryptography/P256.sol"
+via_ir = true
+
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/protocol/implementation/NodePossessionVerifier.sol"
 via_ir = true
