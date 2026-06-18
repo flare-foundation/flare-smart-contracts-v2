@@ -75,7 +75,8 @@ every unbounded Kontrol result apply to the real bytecode, not a model); then th
 | **L-dm** "Delayed sign policy" gate (round before policy start) | `RelayDelayedPolicyFV` | ✅ verified |
 | **L-dm** "Wrong sign policy reward epoch" gate (msg epoch < policy epoch) | `RelayWrongEpochFV` | ✅ verified |
 | **decision matrix** all 5 epoch gates verified (wrong-epoch / delayed / too-old / threshold-increase / must-use-new) | (above) | ✅ COMPLETE |
-| Step 5 remainder (M5/M6) / Step 6 integration / Step 3+7 Kontrol | — | ⏳ pending |
+| **AC-9 / RLY-21** verify() fee conservation (no ETH created/lost, no underpay) | `RelayVerifyFeeFV` | ✅ verified |
+| Step 6 integration / Step 3 T1 / Step 7 symbolic-N | — | ⏳ in progress (N=10 running; docs for document-class) |
 
 Note: harnesses with a symbolic 16-bit product (e.g. R5 `neverWeakens`) need
 `--solver-timeout-assertion 0` (above Halmos's 60s default).
