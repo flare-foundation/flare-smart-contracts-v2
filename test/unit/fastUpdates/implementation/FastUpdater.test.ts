@@ -44,6 +44,9 @@ const EPOCH_LEN = 1000 as const;
 const NUM_ACCOUNTS = 3 as const;
 const VOTER_WEIGHT = 1000 as const;
 const SUBMISSION_WINDOW = 10 as const;
+// Number of extra reward epochs (beyond the current one) to register voters for, absorbing the
+// block-number advance from deployments + the daemonize loop crossing an epoch boundary mid-test.
+const REWARD_EPOCH_REGISTRATION_MARGIN = 2 as const;
 
 const DURATION = 8 as const;
 const SAMPLE_SIZE = 8;
@@ -180,7 +183,14 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, (accounts) => {
       const [x2, y2] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
       const addr = toChecksumAddress("0x" + util.publicKeyToEthereumAddress(x2, y2).toString("hex"));
       voters.push(addr);
-      await flareSystemMock.registerAsVoter(TEST_REWARD_EPOCH.toString(), addr, policy);
+      // The mock derives the reward epoch from block.number / epochLen, so the deployments and the
+      // daemonize loop that follow can advance currentRewardEpochId past TEST_REWARD_EPOCH (notably when
+      // earlier test files have already pushed block.number close to an epoch boundary, e.g. under coverage).
+      // Register the policy across a small window of epochs so the public key is found whichever epoch
+      // daemonize settles on.
+      for (let epochOffset = 0; epochOffset <= REWARD_EPOCH_REGISTRATION_MARGIN; epochOffset++) {
+        await flareSystemMock.registerAsVoter((TEST_REWARD_EPOCH + BigInt(epochOffset)).toString(), addr, policy);
+      }
     }
 
     // Create local instance of Fast Updater contract
@@ -258,13 +268,13 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, (accounts) => {
         FEED_IDS.slice(0, NUM_FEEDS / 2).map((id) => {
           return { feedId: id, rewardBandValue: 2000, inflationShare: 200 };
         }),
-        { from: governance }
+        { from: governance, gas: 125000000 }
       );
       await fastUpdatesConfiguration.addFeeds(
         FEED_IDS.slice(NUM_FEEDS / 2, NUM_FEEDS).map((id) => {
           return { feedId: id, rewardBandValue: 2000, inflationShare: 200 };
         }),
-        { from: governance }
+        { from: governance, gas: 125000000 }
       );
     });
 
