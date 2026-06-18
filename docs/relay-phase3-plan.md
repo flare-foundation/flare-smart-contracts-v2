@@ -67,7 +67,7 @@ every unbounded Kontrol result apply to the real bytecode, not a model); then th
 | **L7** random monotonicity (non-monotone sequences) | `RelayRandomMonotonicityFV` (+ Kontrol) | ✅ already covered |
 | cross-epoch threshold soundness | `RelayCrossEpochFV` | ✅ already covered |
 | **L3** finalization window | — | ⏳ needs multi-tx (advance epoch past window) |
-| **L8** cross-epoch must-use-new-policy gate | — | ⏳ needs initialized-state setup |
+| **L8** cross-epoch must-use-new-policy gate | `RelayMustUseNewPolicyFV` | ✅ verified (multi-step: setSigningPolicy-advance + cross-epoch relay) |
 | **AC-3** no state write on reject | — | ⏳ largely an EVM-revert corollary |
 | **AC-6** Mode-1 policy-rotation validation | — | ⏳ needs Mode-1 relay setup |
 | **AC-10** nonce replay protection (RLY-02) | `RelayGovernanceNonceFV` | ✅ verified (multi-tx, symbolic nonce) |
