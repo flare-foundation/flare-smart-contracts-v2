@@ -128,7 +128,7 @@ ExtensionManager ←── MachineManager ←── Instructions ←── (most
 
 ## TeePayments — outside the diamond
 
-A few accounting contracts sit *outside* the diamond, deployed as their own UUPS-upgradeable proxies. They handle fee schedules and limits for **extension-level** payment operations (separate from the per-instruction fees collected by `OperationFees` inside the diamond):
+A few contracts sit *outside* the diamond, deployed as their own UUPS-upgradeable proxies. The `TeePayments*` suite instructs **PMW (Protocol Managed Wallet) payments** — turning `pay`/`reissue` calls into signed TEE instructions — plus the fee schedules and limits for extension-level payment operations (separate from the per-instruction fees collected by `OperationFees` inside the diamond). The payment design (account vs UTXO models, anchors, batches, reissue) is documented in [Payments](./Payments.md); the contracts:
 
 | Contract | Role |
 |----------|------|
