@@ -66,4 +66,20 @@ contract RelayGovernanceNonceFV is RelayTestBase {
         bool ok2 = _gov(_governanceConfig(n2, 2, 2000), a, b, c);
         assert(!(ok1 && ok2)); // EXPECT counterexample: both succeed
     }
+
+    // AC-2 — governanceFeeSetup is rejected in SETTER mode (signingPolicySetter != 0): fees are governed by
+    // the quorum only in relay-only deployments (Relay.sol:476 require(signingPolicySetter == address(0))).
+    // For ANY non-zero setter address, the call reverts regardless of the message/signatures.
+    function check_feeSetup_rejectedInSetterMode(
+        address s, Sig calldata a, Sig calldata b, Sig calldata c
+    ) external {
+        vm.assume(s != address(0));
+        Relay setterRelay = new Relay(_initialConfig(_signingPolicyHash(policy)), s, IRelay(address(0)));
+        IRelay.RelayGovernanceConfig memory cfg = _governanceConfig(1, 2, 1000);
+        bytes32 digest = keccak256(abi.encode(cfg, address(setterRelay)));
+        bytes memory message = _protocolMessage(1, 0, false, digest);
+        bytes memory sigs = abi.encodePacked(uint16(3), _sig(a, 0), _sig(b, 1), _sig(c, 2));
+        bytes memory rm = abi.encodePacked(Relay.relay.selector, policy, message, sigs);
+        try setterRelay.governanceFeeSetup(rm, cfg) { assert(false); } catch { } // setter mode => revert
+    }
 }
