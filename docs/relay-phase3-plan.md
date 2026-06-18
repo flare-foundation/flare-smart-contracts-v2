@@ -72,6 +72,7 @@ every unbounded Kontrol result apply to the real bytecode, not a model); then th
 | **AC-6** Mode-1 policy-rotation validation | — | ⏳ needs Mode-1 relay setup |
 | **AC-10** nonce replay protection (RLY-02) | `RelayGovernanceNonceFV` | ✅ verified (multi-tx, symbolic nonce) |
 | **M2 + M3/M8** Merkle proof-path soundness (proof-element + alignment) | `RelayMerkleProofFV` | ✅ verified |
+| **L-dm** "Delayed sign policy" gate (round before policy start) | `RelayDelayedPolicyFV` | ✅ verified |
 | Step 5 remainder (M5/M6) / Step 6 integration / Step 3+7 Kontrol | — | ⏳ pending |
 
 Note: harnesses with a symbolic 16-bit product (e.g. R5 `neverWeakens`) need
