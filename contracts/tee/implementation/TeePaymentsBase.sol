@@ -5,7 +5,7 @@ import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgra
 import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
-import { ITeePaymentsBase } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
+import { ITeePaymentsBase, PAY, REISSUE } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
 import {
     ITeePaymentsFeeScheduleManager
 } from "../../userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
@@ -21,9 +21,6 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * Shared implementation base for TEE payment contracts.
  */
 abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
-
-    bytes32 internal constant PAY = bytes32("PAY");
-    bytes32 internal constant REISSUE = bytes32("REISSUE");
 
     mapping(bytes32 walletId => PMWMultisigAccount[]) internal walletAccounts;
     mapping(bytes32 accountHash => bytes32 walletId) internal accountHashToWalletId;

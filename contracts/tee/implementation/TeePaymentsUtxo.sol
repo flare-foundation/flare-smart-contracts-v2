@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import { TeePaymentsBase } from "./TeePaymentsBase.sol";
 import { IITeePaymentsUtxo } from "../interface/IITeePaymentsUtxo.sol";
-import { ITeePaymentsBase } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
+import { ITeePaymentsBase, PAY, REISSUE } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
 import { ITeePaymentsModel, PaymentModel } from "../../userInterfaces/tee/ITeePaymentsModel.sol";
 import { ITeePaymentsUtxo } from "../../userInterfaces/tee/ITeePaymentsUtxo.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";

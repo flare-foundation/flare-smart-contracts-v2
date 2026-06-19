@@ -3,6 +3,11 @@ pragma solidity >=0.7.6 <0.9;
 
 import { ITeePaymentsModel } from "./ITeePaymentsModel.sol";
 
+/// @dev Operation command for a payment instruction; pass to `getPaymentFee`.
+bytes32 constant PAY = bytes32("PAY");
+/// @dev Operation command for a payment reissuance; pass to `getPaymentFee`.
+bytes32 constant REISSUE = bytes32("REISSUE");
+
 /**
  * Shared TeePayments interface.
  */
@@ -127,7 +132,7 @@ interface ITeePaymentsBase is ITeePaymentsModel {
      * Reverts with `PMWMultisigAccountNotRegistered` if the account is not registered, and with
      * `ThresholdNotMet` if the wallet does not have enough available keys.
      * @param _account The PMW multisig account.
-     * @param _opCommand The operation command (e.g. `bytes32("PAY")` or `bytes32("REISSUE")`).
+     * @param _opCommand The operation command (the exported `PAY` or `REISSUE` constant).
      * @return _fee The fee required, in wei, to send the operation.
      */
     function getPaymentFee(

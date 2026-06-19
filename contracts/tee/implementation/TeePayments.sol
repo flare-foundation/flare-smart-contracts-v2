@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { TeePaymentsBase } from "./TeePaymentsBase.sol";
-import { ITeePaymentsBase } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
+import { ITeePaymentsBase, PAY, REISSUE } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
 import { ITeePaymentsModel, PaymentModel } from "../../userInterfaces/tee/ITeePaymentsModel.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
 import { IPMWMultisigAccountConfigured } from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
