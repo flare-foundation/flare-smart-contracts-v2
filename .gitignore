@@ -46,3 +46,7 @@ sim/
 
 # Soldeer
 dependencies/
+# Certora local run artifacts
+certora/emv-*
+certora/.certora_internal
+.certora_internal
