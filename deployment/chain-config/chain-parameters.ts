@@ -549,9 +549,14 @@ export interface ChainParameters {
   teeOperationFees: TeeOperationFee[];
 
   /**
-   * The TEE payment configurations.
+   * The account-based TEE payment configurations.
    */
-  teePaymentConfigurations: TeePaymentConfiguration[];
+  teePaymentsConfigurations: TeePaymentsConfiguration[];
+
+  /**
+   * The UTXO-based TEE payment configurations.
+   */
+  teePaymentsUtxoConfigurations: TeePaymentsUtxoConfiguration[];
 
   /**
    * The minimal threshold for FDC2 in BIPS (e.g. 30%).
@@ -779,9 +784,9 @@ export interface TeeKeyTypeWithSigningAlgos {
   signingAlgos: string[];
 }
 
-export interface TeePaymentSourceConfig {
+export interface TeePaymentsSourceConfig {
   /**
-   * Source id string (e.g., "XRP", "BTC").
+   * Source id string (e.g., "XRP", "ETH").
    */
   sourceId: string;
 
@@ -796,26 +801,45 @@ export interface TeePaymentSourceConfig {
   maxFeeDelaySeconds: integer;
 }
 
-export interface TeePaymentConfiguration {
+export interface TeePaymentsUtxoSourceConfig {
   /**
-   * Payment model - ACCOUNT or UTXO.
+   * Source id string (e.g., "BTC", "DOGE").
    */
-  paymentModel: "ACCOUNT" | "UTXO";
+  sourceId: string;
+}
 
+export interface TeePaymentsConfiguration {
   /**
-   * Payment operation type - F_XRP, F_BTC, F_DOGE, F_EVM,...
+   * Payment operation type - F_XRP, F_EVM,...
    */
   opType: string;
 
   /**
-   * Key type - XRP, BTC, DOGE, EVM,...
+   * Key type - XRP, EVM,...
    */
   keyType: string;
 
   /**
    * Per-source id configuration (source id + fee schedule limits).
    */
-  sourceConfigs: TeePaymentSourceConfig[];
+  sourceConfigs: TeePaymentsSourceConfig[];
+}
+
+export interface TeePaymentsUtxoConfiguration {
+  /**
+   * Payment operation type - F_BTC, F_DOGE,...
+   */
+  opType: string;
+
+  /**
+   * Key type - BTC, DOGE,...
+   */
+  keyType: string;
+
+  /**
+   * Per-source id configuration (source id only).
+   */
+  sourceConfigs: TeePaymentsUtxoSourceConfig[];
 
   /**
    *  Max batch size.
@@ -826,6 +850,11 @@ export interface TeePaymentConfiguration {
    *  Max batch duration in seconds.
    */
   maxBatchDurationSeconds: integer;
+
+  /**
+   *  Anchor reuse delay in seconds (how long after a batch closes before an anchor can be reused).
+   */
+  anchorReuseDelaySeconds: integer;
 }
 
 export interface TeeOperationFee {

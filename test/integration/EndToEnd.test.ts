@@ -78,6 +78,8 @@ import {
   TeePaymentsRegistryInstance,
   TeePaymentsRegistryProxyContract,
   TeePaymentsProxyContract,
+  TeePaymentsUtxoContract,
+  TeePaymentsUtxoInstance,
   TeeRewardOffersManagerContract,
   TeeRewardOffersManagerInstance,
   TeeRewardOffersManagerProxyContract,
@@ -137,6 +139,7 @@ const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require
 const TeeRewardOffersManagerProxy: TeeRewardOffersManagerProxyContract =
   artifacts.require("TeeRewardOffersManagerProxy");
 const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
+const TeePaymentsUtxo: TeePaymentsUtxoContract = artifacts.require("TeePaymentsUtxo");
 const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
 const TeePaymentsConfigVerifier: TeePaymentsConfigVerifierContract = artifacts.require("TeePaymentsConfigVerifier");
 const TeePaymentsConfigVerifierProxy: TeePaymentsConfigVerifierProxyContract = artifacts.require(
@@ -322,7 +325,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
   const TEE_PLATFORMS = ["GCP_INTEL_TDX", "GCP_AMD_SEV"];
   const TEE_KEY_CONFIGURATIONS = [
     web3.utils.utf8ToHex("XRP").padEnd(66, "0"),
-    web3.utils.utf8ToHex("EVM").padEnd(66, "0"),
+    web3.utils.utf8ToHex("BTC").padEnd(66, "0"),
   ];
   const TEE_SIGNING_ALGOS = [
     [web3.utils.utf8ToHex("sha512half-secp256k1-ecdsa").padEnd(66, "0")],
@@ -346,7 +349,20 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
 
   const TEE_SOURCE_ID = web3.utils.utf8ToHex("TEE").padEnd(66, "0");
   const XRP_SOURCE_ID = web3.utils.utf8ToHex("XRP").padEnd(66, "0");
-  const FLR_SOURCE_ID = web3.utils.utf8ToHex("FLR").padEnd(66, "0");
+  const BTC_SOURCE_ID = web3.utils.utf8ToHex("BTC").padEnd(66, "0");
+  // Account-level derivation index used for the UTXO multisig account.
+  const BTC_ACCOUNT_INDEX = 7;
+  // Parallel anchor chains the UTXO account is configured with.
+  const btcAnchors = [
+    {
+      genesisAnchorTxid: web3.utils.keccak256(web3.eth.abi.encodeParameters(["string", "uint32"], ["txid", 0])),
+      genesisAnchorVout: 0,
+    },
+    {
+      genesisAnchorTxid: web3.utils.keccak256(web3.eth.abi.encodeParameters(["string", "uint32"], ["txid", 1])),
+      genesisAnchorVout: 1,
+    },
+  ];
 
   const PROJECT1_ID = web3.utils.keccak256(
     web3.eth.abi.encodeParameters(["string", "address", "uint256"], ["PROJECT", TEE_WALLET_OWNERS[0], 1])
@@ -366,7 +382,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     "0x03FE12E21F5B2298FFC9A260A95F5031071E9E0778257276E47BB9A0C27CF6C5AD",
     "0x03353D8A544503E0F4D6686379B82D64ED1537CB2961FA1193F57B3E8E17F82980",
   ];
-  const evmPublicKeys: string[] = [];
+  const btcPublicKeys: string[] = [];
 
   let addressUpdater: AddressUpdaterInstance;
   let wNat: WNatInstance;
@@ -400,7 +416,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
   let flareTeeManager: any;
   let teeRewardOffersManager: TeeRewardOffersManagerInstance;
   let teePaymentsXRP: TeePaymentsInstance;
-  let teePaymentsEVM: TeePaymentsInstance;
+  let teePaymentsBTC: TeePaymentsUtxoInstance;
+  // The BTC pay batch closes immediately (batchSize 1); the reissue test reuses its close timestamp,
+  // which becomes the batchEndTs carried in the reissue message.
+  let btcPayBatchEndTs = "0";
   let teePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerInstance;
   let teePaymentsRegistry: TeePaymentsRegistryInstance;
   let teePaymentsConfigVerifier: TeePaymentsConfigVerifierInstance;
@@ -874,14 +893,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     teePaymentsXRP = await TeePayments.at(teePaymentsProxy.address);
     addressUpdatableContracts.push(teePaymentsXRP.address);
 
+    const teePaymentsUtxoImpl: TeePaymentsUtxoInstance = await TeePaymentsUtxo.new();
     teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings.address,
       accounts[0],
       addressUpdater.address,
-      teePaymentsImpl.address
+      teePaymentsUtxoImpl.address
     );
-    teePaymentsEVM = await TeePayments.at(teePaymentsProxy.address);
-    addressUpdatableContracts.push(teePaymentsEVM.address);
+    teePaymentsBTC = await TeePaymentsUtxo.at(teePaymentsProxy.address);
+    addressUpdatableContracts.push(teePaymentsBTC.address);
 
     const fdc2HubImpl: Fdc2HubInstance = await Fdc2Hub.new();
     const fdc2HubProxy = await Fdc2HubProxy.new(
@@ -919,8 +939,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       { attestationType: "TeeAvailabilityCheck", source: "TEE" },
       { attestationType: "PMWMultisigAccountConfigured", source: "XRP" },
       { attestationType: "PMWPaymentStatus", source: "XRP" },
-      { attestationType: "PMWMultisigAccountConfigured", source: "FLR" },
-      { attestationType: "PMWPaymentStatus", source: "FLR" },
+      { attestationType: "PMWMultisigUtxoConfigured", source: "BTC" },
+      { attestationType: "PMWPaymentStatus", source: "BTC" },
     ];
     for (const fdtcRequestFee of fdc2RequestFees) {
       await fdc2RequestFeeConfigurations.setTypeAndSourceFee(
@@ -1010,11 +1030,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         teePayments: teePaymentsXRP.address,
       },
       {
-        keyType: web3.utils.utf8ToHex("EVM").padEnd(66, "0"),
-        opType: web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"),
-        paymentModel: 1, // ACCOUNT
-        sourceId: FLR_SOURCE_ID,
-        teePayments: teePaymentsEVM.address,
+        keyType: web3.utils.utf8ToHex("BTC").padEnd(66, "0"),
+        opType: web3.utils.utf8ToHex("F_BTC").padEnd(66, "0"),
+        paymentModel: 2, // UTXO
+        sourceId: BTC_SOURCE_ID,
+        teePayments: teePaymentsBTC.address,
       },
     ]);
     // set system supported platforms
@@ -1028,14 +1048,16 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     // register system instructions senders
     await flareTeeManager.registerSystemInstructionsSenders([
       teePaymentsXRP.address,
-      teePaymentsEVM.address,
+      teePaymentsBTC.address,
       fdc2Hub.address,
     ]);
-    // configure initial per-sourceId fee schedule config
+    // configure initial per-sourceId fee schedule config (UTXO sources are not managed here, only XRP)
     await teePaymentsFeeScheduleManager.setFeeScheduleConfigs([
       { maxDelaySeconds: 600, maxSchedules: 10, sourceId: XRP_SOURCE_ID },
-      { maxDelaySeconds: 60, maxSchedules: 10, sourceId: FLR_SOURCE_ID },
     ]);
+    // configure UTXO batch + anchor-reuse settings for the BTC source (onlyGovernance == accounts[0])
+    await teePaymentsBTC.setMaxBatchSettings(BTC_SOURCE_ID, 10, 600);
+    await teePaymentsBTC.setAnchorReuseDelay(BTC_SOURCE_ID, 600);
     await flareTeeManager.allowAllTeeMachineOwners(0);
     await flareTeeManager.allowAllTeeWalletProjectOwners(0);
     // set reward offers manager list
@@ -2276,7 +2298,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       const prvkeyBuffer = Buffer.from(prvKey, "hex");
       const [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
       const publicKey = "0x" + util.encodePublicKey(x, y, false).toString("hex");
-      evmPublicKeys.push(publicKey);
+      btcPublicKeys.push(publicKey);
 
       const proof = {
         teeId: TEE_IDS[i % 2],
@@ -2487,24 +2509,32 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("PROVE").padEnd(66, "0"));
     expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(fdc2AttestationRequestStruct, message));
 
+    // UTXO/anchor-based wallet uses the UTXO configured attestation; the verifier echoes the wallet's
+    // confirmed keys + threshold into the request body alongside the requested anchors + accountIndex.
+    const pmwMultisigUtxoConfiguredRequestBodyStruct = getStruct(
+      "Fdc2Structs",
+      "pmwMultisigUtxoConfiguredRequestBodyStruct"
+    );
     const requestBody2 = {
-      accountAddress: accounts[200],
-      publicKeys: evmPublicKeys,
+      accountIndex: BTC_ACCOUNT_INDEX,
+      publicKeys: btcPublicKeys,
       threshold: "1",
+      anchors: btcAnchors,
     };
     const message2 = {
       header: {
-        attestationType: web3.utils.utf8ToHex("PMWMultisigAccountConfigured").padEnd(66, "0"),
-        sourceId: FLR_SOURCE_ID,
+        attestationType: web3.utils.utf8ToHex("PMWMultisigUtxoConfigured").padEnd(66, "0"),
+        sourceId: BTC_SOURCE_ID,
         thresholdBIPS: "0",
         proofOwner: constants.ZERO_ADDRESS,
       },
-      requestBody: web3.eth.abi.encodeParameter(pmwMultisigAccountConfiguredRequestBodyStruct, requestBody2),
+      requestBody: web3.eth.abi.encodeParameter(pmwMultisigUtxoConfiguredRequestBodyStruct, requestBody2),
     };
-    const tx2 = await teePaymentsConfigVerifier.requestAccountConfiguredAttestation(
+    const tx2 = await teePaymentsConfigVerifier.requestUtxoConfiguredAttestation(
       WALLET2_ID,
-      FLR_SOURCE_ID,
-      accounts[200],
+      BTC_SOURCE_ID,
+      BTC_ACCOUNT_INDEX,
+      btcAnchors,
       TEE_IDS[0],
       constants.ZERO_ADDRESS,
       constants.ZERO_ADDRESS,
@@ -2565,6 +2595,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       authorizationAddress: TEE_WALLET_AUTHORIZATION_ADDRESSES[0],
     });
 
+    // UTXO/anchor-based account proof. The verified fields (sourceId, accountIndex, accountAddress,
+    // anchors) are read straight from this proof after the signatures validate.
     const proof2 = {
       signatures: {
         signingPolicySignatures: "",
@@ -2573,8 +2605,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       },
       header: {
         chainId: (await web3.eth.getChainId()).toString(),
-        attestationType: web3.utils.utf8ToHex("PMWMultisigAccountConfigured").padEnd(66, "0"),
-        sourceId: FLR_SOURCE_ID,
+        attestationType: web3.utils.utf8ToHex("PMWMultisigUtxoConfigured").padEnd(66, "0"),
+        sourceId: BTC_SOURCE_ID,
         thresholdBIPS: "0",
         proofOwner: constants.ZERO_ADDRESS,
         timestamp: (await time.latest()).toString(),
@@ -2582,34 +2614,45 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         cosignersThreshold: "0",
       },
       requestBody: {
-        accountAddress: accounts[200],
-        publicKeys: evmPublicKeys,
+        accountIndex: BTC_ACCOUNT_INDEX,
+        publicKeys: btcPublicKeys,
         threshold: "1",
+        anchors: btcAnchors,
       },
       responseBody: {
         status: "0",
-        sequence: 1,
+        accountAddress: "bc1qutxoaccount",
       },
     };
     // sign message
     const message2 = await getFdc2Message(
       proof2.header,
       proof2.requestBody,
-      getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredRequestBodyStruct"),
+      getStruct("Fdc2Structs", "pmwMultisigUtxoConfiguredRequestBodyStruct"),
       proof2.responseBody,
-      getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredResponseBodyStruct")
+      getStruct("Fdc2Structs", "pmwMultisigUtxoConfiguredResponseBodyStruct")
     );
     proof2.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message2);
 
-    const tx2 = await teePaymentsEVM.addPMWMultisigAccount(WALLET2_ID, proof2, TEE_WALLET_AUTHORIZATION_ADDRESSES[1], {
+    const tx2 = await teePaymentsBTC.addPMWMultisigAccount(WALLET2_ID, proof2, TEE_WALLET_AUTHORIZATION_ADDRESSES[1], {
       from: TEE_WALLET_OWNERS[1],
     });
-    expectEvent(tx2, "PMWMultisigAccountAdded", {
+    expectEvent(tx2, "PMWMultisigUtxoAccountAdded", {
       walletId: WALLET2_ID,
-      sourceId: FLR_SOURCE_ID,
-      accountAddress: accounts[200],
+      sourceId: BTC_SOURCE_ID,
+      accountAddress: "bc1qutxoaccount",
+      accountIndex: BTC_ACCOUNT_INDEX.toString(),
+      anchorCount: btcAnchors.length.toString(),
       authorizationAddress: TEE_WALLET_AUTHORIZATION_ADDRESSES[1],
     });
+
+    // Anchors were stored with nonce 1 and an immediate-availability window.
+    const btcAccount = { sourceId: BTC_SOURCE_ID, accountAddress: "bc1qutxoaccount" };
+    expect((await teePaymentsBTC.getAnchorCount(btcAccount)).toString()).to.equal(btcAnchors.length.toString());
+    const anchor0 = await teePaymentsBTC.getAnchor(btcAccount, 0);
+    expect(anchor0.genesisAnchorTxid).to.equal(btcAnchors[0].genesisAnchorTxid);
+    expect(anchor0.genesisAnchorVout.toString()).to.equal(btcAnchors[0].genesisAnchorVout.toString());
+    expect(anchor0.nextNonce.toString()).to.equal("1");
   });
 
   it("Should trigger TEE wallet payments", async () => {
@@ -2656,10 +2699,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("PAY").padEnd(66, "0"));
     expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(paymentInstructionMessageStruct, message));
 
-    const tx2 = await teePaymentsEVM.pay(
-      { sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] },
+    // UTXO/anchor-based payment. batchSize defaults to 1, so this single payment fills and closes its
+    // batch immediately (batchEndTs == close timestamp == the pay block's timestamp). The batch opened
+    // on anchor 0 (cursor start) with nonce 1; batchPaymentId == paymentId == 1.
+    const utxoPaymentInstructionMessageStruct = getStruct("TeePaymentsStructs", "utxoPaymentInstructionMessageStruct");
+    const tx2 = await teePaymentsBTC.pay(
+      { sourceId: BTC_SOURCE_ID, accountAddress: "bc1qutxoaccount" },
       {
-        recipientAddress: accounts[150],
+        recipientAddress: "bc1qrecipient",
         tokenId: constants.ZERO_BYTES32,
         amount: "1500",
         maxFee: 1000,
@@ -2668,6 +2715,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       constants.ZERO_ADDRESS,
       { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[1] }
     );
+    const payBlock2 = await web3.eth.getBlock(tx2.receipt.blockNumber);
+    btcPayBatchEndTs = payBlock2.timestamp.toString();
     const message2 = {
       walletId: WALLET2_ID,
       teeIdKeyIdPairs: [
@@ -2676,9 +2725,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         { teeId: TEE_IDS[0], keyId: "2" },
         { teeId: TEE_IDS[1], keyId: "3" },
       ],
-      sourceId: FLR_SOURCE_ID,
-      senderAddress: accounts[200],
-      recipientAddress: accounts[150],
+      sourceId: BTC_SOURCE_ID,
+      accountAddress: "bc1qutxoaccount",
+      accountIndex: BTC_ACCOUNT_INDEX,
+      anchorIndex: 0,
+      recipientAddress: "bc1qrecipient",
       tokenId: constants.ZERO_BYTES32,
       amount: "1500",
       maxFee: 1000,
@@ -2686,12 +2737,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797",
       nonce: 1,
       paymentId: 1,
+      batchPaymentId: 1,
+      batchEndTs: payBlock2.timestamp.toString(),
     };
     const event2 = requiredEventArgsFrom(tx2, flareTeeManager, "TeeInstructionsSent") as any;
     expect(event2.rewardEpochId).to.be.equal("2");
-    expect(event2.opType).to.be.equal(web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"));
+    expect(event2.opType).to.be.equal(web3.utils.utf8ToHex("F_BTC").padEnd(66, "0"));
     expect(event2.opCommand).to.be.equal(web3.utils.utf8ToHex("PAY").padEnd(66, "0"));
-    expect(event2.message).to.be.equal(web3.eth.abi.encodeParameter(paymentInstructionMessageStruct, message2));
+    expect(event2.message).to.be.equal(web3.eth.abi.encodeParameter(utxoPaymentInstructionMessageStruct, message2));
   });
 
   it("Should trigger TEE wallet reissue payments", async () => {
@@ -2742,19 +2795,24 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("REISSUE").padEnd(66, "0"));
     expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(paymentInstructionMessageStruct, message));
 
-    const tx2 = await teePaymentsEVM.reissue(
-      { sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] },
+    // UTXO/anchor-based reissue of batch 1 (the single payment that filled and closed it in the pay
+    // test). The reissue reuses the original batch's anchorIndex/nonce/batchEndTs and finalizes since
+    // the batch holds exactly one payment.
+    const utxoPaymentInstructionMessageStruct = getStruct("TeePaymentsStructs", "utxoPaymentInstructionMessageStruct");
+    const tx2 = await teePaymentsBTC.reissue(
+      { sourceId: BTC_SOURCE_ID, accountAddress: "bc1qutxoaccount" },
       1,
       [
         {
-          recipientAddress: accounts[150],
+          recipientAddress: "bc1qrecipient",
           tokenId: constants.ZERO_BYTES32,
           amount: "1500",
           maxFee: 1000,
           paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797",
         },
       ],
-      { maxFeePerPayment: [5000000], factorsBIPSPerPayment: [[]], delaysSeconds: [] },
+      // Empty factors + delays => no fee-schedule override, falls back to DEFAULT_FEE_SCHEDULE.
+      { maxFeePerPayment: [5000000], factorsBIPSPerPayment: [], delaysSeconds: [] },
       constants.ZERO_ADDRESS,
       { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[1] }
     );
@@ -2766,9 +2824,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         { teeId: TEE_IDS[0], keyId: "2" },
         { teeId: TEE_IDS[1], keyId: "3" },
       ],
-      sourceId: FLR_SOURCE_ID,
-      senderAddress: accounts[200],
-      recipientAddress: accounts[150],
+      sourceId: BTC_SOURCE_ID,
+      accountAddress: "bc1qutxoaccount",
+      accountIndex: BTC_ACCOUNT_INDEX,
+      anchorIndex: 0,
+      recipientAddress: "bc1qrecipient",
       tokenId: constants.ZERO_BYTES32,
       amount: "1500",
       maxFee: 5000000,
@@ -2776,12 +2836,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797",
       nonce: 1,
       paymentId: 1,
+      batchPaymentId: 1,
+      batchEndTs: btcPayBatchEndTs,
     };
     const event2 = requiredEventArgsFrom(tx2, flareTeeManager, "TeeInstructionsSent") as any;
     expect(event2.rewardEpochId).to.be.equal("2");
-    expect(event2.opType).to.be.equal(web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"));
+    expect(event2.opType).to.be.equal(web3.utils.utf8ToHex("F_BTC").padEnd(66, "0"));
     expect(event2.opCommand).to.be.equal(web3.utils.utf8ToHex("REISSUE").padEnd(66, "0"));
-    expect(event2.message).to.be.equal(web3.eth.abi.encodeParameter(paymentInstructionMessageStruct, message2));
+    expect(event2.message).to.be.equal(web3.eth.abi.encodeParameter(utxoPaymentInstructionMessageStruct, message2));
   });
 
   it("Should request VRF", async () => {

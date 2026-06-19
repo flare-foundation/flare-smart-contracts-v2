@@ -12,7 +12,7 @@ import { Interface } from "ethers";
 import { AbiItem } from "web3-utils";
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
-import { ChainParameters, TeeKeyTypeWithSigningAlgos, TeePaymentConfiguration } from "../chain-config/chain-parameters";
+import { ChainParameters, TeeKeyTypeWithSigningAlgos } from "../chain-config/chain-parameters";
 
 // Facets (deployed in the diamond cut)
 export const FACETS = [

@@ -17,7 +17,7 @@ import {
 } from "../../scripts/libs/protocol/SigningPolicy";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
 import * as util from "../../test/utils/key-to-address";
-import type { TeePaymentConfiguration } from "../chain-config/chain-parameters";
+import type { TeePaymentsConfiguration, TeePaymentsUtxoConfiguration } from "../chain-config/chain-parameters";
 import { PChainStakeMirrorVerifierInstance } from "../../typechain-truffle";
 import { MockContractInstance, VoterRegistryInstance } from "../../typechain-truffle";
 import { EpochSettings } from "../utils/EpochSettings";
@@ -78,44 +78,41 @@ export const TEE_KEY_CONFIGURATIONS = [
   { keyType: "EVM", signingAlgos: ["keccak256-secp256k1-ecdsa", "keccak256-secp256k1-vrf"] },
 ];
 
-export const TEE_PAYMENT_CONFIGURATIONS: TeePaymentConfiguration[] = [
+export const TEE_PAYMENTS_CONFIGURATIONS: TeePaymentsConfiguration[] = [
   {
-    paymentModel: "ACCOUNT",
     opType: "F_XRP",
     keyType: "XRP",
     sourceConfigs: [
       { sourceId: "XRP", maxFeeSchedules: 10, maxFeeDelaySeconds: 600 },
       { sourceId: "testXRP", maxFeeSchedules: 10, maxFeeDelaySeconds: 600 },
     ],
-    maxBatchSize: 1,
-    maxBatchDurationSeconds: 0,
   },
   {
-    paymentModel: "UTXO",
-    opType: "F_BTC",
-    keyType: "BTC",
-    sourceConfigs: [{ sourceId: "BTC", maxFeeSchedules: 10, maxFeeDelaySeconds: 3600 }],
-    maxBatchSize: 10,
-    maxBatchDurationSeconds: 600,
-  },
-  {
-    paymentModel: "UTXO",
-    opType: "F_DOGE",
-    keyType: "DOGE",
-    sourceConfigs: [{ sourceId: "DOGE", maxFeeSchedules: 10, maxFeeDelaySeconds: 600 }],
-    maxBatchSize: 10,
-    maxBatchDurationSeconds: 60,
-  },
-  {
-    paymentModel: "ACCOUNT",
     opType: "F_EVM",
     keyType: "EVM",
     sourceConfigs: [
       { sourceId: "FLR", maxFeeSchedules: 10, maxFeeDelaySeconds: 60 },
       { sourceId: "SGB", maxFeeSchedules: 10, maxFeeDelaySeconds: 60 },
     ],
-    maxBatchSize: 1,
-    maxBatchDurationSeconds: 0,
+  },
+];
+
+export const TEE_PAYMENTS_UTXO_CONFIGURATIONS: TeePaymentsUtxoConfiguration[] = [
+  {
+    opType: "F_BTC",
+    keyType: "BTC",
+    sourceConfigs: [{ sourceId: "BTC" }],
+    maxBatchSize: 10,
+    maxBatchDurationSeconds: 600,
+    anchorReuseDelaySeconds: 600,
+  },
+  {
+    opType: "F_DOGE",
+    keyType: "DOGE",
+    sourceConfigs: [{ sourceId: "DOGE" }],
+    maxBatchSize: 10,
+    maxBatchDurationSeconds: 60,
+    anchorReuseDelaySeconds: 60,
   },
 ];
 
@@ -127,10 +124,10 @@ export const FDC2_FEE_CONFIGURATIONS = [
   { attestationType: "PMWMultisigAccountConfigured", source: "testXRP" },
   { attestationType: "PMWPaymentStatus", source: "testXRP" },
   { attestationType: "PMWFeeProof", source: "testXRP" },
-  { attestationType: "PMWMultisigAccountConfigured", source: "BTC" },
+  { attestationType: "PMWMultisigUtxoConfigured", source: "BTC" },
   { attestationType: "PMWPaymentStatus", source: "BTC" },
   { attestationType: "PMWFeeProof", source: "BTC" },
-  { attestationType: "PMWMultisigAccountConfigured", source: "DOGE" },
+  { attestationType: "PMWMultisigUtxoConfigured", source: "DOGE" },
   { attestationType: "PMWPaymentStatus", source: "DOGE" },
   { attestationType: "PMWFeeProof", source: "DOGE" },
   { attestationType: "PMWMultisigAccountConfigured", source: "FLR" },

@@ -133,19 +133,34 @@ contract DeployTeeContracts is Script {
 
     // NOTE: stdJson parses struct fields in alphabetical order of JSON keys.
     // Keep field names alphabetical: maxFeeDelaySeconds, maxFeeSchedules, sourceId.
-    struct PaymentSourceConfig {
+    struct TeePaymentsSourceConfig {
         uint256 maxFeeDelaySeconds;
         uint256 maxFeeSchedules;
         string sourceId;
     }
 
-    struct PaymentConfiguration {
+    // NOTE: stdJson parses struct fields in alphabetical order of JSON keys.
+    // Keep field names alphabetical: keyType, opType, sourceConfigs.
+    struct TeePaymentsConfiguration {
+        string keyType;
+        string opType;
+        TeePaymentsSourceConfig[] sourceConfigs;
+    }
+
+    struct TeePaymentsUtxoSourceConfig {
+        string sourceId;
+    }
+
+    // NOTE: stdJson parses struct fields in alphabetical order of JSON keys.
+    // Keep field names alphabetical: anchorReuseDelaySeconds, keyType,
+    // maxBatchDurationSeconds, maxBatchSize, opType, sourceConfigs.
+    struct TeePaymentsUtxoConfiguration {
+        uint256 anchorReuseDelaySeconds;
         string keyType;
         uint256 maxBatchDurationSeconds;
         uint256 maxBatchSize;
         string opType;
-        string paymentModel;
-        PaymentSourceConfig[] sourceConfigs;
+        TeePaymentsUtxoSourceConfig[] sourceConfigs;
     }
 
     struct Fdc2RequestFee {
@@ -263,6 +278,7 @@ contract DeployTeeContracts is Script {
         _configureFdc2InflationConfigurations();
         _registerTeePaymentsSources();
         _configureUtxoBatchSettings();
+        _configureUtxoAnchorReuseDelay();
         _configureFeeScheduleSourceLimits();
 
         // Phase 4: Switch all governed contracts to production mode
@@ -650,58 +666,73 @@ contract DeployTeeContracts is Script {
     // =========================================================================
 
     function _deployTeePayments() internal {
-        PaymentConfiguration[] memory paymentConfigs = abi.decode(
-            vm.parseJson(config, ".teePaymentConfigurations"),
-            (PaymentConfiguration[])
+        TeePaymentsConfiguration[] memory accountConfigs = abi.decode(
+            vm.parseJson(config, ".teePaymentsConfigurations"),
+            (TeePaymentsConfiguration[])
+        );
+        TeePaymentsUtxoConfiguration[] memory utxoConfigs = abi.decode(
+            vm.parseJson(config, ".teePaymentsUtxoConfigurations"),
+            (TeePaymentsUtxoConfiguration[])
         );
 
-        TeePayments teePaymentsImpl = new TeePayments();
-        TeePaymentsUtxo teePaymentsUtxoImpl = new TeePaymentsUtxo();
-        _logDeployed(
-            "TeePaymentsImplementation",
-            "TeePayments.sol",
-            address(teePaymentsImpl)
-        );
-        _logDeployed(
-            "TeePaymentsUtxoImplementation",
-            "TeePaymentsUtxo.sol",
-            address(teePaymentsUtxoImpl)
-        );
-
-        for (uint256 i = 0; i < paymentConfigs.length; i++) {
-            PaymentModel model = _paymentModel(paymentConfigs[i].paymentModel);
-            address implementation = model == PaymentModel.UTXO
-                ? address(teePaymentsUtxoImpl)
-                : address(teePaymentsImpl);
-            address proxyAddr = _deployTeePaymentsProxy(
-                implementation
-            );
-            teePaymentsAddresses.push(proxyAddr);
+        // A single account proxy serves every account source and a single UTXO proxy serves every UTXO
+        // source — each source carries its own keyType/opType in the registry, so one proxy per payment
+        // model is enough. Implementations are deployed only when used by this network.
+        if (accountConfigs.length > 0) {
+            address accountImpl = address(new TeePayments());
             _logDeployed(
-                string.concat(
-                    "TeePayments_", paymentConfigs[i].opType
-                ),
-                "TeePaymentsProxy.sol",
-                proxyAddr
+                "TeePaymentsImplementation",
+                "TeePayments.sol",
+                accountImpl
             );
+            address accountProxy = _deployTeePaymentsProxy(accountImpl);
+            teePaymentsAddresses.push(accountProxy);
+            _logDeployed("TeePayments", "TeePaymentsProxy.sol", accountProxy);
 
-            // Track sourceId -> TeePayments binding for the registry.
-            for (
-                uint256 j = 0;
-                j < paymentConfigs[i].sourceConfigs.length;
-                j++
-            ) {
-                sourceRegistrations.push(
-                    ITeePaymentsRegistry.SourceRegistration({
-                        keyType: bytes32(bytes(paymentConfigs[i].keyType)),
-                        opType: bytes32(bytes(paymentConfigs[i].opType)),
-                        paymentModel: model,
-                        sourceId: bytes32(
-                            bytes(paymentConfigs[i].sourceConfigs[j].sourceId)
-                        ),
-                        teePayments: proxyAddr
-                    })
-                );
+            // Track sourceId -> TeePayments bindings for the registry (all sources share the proxy).
+            for (uint256 i = 0; i < accountConfigs.length; i++) {
+                for (uint256 j = 0; j < accountConfigs[i].sourceConfigs.length; j++) {
+                    sourceRegistrations.push(
+                        ITeePaymentsRegistry.SourceRegistration({
+                            keyType: bytes32(bytes(accountConfigs[i].keyType)),
+                            opType: bytes32(bytes(accountConfigs[i].opType)),
+                            paymentModel: PaymentModel.ACCOUNT,
+                            sourceId: bytes32(
+                                bytes(accountConfigs[i].sourceConfigs[j].sourceId)
+                            ),
+                            teePayments: accountProxy
+                        })
+                    );
+                }
+            }
+        }
+
+        if (utxoConfigs.length > 0) {
+            address utxoImpl = address(new TeePaymentsUtxo());
+            _logDeployed(
+                "TeePaymentsUtxoImplementation",
+                "TeePaymentsUtxo.sol",
+                utxoImpl
+            );
+            address utxoProxy = _deployTeePaymentsProxy(utxoImpl);
+            teePaymentsAddresses.push(utxoProxy);
+            _logDeployed("TeePaymentsUtxo", "TeePaymentsProxy.sol", utxoProxy);
+
+            // Track sourceId -> TeePayments bindings for the registry (all sources share the proxy).
+            for (uint256 i = 0; i < utxoConfigs.length; i++) {
+                for (uint256 j = 0; j < utxoConfigs[i].sourceConfigs.length; j++) {
+                    sourceRegistrations.push(
+                        ITeePaymentsRegistry.SourceRegistration({
+                            keyType: bytes32(bytes(utxoConfigs[i].keyType)),
+                            opType: bytes32(bytes(utxoConfigs[i].opType)),
+                            paymentModel: PaymentModel.UTXO,
+                            sourceId: bytes32(
+                                bytes(utxoConfigs[i].sourceConfigs[j].sourceId)
+                            ),
+                            teePayments: utxoProxy
+                        })
+                    );
+                }
             }
         }
     }
@@ -1089,42 +1120,57 @@ contract DeployTeeContracts is Script {
     // =========================================================================
 
     function _configureUtxoBatchSettings() internal {
-        PaymentConfiguration[] memory paymentConfigs = abi.decode(
-            vm.parseJson(config, ".teePaymentConfigurations"),
-            (PaymentConfiguration[])
+        TeePaymentsUtxoConfiguration[] memory utxoConfigs = abi.decode(
+            vm.parseJson(config, ".teePaymentsUtxoConfigurations"),
+            (TeePaymentsUtxoConfiguration[])
         );
 
-        for (uint256 i = 0; i < paymentConfigs.length; i++) {
-            if (_paymentModel(paymentConfigs[i].paymentModel) != PaymentModel.UTXO) {
-                continue;
-            }
-            for (uint256 j = 0; j < paymentConfigs[i].sourceConfigs.length; j++) {
-                PaymentSourceConfig memory src = paymentConfigs[i].sourceConfigs[j];
-                bytes32 sourceId = bytes32(bytes(src.sourceId));
+        for (uint256 i = 0; i < utxoConfigs.length; i++) {
+            for (uint256 j = 0; j < utxoConfigs[i].sourceConfigs.length; j++) {
+                bytes32 sourceId =
+                    bytes32(bytes(utxoConfigs[i].sourceConfigs[j].sourceId));
                 address teePayments =
                     TeePaymentsRegistry(teePaymentsRegistryAddr)
                         .getTeePaymentsForSource(sourceId);
                 TeePaymentsUtxo(teePayments).setMaxBatchSettings(
                     sourceId,
-                    uint64(paymentConfigs[i].maxBatchSize),
-                    uint64(paymentConfigs[i].maxBatchDurationSeconds)
+                    uint64(utxoConfigs[i].maxBatchSize),
+                    uint64(utxoConfigs[i].maxBatchDurationSeconds)
+                );
+            }
+        }
+    }
+
+    function _configureUtxoAnchorReuseDelay() internal {
+        TeePaymentsUtxoConfiguration[] memory utxoConfigs = abi.decode(
+            vm.parseJson(config, ".teePaymentsUtxoConfigurations"),
+            (TeePaymentsUtxoConfiguration[])
+        );
+
+        for (uint256 i = 0; i < utxoConfigs.length; i++) {
+            for (uint256 j = 0; j < utxoConfigs[i].sourceConfigs.length; j++) {
+                bytes32 sourceId =
+                    bytes32(bytes(utxoConfigs[i].sourceConfigs[j].sourceId));
+                address teePayments =
+                    TeePaymentsRegistry(teePaymentsRegistryAddr)
+                        .getTeePaymentsForSource(sourceId);
+                TeePaymentsUtxo(teePayments).setAnchorReuseDelay(
+                    sourceId,
+                    uint64(utxoConfigs[i].anchorReuseDelaySeconds)
                 );
             }
         }
     }
 
     function _configureFeeScheduleSourceLimits() internal {
-        PaymentConfiguration[] memory paymentConfigs = abi.decode(
-            vm.parseJson(config, ".teePaymentConfigurations"),
-            (PaymentConfiguration[])
+        TeePaymentsConfiguration[] memory accountConfigs = abi.decode(
+            vm.parseJson(config, ".teePaymentsConfigurations"),
+            (TeePaymentsConfiguration[])
         );
 
         uint256 totalSources;
-        for (uint256 i = 0; i < paymentConfigs.length; i++) {
-            if (_paymentModel(paymentConfigs[i].paymentModel) != PaymentModel.ACCOUNT) {
-                continue;
-            }
-            totalSources += paymentConfigs[i].sourceConfigs.length;
+        for (uint256 i = 0; i < accountConfigs.length; i++) {
+            totalSources += accountConfigs[i].sourceConfigs.length;
         }
         if (totalSources == 0) return;
 
@@ -1133,12 +1179,9 @@ contract DeployTeeContracts is Script {
                 totalSources
         );
         uint256 k;
-        for (uint256 i = 0; i < paymentConfigs.length; i++) {
-            if (_paymentModel(paymentConfigs[i].paymentModel) != PaymentModel.ACCOUNT) {
-                continue;
-            }
-            for (uint256 j = 0; j < paymentConfigs[i].sourceConfigs.length; j++) {
-                PaymentSourceConfig memory src = paymentConfigs[i].sourceConfigs[j];
+        for (uint256 i = 0; i < accountConfigs.length; i++) {
+            for (uint256 j = 0; j < accountConfigs[i].sourceConfigs.length; j++) {
+                TeePaymentsSourceConfig memory src = accountConfigs[i].sourceConfigs[j];
                 inputs[k++] = ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput({
                     maxDelaySeconds: uint16(src.maxFeeDelaySeconds),
                     maxSchedules: uint8(src.maxFeeSchedules),
@@ -1395,22 +1438,6 @@ contract DeployTeeContracts is Script {
                 vm.toString(_addr)
             )
         );
-    }
-
-    function _paymentModel(
-        string memory _model
-    )
-        internal pure
-        returns (PaymentModel)
-    {
-        bytes32 modelHash = keccak256(bytes(_model));
-        if (modelHash == keccak256(bytes("ACCOUNT"))) {
-            return PaymentModel.ACCOUNT;
-        }
-        if (modelHash == keccak256(bytes("UTXO"))) {
-            return PaymentModel.UTXO;
-        }
-        revert("unknown payment model");
     }
 
     // =========================================================================

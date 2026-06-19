@@ -116,13 +116,13 @@ import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { Contracts } from "../scripts/Contracts";
 import { Account } from "web3-core";
 import { FACETS, deployFacetsAndBuildCuts } from "../scripts/deploy-flare-tee-manager";
-import type { TeePaymentConfiguration } from "../chain-config/chain-parameters";
 import {
   TIMELOCK_SEC,
   systemSettings,
   getSigningPolicyHash,
   FTSO_PROTOCOL_ID,
-  TEE_PAYMENT_CONFIGURATIONS,
+  TEE_PAYMENTS_CONFIGURATIONS,
+  TEE_PAYMENTS_UTXO_CONFIGURATIONS,
   TEE_OPERATION_FEES,
   rewardEpochDurationSeconds,
   FDC2_FEE_CONFIGURATIONS,
@@ -681,13 +681,6 @@ export async function deployContracts(
   addressUpdatableContracts.push(teePaymentsConfigVerifier.address);
 
   const teePaymentsList: (TeePaymentsInstance | TeePaymentsUtxoInstance)[] = [];
-  const teePaymentsImpl = await TeePayments.new();
-  const teePaymentsUtxoImpl = await TeePaymentsUtxo.new();
-  const teePaymentsDeployments: {
-    address: string;
-    paymentConfig: TeePaymentConfiguration;
-    paymentModel: number;
-  }[] = [];
   const sourceRegistrations: {
     keyType: string;
     opType: string;
@@ -695,35 +688,57 @@ export async function deployContracts(
     sourceId: string;
     teePayments: string;
   }[] = [];
-  for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
-    const paymentModel = teePaymentConfig.paymentModel === "UTXO" ? 2 : 1;
-    const implementationAddress =
-      teePaymentConfig.paymentModel === "UTXO" ? teePaymentsUtxoImpl.address : teePaymentsImpl.address;
+
+  // A single account proxy serves every account source and a single UTXO proxy serves every UTXO
+  // source — each source carries its own keyType/opType in the registry, so one proxy per payment
+  // model is enough. Implementations are deployed only when used.
+  if (TEE_PAYMENTS_CONFIGURATIONS.length > 0) {
+    const teePaymentsImpl = await TeePayments.new();
     const teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings.address,
       governanceAccount.address,
       addressUpdater.address,
-      implementationAddress
+      teePaymentsImpl.address
     );
-    const teePayments =
-      teePaymentConfig.paymentModel === "UTXO"
-        ? await TeePaymentsUtxo.at(teePaymentsProxy.address)
-        : await TeePayments.at(teePaymentsProxy.address);
+    const teePayments = await TeePayments.at(teePaymentsProxy.address);
     teePaymentsList.push(teePayments);
-    teePaymentsDeployments.push({
-      address: teePayments.address,
-      paymentConfig: teePaymentConfig,
-      paymentModel,
-    });
     addressUpdatableContracts.push(teePayments.address);
-    for (const src of teePaymentConfig.sourceConfigs) {
-      sourceRegistrations.push({
-        keyType: web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0"),
-        opType: web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
-        paymentModel,
-        sourceId: web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
-        teePayments: teePayments.address,
-      });
+    for (const teePaymentConfig of TEE_PAYMENTS_CONFIGURATIONS) {
+      for (const src of teePaymentConfig.sourceConfigs) {
+        sourceRegistrations.push({
+          keyType: web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0"),
+          opType: web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
+          paymentModel: 1,
+          sourceId: web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
+          teePayments: teePayments.address,
+        });
+      }
+    }
+  }
+
+  let teePaymentsUtxoAddress: string | undefined;
+  if (TEE_PAYMENTS_UTXO_CONFIGURATIONS.length > 0) {
+    const teePaymentsUtxoImpl = await TeePaymentsUtxo.new();
+    const teePaymentsProxy = await TeePaymentsProxy.new(
+      governanceSettings.address,
+      governanceAccount.address,
+      addressUpdater.address,
+      teePaymentsUtxoImpl.address
+    );
+    const teePayments = await TeePaymentsUtxo.at(teePaymentsProxy.address);
+    teePaymentsUtxoAddress = teePayments.address;
+    teePaymentsList.push(teePayments);
+    addressUpdatableContracts.push(teePayments.address);
+    for (const teePaymentConfig of TEE_PAYMENTS_UTXO_CONFIGURATIONS) {
+      for (const src of teePaymentConfig.sourceConfigs) {
+        sourceRegistrations.push({
+          keyType: web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0"),
+          opType: web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
+          paymentModel: 2,
+          sourceId: web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
+          teePayments: teePayments.address,
+        });
+      }
     }
   }
 
@@ -889,18 +904,21 @@ export async function deployContracts(
     await teePaymentsRegistry.registerSources(sourceRegistrations, { from: governanceAccount.address });
   }
 
-  for (const deployment of teePaymentsDeployments) {
-    if (deployment.paymentModel !== 2) {
-      continue;
-    }
-    const teePaymentsUtxo = await TeePaymentsUtxo.at(deployment.address);
-    for (const src of deployment.paymentConfig.sourceConfigs) {
-      await teePaymentsUtxo.setMaxBatchSettings(
-        web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
-        deployment.paymentConfig.maxBatchSize,
-        deployment.paymentConfig.maxBatchDurationSeconds,
-        { from: governanceAccount.address }
-      );
+  if (teePaymentsUtxoAddress !== undefined) {
+    const teePaymentsUtxo = await TeePaymentsUtxo.at(teePaymentsUtxoAddress);
+    for (const teePaymentConfig of TEE_PAYMENTS_UTXO_CONFIGURATIONS) {
+      for (const src of teePaymentConfig.sourceConfigs) {
+        const sourceId = web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0");
+        await teePaymentsUtxo.setMaxBatchSettings(
+          sourceId,
+          teePaymentConfig.maxBatchSize,
+          teePaymentConfig.maxBatchDurationSeconds,
+          { from: governanceAccount.address }
+        );
+        await teePaymentsUtxo.setAnchorReuseDelay(sourceId, teePaymentConfig.anchorReuseDelaySeconds, {
+          from: governanceAccount.address,
+        });
+      }
     }
   }
 
@@ -940,10 +958,7 @@ export async function deployContracts(
 
   // Configure initial per-sourceId fee schedule limits (generous defaults for tests)
   const allSourceIds = new Set<string>();
-  for (const cfg of TEE_PAYMENT_CONFIGURATIONS) {
-    if (cfg.paymentModel !== "ACCOUNT") {
-      continue;
-    }
+  for (const cfg of TEE_PAYMENTS_CONFIGURATIONS) {
     for (const src of cfg.sourceConfigs) {
       allSourceIds.add(src.sourceId);
     }

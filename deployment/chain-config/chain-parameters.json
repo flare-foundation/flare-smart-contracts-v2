@@ -361,52 +361,33 @@
             ],
             "type": "object"
         },
-        "TeePaymentConfiguration": {
+        "TeePaymentsConfiguration": {
             "additionalProperties": false,
             "properties": {
                 "keyType": {
-                    "description": "Key type - XRP, BTC, DOGE, EVM,...",
+                    "description": "Key type - XRP, EVM,...",
                     "type": "string"
-                },
-                "maxBatchDurationSeconds": {
-                    "description": "Max batch duration in seconds.",
-                    "type": "integer"
-                },
-                "maxBatchSize": {
-                    "description": "Max batch size.",
-                    "type": "integer"
                 },
                 "opType": {
-                    "description": "Payment operation type - F_XRP, F_BTC, F_DOGE, F_EVM,...",
-                    "type": "string"
-                },
-                "paymentModel": {
-                    "description": "Payment model - ACCOUNT or UTXO.",
-                    "enum": [
-                        "ACCOUNT",
-                        "UTXO"
-                    ],
+                    "description": "Payment operation type - F_XRP, F_EVM,...",
                     "type": "string"
                 },
                 "sourceConfigs": {
                     "description": "Per-source id configuration (source id + fee schedule limits).",
                     "items": {
-                        "$ref": "#/definitions/TeePaymentSourceConfig"
+                        "$ref": "#/definitions/TeePaymentsSourceConfig"
                     },
                     "type": "array"
                 }
             },
             "required": [
                 "keyType",
-                "maxBatchDurationSeconds",
-                "maxBatchSize",
                 "opType",
-                "paymentModel",
                 "sourceConfigs"
             ],
             "type": "object"
         },
-        "TeePaymentSourceConfig": {
+        "TeePaymentsSourceConfig": {
             "additionalProperties": false,
             "properties": {
                 "maxFeeDelaySeconds": {
@@ -418,13 +399,67 @@
                     "type": "integer"
                 },
                 "sourceId": {
-                    "description": "Source id string (e.g., \"XRP\", \"BTC\").",
+                    "description": "Source id string (e.g., \"XRP\", \"ETH\").",
                     "type": "string"
                 }
             },
             "required": [
                 "maxFeeDelaySeconds",
                 "maxFeeSchedules",
+                "sourceId"
+            ],
+            "type": "object"
+        },
+        "TeePaymentsUtxoConfiguration": {
+            "additionalProperties": false,
+            "properties": {
+                "anchorReuseDelaySeconds": {
+                    "description": "Anchor reuse delay in seconds (how long after a batch closes before an anchor can be reused).",
+                    "type": "integer"
+                },
+                "keyType": {
+                    "description": "Key type - BTC, DOGE,...",
+                    "type": "string"
+                },
+                "maxBatchDurationSeconds": {
+                    "description": "Max batch duration in seconds.",
+                    "type": "integer"
+                },
+                "maxBatchSize": {
+                    "description": "Max batch size.",
+                    "type": "integer"
+                },
+                "opType": {
+                    "description": "Payment operation type - F_BTC, F_DOGE,...",
+                    "type": "string"
+                },
+                "sourceConfigs": {
+                    "description": "Per-source id configuration (source id only).",
+                    "items": {
+                        "$ref": "#/definitions/TeePaymentsUtxoSourceConfig"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "anchorReuseDelaySeconds",
+                "keyType",
+                "maxBatchDurationSeconds",
+                "maxBatchSize",
+                "opType",
+                "sourceConfigs"
+            ],
+            "type": "object"
+        },
+        "TeePaymentsUtxoSourceConfig": {
+            "additionalProperties": false,
+            "properties": {
+                "sourceId": {
+                    "description": "Source id string (e.g., \"BTC\", \"DOGE\").",
+                    "type": "string"
+                }
+            },
+            "required": [
                 "sourceId"
             ],
             "type": "object"
@@ -835,10 +870,17 @@
             "description": "The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).",
             "type": "integer"
         },
-        "teePaymentConfigurations": {
-            "description": "The TEE payment configurations.",
+        "teePaymentsConfigurations": {
+            "description": "The account-based TEE payment configurations.",
             "items": {
-                "$ref": "#/definitions/TeePaymentConfiguration"
+                "$ref": "#/definitions/TeePaymentsConfiguration"
+            },
+            "type": "array"
+        },
+        "teePaymentsUtxoConfigurations": {
+            "description": "The UTXO-based TEE payment configurations.",
+            "items": {
+                "$ref": "#/definitions/TeePaymentsUtxoConfiguration"
             },
             "type": "array"
         },
@@ -992,7 +1034,8 @@
         "teeEmergencyUnpauseGracePeriodSeconds",
         "teeOperationFees",
         "teeOwnersPPM",
-        "teePaymentConfigurations",
+        "teePaymentsConfigurations",
+        "teePaymentsUtxoConfigurations",
         "teePublicExtensionCreationEnabled",
         "teeSigningPolicyValidityDurationInRewardEpochs",
         "teeSupportedKeyTypesWithSigningAlgos",
