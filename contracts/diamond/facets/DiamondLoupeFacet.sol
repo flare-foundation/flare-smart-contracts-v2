@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.35;
 /******************************************************************************\
 * Author: Nick Mudge <nick@perfectabstractions.com>, Twitter/Github: @mudgen
 * EIP-2535 Diamonds

@@ -128,7 +128,7 @@ scripts/                # Utility scripts, protocol libs
 Config in `foundry.toml`. Dependencies managed via Soldeer.
 
 Key remappings (in `remappings.txt`):
-- `@openzeppelin/contracts/` → `dependencies/@openzeppelin-contracts-5.4.0/`
+- `@openzeppelin/contracts/` → `dependencies/@openzeppelin-contracts-5.6.1/`
 - `forge-std/` → `dependencies/forge-std-1.10.0/src/`
 - `@flarenetwork/flare-periphery-contracts/flare/` → `dependencies/flare-periphery-0.1.38/src/flare/`
 
