@@ -365,6 +365,25 @@ contract TeePaymentsTest is Test {
         assertEq(teePayments.getAuthorizationAddress(pmwMultisigAccount), address(0));
     }
 
+    function testGetInitialNonce() public {
+        _addAccount();
+        assertEq(teePayments.getInitialNonce(pmwMultisigAccount), INITIAL_NONCE);
+    }
+
+    function testGetInitialNonceRevertNotRegistered() public {
+        vm.expectRevert(ITeePaymentsBase.PMWMultisigAccountNotRegistered.selector);
+        teePayments.getInitialNonce(pmwMultisigAccount);
+    }
+
+    function testGetInitialNonceZeroSequence() public {
+        proof.responseBody.sequence = 0;
+        vm.expectEmit();
+        emit ITeePayments.PMWMultisigAccountAdded(walletId, SOURCE_ID, senderAddress, authorizationAddress, 0);
+        vm.prank(walletOwner);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
+        assertEq(teePayments.getInitialNonce(pmwMultisigAccount), 0);
+    }
+
     //// helpers ////
 
     function _addAccount() internal {

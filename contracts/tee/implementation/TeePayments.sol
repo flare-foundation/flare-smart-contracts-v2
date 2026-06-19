@@ -206,6 +206,22 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
     }
 
     /**
+     * @inheritdoc ITeePayments
+     */
+    function getInitialNonce(
+        PMWMultisigAccount calldata _account
+    )
+        external view
+        returns (uint64 _initialNonce)
+    {
+        AccountState storage state = states[_toAccountHash(_account)];
+        // nextPaymentId is set to 1 at registration, so 0 unambiguously means "not registered"
+        // (distinguishing it from a registered account whose initial nonce is legitimately 0).
+        require(state.nextPaymentId != 0, PMWMultisigAccountNotRegistered());
+        return state.initialNonce;
+    }
+
+    /**
      * @inheritdoc ITeePaymentsModel
      */
     function paymentModel()

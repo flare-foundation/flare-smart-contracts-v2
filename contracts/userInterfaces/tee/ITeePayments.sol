@@ -50,4 +50,18 @@ interface ITeePayments is ITeePaymentsBase {
     )
         external;
 
+    /**
+     * Returns the initial nonce recorded for the given PMW multisig account at registration.
+     * This is the account's `sequence` from the verified PMWMultisigAccountConfigured proof; the
+     * native nonce of payment id `n` is `initialNonce + n - 1`. An initial nonce of 0 is a valid
+     * value; reverts with `PMWMultisigAccountNotRegistered` if the account has not been registered.
+     * @param _account The PMW multisig account.
+     * @return _initialNonce The initial nonce recorded at registration.
+     */
+    function getInitialNonce(
+        PMWMultisigAccount calldata _account
+    )
+        external view
+        returns (uint64 _initialNonce);
+
 }
