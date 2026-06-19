@@ -133,7 +133,7 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
             uint64 _maxBatchDurationSeconds
         );
 
-    function getDefaultAnchorReuseDelay(
+    function getAnchorReuseDelay(
         bytes32 _sourceId
     )
         external view

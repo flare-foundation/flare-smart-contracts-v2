@@ -80,7 +80,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
     mapping(bytes32 accountHash => mapping(uint256 batchPaymentId => BatchRecord)) private batchRecords;
     mapping(bytes32 accountHash => mapping(uint256 batchPaymentId => uint64)) private replacementCounters;
     mapping(bytes32 accountHash => mapping(uint256 batchPaymentId => ReplacementAttempt)) private activeReplacements;
-    mapping(bytes32 sourceId => uint64 anchorReuseDelaySeconds) private defaultAnchorReuseDelaySeconds;
+    mapping(bytes32 sourceId => uint64 anchorReuseDelaySeconds) private anchorReuseDelaySeconds;
     mapping(bytes32 sourceId => MaxBatchSettings) private maxBatchSettings;
 
     /**
@@ -348,7 +348,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
     /**
      * @inheritdoc IITeePaymentsUtxo
      */
-    function setDefaultAnchorReuseDelay(
+    function setAnchorReuseDelay(
         bytes32 _sourceId,
         uint64 _anchorReuseDelaySeconds
     )
@@ -356,8 +356,8 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         onlyGovernance
     {
         _checkSource(_sourceId);
-        defaultAnchorReuseDelaySeconds[_sourceId] = _anchorReuseDelaySeconds;
-        emit DefaultAnchorReuseDelaySet(_sourceId, _anchorReuseDelaySeconds);
+        anchorReuseDelaySeconds[_sourceId] = _anchorReuseDelaySeconds;
+        emit AnchorReuseDelaySet(_sourceId, _anchorReuseDelaySeconds);
     }
 
     /**
@@ -414,13 +414,13 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
     /**
      * @inheritdoc ITeePaymentsUtxo
      */
-    function getDefaultAnchorReuseDelay(
+    function getAnchorReuseDelay(
         bytes32 _sourceId
     )
         external view
         returns (uint64)
     {
-        return defaultAnchorReuseDelaySeconds[_sourceId];
+        return anchorReuseDelaySeconds[_sourceId];
     }
 
     /**
@@ -628,15 +628,17 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         _state.batchRewardEpochId = _currentRewardEpochId;
         _state.batchOpen = true;
         _state.nextAnchorIndex = uint32((uint256(anchorIndex) + 1) % count);
-        anchor.availableAt = _state.batchEndTs + defaultAnchorReuseDelaySeconds[_sourceId];
+        anchor.availableAt = _state.batchEndTs + anchorReuseDelaySeconds[_sourceId];
     }
 
     /**
      * Closes the currently-open batch if it is due to close — i.e. it has ended (passed its end
-     * timestamp), its reward epoch changed, or it is full. Closing on "ended" stamps the batch end
-     * timestamp; otherwise the current block timestamp is used. No-op if no batch is open or none of
-     * the conditions hold. Shared by the pay path (open/rotate batches) and the reissue path (decide
-     * whether a batch can be replaced). Returns whether a batch was closed.
+     * timestamp) or its reward epoch changed. Closing on "ended" stamps the batch end timestamp;
+     * otherwise the current block timestamp is used. Fullness is not checked here: a batch that fills
+     * is closed synchronously in the same pay call (see `pay`), so an open batch is never full.
+     * No-op if no batch is open or none of the conditions hold. Shared by the pay path (open/rotate
+     * batches) and the reissue path (decide whether a batch can be replaced). Returns whether a batch
+     * was closed.
      */
     function _closeOpenBatchIfDue(
         bytes32 _accountHash,
@@ -651,7 +653,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
             return false;
         }
         bool batchEnded = block.timestamp > _state.batchEndTs;
-        if (batchEnded || _state.batchRewardEpochId != _currentRewardEpochId || _isBatchFull(_state)) {
+        if (batchEnded || _state.batchRewardEpochId != _currentRewardEpochId) {
             _closeBatch(_accountHash, _sourceId, _state, batchEnded ? _state.batchEndTs : uint64(block.timestamp));
             return true;
         }
@@ -693,8 +695,13 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
             anchorIndex: _state.batchAnchorIndex,
             rewardEpochId: _state.batchRewardEpochId
         });
-        anchors[_accountHash][_state.batchAnchorIndex].availableAt =
-            _closedAt + defaultAnchorReuseDelaySeconds[_sourceId];
+        // Closing can only bring the anchor's reuse window earlier than the window already reserved
+        // at open time, never push it later (e.g. an early close, or a reuse delay lowered after open).
+        UtxoAnchorState storage closedAnchor = anchors[_accountHash][_state.batchAnchorIndex];
+        uint64 closeAvailableAt = _closedAt + anchorReuseDelaySeconds[_sourceId];
+        if (closeAvailableAt < closedAnchor.availableAt) {
+            closedAnchor.availableAt = closeAvailableAt;
+        }
         _state.batchEndTs = _closedAt;
         _state.batchOpen = false;
     }

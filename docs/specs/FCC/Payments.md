@@ -87,17 +87,18 @@ Per-anchor **addresses are not stored on-chain** — any party derives an anchor
 
 ### Anchor selection (cyclic round-robin)
 
-When a new batch opens, `_openBatch` scans anchors cyclically starting from the per-account `nextAnchorIndex` cursor and takes the **first anchor whose reuse window has cleared** (`availableAt <= block.timestamp`). If a candidate is busy it moves on to the next (including any freshly added chains); only if **all** anchors are still busy does it revert `AnchorNotReady(earliestAvailableAt)`. On selection it advances the cursor, consumes the anchor's nonce (`batchNonce = anchor.nextNonce++`), and pins the anchor's reuse window when the batch closes (`availableAt = closedAt + defaultAnchorReuseDelaySeconds[sourceId]`). The reuse delay ensures at most one unconfirmed batch per anchor at a time.
+When a new batch opens, `_openBatch` scans anchors cyclically starting from the per-account `nextAnchorIndex` cursor and takes the **first anchor whose reuse window has cleared** (`availableAt <= block.timestamp`). If a candidate is busy it moves on to the next (including any freshly added chains); only if **all** anchors are still busy does it revert `AnchorNotReady(earliestAvailableAt)`. On selection it advances the cursor, consumes the anchor's nonce (`batchNonce = anchor.nextNonce++`), and reserves the anchor's reuse window for the projected batch end (`availableAt = batchEndTs + anchorReuseDelaySeconds[sourceId]`). When the batch closes the window is only ever brought **earlier** — `availableAt = min(availableAt, closedAt + anchorReuseDelaySeconds[sourceId])` — so an early close frees the anchor sooner while a close can never push the window later than what was reserved at open. The reuse delay ensures at most one unconfirmed batch per anchor at a time.
 
 ### Batches
 
 A **batch** groups one or more payments that share one anchor and one nonce. Batch fields live in `AccountState` (`batchPaymentId`, `batchEndTs`, `batchPaymentCount`, `batchSizeEffective`, `batchNonce`, `batchAnchorIndex`, `batchRewardEpochId`, `batchOpen`). On the first `pay` after a batch closes, `_openBatch` snapshots the **effective** batch size and duration (capped by the per-source `MaxBatchSettings`) into `batchSizeEffective` / `batchEndTs` — so a settings change mid-batch only affects the *next* batch.
 
-`_closeOpenBatchIfDue` closes the open batch when any of:
+`_closeOpenBatchIfDue` closes the open batch when either:
 
-- it is **full** — `batchPaymentCount >= batchSizeEffective` (`_isBatchFull`);
 - it has **ended** — `block.timestamp > batchEndTs`;
 - the **reward epoch changed** — `batchRewardEpochId != currentRewardEpochId`.
+
+Fullness is **not** a trigger here: a batch that fills is closed synchronously by `pay` in the same call, so an open batch is never full and `_isBatchFull` is never true inside `_closeOpenBatchIfDue`.
 
 `pay` closes a due batch, opens a fresh one if needed, records the payment, and — because the only *new* close reason after open is fullness (block time and reward epoch are fixed within a call) — captures `_isBatchFull` once and, if full, closes the batch **at the current block**, emitting `batchEndTs = block.timestamp` (the actual close time) rather than the planned end. That lets off-chain consumers detect a full close immediately via the standard "`batchEndTs` has passed" rule without tracking batch-size history. Closing stamps a `BatchRecord { nonce, batchEndTs, paymentCount, anchorIndex, rewardEpochId }`.
 
@@ -126,7 +127,7 @@ A `ReplacementAttempt { uint64 id; uint64 nextPaymentId; uint64 emittedCount; ui
 
 ### Batch settings
 
-`setBatchSettings(account, batchSize, batchDurationSeconds)` (wallet-owner) sets the account's preferred batch size/duration (effective from the next batch). Governance caps them per source via `setMaxBatchSettings` and sets the per-source anchor reuse delay via `setDefaultAnchorReuseDelay`. Getters: `getBatchSettings`, `getMaxBatchSettings`, `getDefaultAnchorReuseDelay`, `getAnchor`, `getAnchorCount`.
+`setBatchSettings(account, batchSize, batchDurationSeconds)` (wallet-owner) sets the account's preferred batch size/duration (effective from the next batch). Governance caps them per source via `setMaxBatchSettings` and sets the per-source anchor reuse delay via `setAnchorReuseDelay`. Getters: `getBatchSettings`, `getMaxBatchSettings`, `getAnchorReuseDelay`, `getAnchor`, `getAnchorCount`.
 
 ## Fees
 

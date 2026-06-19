@@ -9,7 +9,7 @@ import { ITeePaymentsUtxo } from "../../userInterfaces/tee/ITeePaymentsUtxo.sol"
  */
 interface IITeePaymentsUtxo is ITeePaymentsUtxo {
 
-    event DefaultAnchorReuseDelaySet(
+    event AnchorReuseDelaySet(
         bytes32 indexed sourceId,
         uint64 anchorReuseDelaySeconds
     );
@@ -21,13 +21,13 @@ interface IITeePaymentsUtxo is ITeePaymentsUtxo {
     );
 
     /**
-     * Sets the default anchor reuse delay for a source routed to this UTXO TeePayments contract.
-     * Emits DefaultAnchorReuseDelaySet event.
+     * Sets the anchor reuse delay for a source routed to this UTXO TeePayments contract.
+     * Emits AnchorReuseDelaySet event.
      * @param _sourceId The source id.
-     * @param _anchorReuseDelaySeconds The default delay before a used anchor can be reused.
+     * @param _anchorReuseDelaySeconds The delay before a used anchor can be reused.
      * Can only be called by governance.
      */
-    function setDefaultAnchorReuseDelay(
+    function setAnchorReuseDelay(
         bytes32 _sourceId,
         uint64 _anchorReuseDelaySeconds
     )

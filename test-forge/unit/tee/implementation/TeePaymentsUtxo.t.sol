@@ -277,15 +277,15 @@ contract TeePaymentsUtxoTest is Test {
         teePayments.setMaxBatchSettings(SOURCE_ID, 9, 600);
     }
 
-    function testSetDefaultAnchorReuseDelay() public {
+    function testSetAnchorReuseDelay() public {
         vm.prank(governance);
-        teePayments.setDefaultAnchorReuseDelay(SOURCE_ID, 720);
-        assertEq(teePayments.getDefaultAnchorReuseDelay(SOURCE_ID), 720);
+        teePayments.setAnchorReuseDelay(SOURCE_ID, 720);
+        assertEq(teePayments.getAnchorReuseDelay(SOURCE_ID), 720);
     }
 
-    function testSetDefaultAnchorReuseDelayRevertOnlyGovernance() public {
+    function testSetAnchorReuseDelayRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
-        teePayments.setDefaultAnchorReuseDelay(SOURCE_ID, 720);
+        teePayments.setAnchorReuseDelay(SOURCE_ID, 720);
     }
 
     //// pay ////
@@ -338,7 +338,7 @@ contract TeePaymentsUtxoTest is Test {
     function testPaySkipsBusyAnchorAfterGrowth() public {
         _addAccount(1); // single anchor
         vm.prank(governance);
-        teePayments.setDefaultAnchorReuseDelay(SOURCE_ID, 10000);
+        teePayments.setAnchorReuseDelay(SOURCE_ID, 10000);
 
         // First payment uses anchor 0 and (batchSize 1) closes immediately, putting anchor 0 into its
         // reuse window.
@@ -381,6 +381,57 @@ contract TeePaymentsUtxoTest is Test {
         teePayments.pay{value: 100}(account, _instruction(bytes32("r2")), address(0));
         assertEq(
             _lastMessageBatchEndTs(), uint64(vm.getBlockTimestamp()), "batch-filling payment uses close timestamp");
+    }
+
+    function testCloseClampsAnchorReuseWindowToOpenReservation() public {
+        _addAccount(2);
+        // Small delay at open; batch holds 2 payments over 300s so it stays open after the first pay.
+        vm.prank(governance);
+        teePayments.setAnchorReuseDelay(SOURCE_ID, 100);
+        vm.prank(walletOwner);
+        teePayments.setBatchSettings(account, 2, 300);
+
+        // Open a batch on anchor 0 at t=1000: batchEndTs = 1300, so anchor 0's reuse window is reserved
+        // at batchEndTs + delay = 1300 + 100 = 1400.
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r1")), address(0));
+        assertEq(teePayments.getAnchor(account, 0).availableAt, 1400, "open reserves batchEndTs + delay");
+
+        // Governance raises the reuse delay long after the window was reserved.
+        vm.prank(governance);
+        teePayments.setAnchorReuseDelay(SOURCE_ID, 5000);
+
+        // Warp past the planned end so the next pay closes anchor 0's batch on "ended"
+        // (closedAt = batchEndTs = 1300) and opens a fresh batch on anchor 1.
+        vm.warp(1400);
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r2")), address(0));
+
+        // Closing recomputes closedAt + newDelay = 1300 + 5000 = 6300, but the window may only move
+        // earlier, never later than the 1400 reserved at open. (Without the clamp it would jump to 6300.)
+        assertEq(
+            teePayments.getAnchor(account, 0).availableAt, 1400, "close must not push window past open reservation");
+    }
+
+    function testEarlyCloseBringsAnchorReuseWindowEarlier() public {
+        _addAccount(2);
+        vm.prank(governance);
+        teePayments.setAnchorReuseDelay(SOURCE_ID, 100);
+        vm.prank(walletOwner);
+        teePayments.setBatchSettings(account, 2, 300);
+
+        // Open on anchor 0 at t=1000: reserve window = batchEndTs(1300) + 100 = 1400.
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r1")), address(0));
+        assertEq(teePayments.getAnchor(account, 0).availableAt, 1400, "open reservation");
+
+        // Fill the batch early at t=1100 (< planned end 1300): it closes now, so the window moves earlier
+        // to closedAt + delay = 1100 + 100 = 1200.
+        vm.warp(1100);
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r2")), address(0));
+        assertEq(
+            teePayments.getAnchor(account, 0).availableAt, 1200, "early close pulls window earlier than reservation");
     }
 
     //// reissue / replacement block list ////
