@@ -31,8 +31,6 @@ interface ITeePaymentsConfigVerifier {
     error AccountAddressZero();
     error AnchorSetEmpty();
     error AnchorLimitExceeded();
-    error AnchorAddressZero();
-    error LengthsMismatch();
     error InvalidAttestation();
     error InvalidRequestBody();
     error InvalidProof();

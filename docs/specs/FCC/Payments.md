@@ -78,12 +78,12 @@ The UTXO model is the more involved one. A wallet account runs **N parallel anch
 
 ### Anchors
 
-Each account stores an array of `UtxoAnchorState { string anchorAddress; bytes32 genesisAnchorTxid; uint32 genesisAnchorVout; uint64 nextNonce; uint64 availableAt; }`. Anchors are **grow-only**:
+Each account stores an array of `UtxoAnchorState { bytes32 genesisAnchorTxid; uint32 genesisAnchorVout; uint64 nextNonce; uint64 availableAt; }`. Anchors are **grow-only**:
 
 - `addPMWMultisigAccount(walletId, proof, authorizationAddress)` registers the account and its initial anchor set (`_appendAnchors` from the verified proof), seeds `nextPaymentId = 1`, `batchSize = 1`, `accountIndex`, and `anchorCount`, then emits `PMWMultisigUtxoAccountAdded(walletId, sourceId, accountAddress, accountIndex, anchorCount, authorizationAddress)` and `UtxoBatchSettingsSet`.
 - `addAnchors(proof)` grows the set. It derives the account from the (verifier-validated) proof, checks `accountIndex` still matches (`AccountIndexMismatch`), requires strictly more anchors than stored (`NoNewAnchors`), checks the new set is a **prefix-preserving superset** of the stored anchors via `_checkStoredAnchorsMatch` (`AnchorMismatch`), appends the new ones, and emits `UtxoAnchorsAdded(walletId, sourceId, accountAddress, accountIndex, anchorCount)`.
 
-The anchor address validity (non-empty, set bounds) is enforced by the config verifier at proof time, so the contract trusts the validated proof.
+Per-anchor **addresses are not stored on-chain** — any party derives an anchor's address on the target UTXO chain off-chain from the wallet's (parent) xpubs + threshold + `accountIndex` + `anchorIndex` (the account-level keys are the non-hardened children of the parent xpubs at `accountIndex`), so the contract keeps only each anchor's genesis outpoint (`genesisAnchorTxid` / `genesisAnchorVout`, used by `_checkStoredAnchorsMatch` on growth) plus its nonce / reuse state. The config verifier enforces the anchor-set bounds (non-empty, `<= MAX_ANCHOR_COUNT`) and a non-empty `accountAddress` at proof time, so the contract trusts the validated proof.
 
 ### Anchor selection (cyclic round-robin)
 
@@ -110,7 +110,7 @@ PAY:     keccak256(abi.encode(opType, "PAY",     sourceId, accountAddress, ancho
 REISSUE: keccak256(abi.encode(opType, "REISSUE", sourceId, accountAddress, anchorIndex, nonce, reissueNumber))
 ```
 
-`(walletId, anchorIndex, nonce)` is the batch identity everywhere off-chain, so the id preimage places `anchorIndex` immediately before `nonce`; every off-chain party that recomputes the id must match this byte ordering. The message (`UtxoPaymentInstructionMessage`) carries the account index, the selected anchor's index / address / genesis outpoint, the nonce, the payment id, the batch payment id, and `batchEndTs`.
+`(walletId, anchorIndex, nonce)` is the batch identity everywhere off-chain, so the id preimage places `anchorIndex` immediately before `nonce`; every off-chain party that recomputes the id must match this byte ordering. The message (`UtxoPaymentInstructionMessage`) carries the account index, the selected anchor's **index** (not its address or genesis outpoint — both are derived off-chain from the wallet's (parent) xpubs + threshold + `accountIndex` + `anchorIndex`), the nonce, the payment id, the batch payment id, and `batchEndTs`.
 
 ### Reissue / replacement
 

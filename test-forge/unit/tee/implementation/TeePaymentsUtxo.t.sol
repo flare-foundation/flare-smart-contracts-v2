@@ -173,7 +173,7 @@ contract TeePaymentsUtxoTest is Test {
         assertEq(teePayments.getAuthorizationAddress(account), authorizationAddress);
         assertEq(teePayments.getAnchorCount(account), 2);
         ITeePaymentsUtxo.UtxoAnchorState memory anchor0 = teePayments.getAnchor(account, 0);
-        assertEq(anchor0.anchorAddress, accountAddress);
+        assertEq(anchor0.genesisAnchorTxid, keccak256(abi.encode("txid", uint32(0))));
         assertEq(anchor0.nextNonce, 1);
         assertEq(anchor0.availableAt, 0);
         assertEq(uint256(teePayments.paymentModel()), uint256(PaymentModel.UTXO));
@@ -486,20 +486,17 @@ contract TeePaymentsUtxoTest is Test {
     {
         IPMWMultisigUtxoConfigured.Anchor[] memory anchors =
             new IPMWMultisigUtxoConfigured.Anchor[](_anchorCount);
-        string[] memory anchorAddresses = new string[](_anchorCount);
         for (uint32 i = 0; i < _anchorCount; i++) {
             anchors[i] = IPMWMultisigUtxoConfigured.Anchor({
                 genesisAnchorTxid: keccak256(abi.encode("txid", i)),
                 genesisAnchorVout: i
             });
-            anchorAddresses[i] = i == 0 ? accountAddress : string.concat("anchor", vm.toString(i));
         }
         _proof.header.sourceId = SOURCE_ID;
         _proof.requestBody.accountIndex = ACCOUNT_INDEX;
         _proof.requestBody.anchors = anchors;
         _proof.responseBody.status = IPMWMultisigUtxoConfigured.PMWMultisigUtxoStatus.OK;
         _proof.responseBody.accountAddress = accountAddress;
-        _proof.responseBody.anchorAddresses = anchorAddresses;
     }
 
     // verifyUtxoConfiguredProof is validate-only (returns nothing); the contract reads the verified

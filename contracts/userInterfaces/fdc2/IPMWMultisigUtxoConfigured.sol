@@ -33,7 +33,8 @@ interface IPMWMultisigUtxoConfigured {
     /**
      * Request body for PMWMultisigUtxoConfigured attestation type.
      * @param accountIndex Account-level derivation index.
-     * @param publicKeys Account-level extended public keys.
+     * @param publicKeys Wallet-level (parent) extended public keys; the account-level keys are
+     * their non-hardened children at `accountIndex`.
      * @param threshold Threshold of the multisig account.
      * @param anchors The full set of verified parallel anchor chains.
      */
@@ -48,11 +49,9 @@ interface IPMWMultisigUtxoConfigured {
      * Response body for PMWMultisigUtxoConfigured attestation type.
      * @param status Status of the multisig account configuration: OK or ERROR.
      * @param accountAddress The account identifier.
-     * @param anchorAddresses The verifier-derived anchor addresses, ordered like requestBody.anchors.
      */
     struct ResponseBody {
         PMWMultisigUtxoStatus status;
         string accountAddress;
-        string[] anchorAddresses;
     }
 }

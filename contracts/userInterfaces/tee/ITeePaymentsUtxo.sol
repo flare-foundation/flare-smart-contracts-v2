@@ -17,9 +17,6 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
         string accountAddress;
         uint32 accountIndex;
         uint32 anchorIndex;
-        string anchorAddress;
-        bytes32 genesisAnchorTxid;
-        uint32 genesisAnchorVout;
         string recipientAddress;
         bytes tokenId;
         uint256 amount;
@@ -33,7 +30,6 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
     }
 
     struct UtxoAnchorState {
-        string anchorAddress;
         bytes32 genesisAnchorTxid;
         uint32 genesisAnchorVout;
         uint64 nextNonce;

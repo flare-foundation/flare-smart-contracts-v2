@@ -322,11 +322,7 @@ contract TeePaymentsConfigVerifier is ITeePaymentsConfigVerifier, FlareUpgradeab
         uint256 anchorCount = _proof.requestBody.anchors.length;
         require(anchorCount > 0, AnchorSetEmpty());
         require(anchorCount <= MAX_ANCHOR_COUNT, AnchorLimitExceeded());
-        require(_proof.responseBody.anchorAddresses.length == anchorCount, LengthsMismatch());
         require(bytes(_proof.responseBody.accountAddress).length > 0, AccountAddressZero());
-        for (uint256 i = 0; i < anchorCount; i++) {
-            require(bytes(_proof.responseBody.anchorAddresses[i]).length > 0, AnchorAddressZero());
-        }
     }
 
     function _teeTargets(

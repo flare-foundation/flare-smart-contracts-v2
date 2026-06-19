@@ -129,7 +129,6 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         UtxoPaymentInstructionMessage memory message = _buildMessage(
             _account,
             walletId,
-            accountHash,
             state.accountIndex,
             state.batchAnchorIndex,
             state.batchNonce,
@@ -269,7 +268,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         states[accountHash].accountIndex = accountIndex;
         states[accountHash].anchorCount = anchorCount;
 
-        _appendAnchors(accountHash, _proof.requestBody.anchors, _proof.responseBody.anchorAddresses, 0);
+        _appendAnchors(accountHash, _proof.requestBody.anchors, 0);
 
         emit PMWMultisigUtxoAccountAdded(
             _walletId,
@@ -308,7 +307,6 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         _appendAnchors(
             accountHash,
             _proof.requestBody.anchors,
-            _proof.responseBody.anchorAddresses,
             currentAnchorCount
         );
 
@@ -486,7 +484,6 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
             UtxoPaymentInstructionMessage memory message = _buildMessage(
                 _account,
                 _context.walletId,
-                _context.accountHash,
                 _context.accountIndex,
                 _context.anchorIndex,
                 _context.nonce,
@@ -705,59 +702,19 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
     function _appendAnchors(
         bytes32 _accountHash,
         IPMWMultisigUtxoConfigured.Anchor[] calldata _anchors,
-        string[] calldata _anchorAddresses,
         uint256 _fromIndex
     )
         internal
     {
-        // Anchor addresses are validated non-empty by the config verifier (_checkUtxoProofAnchorShape),
-        // which always runs before this on both the registration and growth paths.
         for (uint256 i = _fromIndex; i < _anchors.length; i++) {
             IPMWMultisigUtxoConfigured.Anchor calldata anchor = _anchors[i];
             anchors[_accountHash].push(UtxoAnchorState({
-                anchorAddress: _anchorAddresses[i],
                 genesisAnchorTxid: anchor.genesisAnchorTxid,
                 genesisAnchorVout: anchor.genesisAnchorVout,
                 nextNonce: 1,
                 availableAt: 0
             }));
         }
-    }
-
-    function _buildMessage(
-        ITeePaymentsBase.PMWMultisigAccount calldata _account,
-        bytes32 _walletId,
-        bytes32 _accountHash,
-        uint32 _accountIndex,
-        uint32 _anchorIndex,
-        uint64 _nonce,
-        uint64 _paymentId,
-        uint64 _batchPaymentId,
-        uint64 _batchEndTs,
-        ITeePaymentsBase.PaymentInstruction calldata _paymentInstruction,
-        TeeIdKeyIdPair[] memory _teeIdKeyIdPairs
-    )
-        internal view
-        returns (UtxoPaymentInstructionMessage memory _message)
-    {
-        UtxoAnchorState storage anchor = anchors[_accountHash][_anchorIndex];
-        _message.walletId = _walletId;
-        _message.teeIdKeyIdPairs = _teeIdKeyIdPairs;
-        _message.sourceId = _account.sourceId;
-        _message.accountAddress = _account.accountAddress;
-        _message.accountIndex = _accountIndex;
-        _message.anchorIndex = _anchorIndex;
-        _message.anchorAddress = anchor.anchorAddress;
-        _message.genesisAnchorTxid = anchor.genesisAnchorTxid;
-        _message.genesisAnchorVout = anchor.genesisAnchorVout;
-        _message.nonce = _nonce;
-        _message.paymentId = _paymentId;
-        _message.batchPaymentId = _batchPaymentId;
-        _message.batchEndTs = _batchEndTs;
-        _message.recipientAddress = _paymentInstruction.recipientAddress;
-        _message.tokenId = _paymentInstruction.tokenId;
-        _message.amount = _paymentInstruction.amount;
-        _message.paymentReference = _paymentInstruction.paymentReference;
     }
 
     function _paymentInstructionMatches(
@@ -812,12 +769,41 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
             IPMWMultisigUtxoConfigured.Anchor calldata proofAnchor = _proof.requestBody.anchors[i];
             require(
                 storedAnchor.genesisAnchorTxid == proofAnchor.genesisAnchorTxid &&
-                storedAnchor.genesisAnchorVout == proofAnchor.genesisAnchorVout &&
-                keccak256(bytes(storedAnchor.anchorAddress)) ==
-                    keccak256(bytes(_proof.responseBody.anchorAddresses[i])),
+                storedAnchor.genesisAnchorVout == proofAnchor.genesisAnchorVout,
                 AnchorMismatch()
             );
         }
+    }
+
+    function _buildMessage(
+        ITeePaymentsBase.PMWMultisigAccount calldata _account,
+        bytes32 _walletId,
+        uint32 _accountIndex,
+        uint32 _anchorIndex,
+        uint64 _nonce,
+        uint64 _paymentId,
+        uint64 _batchPaymentId,
+        uint64 _batchEndTs,
+        ITeePaymentsBase.PaymentInstruction calldata _paymentInstruction,
+        TeeIdKeyIdPair[] memory _teeIdKeyIdPairs
+    )
+        internal pure
+        returns (UtxoPaymentInstructionMessage memory _message)
+    {
+        _message.walletId = _walletId;
+        _message.teeIdKeyIdPairs = _teeIdKeyIdPairs;
+        _message.sourceId = _account.sourceId;
+        _message.accountAddress = _account.accountAddress;
+        _message.accountIndex = _accountIndex;
+        _message.anchorIndex = _anchorIndex;
+        _message.nonce = _nonce;
+        _message.paymentId = _paymentId;
+        _message.batchPaymentId = _batchPaymentId;
+        _message.batchEndTs = _batchEndTs;
+        _message.recipientAddress = _paymentInstruction.recipientAddress;
+        _message.tokenId = _paymentInstruction.tokenId;
+        _message.amount = _paymentInstruction.amount;
+        _message.paymentReference = _paymentInstruction.paymentReference;
     }
 
     /**
