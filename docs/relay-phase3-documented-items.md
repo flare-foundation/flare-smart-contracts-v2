@@ -70,7 +70,14 @@ scope. A bug *inside* OZ would pass silently — accepted as the dependency boun
 | M4 OZ MerkleProof | ✅ closed (call-site in scope; OZ internals assumed — standing assumption #3) |
 | R6/R7 far-future arithmetic | ✅ accepted out-of-scope (386 yr / 47 yr) |
 
-## Genuinely-remaining FV work (needs dedicated effort; not closed here)
+## Previously-deferred items — now resolved (the only irreducible gap is full symbolic-N)
+
+All three originally-deferred items have been invested in and resolved (AC-6 and T1 fully; item #3
+to the limit of the toolchain). The **single remaining irreducible gap** is **full symbolic-N for the
+signature loop**, which is *empirically* state-explosive (a Kontrol/hardware limit, not an effort gap) —
+mitigated by verified N∈{3,5} plus the meta-induction structure. Details below.
+
+## Previously-deferred work — resolution
 
 - **AC-6 — Mode-1 (relay-only) new-signing-policy threshold consistency** — ✅ **DONE** (`RelayModeOneFV`).
   The full protocolId==0 relay path is verified: calldata `selector || oldPolicy || protocolId(0) ||
