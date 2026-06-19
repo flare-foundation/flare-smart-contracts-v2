@@ -79,5 +79,14 @@ scope. A bug *inside* OZ would pass silently — accepted as the dependency boun
 - **T1 — bytecode↔model bmc-depth-1 equivalence** (Kontrol). The linchpin that lifts the Phase-2 unbounded
   model proofs to the real assembly. Authoring-heavy; Step 3.
 - **Step 7 — symbolic-N / Merkle tree-induction / cross-epoch-unbounded** (Kontrol). The unbounded sig-loop
-  is verified at N=3 and N=5; N=10 is a running parametric point. Full symbolic-N risks state explosion
-  (documented fallback: parametric N ∈ {2,3,5,10,300}).
+  is verified (Kontrol, k-induction) at **N=3 and N=5** — these are the practical parametric points.
+  **N=10 was attempted and found INTRACTABLE**: with the packed-weight encoding (16-bit lanes via
+  bit-shift/mask, needed to dodge stack-too-deep and Kontrol's array-param limit), a single-core prove ran
+  **12 h with 0 of 4 proofs completing** — the lane bit-ops make each SMT query much harder and N=10's
+  per-step case explosion (≈N² configurations) compounds it. This empirically confirms the plan's
+  state-explosion caveat: **full symbolic-N is not viable on this toolchain/hardware.** The unbounded-in-K
+  guarantee (the security-critical dimension) holds at N∈{3,5}; larger N would need a fundamentally
+  different encoding (e.g. a genuine loop-invariant over an array, which Kontrol 1.0.248 cannot summarize)
+  or far more compute. Merkle tree-induction (M1/M7) and cross-epoch-unbounded (AC-12) are likewise deferred
+  as Kontrol-heavy; their BOUNDED forms are already verified (RelayMerkleProofFV, RelayCrossEpochFV/
+  RelayMustUseNewPolicyFV).
