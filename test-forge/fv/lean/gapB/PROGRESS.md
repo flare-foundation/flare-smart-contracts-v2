@@ -24,7 +24,14 @@ committed as *completed lemmas*, never as holes. This file is the resume point.
   native_decide theorem. This blocks only CONCRETE memory checks; the SYMBOLIC refinement (the real goal)
   reasons abstractly and is unaffected — and will use a memory-free loop encoding (data-layout = a
   validated assumption in R, per the fidelity ladder).
-- **Current:** B-4 — the symbolic "For-loop refines fold" lemma against `exec`/`loop` (the hard core).
+- **B-4 IN PROGRESS — 3 hole-free symbolic lemmas proven** (`GapB_refine.lean`, axioms [propext,
+  Classical.choice, Quot.sound], NO sorryAx): `loop_base` (cond=0 ⇒ loop exits), `exec_For`
+  (exec unfolds For→loop), `loop_step` (one iteration ⇒ loop (fuel+2) = exec fuel (For) s₃ for Ok states,
+  non-breaking body). These chain iterations — the engine for the induction.
+- **Current:** L_loop — induct `loop_step`+`exec_For` over the iteration count to get the full accumulation
+  = `RelaySigLoop` fold; then transfer `threshold_sound`. KEY tactic facts learned: state hyps over
+  `(Ok sa va)` NOT `mkOk(Ok..)` (mkOk-simp desyncs); proof = `unfold loop; simp only [mkOk, hcond,
+  if_neg hx, hbody, reviveJump, hpost, overwrite?]; cases (exec For ..) <;> rfl`.
 - **Next:** B-4 symbolic induction → B-5 transfer `threshold_sound` → differential-validate the data layer.
 
 ## How to resume (toolchain)
