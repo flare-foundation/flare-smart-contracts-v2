@@ -103,7 +103,7 @@ library Instructions {
         );
         require(calculatedFee <= msg.value, IInstructions.FeeTooLow());
 
-        // Send fee to reward manager and emit event
+        // Send fee to reward manager
         ExternalAddresses.State storage ext = ExternalAddresses.getState();
         uint24 currentRewardEpochId = IFlareSystemsManager(ext.flareSystemsManager)
             .getCurrentRewardEpochId();
@@ -111,18 +111,9 @@ library Instructions {
             currentRewardEpochId, false
         );
 
-        emit IInstructions.TeeInstructionsSent(
-            extensionId,
-            _instructionId,
-            uint32(currentRewardEpochId),
-            teeMachines,
-            _instructionParams.opType,
-            _instructionParams.opCommand,
-            _instructionParams.message,
-            _instructionParams.cosigners,
-            _instructionParams.cosignersThreshold,
-            _instructionParams.claimBackAddress,
-            msg.value
+        // emit event
+        _emitInstructionsSent(
+            _instructionId, extensionId, currentRewardEpochId, teeMachines, _instructionParams
         );
 
         return _instructionId;
@@ -174,5 +165,29 @@ library Instructions {
         assembly {
             _state.slot := position
         }
+    }
+
+    function _emitInstructionsSent(
+        bytes32 _instructionId,
+        uint256 _extensionId,
+        uint24 _currentRewardEpochId,
+        IMachineManager.TeeMachine[] memory _teeMachines,
+        IInstructions.TeeInstructionParams memory _instructionParams
+    )
+        private
+    {
+        emit IInstructions.TeeInstructionsSent(
+            _extensionId,
+            _instructionId,
+            uint32(_currentRewardEpochId),
+            _teeMachines,
+            _instructionParams.opType,
+            _instructionParams.opCommand,
+            _instructionParams.message,
+            _instructionParams.cosigners,
+            _instructionParams.cosignersThreshold,
+            _instructionParams.claimBackAddress,
+            msg.value
+        );
     }
 }
