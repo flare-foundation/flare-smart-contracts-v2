@@ -74,34 +74,30 @@ library Verification {
         address teeId = _proof.requestBody.teeId;
 
         // Validate header
-        {
-            IFdc2Hub.Fdc2ResponseHeader calldata header = _proof.header;
-            require(
-                header.thresholdBIPS == 0 &&
-                header.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE &&
-                header.sourceId == TEE_SOURCE_ID,
-                IVerification.InvalidAttestation()
-            );
-            require(
-                header.timestamp < block.timestamp && header.timestamp >= s.challengeTs[teeId],
-                ITeeCommonErrors.AvailabilityCheckTimestampInvalid()
-            );
-            require(
-                s.challengeTs[teeId] + s.challengeValidityDurationSeconds > block.timestamp,
-                IVerification.ChallengeExpired(s.challengeTs[teeId])
-            );
-        }
+        IFdc2Hub.Fdc2ResponseHeader calldata header = _proof.header;
+        require(
+            header.thresholdBIPS == 0 &&
+            header.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE &&
+            header.sourceId == TEE_SOURCE_ID,
+            IVerification.InvalidAttestation()
+        );
+        require(
+            header.timestamp < block.timestamp && header.timestamp >= s.challengeTs[teeId],
+            ITeeCommonErrors.AvailabilityCheckTimestampInvalid()
+        );
+        require(
+            s.challengeTs[teeId] + s.challengeValidityDurationSeconds > block.timestamp,
+            IVerification.ChallengeExpired(s.challengeTs[teeId])
+        );
 
         // Validate request body
-        {
-            IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(teeId);
-            require(
-                keccak256(bytes(_proof.requestBody.url)) == keccak256(bytes(teeMachine.url)) &&
-                _proof.requestBody.teeProxyId == teeMachine.teeProxyId &&
-                _proof.requestBody.challenge == s.challenges[teeId],
-                IVerification.InvalidRequestBody()
-            );
-        }
+        IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(teeId);
+        require(
+            keccak256(bytes(_proof.requestBody.url)) == keccak256(bytes(teeMachine.url)) &&
+            _proof.requestBody.teeProxyId == teeMachine.teeProxyId &&
+            _proof.requestBody.challenge == s.challenges[teeId],
+            IVerification.InvalidRequestBody()
+        );
 
         // The outer SignedPayload envelope binds chainid and the FDC2 domain prefix; the inner
         // dataHash is the keccak256 of the three per-struct hashes of (header, requestBody,

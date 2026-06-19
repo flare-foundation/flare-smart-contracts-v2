@@ -119,18 +119,16 @@ contract WalletKeyManagerFacet is IWalletKeyManager {
         WalletKeyManager.KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
         require(_proof.nonce == keyDefinition.nonces[_proof.teeId], InvalidNonce());
 
-        {
-            bytes32 projectId = WalletManager.getWalletProjectId(walletId);
-            require(_proof.keyType == WalletProjectManager.getKeyType(projectId), InvalidKeyType());
-            require(
-                _proof.signingAlgo == WalletProjectManager.getSigningAlgo(projectId),
-                InvalidSigningAlgo()
-            );
-            require(
-                WalletProjectManager.getExtensionId(projectId) == MachineManager.getExtensionId(_proof.teeId),
-                ExtensionIdMismatch()
-            );
-        }
+        bytes32 projectId = WalletManager.getWalletProjectId(walletId);
+        require(_proof.keyType == WalletProjectManager.getKeyType(projectId), InvalidKeyType());
+        require(
+            _proof.signingAlgo == WalletProjectManager.getSigningAlgo(projectId),
+            InvalidSigningAlgo()
+        );
+        require(
+            WalletProjectManager.getExtensionId(projectId) == MachineManager.getExtensionId(_proof.teeId),
+            ExtensionIdMismatch()
+        );
 
         _validateKeyExistenceConfigConstants(walletId, _proof.configConstants);
         require(_proof.settingsVersion == bytes32(0) && _proof.settings.length == 0, InvalidSettings());
