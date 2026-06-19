@@ -80,6 +80,7 @@ every unbounded Kontrol result apply to the real bytecode, not a model); then th
 | **AC-6 FULL** Mode-1 (protocolId==0) new-policy threshold consistency on the LIVE relay path | `RelayModeOneFV` | ✅ verified |
 | **T1** model↔bytecode bridge (bytecode obeys the model's psAt invariant, K=1,2,3) | `RelayModelBridgeFV` | ✅ verified (bounded composition) |
 | **M1/M7** Merkle fold injectivity / anti-forgery — UNBOUNDED proof depth (base+step) | `RelayMerkleFoldFV` | ✅ verified |
+| **∀N ∀K sig-loop threshold soundness** (theorem prover, abstract algorithm) | `lean/RelaySigLoop.lean` | ✅ verified (Lean 4) |
 | Step 6 integration / Step 3 T1 / Step 7 symbolic-N | — | ⏳ in progress (N=10 running; docs for document-class) |
 
 Note: harnesses with a symbolic 16-bit product (e.g. R5 `neverWeakens`) need

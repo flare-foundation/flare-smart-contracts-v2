@@ -105,5 +105,11 @@ mitigated by verified N∈{3,5} plus the meta-induction structure. Details below
   pointer monotonicity is already proven unbounded in Kontrol (`kontrol/RelayRandomMonoFV`); the
   lastInitialized +1-monotonicity follows by meta-induction from L1's verified single-step
   (`RelayEpochAdvanceFV`); the cross-epoch decision-matrix coherence is fully verified bounded (every gate).
-  So of item #3 only **full symbolic-N for the sig-loop remains genuinely out of reach** (state explosion),
-  with N=3/5 as the practical points.
+  **Full symbolic-N — now CLOSED at the algorithm level via a theorem prover** (`lean/RelaySigLoop.lean`):
+  a Lean 4 proof of the signature-loop threshold soundness for an ARBITRARY weight list (∀N) and ARBITRARY
+  signature stream (∀K), checked with no `sorry`/axioms beyond `propext`/`Quot.sound`. This is the "Phase A"
+  abstract-algorithm proof — it does not connect to the bytecode by itself (that is the expensive Gap B,
+  bytecode refinement in Lean/Isabelle), but it removes the *symbolic-N* limitation entirely at the model
+  level. The deployed-bytecode link remains the Halmos bridge at K≤3 (`RelayModelBridgeFV`). So Kontrol's
+  state explosion is no longer a blocker for the ∀N statement; it only matters if one insists on ∀N *over
+  the raw bytecode*, which is Gap B.
