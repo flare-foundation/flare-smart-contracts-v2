@@ -107,6 +107,34 @@ the Phase-A defs (or imports them). Build with `lake build` once EVMYulLean is b
   the existing Halmos `RelayModelBridgeFV`), and prove the loop's control-flow + arithmetic under real Yul
   semantics. Full calldata-layout proof is the deepest residual (documented).
 
+## Memory model + loop notations (decisive for symbolic tractability)
+
+- **Memory is `MachineState.memory : ByteArray`** (`EvmYul/MachineState.lean:26`), byte-addressed;
+  `mload`/`mstore` read/write 32-byte words (`EvmYul/MachineStateOps.lean:49,57`); expansion uses the FFI
+  `ByteArray.zeroes`. ⇒ a FULLY symbolic proof over memory-based `mload`/`mstore` (byte-level 32-word
+  serialization round-trips + expansion) is **multi-week** and fights the ByteArray model. **Decision:**
+  the symbolic refinement targets the loop CONTROL-FLOW + ACCUMULATION ARITHMETIC (memory-free encoding);
+  the data-layout `mload(slot idx)=w[idx]` is the **validated residual** (concrete For-loop runs +
+  the Halmos `RelayModelBridgeFV` which runs the REAL bytecode+memory at K≤3). Full memory-based symbolic
+  proof is the documented continuation.
+- **`loop` varstore/control notations** (`EvmYul/Yul/StateOps.lean:142-155`): `👌`=`mkOk`,
+  `✏️⟦s'⟧?`=`overwrite? s s'` (varstore restore), `🧟`=`reviveJump`, `🔁/💔/🚪`=setContinue/Break/Leave,
+  `s⟦v↦l⟧`=insert, `🍄`=exec, `🌸`=eval. Reasoning about `loop` needs `overwrite?`/`mkOk`/`reviveJump`.
+
+## Symbolic refinement plan (the provable core, memory-free) — NEXT WORK
+
+Target lemma family (hole-free, ∀ iteration count):
+- **L_base:** `eval cond = (s₁,0)` ⇒ `exec (For cond post body) = .ok (s₁ ✏️⟦s⟧?)` (loop exits, accumulator
+  unchanged). Needs: unfold `loop`, `overwrite?` semantics.
+- **L_step:** one iteration: `eval cond ≠ 0`, `exec body` accumulates one term, `exec post` advances index,
+  then recurse. Relate to `RelaySigLoop.loop`'s single step.
+- **L_loop (induction):** by induction on the iteration count (with sufficient fuel), `exec` of the
+  accumulation loop = the abstract fold (`RelaySigLoop.sumTake`/`loop`). Fuel bookkeeping: state as
+  `∀ n, ∃/∀ fuel ≥ f(n), exec ... = ...`.
+- **Transfer:** compose with `RelaySigLoop.threshold_sound`.
+Encoding for the provable core: the For-loop accumulates a per-iteration term expressed from the loop
+index (memory-free); the weight-list instantiation is bridged by the validated data-layer residual.
+
 ## Honest fidelity ladder (what each layer buys)
 
 1. control-flow fidelity: the loop executed by REAL EVM/Yul semantics refines the algorithm (B-4/B-5).
