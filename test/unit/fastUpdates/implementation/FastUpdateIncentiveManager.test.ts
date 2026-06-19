@@ -401,7 +401,7 @@ contract(`FastUpdateIncentiveManager.sol; ${getTestFile(__filename)}`, (accounts
       ["tuple(bytes21,uint32,uint24)[]"], //  IFastUpdatesConfiguration.FeedConfiguration (bytes21 feedId, uint32 rewardBandValue, uint24 inflationShare)
       [configs]
     );
-    await fastUpdatesConfiguration.givenMethodReturn(getFeedConfigurations, getFeedConfigurationsReturn);
+    await fastUpdatesConfiguration.givenMethodReturn(getFeedConfigurations, getFeedConfigurationsReturn, {gas: 125000000});
 
     expect(await fastUpdateIncentiveManager.getContractName()).to.equal("FastUpdateIncentiveManager");
 
