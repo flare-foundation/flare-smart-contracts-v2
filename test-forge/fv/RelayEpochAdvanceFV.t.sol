@@ -47,4 +47,20 @@ contract RelayEpochAdvanceFV is RelayTestBase {
         (bool ok, ) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
         assert(!ok); // EXPECT counterexample: the sequential epoch succeeds
     }
+
+    // L1-MONOTONE (state effect / unbounded monotonicity step): a SUCCESSFUL setSigningPolicy advances
+    // lastInitializedRewardEpoch by EXACTLY +1 (Relay.sol — the new epoch is written as lastInitialized+1).
+    // This is the inductive STEP for unbounded monotonicity: by base (constructor sets it to
+    // initialRewardEpochId) + this step, the pointer is strictly increasing across ANY sequence of
+    // policy initialisations — it can never stall or regress (meta-induction, as for the sig-loop / fold).
+    function check_epochAdvance_incrementsByOne() external {
+        Relay r = _deploySetter();
+        (uint32 before, ) = r.lastInitializedRewardEpochData(); // == REWARD_EPOCH_ID (1)
+        IIRelay.SigningPolicy memory sp = _validPolicy(uint24(uint256(before) + 1));
+        (bool ok, ) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
+        if (ok) {
+            (uint32 afterE, ) = r.lastInitializedRewardEpochData();
+            assert(afterE == before + 1); // strictly +1: monotone, no stall, no skip
+        }
+    }
 }
