@@ -69,6 +69,35 @@ the Phase-A defs (or imports them). Build with `lake build` once EVMYulLean is b
   existing test vectors — confirms the encoding matches the compiler output (the residual, validated not
   proven; same trust as any bytecode-loading step in KEVM/eth-isabelle).
 
+## More API facts (Semantics dispatch — `EvmYul/Semantics.lean`)
+
+- The opcode→Transformer dispatch is a big match on `(τ, Operation)`:
+  - `.ADD => dispatchBinary τ UInt256.add`; `.AND => dispatchBinary τ UInt256.land`;
+    `.MUL/.SUB/.DIV/.MOD/.LT/.GT/.EQ/.ISZERO/...` similarly; `.Yul, .MLOAD => λ yulState lits ↦ …`
+    (reads memory at the given offset).
+  - `Operation : OperationType → Type` is at `EvmYul/Operations.lean:564` (uppercase EVM opcode ctors).
+  - `execPrimCall fuel prim vars args = multifill' vars (primCall fuel s prim args)`; `primCall` routes
+    through the Semantics dispatch.
+- **KEY: `exec`/`eval` are COMPUTABLE.** For CONCRETE inputs they reduce — so a concrete loop execution can
+  be proved equal to the abstract result by `native_decide`/`decide`/`rfl`. Symbolic ∀-proofs need
+  unfolding + induction (the hard part; `loop`'s varstore checkpointing is intricate).
+
+## Refined strategy (concrete-first, then symbolic) — keeps every step hole-free
+
+1. **B-2 / concrete refinement (achievable):** encode the accumulation loop as a `Yul.Stmt.For`
+   (`while i<n: weight := add(weight, weights[i]); i := i+1`) and prove by `native_decide` that, for several
+   concrete weight lists, `exec`'s result equals `RelaySigLoop.sumTake`. This is a *bounded but
+   validated-EVM-semantics* check — strictly more than the foundation doc (it runs the REAL Yul interpreter
+   and matches the abstract algorithm). Commit it.
+2. **B-4/5 / symbolic refinement (hard):** attempt the inductive `loop`-vs-`sumTake` proof (∀ weights, ∀ K).
+   Commit only the lemmas that check hole-free; if `loop`'s checkpoint handling blocks full symbolic
+   induction within available effort, commit the concrete-validated version + partial symbolic lemmas +
+   honest status, and keep going across sessions.
+- **Data-layout note:** the calldata→weights decoding (mload offsets) is the data-layout fidelity layer;
+  for the accumulation refinement we model weights as the decoded list (validated by the concrete runs +
+  the existing Halmos `RelayModelBridgeFV`), and prove the loop's control-flow + arithmetic under real Yul
+  semantics. Full calldata-layout proof is the deepest residual (documented).
+
 ## Honest fidelity ladder (what each layer buys)
 
 1. control-flow fidelity: the loop executed by REAL EVM/Yul semantics refines the algorithm (B-4/B-5).
