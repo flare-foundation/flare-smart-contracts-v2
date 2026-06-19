@@ -412,7 +412,8 @@
     "name": "FdcVerificationImplementation",
     "contractName": "FdcVerification.sol",
     "addresses": [
-      "0x4BaD22102bf4658B938cec27BEE16E917F696Ce5"
+      "0x4BaD22102bf4658B938cec27BEE16E917F696Ce5",
+      "0xF7F0057B4c6564F56479fdbb2e934C78EC4E094b"
     ]
   },
   {
@@ -455,6 +456,20 @@
     "contractName": "ChainlinkAdapterProxy.sol",
     "addresses": [
       "0x64e152B754c003B51D88Ebf0FA88C3DA39A0E7e0"
+    ]
+  },
+  {
+    "name": "ChainlinkAdapterStFlr",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "addresses": [
+      "0x71ca43Df4FEe2F6cAD86AF4d51bF6E3E302C660E"
+    ]
+  },
+  {
+    "name": "ChainlinkAdapterSFlr",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "addresses": [
+      "0x7335684a9b77b1f7aDEf007c95BD292351fAAFa7"
     ]
   }
 ]

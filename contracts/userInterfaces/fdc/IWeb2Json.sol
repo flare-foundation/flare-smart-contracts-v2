@@ -4,6 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 /**
  * @custom:name IWeb2Json
  * @custom:supported WEB2
+ * @custom:id 0x06
  * @author Flare
  * @notice An attestation request that fetches JSON data from the given URL,
  * applies a jq filter to transform the returned result, and returns the structured data as ABI encoded data.

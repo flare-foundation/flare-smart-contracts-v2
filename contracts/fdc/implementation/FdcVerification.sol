@@ -26,6 +26,10 @@ import {
 } from "../../userInterfaces/fdc/IReferencedPaymentNonexistenceVerification.sol";
 import { IWeb2Json } from "../../userInterfaces/fdc/IWeb2Json.sol";
 import { IWeb2JsonVerification } from "../../userInterfaces/fdc/IWeb2JsonVerification.sol";
+import { IXRPPayment } from "../../userInterfaces/fdc/IXRPPayment.sol";
+import { IXRPPaymentVerification } from "../../userInterfaces/fdc/IXRPPaymentVerification.sol";
+import { IXRPPaymentNonexistence } from "../../userInterfaces/fdc/IXRPPaymentNonexistence.sol";
+import { IXRPPaymentNonexistenceVerification } from "../../userInterfaces/fdc/IXRPPaymentNonexistenceVerification.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -150,6 +154,30 @@ contract FdcVerification is IFdcVerification, UUPSUpgradeable, GovernedProxyImpl
         bytes32 merkleRoot = relay.merkleRoots(fdcProtocolId, _proof.data.votingRound);
         return
             _proof.data.attestationType == bytes32("Web2Json") &&
+            _proof.merkleProof.verifyCalldata(merkleRoot, keccak256(abi.encode(_proof.data)));
+    }
+
+    /**
+     * @inheritdoc IXRPPaymentVerification
+     */
+    function verifyXRPPayment(IXRPPayment.Proof calldata _proof)
+        external view returns (bool _proved)
+    {
+        bytes32 merkleRoot = relay.merkleRoots(fdcProtocolId, _proof.data.votingRound);
+        return
+            _proof.data.attestationType == bytes32("XRPPayment") &&
+            _proof.merkleProof.verifyCalldata(merkleRoot, keccak256(abi.encode(_proof.data)));
+    }
+
+    /**
+     * @inheritdoc IXRPPaymentNonexistenceVerification
+     */
+    function verifyXRPPaymentNonexistence(IXRPPaymentNonexistence.Proof calldata _proof)
+        external view returns (bool _proved)
+    {
+        bytes32 merkleRoot = relay.merkleRoots(fdcProtocolId, _proof.data.votingRound);
+        return
+            _proof.data.attestationType == bytes32("XRPPaymentNonexistence") &&
             _proof.merkleProof.verifyCalldata(merkleRoot, keccak256(abi.encode(_proof.data)));
     }
 

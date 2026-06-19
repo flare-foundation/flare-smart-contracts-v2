@@ -9,6 +9,8 @@ import { IEVMTransactionVerification } from "./fdc/IEVMTransactionVerification.s
 import { IPaymentVerification } from "./fdc/IPaymentVerification.sol";
 import { IReferencedPaymentNonexistenceVerification } from "./fdc/IReferencedPaymentNonexistenceVerification.sol";
 import { IWeb2JsonVerification } from "./fdc/IWeb2JsonVerification.sol";
+import { IXRPPaymentVerification } from "./fdc/IXRPPaymentVerification.sol";
+import { IXRPPaymentNonexistenceVerification } from "./fdc/IXRPPaymentNonexistenceVerification.sol";
 
 /**
  * FdcVerification interface.
@@ -20,7 +22,9 @@ interface IFdcVerification is
     IEVMTransactionVerification,
     IPaymentVerification,
     IReferencedPaymentNonexistenceVerification,
-    IWeb2JsonVerification
+    IWeb2JsonVerification,
+    IXRPPaymentVerification,
+    IXRPPaymentNonexistenceVerification
 {
     /**
      * The FDC protocol id.
