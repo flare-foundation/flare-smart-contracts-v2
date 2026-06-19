@@ -72,10 +72,10 @@ scope. A bug *inside* OZ would pass silently — accepted as the dependency boun
 
 ## Genuinely-remaining FV work (needs dedicated effort; not closed here)
 
-- **AC-6 — Mode-1 (relay-only) new-signing-policy threshold consistency** (`checkThresholdConsistency`,
-  Relay.sol:1109/666). Requires constructing a protocolId==0 relay message with an embedded new policy
-  (intricate metadata + signature-offset layout; no existing template). Deferred to avoid a vacuous/false
-  harness — should be built mirroring a concrete Mode-1 relay once one exists.
+- **AC-6 — Mode-1 (relay-only) new-signing-policy threshold consistency** — ✅ **DONE** (`RelayModeOneFV`).
+  The full protocolId==0 relay path is verified: calldata `selector || oldPolicy || protocolId(0) ||
+  newPolicy || sigs`; checkThresholdConsistency (Relay.sol:1109/666) rejects a too-small-threshold new
+  policy (PASS), and a valid one installs (reach-control CEX confirms the construction is non-vacuous).
 - **T1 — bytecode↔model bmc-depth-1 equivalence** (Kontrol). The linchpin that lifts the Phase-2 unbounded
   model proofs to the real assembly. Authoring-heavy; Step 3.
 - **Step 7 — symbolic-N / Merkle tree-induction / cross-epoch-unbounded** (Kontrol). The unbounded sig-loop
