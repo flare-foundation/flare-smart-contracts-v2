@@ -91,6 +91,12 @@ scope. A bug *inside* OZ would pass silently — accepted as the dependency boun
   state-explosion caveat: **full symbolic-N is not viable on this toolchain/hardware.** The unbounded-in-K
   guarantee (the security-critical dimension) holds at N∈{3,5}; larger N would need a fundamentally
   different encoding (e.g. a genuine loop-invariant over an array, which Kontrol 1.0.248 cannot summarize)
-  or far more compute. Merkle tree-induction (M1/M7) and cross-epoch-unbounded (AC-12) are likewise deferred
-  as Kontrol-heavy; their BOUNDED forms are already verified (RelayMerkleProofFV, RelayCrossEpochFV/
-  RelayMustUseNewPolicyFV).
+  or far more compute. **Merkle tree-induction (M1/M7) — ✅ DONE UNBOUNDED** (`RelayMerkleFoldFV`): unlike
+  the sig-loop, the Merkle fold's inductive step is a single keccak (sorted-pair hash), so base + step
+  k-induction discharges in Halmos and gives fold injectivity / anti-forgery at ANY proof depth (no off-tree
+  leaf can be forged into a valid proof). **Cross-epoch / monotonicity unbounded (AC-12)**: the random-
+  pointer monotonicity is already proven unbounded in Kontrol (`kontrol/RelayRandomMonoFV`); the
+  lastInitialized +1-monotonicity follows by meta-induction from L1's verified single-step
+  (`RelayEpochAdvanceFV`); the cross-epoch decision-matrix coherence is fully verified bounded (every gate).
+  So of item #3 only **full symbolic-N for the sig-loop remains genuinely out of reach** (state explosion),
+  with N=3/5 as the practical points.
