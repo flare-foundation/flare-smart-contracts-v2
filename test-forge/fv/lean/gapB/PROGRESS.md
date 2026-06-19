@@ -13,10 +13,19 @@ committed as *completed lemmas*, never as holes. This file is the resume point.
 
 ## STATUS (update every checkpoint)
 
-- **Current step:** B-1 (build EVMYulLean) — in progress (mathlib cache fetch running).
-- **Done:** API study complete (facts below). Phase-A proof done (`../RelaySigLoop.lean`, hole-free).
-- **Next:** finish build → B-2 (drive `exec` in a tiny proof) → B-3 (encode loop + relation) →
-  B-4 (per-step refinement) → B-5 (induction + transfer + differential-validate).
+- **B-1 DONE:** EVMYulLean built (`/tmp/evmyul2`, `lake build` OK, 1037 modules incl. `EvmYul.Yul.Interpreter`).
+- **B-2 DONE (drive confirmed):** `GapB_probe.lean` — `exec` drives; `x:=5`→5; `x:=add(2,3)`→5 (real `.ADD`).
+  `GapB_loop.lean` — a `For`-loop `sum:=add(sum,i)` computes 0+..+(n-1) correctly (n=5→10, 10→45, 1→0)
+  under the validated semantics; reassignment-via-`Let` to outer vars persists across iterations. ⇒ I can
+  encode + execute a Relay-style accumulation loop and the validated semantics computes it right.
+- **FFI limitation (recorded):** MSTORE/MLOAD use an FFI-backed memory model (`ffi.ByteArray.zeroes`).
+  `#eval`/`native_decide` on standalone/lib files can't link the extern_lib (only built `lean_exe`s can,
+  e.g. `yulSemanticsTests`). ⇒ concrete eval of *memory* programs needs a runtime test exe, NOT a
+  native_decide theorem. This blocks only CONCRETE memory checks; the SYMBOLIC refinement (the real goal)
+  reasons abstractly and is unaffected — and will use a memory-free loop encoding (data-layout = a
+  validated assumption in R, per the fidelity ladder).
+- **Current:** B-4 — the symbolic "For-loop refines fold" lemma against `exec`/`loop` (the hard core).
+- **Next:** B-4 symbolic induction → B-5 transfer `threshold_sound` → differential-validate the data layer.
 
 ## How to resume (toolchain)
 
