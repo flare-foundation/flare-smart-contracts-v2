@@ -48,9 +48,40 @@ certoraRun certora/Relay.conf --compilation_steps_only --solc /path/to/solc-0.8.
 If solc/import resolution differs in your setup, adjust `solc`, `packages`, and `solc_via_ir` in
 `Relay.conf` to match the repo's foundry remappings (see `../remappings.txt`).
 
-## Expected outcome / next step
+## Cloud run result (executed) — the inline-assembly wall
 
-`nonceMonotonic`, `lastInitializedMonotonic`, `signingPolicySetterImmutable`, `policyHashWriteOnce` are
-expected to **verify** (they match the on-chain logic proven locally for specific sequences).
-`merkleRootWriteOnce` is the genuinely-open question — if it fails, the counterexample documents that a
-voting round can be re-finalized with a different root, which is a design point worth confirming.
+Two cloud runs were executed (with a valid `CERTORAKEY`):
+- run 1: https://prover.certora.com/output/3798318/a9a6c094009f4711852a166db63ac06f
+- run 2 (with `HAVOC_ECF` external-call summary + uint32-wrap guard): https://prover.certora.com/output/3798318/93ef4cf514274eac9f089c3ac3533be9
+
+**Outcome (both runs identical):** `nonceMonotonic`, `lastInitializedMonotonic`, `signingPolicySetterImmutable`
+all reported "violations" on `relay()`, `governanceFeeSetup`, and `setSigningPolicy`; `policyHashWriteOnce`
+and `merkleRootWriteOnce` returned `UNKNOWN`.
+
+**These are spurious — a tool limitation, not contract bugs.** The decisive tell: `setSigningPolicy`
+"violates" `signingPolicySetterImmutable`, but `setSigningPolicy` has **no external call** and **never
+writes the `signingPolicySetter` slot** — so it cannot logically change it. And `HAVOC_ECF` (which removes
+external-call havoc; sound here since Relay has no delegatecall) changed **nothing** between runs. The
+cause is therefore **storage-slot havoc from inline assembly**: Relay builds mapping slots in scratch
+memory (`keccak256(mload(0x40), 64)`) and writes the bit-packed `StateData` as a whole slot via assembly
+`assignStruct`/`sstore`. When Certora's storage analysis cannot resolve an `sstore` target, it
+conservatively **havocs all storage**, so every storage invariant breaks on every assembly-writing
+function — including slots that function never touches.
+
+**This is the same wall Kontrol hit** (N=10 ran 12h with 0 proofs): Relay is ~90% hand-rolled inline
+assembly with bit-packed storage, which defeats automated provers' storage models. A genuine
+tool-vs-contract-style mismatch.
+
+### What it would take to make Certora discharge these
+Re-model the storage layout in CVL with `ghost` variables + raw-slot `hook Sstore`/`hook Sload` that mirror
+every assembly write (decoding the packed `StateData` bit-offsets and the computed mapping slots), then
+state the invariants over the ghosts. This is substantial effort **and re-introduces the faithfulness risk
+the whole engagement avoids** (a wrong bit-offset = a meaningless proof). Not recommended unless an audit
+specifically requires all-functions/all-sequences *storage* invariants — the per-sequence forms are already
+proven (`RelayGovernanceNonceFV` for the nonce, `RelayEpochAdvanceFV` for the epoch pointer, etc.), and the
+∀N∀K signature-loop soundness is the Lean proof.
+
+### Status of these specs
+**Correct and locally typechecked** (they compile + typecheck against the real contract), **cloud-run
+executed**, but **not dischargeable by Certora on this assembly-heavy contract** without the ghost/hook
+re-modeling above. The rules are documented as a ready scaffold for that effort, not as passing proofs.

@@ -22,6 +22,13 @@ methods {
     function governanceFeeNonce() external returns (uint256) envfree;
     function signingPolicySetter() external returns (address) envfree;
     function lastInitializedRewardEpochData() external returns (uint32, uint32) envfree;
+
+    // Unresolved external calls — the ecrecover precompile (0x01), the address(this).call self-verify in
+    // _verifyCustomSignature, and oldRelay.* — must NOT havoc this contract's storage. Sound because Relay
+    // has NO delegatecall (verified, AC-8): an external call can never write currentContract storage.
+    // Without this, Certora's default HAVOC_ALL spuriously breaks every storage invariant on relay()/
+    // governanceFeeSetup.
+    unresolved external in _._ => DISPATCH [] default HAVOC_ECF;
 }
 
 /// The governance-fee nonce never decreases — across ANY function (generalises RLY-02 / AC-10 from the
@@ -39,6 +46,9 @@ rule nonceMonotonic(method f) {
 rule lastInitializedMonotonic(method f) {
     uint32 pre; uint32 _a;
     pre, _a = lastInitializedRewardEpochData();
+    // exclude the uint32 wrap edge (≈386yr/47yr out, documented out-of-scope R7/RLY-19): the +1 advance
+    // would only regress if pre were at type-max, an unreachable state.
+    require pre < max_uint32;
     env e; calldataarg args;
     f(e, args);
     uint32 post; uint32 _b;
