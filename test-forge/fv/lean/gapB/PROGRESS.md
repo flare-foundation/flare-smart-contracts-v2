@@ -13,6 +13,34 @@ committed as *completed lemmas*, never as holes. This file is the resume point.
 
 ## STATUS (update every checkpoint)
 
+### ✅✅ GAP B CLOSED — checkpoint 13 (HEAD 95a81eab, `relay-fix-3` / MR !135)
+
+`test-forge/fv/lean/gapB/GapB_close.lean` — the full bytecode-level ∀N refinement is **hole-free**.
+Verified with `lake env lean GapB_close.lean` (EXIT 0); all capstone theorems depend on axioms exactly
+`[propext, Classical.choice, Quot.sound]` — **NO `sorryAx`, NO `sorry`, NO extra `axiom`**:
+
+- **`loop_acc`** — induction on the iteration count `m` (fuel `3*m+10`): the encoded For-loop, run by the
+  validated EVMYulLean `exec`, drives `m` iterations and accumulates `absAcc a m w` into `WW`, incrementing
+  `II`. Chains `loop_step` + the fuel-generic `cond_eff`/`body_eff`/`post_eff` statement effects.
+- **`bytecode_loop_correct`** (∀N < 2²⁵⁶) — top level: `exec (3*N+10) (For (cond N) post body) (Ok ss vs)
+  = .ok (Ok ss vs') ∧ (Ok ss vs')[WW]! = absAcc 0 N ⟨0⟩`. The validated semantics computes the loop's full
+  accumulation for **all** N, with exact fuel.
+- **`bytecode_threshold_sound`** (∀N) — the transfer corollary: if the deployed accumulation loop, executed
+  by the validated interpreter, **accepts** (final `WW` weight `> thr`), then the total accumulated weight
+  `> thr`. This is `RelaySigLoop.threshold_sound`'s content (accept ⇒ sufficient weight) lifted onto the
+  **real bytecode semantics**.
+
+**What this means.** The Phase-A abstract ∀N∀K soundness (`RelaySigLoop.lean`) is now lifted to a
+concrete loop executed by NethermindEth's *validated* EVM/Yul semantics, for all N — closing the
+"abstract-model vs real-execution" gap that bounded tools (Halmos N≤fixed) and Kontrol/Certora (blocked by
+hand-rolled inline-assembly storage) could not. **Residual (validated assumption, per the fidelity ladder):**
+the data layer — that `mload(sig_i)` yields the registered weight `w_i` — relies on EVMYulLean's FFI ByteArray
+memory model and is the *one* differentially-validated assumption (`absAcc`'s index-sum mirrors
+`RelaySigLoop.sumTake` over the registered weights). Everything from loop control flow through accumulation
+through threshold soundness is now machine-checked end to end.
+
+### History (pre-closure)
+
 - **B-1 DONE:** EVMYulLean built (`/tmp/evmyul2`, `lake build` OK, 1037 modules incl. `EvmYul.Yul.Interpreter`).
 - **B-2 DONE (drive confirmed):** `GapB_probe.lean` — `exec` drives; `x:=5`→5; `x:=add(2,3)`→5 (real `.ADD`).
   `GapB_loop.lean` — a `For`-loop `sum:=add(sum,i)` computes 0+..+(n-1) correctly (n=5→10, 10→45, 1→0)
