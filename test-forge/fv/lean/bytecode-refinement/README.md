@@ -79,6 +79,10 @@ and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility
   identity, against EVMYulLean's actual `ByteArray.write`/`readWithPadding`. The heart of `mload∘mstore`.
   Lean 4.22 has no ByteArray lemma layer, so the proofs reduce via `ByteArray.ext` to `Array.data`. One
   documented axiom: `zeroes_data` (minimal spec for the `opaque` `memset_zero`; dischargeable upstream).
-- *Remaining:* wrap `mem_roundtrip` into `MachineState.mstore`/`mload` (the `activeWords`/size guard),
-  the value decode `fromByteArrayBigEndian (v.toByteArray) = v.toNat`, the `& 0xffff` mask, the slot
-  arithmetic, and `R` over the loop. **~1–3 weeks remaining.** See L10 §10.5.
+- *Value decode — ✅ done.* `DataLayer.lean` proves `fromByteArray_toByteArray`
+  (`fromByteArrayBigEndian (v.toByteArray) = v.toNat`) against EVMYulLean's real `fromByteArrayBigEndian`
+  and `UInt256.toByteArray`, hole-free (only `zeroes_data` beyond the standard three). With `mem_roundtrip`
+  and `ofNat_toNat` this is what makes `(mstore a v).mload a = v`.
+- *Remaining:* wrap `mem_roundtrip` + `fromByteArray_toByteArray` into `MachineState.mstore`/`mload` (the
+  `activeWords`/size guard), the `& 0xffff` mask, the slot arithmetic, and `R` over the loop.
+  **~1–2 weeks remaining.** See L10 §10.5.

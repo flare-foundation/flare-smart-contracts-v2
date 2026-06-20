@@ -22,13 +22,13 @@ only assumption these proofs add beyond Lean's standard three.
 * **Memory keystone — DONE** (`keystone`): `copySlice`/`extract` round-trip, *no* `zeroes` axiom.
 * **ByteArray memory round-trip — DONE** (`mem_roundtrip`): `readWithPadding (write …) … = src`, against
   EVMYulLean's actual `ByteArray.write`/`readWithPadding`. This is the heart of `mload∘mstore`.
-* **Value-decode bricks — DONE** (`ofNat_toNat`, `size_append`, **`toList_data`** = `ByteArray.toList =
-  data.toList`, proved via the `toList.loop` invariant).
-* **Remaining**: (i) finish the value decode `fromByteArrayBigEndian (v.toByteArray) = v.toNat` — with
-  `toList_data` in hand, what's left is the leading-zero argument (`fromBytes' (l ++ replicate n 0) =
-  fromBytes' l`) + the `toByteArray` = `zeroes ++ BE` decomposition; (ii) the `MachineState.mstore`/`mload`
-  wrapping (the `activeWords`/size guard); (iii) the `& 0xffff` mask + slot arithmetic; (iv) the simulation
-  relation `R` over the ∀N loop. (i)–(iii) are bounded; (iv) is the multi-week integration.
+* **Value decode — DONE** (`ofNat_toNat`, `size_append`, `toList_data`, and **`fromByteArray_toByteArray`**:
+  `fromByteArrayBigEndian (v.toByteArray) = v.toNat`, via the `toList`/`toByteArray` loop invariants + the
+  leading-zero argument). With `mem_roundtrip` + `fromByteArray_toByteArray` + `ofNat_toNat`, the
+  `(mstore a v).mload a = v` round-trip assembles modulo the guard.
+* **Remaining**: (ii) the `MachineState.mstore`/`mload` wrapping — discharge the `activeWords`/size guard so
+  `lookupMemory` reads; (iii) the `& 0xffff` mask + slot arithmetic; (iv) the simulation relation `R` over
+  the ∀N loop. (ii)–(iii) are bounded; (iv) is the multi-week integration.
 -/
 
 namespace RelayDataLayer
@@ -173,7 +173,50 @@ theorem mem_roundtrip (src mem : ByteArray) (d : Nat) (hsrc : src.size = 32) (hm
       readWithPadding_eq_extract _ d (by rw [copySlice_size src mem d hsrc hmem]; exact hmem)]
   exact keystone src mem d hsrc hmem
 
+/-! ## Value decode: `fromByteArrayBigEndian (v.toByteArray) = v.toNat` -/
+
+/-- `List.toByteArray.loop` invariant: it appends the consumed list (as an array) to its accumulator. -/
+private theorem tba_loop (l : List UInt8) (r : ByteArray) :
+    (List.toByteArray.loop l r).data = r.data ++ l.toArray := by
+  induction l generalizing r with
+  | nil => simp [List.toByteArray.loop]
+  | cons b bs ih => rw [List.toByteArray.loop, ih]; simp [ByteArray.push]
+
+/-- `(List.toByteArray l).data.toList = l` (no such lemma on Lean 4.22). -/
+private theorem ltba (l : List UInt8) : (List.toByteArray l).data.toList = l := by
+  show (List.toByteArray.loop l ByteArray.empty).data.toList = l
+  rw [tba_loop, show ByteArray.empty.data = #[] from rfl]; simp
+
+private theorem fromBytes'_replicate_zero (n : Nat) : fromBytes' (List.replicate n 0) = 0 := by
+  induction n with
+  | zero => rfl
+  | succ m ih => rw [List.replicate_succ]; unfold fromBytes'; simp [ih]
+
+/-- Trailing zero bytes don't change the little-endian value (re-proved; EVMYulLean's is `private`). -/
+private theorem fromBytes'_append_zeros (l : List UInt8) (n : Nat) :
+    fromBytes' (l ++ List.replicate n 0) = fromBytes' l := by
+  induction l with
+  | nil => simp [fromBytes'_replicate_zero, fromBytes']
+  | cons b bs ih => simp only [List.cons_append, fromBytes', ih]
+
+/-- Leading zero bytes don't change the big-endian value. -/
+private theorem fromBytesBigEndian_replicate_append (k : Nat) (bytes : List UInt8) :
+    fromBytesBigEndian (List.replicate k 0 ++ bytes) = fromBytesBigEndian bytes := by
+  unfold fromBytesBigEndian; simp only [Function.comp]
+  rw [List.reverse_append, List.reverse_replicate, fromBytes'_append_zeros]
+
+/-- **Value decode.** Decoding `v.toByteArray` (32-byte big-endian with leading zero pad) recovers `v.toNat`
+    — against EVMYulLean's actual `fromByteArrayBigEndian`/`toByteArray`. With `ofNat_toNat` and
+    `mem_roundtrip` this is what makes `(mstore a v).mload a = v`. -/
+theorem fromByteArray_toByteArray (v : UInt256) : fromByteArrayBigEndian v.toByteArray = v.toNat := by
+  have hrepl : ∀ k, (Array.replicate k (0:UInt8)).toList = List.replicate k 0 := fun _ => rfl
+  have hbe : (BE v.toNat).data.toList = toBytesBigEndian v.toNat := ltba (toBytesBigEndian v.toNat)
+  unfold fromByteArrayBigEndian UInt256.toByteArray
+  rw [toList_data, append_data, zeroes_data, Array.toList_append, hrepl, hbe,
+      fromBytesBigEndian_replicate_append, fromBytesBigEndian_toBytesBigEndian]
+
 #print axioms fromBytesBigEndian_toBytesBigEndian
 #print axioms keystone
 #print axioms mem_roundtrip
+#print axioms fromByteArray_toByteArray
 end RelayDataLayer
