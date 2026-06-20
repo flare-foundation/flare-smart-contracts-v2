@@ -138,9 +138,26 @@ by eye."
 
 ---
 
-## 10.5 The residual, and what would shrink it (leverage-ordered)
+## 10.5 The residual roadmap (permanent vs. addressable)
 
-Each item, if done, moves a row from *assumed/blocked* toward *proven*.
+The residual splits into assumptions that are **permanent** (irreducible, or a deliberate trust/design
+boundary — pushing them is not "more verification") and ones that are **addressable** by further work.
+Status reflects the current tree.
+
+| Assumption(s) | Class | Status / cost |
+|---------------|-------|---------------|
+| **MC-1, MC-2** (keccak / ECDSA hardness) | Permanent — irreducible | leave; cannot be proven unconditionally |
+| **A-EVM** (EVMYulLean = the EVM) | Permanent — irreducible | leave; validated by conformance tests, not provable (hardenable by cross-validation) |
+| **MC-3** (trusted setter), **MC-5** (oldRelay) | Permanent — trust boundary by design | leave; on-chain enforcement would be a *contract change*, not verification |
+| **MC-4** (OZ `MerkleProof`) | Borderline | conventionally assumed; cheaply verifiable if an audit demands zero library trust |
+| **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
+| **OP-1** (ecrecover failure ABI) | Addressable | ✅ real-EVM regression done (`RelayEcrecoverABI.t.sol`); symbolic-model internalization pending |
+| **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | weeks |
+| **BR-1** (data layer, `mload = w[i]`) | Addressable | **months** (FFI memory); **highest leverage** toward R5 |
+| whole-`relay()` extension, **OP-3/4** | Addressable | months–years (full end-to-end R5) |
+| **C-1** (Certora all-functions storage) | Addressable but **not recommended** | re-introduces the faithfulness risk the engagement avoids; per-sequence forms already proven |
+
+The addressable items, leverage-ordered — each, if done, moves a row from *assumed/blocked* toward *proven*:
 
 1. **Discharge BR-1 in Lean (highest value).** Replace the index addend with a memory read and prove
    `mload(weights[i]) = w[i]` — either a runtime EVMYulLean test exe that links the FFI memory model and
