@@ -165,9 +165,10 @@ deliberate caveats, both discharged in L10:
 > `mload(weights[i])`; our body adds `i`. Replacing the memory load by `i` yields a *structurally
 > identical* accumulation — same iteration count, same "add a per-step quantity to `w`" shape — whose
 > faithful execution is what we prove. The identity "the per-step quantity is the right weight" is the
-> **data layer**, assumed and validated separately (L10). What the bytecode refinement establishes is that *the validated
-> EVM really does iterate N times and accumulate the per-step quantity, for all N* — the part the
-> assembly barrier attacks.
+> **data layer (BR-1)** — **since discharged** (§C.5): a second development replaces this body with the
+> deployed contract's real `mload(slot) & 0xffff` and proves the analogue, ∀N, on the validated EVM. The
+> memory-free encoding here isolates the loop *mechanism* — that *the validated EVM really does iterate N
+> times and accumulate the per-step quantity, for all N* — the part the assembly barrier attacks.
 
 ### C.2 The abstract accumulator and the refinement theorem
 
@@ -256,11 +257,51 @@ of a loop run by a **validated model of the real machine**, for all N. That is t
 
 > ⚠ **Caveat C3 (modular order).** `thr < absAcc(0,N,0)` is a comparison in `𝕌` (it compares residues
 > mod 2²⁵⁶). To read it as the Phase-A integer statement `thr < sumTake(w, N)` you need both the
-> overflow bound (Caveat A) and the data layer (Caveat C2). The bytecode theorem is exactly the modular,
-> mechanism-level statement; L10 spells out the two side conditions that upgrade it to the integer one and
-> why they hold for Relay.
+> overflow bound (Caveat A) and the data layer (Caveat C2). **Both are now discharged** (§C.5): the
+> memory-reading development carries the integer form `bytecode_threshold_sound_mem_int` (under an explicit
+> no-overflow hypothesis) and the bridge to `sumTake`, so `relay_loop_sound` is an *integer* inequality.
 
 ---
+
+### C.5 Discharging the addend identity: the memory-reading loop and the full relation
+
+Caveat C2 is no longer a standing assumption. A second development (`RelayLoopMemRead.lean`) replaces the
+memory-free body with the deployed contract's *actual* masked memory read and proves the analogous theorems,
+∀N, against the validated semantics — then composes with the abstract proof of §A.
+
+**The body.** With slot `i·32`:
+```
+{ w := add(w, and(mload(mul(i, 32)), 0xffff)) }   // w := w + (mload(i·32) & 0xffff)
+```
+each iteration loads a 32-byte word from memory at the per-iteration slot and adds its low 16 bits.
+
+**State-preservation of `mload`.** EVMYulLean's `mload` returns a *pair* — the value and a machine state whose
+`activeWords` may have grown. The key observation: once the slot lies within the already-active region
+(`M(activeWords, slot, 32) = activeWords`, i.e. `slot + 32 ≤ activeWords·32`), the memory-expansion is a
+no-op and `mload` returns the state *unchanged*. Under that hypothesis the body is again `ss`-preserving, and
+`body_effM` gives, at the exact fuel `+15`,
+$$ \mathrm{exec}(\texttt{Block }body_M,\ \mathrm{Ok}\ ss\ vs) = \mathrm{Ok}\ ss\ \big(vs[w \mapsto vs[w] + (\mathrm{rd}(ss,a)\ \&\ \texttt{0xffff})]\big). $$
+
+**Accumulator and induction.** Mirroring §C.2 with the masked reads `mrd(k) = \mathrm{rd}(ss,k)\ \&\ \texttt{0xffff}`,
+`absAccM` folds the masked reads; `loop_accM` runs the same induction (fuel `3N+15`), and
+`bytecode_threshold_sound_mem` / `_int` give: ∀N, *accept ⟹ the total of the masked memory reads exceeds the
+threshold* (modular; and integer, under no overflow).
+
+**The bridge.** Under the data-layer correspondence `mrd(k) = w[\,idxs[k]\,]` — the masked read at position `k`
+is the registered weight of the voter that signature `k` selects — `bridge` proves
+$$ \mathrm{absAccMNat}(0,N,0) = (\mathrm{sigLoop}\ w\ 0\ 0\ idxs).1, $$
+the abstract loop's accumulated weight (`sigLoop`/`sumTake`/`ValidRun`/`threshold_sound` of §A are restated
+in-file so one `lake env lean` checks the whole chain). Composing:
+
+> **Theorem (`relay_loop_sound`, ∀N).** If the deployed loop — with its real masked memory read, on the
+> validated EVM — accepts (final `w` > thr), then `thr < sumTake(w, |w|)`: the total registered voting weight
+> exceeds the threshold, with no voter double-counted. Hole-free (`[propext, Classical.choice, Quot.sound]`).
+
+**What is now assumed.** Only the *external call*: `ecrecover` is not modeled (MC-2), so the per-iteration
+*selection* (`hcorr`: which voter each signature recovers to) and *validity* (`hvalid` = `ValidRun`:
+strictly-increasing in-range indices = the guards passed) are stated hypotheses; the per-slot memory invariant
+`hcov` is the data layer, discharged by `DataLayer.weight_read`. The data layer (Caveat C2) and the overflow
+bound (Caveat A) are discharged.
 
 ### Summary of §C
 
@@ -272,6 +313,9 @@ of a loop run by a **validated model of the real machine**, for all N. That is t
 | `loop_acc` | the induction: interpreter ⊑ accumulator, all m | R4 |
 | `bytecode_loop_correct` | refinement at `a=0,m=N`: final `w` = `absAcc(0,N,0)`, all N | R4 |
 | `bytecode_threshold_sound` | soundness transferred onto the validated semantics, all N | R4 |
+| `body_effM`, `loop_accM` | the **memory-reading** body `w += mload(i·32)&0xffff` and its induction, all N | R4b′ (§C.5) |
+| `bytecode_threshold_sound_mem(_int)` | accept ⟹ Σ masked reads > thr (modular; integer under no overflow), all N | R4b′ |
+| `bridge`, `relay_loop_sound` | masked-read sum = abstract loop weight; **accept ⟹ total registered weight > thr**, all N | R4b′ |
 
 **Next:** [L9 — The formal detail](09-the-formal-detail.md): the verbatim Lean, every tactic, the
 EVMYulLean API, the gotchas, and the axiom audit.

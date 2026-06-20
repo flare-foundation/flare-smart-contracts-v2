@@ -32,9 +32,12 @@ NethermindEth's **validated EVMYulLean** semantics, for all N — closing the ab
 for the loop mechanism. Two unbounded approaches — Kontrol at full symbolic-N and **Certora** at
 all-functions storage invariants — hit the *same* wall: Relay's ~90% hand-written inline-assembly storage
 defeats automated storage analysis. That convergent failure is itself a finding, and it is exactly the gap
-the R4 (Lean) rungs step over. The residual trusted surface is small and named: cryptography
-(`ecrecover`/`keccak`), the operational ABI of each boundary call, a trusted signing-policy setter, and the
-bytecode-refinement data layer. Everything else is machine-checked.
+the R4 (Lean) rungs step over. The bytecode-refinement **data layer (BR-1) is itself now machine-checked** on
+the validated EVM — the loop body is the deployed contract's real `mload(slot) & 0xffff`, and
+`relay_loop_sound` carries *accept ⟹ total registered weight > threshold* for all N (L7 §7.3). The residual
+trusted surface is small and named: cryptography (`ecrecover`/`keccak`), the operational ABI of each boundary
+call, a trusted signing-policy setter, and the per-iteration *selection/validity* those external calls
+determine (which voter each signature recovers to, strictly-increasing). Everything else is machine-checked.
 
 ---
 

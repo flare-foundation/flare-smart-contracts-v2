@@ -137,22 +137,26 @@ rung chosen for what it can reach that the rung below cannot:
 
 The residual — explicitly *assumed*, validated separately — is small and named: the cryptography (out of
 scope by design), the operational ABI of each boundary call, a trusted signing-policy setter, and the
-bytecode-refinement data layer (that each loop iteration reads the intended weight from memory). L10 fences
-it precisely.
+per-iteration *selection/validity* the external calls determine (which voter each signature recovers to, and
+that indices are strictly increasing). The **data layer** — that each iteration reads the intended weight from
+memory — is no longer assumed: it is machine-checked on the validated EVM (the memory-reading loop and
+`relay_loop_sound`, L7 §7.3). L10 fences the residual precisely.
 
 > ⚠ **Caveat (discharged in L7/L10 — the most important one).** The loop run inside the validated EVM
-> model at R4b is a *counting accumulation loop* — it captures the **loop mechanism** (iterate ∀N,
-> faithfully fold a per-step quantity), which is what Enemy 2 attacks. It is not a bit-for-bit copy of the
-> full signature routine with its cryptography, gap-skipping, and memory loads. The signature-specific
-> accounting (no double-counting, arbitrary streams) is what **the abstract proof** handles in full
-> generality. The bytecode refinement therefore establishes *the abstract-vs-real bridge for the unbounded
-> loop mechanism* — not "the entire deployed contract is proven equivalent to the abstract proof."
+> model at R4b is a *counting accumulation loop*; its body is now the deployed contract's real masked memory
+> read `mload(slot) & 0xffff` (L7 §7.3), so the **loop mechanism *and* the data layer** are captured — the
+> two things Enemy 2 attacks. What is still abstracted is the *cryptography* (`ecrecover`) and the
+> calldata/`staticcall` plumbing that selects which voter each signature contributes: that selection and the
+> no-double-count discipline are the stated hypotheses of `relay_loop_sound`, and the signature-specific
+> accounting is what **the abstract proof** handles in full generality. The result therefore establishes
+> *accept ⟹ enough genuine voter weight, on a validated model of the real machine, for all N* — not "the
+> entire deployed contract is proven equivalent down to the cryptography."
 
 ---
 
 ## 1.5 Why the whole stack, and not just one rung
 
-A skeptic might ask: if you assume the data layer anyway, why climb to rung 5? And if Halmos already runs
+A skeptic might ask: if you assume the cryptography anyway, why climb to rung 5? And if Halmos already runs
 the real bytecode, why add Lean?
 
 Because the enemies are where exploits live, and each rung shrinks a different part of the unverified

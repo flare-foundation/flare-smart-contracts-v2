@@ -1,8 +1,11 @@
 # L7 — R4b: the bytecode refinement
 
-> **What you get from this level.** The top rung: lifting the abstract proof's ∀N∀K abstract soundness onto a loop
-> executed by a **validated model of the EVM**, for all N — crossing the assembly barrier for the loop
-> mechanism. The overview, the result, and the honest residual. The mathematics is
+> **What you get from this level.** The top rung: lifting the abstract proof's ∀N∀K soundness onto a loop
+> executed by a **validated model of the EVM**, for all N — crossing the assembly barrier. §7.2 establishes the
+> loop *mechanism* (memory-free); §7.3 then discharges the **data layer (BR-1)** — the body becomes the
+> deployed contract's real `mload(slot) & 0xffff` read — and composes the full simulation relation
+> `relay_loop_sound` (accept ⟹ total registered weight > threshold), with the external call (`ecrecover`) as
+> the stated assumption. The overview, the results, and the honest residual. The mathematics is
 > [L8 §C](08-the-mathematics.md); the verbatim Lean, fuel-genericity, and axiom audit are
 > [L9 §C–F](09-the-formal-detail.md).
 
@@ -54,17 +57,74 @@ per-statement facts, and is what made the whole induction routine. Full treatmen
 
 ---
 
-## 7.3 The honest residual (what the bytecode refinement does *not* claim)
+## 7.3 Discharging the data layer (BR-1): the memory-reading loop and the full relation `R`
+
+§7.2's loop is *memory-free* — its body adds the index `i`, which establishes the loop **mechanism**. The
+data layer (BR-1) — that each addend is the *registered weight* `mload(weights[i]) & 0xffff` — was originally
+left as a stated assumption. It is now **proven against the validated semantics**, in two committed, hole-free
+files.
+
+**The data layer, brick by brick (`DataLayer.lean`).** Each fact is proved about EVMYulLean's *actual*
+`ByteArray` / `MachineState` / `UInt256` operations. (Lean 4.22 has no `ByteArray` lemma layer, so the proofs
+descend to the `Array.data` level — see [L9](09-the-formal-detail.md).)
+
+| Lemma | What it proves (against the real EVM model) |
+|---|---|
+| `fromBytesBigEndian_toBytesBigEndian` | the big-endian byte encode/decode round-trips |
+| `mem_roundtrip` | `readWithPadding (write src 0 mem d 32) d 32 = src` — write-a-word-then-read is the identity |
+| `fromByteArray_toByteArray` | `fromByteArrayBigEndian (v.toByteArray) = v.toNat` (value decode) |
+| `mstore_mload` | `(mstore a v).mload a = v` — operational round-trip, with the `activeWords`/size guard discharged |
+| `mask16_toNat` / `mask16_of_lt` | `and(x, 0xffff)` extracts the low 16 bits; identity on a 16-bit weight |
+| `weight_read` | the capstone: `mload(slot) & 0xffff = w` for a 16-bit weight stored at a 32-byte slot |
+
+These add exactly **two** documented, upstream-dischargeable axioms beyond the standard three — `zeroes_data`
+(the `opaque` `memset_zero`) and `toByteArray_size` (blocked only by a `private` upstream bound). Both are
+*access-modifier* limitations, not semantic assumptions; each becomes a theorem with a one-line upstream edit.
+
+**The memory-reading loop, ∀N (`RelayLoopMemRead.lean`).** §7.2's body is replaced by the deployed contract's
+*actual* masked read `w := w + (mload(i·32) & 0xffff)`, executed by the validated Yul `exec`:
+
+- `body_effM` — one iteration of the real `mload`+`and` body (the `mload` is state-preserving once the slot
+  is active, so it does not perturb `activeWords`);
+- `loop_accM` / `bytecode_threshold_sound_mem` (and its integer form `_int`) — the `3N+15`-fuel induction:
+  **∀N**, accept ⟹ the total of the masked *memory reads* exceeds the threshold.
+
+**The full simulation relation `relay_loop_sound`.** Composing the EVM accumulation with the abstract
+accounting — `bridge` identifies the masked-read sum with `RelaySigLoop.sigLoop`'s accumulated weight, and the
+abstract `threshold_sound` is restated in-file (so one `lake env lean` checks the whole chain):
+
+> **∀N: if the deployed signature loop accepts (final weight > threshold), the total registered voting weight
+> exceeds the threshold — no voter double-counted — on the validated EVM.**
+
+All hole-free (`[propext, Classical.choice, Quot.sound]`).
+
+**The assumption boundary.** The behaviour of the external call is an assumption, by design (cryptography is
+out of scope, MC-2). `ecrecover` (the `0x01` staticcall) is *not* modeled; its effect and the strict-index
+discipline are the *stated hypotheses* of `relay_loop_sound`:
+
+- `hcov` — the memory holds the selected weight at each slot (BR-1 data layer; discharged per-slot by `weight_read`);
+- `hcorr` — `mrd rdv k = w[idxs[k]]`: the masked read is the registered weight of the voter that signature `k`
+  selects — *this is where* ecrecover→recovered-signer→voter and the calldata decode enter (MC-2 / OP-1);
+- `hvalid` — `ValidRun`: strictly-increasing in-range indices (the deployed guards passed = no double-count);
+- `hnoovf` — no overflow (BR-2).
+
+Everything *else* — the loop mechanism, the `mload`, the mask, the accumulation, the accept gate, and the
+accounting soundness — is *proven* against the validated semantics.
+
+---
+
+## 7.4 The honest residual (what is proven vs. assumed)
 
 This is the most important part of the rung for an auditor; the full ledger is [L10](10-claims-ledger-trust-and-residual.md).
 
-- **The loop is memory-free.** Its body adds the loop *index* `i`, not `mload(weights[i])`. So the bytecode
-  refinement proves the **loop mechanism** — iterate ∀N, faithfully fold a per-step quantity, threshold
-  transfers — which is the part the assembly barrier attacks. That the per-step quantity is the *registered
-  weight* is the **data layer (BR-1)**: assumed, validated separately (the slot arithmetic matches the
-  documented layout and the reference encoder). The refinement is agnostic to the addend's *value*, so a
-  layout bug would falsify BR-1, not the proof; BR-1 is the right place for a skeptic to push.
-- **Modular vs. integer arithmetic (BR-2) — now internalized.** The bytecode refinement reasons in
+- **The data layer (BR-1) is now proven, not assumed** (§7.3). With the memory-reading loop in place, the
+  per-step quantity is a genuine `mload(...) & 0xffff` against the validated `MachineState`, not the loop
+  index. The residual at this rung is the **external-call boundary**: `ecrecover` is uninterpreted (MC-2 /
+  OP-1) and the per-iteration *selection + validity* is supplied as the stated hypotheses `hcorr` / `hvalid`
+  of `relay_loop_sound`. A fully literal EVM model of the `staticcall` / `calldatacopy` / per-guard-revert /
+  early-return plumbing would *derive* those hypotheses from a raw-calldata precondition — engineering, not
+  new facts — but `ecrecover` itself stays an assumption by design, and the accounting conclusion is unchanged.
+- **Modular vs. integer arithmetic (BR-2) — internalized.** The bytecode refinement reasons in
   `𝕌 = Fin 2²⁵⁶` (mod 2²⁵⁶); the abstract proof in `ℕ`. `bytecode_threshold_sound_int` carries an explicit
   `Σ < 2²⁵⁶` hypothesis and proves (via `absAcc_val`) that the modular accumulator equals the integer
   accumulator, so accept ⟹ the integer total > thr. The hypothesis itself holds for Relay with vast margin
@@ -80,37 +140,48 @@ verified."
 
 ---
 
-## 7.4 Status and reproduce
+## 7.5 Status and reproduce
 
-- **Hole-free**, axioms `[propext, Classical.choice, Quot.sound]`, re-verified from the git-committed copy
-  from scratch (`lake env lean`, exit 0).
+- **Hole-free**, axioms `[propext, Classical.choice, Quot.sound]` (the data-layer / memory-reading files add
+  the two documented upstream-dischargeable axioms `zeroes_data`, `toByteArray_size`), re-verified from the
+  git-committed copies from scratch (`lake env lean`, exit 0).
 
 ```bash
-# Build the validated semantics (one-time), then check the capstone. See L11 for full detail.
+# Build the validated semantics (one-time), then check the capstones. See L11 for full detail.
 cd /tmp && git clone --depth 1 https://github.com/NethermindEth/EVMYulLean evmyul2
 cd evmyul2 && lake exe cache get && lake build
-cp <repo>/test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean .
-lake env lean RelayBytecodeRefinement.lean
-# expect exit 0 and, for loop_acc / bytecode_loop_correct / bytecode_threshold_sound:
+B=<repo>/test-forge/fv/lean/bytecode-refinement
+cp $B/RelayBytecodeRefinement.lean $B/DataLayer.lean $B/RelayLoopMemRead.lean .
+lake env lean RelayBytecodeRefinement.lean   # loop mechanism (memory-free), ∀N
+lake env lean DataLayer.lean                 # the data layer (byte/memory/value/mask/weight_read)
+lake env lean RelayLoopMemRead.lean          # memory-reading loop + relay_loop_sound, ∀N
+# expect exit 0; the loop-mechanism / accounting theorems print
 #   depends on axioms: [propext, Classical.choice, Quot.sound]
+# and the data-layer / mstore theorems additionally list zeroes_data (and toByteArray_size).
 ```
 
 ---
 
-## 7.5 Where this leaves the stack
+## 7.6 Where this leaves the stack
 
-With the bytecode refinement in place, the chain is complete end-to-end at the loop-mechanism level:
+With the bytecode refinement and the memory-reading loop in place, the chain is complete end-to-end at the
+loop-accounting level:
 
 ```
 Halmos: the real bytecode obeys the model's prefix-sum invariant (RelayModelBridgeFV), K≤3      [R2]
 Abstract proof:        the abstract algorithm is threshold-sound                              ∀N ∀K            [R4a]
 Bytecode refinement:   a validated EVM semantics runs the unbounded loop & soundness transfers ∀N              [R4b]
+Memory-reading loop:   the body is the real mload(slot)&0xffff; accept ⟹ Σ masked reads > thr  ∀N              [R4b′]
+Full relation R:       deployed loop accepts ⟹ total registered weight > thr (relay_loop_sound) ∀N             [R4b′]
 ─────────────────────────────────────────────────────────────────────────────────────────────
-residual (assumed, validated separately): data layer (BR-1), overflow bound (BR-2), encoding (BR-3), crypto (MC-2), ecrecover ABI (OP-1)
+proven on the validated EVM (modulo 2 upstream-dischargeable axioms): data layer (BR-1)
+remaining assumptions: crypto (MC-2), ecrecover→signer + calldata selection/validity (OP-1, hcorr/hvalid),
+                       overflow bound (BR-2, discharged under hnoovf)
 ```
 
-Everything from loop control flow through accumulation through threshold soundness is machine-checked; the
-residual is small and named.
+Everything from loop control flow through the real memory read, the mask, accumulation, and threshold
+soundness is machine-checked against the validated semantics; the residual is the external-call (ecrecover)
+boundary, named and bounded.
 
 **Next:** the deep dives — [L8 — the mathematics](08-the-mathematics.md) and
 [L9 — the formal detail](09-the-formal-detail.md); or the audit core,

@@ -3,10 +3,12 @@
 > **What you get from this level.** The verbatim Lean 4 development, walked end to end, at the precision
 > a referee needs to reconstruct or attack it. **§A** the abstract proof; **§B** the EVMYulLean API as we actually
 > use it; **§C** the bytecode-refinement bricks and capstone; **§D** *fuel-genericity* in full; **§E** the non-obvious
-> pitfalls and their fixes; **§F** the axiom audit. File paths are relative to the repo root.
+> pitfalls and their fixes; **§F** the data layer and the memory-reading loop (the full simulation relation);
+> **§G** the axiom audit. File paths are relative to the repo root.
 >
 > Every code block below is copied from the committed sources
-> (`test-forge/fv/lean/RelaySigLoop.lean`, `test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`);
+> (`test-forge/fv/lean/RelaySigLoop.lean`, `test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`,
+> `…/DataLayer.lean`, `…/RelayLoopMemRead.lean`);
 > cited line numbers are relative to those files.
 
 ---
@@ -448,9 +450,98 @@ definitional interpreter.
 
 ---
 
-## §F. The axiom audit
+## §F. The data layer and the memory-reading loop — `DataLayer.lean`, `RelayLoopMemRead.lean`
 
-Every claim of correctness in this project is backed by Lean's `#print axioms`. The file ends with:
+§C proved the loop *mechanism* with a memory-free body. Two further files discharge the data layer
+(Caveat C2 / BR-1) and lift the result onto the deployed contract's real masked memory read, ∀N.
+
+### G.1 The data layer — `bytecode-refinement/DataLayer.lean`
+
+Proven against EVMYulLean's *actual* `ByteArray` / `MachineState` / `UInt256` operations. Lean 4.22 has no
+`ByteArray` lemma layer, so every proof descends to `Array.data` via `ByteArray.ext`. The capstones:
+
+```lean
+theorem mem_roundtrip (src mem : ByteArray) (d : Nat) (hsrc : src.size = 32) (hmem : d + 32 ≤ mem.size) :
+    ByteArray.readWithPadding (ByteArray.write src 0 mem d 32) d 32 = src
+theorem fromByteArray_toByteArray (v : UInt256) : fromByteArrayBigEndian v.toByteArray = v.toNat
+theorem mstore_mload (ms : MachineState) (a v : UInt256)
+    (hmem : a.toNat + 32 ≤ ms.memory.size)
+    (hM32 : MachineState.M ms.activeWords.toNat a.toNat 32 * 32 < UInt256.size) :
+    ((ms.mstore a v).mload a).1 = v
+theorem mask16_of_lt (x : UInt256) (h : x.toNat < 65536) : UInt256.land x ⟨0xffff⟩ = x
+theorem weight_read (ms : MachineState) (slot w : UInt256) (hw : w.toNat < 65536)
+    (hmem : slot.toNat + 32 ≤ ms.memory.size)
+    (hM32 : MachineState.M ms.activeWords.toNat slot.toNat 32 * 32 < UInt256.size) :
+    UInt256.land ((ms.mstore slot w).mload slot).1 ⟨0xffff⟩ = w
+```
+
+`weight_read` is BR-1 for one slot: a 16-bit weight written to a 32-byte slot is recovered by the deployed
+read pattern `and(mload(slot), 0xffff)`. These add **two** documented axioms beyond the standard three — both
+*access-modifier* limitations (true upstream, blocked by `opaque`/`private`), each a theorem after a one-line
+upstream edit:
+- `zeroes_data` — the spec of the `opaque` `ffi.ByteArray.zeroes` (`@[extern "memset_zero"]`);
+- `toByteArray_size` — `(v.toByteArray).size = 32`, blocked only because the upstream bound
+  `toBytes'_UInt256_le` is `private` (verified provable against a locally-patched EVMYulLean, patch reverted).
+
+### G.2 The memory-reading loop — `RelayLoopMemRead.lean`
+
+The body becomes `w := w + (mload(i·32) & 0xffff)`. New opcode bricks `step_MUL` / `step_AND` / `step_MLOAD`
+(each `unfold step; rfl`), and the central lemma:
+
+```lean
+theorem body_effM (fuel a : Nat) (ss : SharedState .Yul) (vs : VarStore) (v : UInt256)
+    (hi : (State.Ok ss vs)[II]! = UInt256.ofNat a)
+    (hmload : ss.toMachineState.mload (UInt256.mul (UInt256.ofNat a) ⟨32⟩) = (v, ss.toMachineState)) :
+    exec (fuel + 15) (Block bodyM) none (State.Ok ss vs)
+      = .ok (State.Ok ss (vs.insert WW (UInt256.add (State.Ok ss vs)[WW]! (UInt256.land v ⟨0xffff⟩))))
+```
+
+The novelty over §C.5's `body_eff`: `mload` returns a *pair* and bumps `activeWords`. But `hmload` (the slot
+read is state-preserving) holds exactly when the slot is already active (`M(aw, slot, 32) = aw`), so the body
+keeps `ss` fixed and the §C induction template applies verbatim — `loop_accM` (fuel `3N+15`) and
+`bytecode_threshold_sound_mem` / `_int`. Pitfalls (for a reimplementer): the `.1`-of-`mload` defeq times out
+(use `simp only [MachineState.mload]`); `(Ok ss vs).toSharedState = ss` and `setMachineState_self` are the
+`rfl` bridges the simp needs.
+
+### G.3 The bridge and `relay_loop_sound`
+
+The abstract `sumTake` / `sigLoop` / `ValidRun` / `threshold_sound` of §A are restated in the same file
+(identical, reproved — they are pure ℕ/List, so one `lake env lean` checks the whole chain without a
+cross-file import). The bridge identifies the EVM masked-read sum with the abstract loop weight:
+
+```lean
+theorem bridge (w : List Nat) (rdv : Nat → UInt256) : ∀ (idxs : List Nat) (a wgt nui : Nat),
+    (∀ k, k < idxs.length → mrd rdv (a + k) = w.getD (idxs.getD k 0) 0) →
+    absAccMNat rdv a idxs.length wgt = (sigLoop w wgt nui idxs).1
+```
+
+(induction on `idxs`; the cons step needs explicit `a+(k+1) = a+1+k` and
+`(idx::rest).getD (k+1) 0 = rest.getD k 0`). Composing `bytecode_threshold_sound_mem_int` + `bridge` +
+`threshold_sound` gives the capstone:
+
+```lean
+theorem relay_loop_sound (w idxs : List Nat) (rdv : Nat → UInt256)
+    (ss : SharedState .Yul) (vs vs' : VarStore) (thr : UInt256)
+    (hN : idxs.length < UInt256.size)
+    (hcov : ∀ j, j < idxs.length → ss.toMachineState.mload (UInt256.mul (UInt256.ofNat j) ⟨32⟩) = (rdv j, ss.toMachineState))
+    (hcorr : ∀ k, k < idxs.length → mrd rdv k = w.getD (idxs.getD k 0) 0)
+    (hvalid : ValidRun w 0 idxs)
+    (hi : ...) (hw : ...) (hexec : ...) (haccept : ...)
+    (hnoovf : (sigLoop w 0 0 idxs).1 < UInt256.size) :
+    thr.val < sumTake w w.length
+```
+
+∀N: the deployed loop accepts ⟹ the total registered voting weight exceeds the threshold, no voter
+double-counted. The external call is the assumption boundary: `ecrecover` is not modeled (MC-2), so the
+per-iteration selection (`hcorr`) and validity (`hvalid`) — and the memory invariant `hcov`, discharged
+per-slot by `weight_read` — are the stated hypotheses.
+
+---
+
+## §G. The axiom audit
+
+Every claim of correctness in this project is backed by Lean's `#print axioms`. The files end with the
+relevant `#print axioms`. For the bytecode refinement:
 
 ```lean
 #print axioms loop_acc
@@ -466,6 +557,23 @@ and the build prints, for all three:
 'RelayBytecodeRefinement.bytecode_threshold_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 
+For the data layer and the full simulation relation, the standard-three results print the same list, and the
+memory/`mstore`/`mload`/value-decode results additionally list the two documented specs:
+
+```
+'RelayDataLayer.keystone'             depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayDataLayer.mem_roundtrip'        depends on axioms: [propext, Classical.choice, Quot.sound, zeroes_data]
+'RelayDataLayer.mstore_mload'         depends on axioms: [propext, Classical.choice, Quot.sound, zeroes_data, toByteArray_size]
+'RelayDataLayer.mask16_of_lt'         depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayLoopMemRead.body_effM'          depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayLoopMemRead.bytecode_threshold_sound_mem' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayLoopMemRead.relay_loop_sound'   depends on axioms: [propext, Classical.choice, Quot.sound]
+```
+
+`relay_loop_sound` itself rests only on the standard three (it does not invoke the `mstore`/`toByteArray`
+path — `hcov`/`hcorr` are hypotheses); `zeroes_data` and `toByteArray_size` enter only where the memory
+*write* round-trip is used to *discharge* those hypotheses (e.g. `weight_read`).
+
 What this means, and why it is the right bar:
 
 - **`propext`, `Classical.choice`, `Quot.sound`** are Lean 4's three standard foundational axioms,
@@ -479,6 +587,11 @@ What this means, and why it is the right bar:
   evaluate a decision procedure). We deliberately avoided it: it both enlarges the trusted base (the
   Lean compiler + our FFI) and, for memory programs, cannot even link the FFI in a plain file. Our proofs
   reduce inside the kernel.
+- **The two extra constants `zeroes_data`, `toByteArray_size` are *not* semantic assumptions.** They are
+  minimal specs for an `opaque` FFI symbol (`memset_zero`) and a `private` upstream bound respectively —
+  both true, both verified, both reducible to theorems by a one-line change in EVMYulLean. They are flagged
+  explicitly (and only) on the results that use the memory *write* round-trip; the accounting capstone
+  `relay_loop_sound` does not carry them. They are documented as such in the claims ledger ([L10](10-claims-ledger-trust-and-residual.md)).
 
 The same audit applies to the abstract proof (`#print axioms threshold_sound` → `[propext, Classical.choice,
 Quot.sound]`). "Bulletproof" in this engagement is defined as exactly this: every committed theorem

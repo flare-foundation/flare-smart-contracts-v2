@@ -139,8 +139,10 @@ The resulting trust chain for an R4 claim:
       on top of Lean's axioms      ← propext, Classical.choice, Quot.sound (standard, consistent)
 ```
 
-Every link is machine-checked or independently validated. What lies *outside* the chain — the data layer
-and the overflow bound — is the residual (L10).
+Every link is machine-checked or independently validated. The data layer (BR-1) and the overflow bound (BR-2)
+have since been brought *inside* the chain (the memory-reading loop and `relay_loop_sound`, L7 §7.3; BR-2 via
+`bytecode_threshold_sound_mem_int` under an explicit no-overflow hypothesis). What now lies *outside* is the
+cryptography (`ecrecover`, MC-2) and the per-iteration selection/validity it determines — the residual (L10).
 
 ---
 
