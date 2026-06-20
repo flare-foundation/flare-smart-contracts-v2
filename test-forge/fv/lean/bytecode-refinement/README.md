@@ -92,6 +92,11 @@ and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility
 - *Weight mask — ✅ done.* `DataLayer.lean` proves `mask16_toNat` (`and(x, 0xffff) = x mod 2¹⁶`, the
   masked weight read at `Relay.sol:1327`) and `mask16_of_lt` (the mask is the identity on a 16-bit
   registered weight), hole-free with *no* axioms beyond the standard three.
-- *Remaining:* the simulation relation `R` over the loop — the multi-week integration that ties the
-  calldata/memory layout (slot arithmetic) to `RelaySigLoop.loop` and transfers `threshold_sound`.
-  See L10 §10.5.
+- *Data-layer capstone — ✅ done.* `DataLayer.lean:weight_read` composes the whole bounded stack: a 16-bit
+  weight written to a 32-byte slot is recovered by the deployed read pattern `and(mload(slot), 0xffff)`
+  under EVMYulLean's validated `MachineState` — i.e. `mload(weights[i]) & 0xffff = w[i]` for one slot, the
+  heart of BR-1.
+- *Remaining:* the simulation relation `R` over the loop — the multi-week integration that plumbs
+  `weight_read` into the ∀N loop (per-iteration slot from the calldata/memory layout) and transfers
+  `RelaySigLoop.threshold_sound`. Every *bounded* data-layer fact is now proven; what is left is the loop
+  plumbing, not a further fact about the read. See L10 §10.5.

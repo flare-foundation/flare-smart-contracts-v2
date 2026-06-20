@@ -197,10 +197,15 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      `mask16_of_lt` (the mask is the identity on a 16-bit registered weight, `totalWeight < 2¹⁶`,
      `Relay.sol:350`). This is the masked weight read at `Relay.sol:1327`. **No** axioms beyond the standard
      three.
-   - **Remaining.** (iv) The simulation relation `R` over the ∀N loop — the multi-week integration that ties
-     the calldata/memory layout (the `weights[i]` slot arithmetic) to `RelaySigLoop.loop` and transfers
-     `threshold_sound`. The slot arithmetic is folded into `R` (the offsets have no meaning outside `R`'s
-     address map).
+   - **Data-layer capstone — ✅ DONE (committed).** `DataLayer.lean:weight_read` composes the whole bounded
+     stack into BR-1's data-layer claim for one slot: a 16-bit weight written to a 32-byte memory slot is
+     recovered by the deployed read pattern `and(mload(slot), 0xffff)` under EVMYulLean's validated
+     `MachineState` — `mload(weights[i]) & 0xffff = w[i]`. Hole-free modulo the two documented specs.
+   - **Remaining.** (iv) The simulation relation `R` over the ∀N loop — the multi-week integration that
+     plumbs `weight_read` into the loop: identifying the per-iteration slot from the calldata/memory layout
+     (the `weights[i]` slot arithmetic, which folds into `R`'s address map), and transferring
+     `RelaySigLoop.threshold_sound` through `R`. Every *bounded* data-layer fact is now proven; what is left
+     is the loop plumbing, not any further fact about the read itself.
    - **Upstream-dischargeable specs** (both access-modifier limitations, not semantic assumptions):
      `zeroes_data` (spec/de-opaque `memset_zero`) and `toByteArray_size` (expose the `private`
      `toBytes'_UInt256_le`). Starting points + the `R` sketch:
