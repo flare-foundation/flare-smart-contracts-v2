@@ -64,7 +64,7 @@ assumptions above: they are about *EVM/ABI behavior*, not cryptography.
 
 | ID | Assumption | Status |
 |----|-----------|--------|
-| **BR-1** | data layer: each loop iteration's addend is the registered weight `mload(weights[i])` (the verified loop adds the index `i`) | assumed; validated vs. documented layout + reference encoder. **Highest-leverage open item** (§10.5) |
+| **BR-1** | data layer: each loop iteration's addend is the registered weight `mload(weights[i])` | **proven on the validated EVM** (`RelayLoopMemRead.lean`): the loop body is the real `w += mload(slot)&0xffff`, and `relay_loop_sound` carries accept ⟹ total registered weight > thr ∀N. The per-slot read = registered weight is `DataLayer.weight_read`; ecrecover→signer→voter selection and the strict-index discipline remain the stated external-call assumptions (`hcorr`/`hvalid`, MC-2/OP-1). See §10.5 |
 | **BR-2** | overflow bound: sums don't wrap 2²⁵⁶ (so `𝕌`-results = integer results) | **internalized in Lean** (`absAcc_val` / `bytecode_threshold_sound_int`): under the explicit hypothesis `Σ < 2²⁵⁶`, the modular accumulator equals the integer accumulator and accept ⟹ *integer* total > thr. The hypothesis holds with vast margin (`totalWeight < 2¹⁶`). |
 | **BR-3** | encoding fidelity: the `For` node mirrors the deployed loop's iterate-and-accumulate *skeleton*, not the whole signature routine | the no-double-count discipline is proven abstractly (`ValidRun`); cryptography is MC-2 |
 
@@ -153,7 +153,7 @@ Status reflects the current tree.
 | **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
 | **OP-1** (ecrecover failure ABI) | Addressable | ✅ real-EVM regression done (`RelayEcrecoverABI.t.sol`); symbolic-model internalization pending |
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | weeks |
-| **BR-1** (data layer, `mload = w[i]`) | Addressable; **in progress** | byte-decode ✅ + ByteArray/memory layer ✅ (`mem_roundtrip`) + value decode ✅ + `mstore`/`mload` wrapping ✅ + `&0xffff` mask ✅ + data-layer capstone ✅ (`weight_read`: `mload(slot)&0xffff = w[i]`) — all in `DataLayer.lean` — **plus the memory-reading ∀N loop refinement** ✅ (`RelayLoopMemRead.lean`: `bytecode_threshold_sound_mem`, body = `w += mload(i·32)&0xffff` on the validated EVM). Modulo two documented upstream-dischargeable axioms (`zeroes_data`, `toByteArray_size`). **Remaining**: the rest of the loop body for full `R` — `ecrecover` (uninterpreted, MC-2/OP-1), strict-index `ValidRun`, calldata-layout decode (orthogonal to the proven weight accumulation) |
+| **BR-1** (data layer, `mload = w[i]`) | **Proven modulo stated assumptions** | full chain in `DataLayer.lean` + `RelayLoopMemRead.lean`: byte-decode ✅, memory round-trip ✅ (`mem_roundtrip`), value decode ✅, `mstore`/`mload` guard ✅, `&0xffff` mask ✅, data-layer capstone ✅ (`weight_read`), memory-reading ∀N loop ✅ (`w += mload(slot)&0xffff` on the validated EVM), **and the full simulation relation** ✅ (`relay_loop_sound`: deployed loop accepts ⟹ total registered weight > thr, ∀N). Modulo two upstream-dischargeable axioms (`zeroes_data`, `toByteArray_size`) and the engagement-wide external-call assumptions (ecrecover MC-2/OP-1, encoded in `hcorr`/`hvalid`) |
 | whole-`relay()` extension, **OP-3/4** | Addressable | months–years (full end-to-end R5) |
 | **C-1** (Certora all-functions storage) | Addressable but **not recommended** | re-introduces the faithfulness risk the engagement avoids; per-sequence forms already proven |
 
@@ -211,13 +211,29 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      `3N+15`-fuel induction. This is the **data-flow core of the simulation relation `R`**: the per-iteration
      addend is now a genuine `MLOAD`, not the loop index. The read-content hypothesis `hcov` is BR-1's
      data-layer invariant, discharged per-slot by `weight_read`, so `absAccMNat rdv 0 N 0 = sumTake w N`.
-   - **Remaining for full `R`.** (iv) The rest of the loop body — `ecrecover` (the `0x01` staticcall as the
-     uninterpreted matcher, MC-2/OP-1; EVMYulLean's Yul interpreter leaves precompile `0x01` uninterpreted, so
-     the recovered signer factors out as a quantified input + hypothesis), the index extraction and signer
-     comparison, and the strict-index (`ValidRun`) discipline — plus the calldata-layout decode that
-     establishes `hcov` for the on-chain (calldata-resident) weights. These are **orthogonal** to the weight
-     accumulation now proven; they compose on top. The weight-summation half of `R` (the BR-1 essence) is
-     proven on the validated EVM.
+   - **Full simulation relation `R` — ✅ DONE (committed).** `RelayLoopMemRead.lean:relay_loop_sound` composes
+     the EVM accumulation with the abstract accounting: ∀N, **if the deployed loop accepts (final weight >
+     threshold), the total registered voting weight exceeds the threshold** — no voter double-counted — on the
+     validated EVM semantics. The `bridge` lemma identifies the integer masked-read accumulator with the
+     abstract `sigLoop` accumulated weight (under the data-layer correspondence `mrd rdv k = w[idxs[k]]`); the
+     abstract `sumTake`/`sigLoop`/`ValidRun`/`threshold_sound` are restated in the same file (identical to
+     `../RelaySigLoop.lean`) so one `lake env lean` checks the whole chain. Hole-free
+     (`{propext, Classical.choice, Quot.sound}`).
+   - **The external-call behaviour is an assumption** (as throughout the engagement). `ecrecover` (the `0x01`
+     staticcall) is not modeled; its effect — signature `k` selects voter `idxs[k]`, whose registered weight
+     is the iteration's addend — and the strict-index discipline are the stated hypotheses of
+     `relay_loop_sound`: `hcov` (the memory holds the selected weight at slot `k`; BR-1 data layer,
+     dischargeable per-slot by `weight_read`), `hcorr` (`mrd rdv k = w[idxs[k]]`; this is where
+     ecrecover→recovered-signer→voter and the calldata decode enter — MC-2 / OP-1), `hvalid` (`ValidRun`:
+     strict-increasing in-range indices = the deployed guards passed = no double-count), and `hnoovf` (BR-2,
+     no overflow). Everything else — the loop mechanism, the `mload`, the mask, the accumulation, the accept
+     gate, and the accounting soundness — is *proven* against the validated semantics.
+   - **Remaining (engineering only, no new facts; optional).** A fully literal end-to-end EVM model of the
+     *rest* of the body (the `staticcall` plumbing, the two `calldatacopy`s, the per-guard reverts, the
+     early-return) would let `hcov`/`hcorr`/`hvalid` be *derived* from a raw-calldata precondition rather than
+     assumed. But `ecrecover` itself remains an assumption (MC-2 — out of scope by design), and the accounting
+     conclusion (`relay_loop_sound`) does not change. This is the boundary between the validated-EVM accounting
+     proof and the cryptographic trust base.
    - **Upstream-dischargeable specs** (both access-modifier limitations, not semantic assumptions):
      `zeroes_data` (spec/de-opaque `memset_zero`) and `toByteArray_size` (expose the `private`
      `toBytes'_UInt256_le`). Starting points + the `R` sketch:
