@@ -153,7 +153,7 @@ Status reflects the current tree.
 | **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
 | **OP-1** (ecrecover failure ABI) | Addressable | ✅ real-EVM regression done (`RelayEcrecoverABI.t.sol`); symbolic-model internalization pending |
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | weeks |
-| **BR-1** (data layer, `mload = w[i]`) | Addressable; **in progress** | byte-decode ✅ + whole ByteArray/memory layer ✅ (`keystone` + `mem_roundtrip`) + value decode ✅ (`fromByteArray_toByteArray`) + **`mstore`/`mload` wrapping** ✅ (`mstore_mload`: `(mstore a v).mload a = v`, activeWords/size guard discharged) — all committed (`DataLayer.lean`), modulo two documented upstream-dischargeable axioms (`zeroes_data`, `toByteArray_size`). **Remaining**: `&0xffff` mask + slot arithmetic (~1 week) + the simulation relation `R` (multi-week) |
+| **BR-1** (data layer, `mload = w[i]`) | Addressable; **in progress** | byte-decode ✅ + whole ByteArray/memory layer ✅ (`keystone` + `mem_roundtrip`) + value decode ✅ (`fromByteArray_toByteArray`) + `mstore`/`mload` wrapping ✅ (`mstore_mload`) + **`&0xffff` weight mask** ✅ (`mask16_toNat`/`mask16_of_lt`) — all committed (`DataLayer.lean`), modulo two documented upstream-dischargeable axioms (`zeroes_data`, `toByteArray_size`). **Only remaining**: the simulation relation `R` over the ∀N loop (multi-week; the slot arithmetic folds into `R`) |
 | whole-`relay()` extension, **OP-3/4** | Addressable | months–years (full end-to-end R5) |
 | **C-1** (Certora all-functions storage) | Addressable but **not recommended** | re-introduces the faithfulness risk the engagement avoids; per-sequence forms already proven |
 
@@ -192,9 +192,15 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      unconditional `mstore_mload` adds the second documented spec `toByteArray_size`
      (`(v.toByteArray).size = 32` — verified provable against a locally-patched EVMYulLean, blocked downstream
      only because the upstream bound `toBytes'_UInt256_le` is `private`).
-   - **Remaining.** (iii) The `& 0xffff` weight mask (`Fin.land` = mod 2¹⁶) + the slot arithmetic
-     (`weights[i]` byte offset). (iv) The simulation relation `R` over the ∀N loop — the multi-week
-     integration that ties it all to `RelaySigLoop.loop` and transfers `threshold_sound`.
+   - **`& 0xffff` weight mask — ✅ DONE (committed).** `DataLayer.lean` proves `mask16_toNat`
+     (`and(x, 0xffff) = x mod 2¹⁶` on EVMYulLean's `UInt256.land`, via a bit-by-bit `testBit` argument) and
+     `mask16_of_lt` (the mask is the identity on a 16-bit registered weight, `totalWeight < 2¹⁶`,
+     `Relay.sol:350`). This is the masked weight read at `Relay.sol:1327`. **No** axioms beyond the standard
+     three.
+   - **Remaining.** (iv) The simulation relation `R` over the ∀N loop — the multi-week integration that ties
+     the calldata/memory layout (the `weights[i]` slot arithmetic) to `RelaySigLoop.loop` and transfers
+     `threshold_sound`. The slot arithmetic is folded into `R` (the offsets have no meaning outside `R`'s
+     address map).
    - **Upstream-dischargeable specs** (both access-modifier limitations, not semantic assumptions):
      `zeroes_data` (spec/de-opaque `memset_zero`) and `toByteArray_size` (expose the `private`
      `toBytes'_UInt256_le`). Starting points + the `R` sketch:

@@ -89,5 +89,9 @@ and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility
   `mload∘mstore = id` for a 32-byte word. The conditional core rests on `zeroes_data` alone; the
   unconditional form adds one sibling documented axiom `toByteArray_size` (verified provable, blocked
   downstream only by the `private` upstream bound `toBytes'_UInt256_le`).
-- *Remaining:* the `& 0xffff` weight mask, the slot arithmetic, and `R` over the loop.
-  **~1 week + the multi-week `R` integration remaining.** See L10 §10.5.
+- *Weight mask — ✅ done.* `DataLayer.lean` proves `mask16_toNat` (`and(x, 0xffff) = x mod 2¹⁶`, the
+  masked weight read at `Relay.sol:1327`) and `mask16_of_lt` (the mask is the identity on a 16-bit
+  registered weight), hole-free with *no* axioms beyond the standard three.
+- *Remaining:* the simulation relation `R` over the loop — the multi-week integration that ties the
+  calldata/memory layout (slot arithmetic) to `RelaySigLoop.loop` and transfers `threshold_sound`.
+  See L10 §10.5.
