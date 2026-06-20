@@ -145,7 +145,9 @@ Each item, if done, moves a row from *assumed/blocked* toward *proven*.
 1. **Discharge BR-1 in Lean (highest value).** Replace the index addend with a memory read and prove
    `mload(weights[i]) = w[i]` — either a runtime EVMYulLean test exe that links the FFI memory model and
    checks representative layouts, or a symbolic memory-fragment axiomatization + a proof that the loop's
-   slot arithmetic addresses it. Collapses most of the R4→R5 gap.
+   slot arithmetic addresses it. Collapses most of the R4→R5 gap. Concrete starting points (the IR-extraction
+   recipe and the full-fidelity simulation relation `R`) are in
+   `test-forge/fv/lean/bytecode-refinement/README.md`.
 2. **Internalize OP-1 in the symbolic model.** Model `ecrecover` with its real failure ABI (empty return /
    stale buffer) instead of a total clean-address function, so the symbolic suite itself would flag a
    missing `returndatasize`/zero-signer check. This turns the OP-1 obligation from test-and-review into a

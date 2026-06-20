@@ -43,3 +43,29 @@ lake env lean RelayBytecodeRefinement.lean               # exit 0; prints the th
 
 Full narrative, the fuel-genericity technique, and the verbatim walk-through:
 `../../../../docs/relay-verification/` (levels 07–09).
+
+## Future work: discharging the data-layer assumption (BR-1)
+
+The proof above is memory-free (its body adds the loop index). Replacing the index with the real memory
+read and proving `mload(weights[i]) = w[i]` would discharge **BR-1** (and most of **BR-3**, encoding
+fidelity). Two concrete starting points:
+
+**1. Locate the real loop in the compiled Yul (BR-3).** `forge inspect Relay irOptimized` emits the
+optimized IR (~3700 lines, with `@src` source-maps back to `Relay.sol`). The signature loop is a
+`for { } … { }` block, recognizable by the masked weight read `and(mload(...), 0xffff)` (`Relay.sol:1327`),
+the `staticcall(... 0x01 ...)` ecrecover, the strict-index guard, and the accept gate. A snapshot is
+committed at `test-forge/fv/lean/relay_ir_optimized.yul`. Proving the encoded `For` node refines that block
+closes BR-3.
+
+**2. The full-fidelity simulation relation (BR-1).** Extend the refinement with a relation
+`R s (w, sigs, weight, nui)` tying the EVMYulLean `State` to the abstract state:
+
+- the calldata signing-policy region decodes to weights `w` (each lane `& 0xffff`);
+- the calldata signature region decodes to the index stream `sigs`;
+- the loop locals hold `weight` and `nextUnusedIndex`;
+- `ecrecover` (`0x01`) is the uninterpreted matcher (assumptions MC-2 / OP-1).
+
+Then prove `exec` of the loop preserves `R` with `(weight', nui') = RelaySigLoop.loop w weight nui sigs`,
+and transfer `RelaySigLoop.threshold_sound` through it. The hard part is the memory/calldata decoding
+lemmas — EVMYulLean's memory is FFI-backed, so a runtime test executable that links the FFI is the likely
+route (see the claims ledger, L10 §10.5).

@@ -102,6 +102,7 @@ which is incremental assurance over an already-strong, multi-tool stack.
 - `docs/relay-assembly-review.md` — assembly mutation surface / memory / arithmetic review (Step 2).
 - `docs/relay-phase3-documented-items.md` — assumption-class obligations + deferred-item resolutions.
 - `docs/relay-t1-bridge.md` — the model↔bytecode bridge (T1) analysis.
-- `docs/relay-gapB-bytecode-refinement.md` — the bytecode-level ∀N refinement foundation + plan.
+- `docs/relay-verification/` — the authoritative full ladder (audit + tutorial + reproducibility), incl. the completed bytecode-level ∀N refinement.
+- `test-forge/fv/lean/bytecode-refinement/` — the bytecode-level ∀N refinement proof + README.
 - `certora/README.md` — Certora specs, cloud-run result, and the assembly-wall diagnosis.
 - `.claude/skills/kontrol-fv/SKILL.md` — the reusable FV methodology.
