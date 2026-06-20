@@ -153,23 +153,30 @@ Status reflects the current tree.
 | **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
 | **OP-1** (ecrecover failure ABI) | Addressable | ✅ real-EVM regression done (`RelayEcrecoverABI.t.sol`); symbolic-model internalization pending |
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | weeks |
-| **BR-1** (data layer, `mload = w[i]`) | Addressable (provable, *not* opaque) | **months**; highest leverage toward R5. Memory ops are plain Lean defs, but helpers like `toBytes'` are `private` → lemmas must be **upstreamed into EVMYulLean** (see item 1) |
+| **BR-1** (data layer, `mload = w[i]`) | Addressable | **~1–2 months**; highest leverage. Byte-decode layer already proven upstream (private); memory layer blocked on `opaque ByteArray.zeroes` (needs a minimal spec) + a `ByteArray` write/extract lemma; needs upstream EVMYulLean changes (see item 1) |
 | whole-`relay()` extension, **OP-3/4** | Addressable | months–years (full end-to-end R5) |
 | **C-1** (Certora all-functions storage) | Addressable but **not recommended** | re-introduces the faithfulness risk the engagement avoids; per-sequence forms already proven |
 
 The addressable items, leverage-ordered — each, if done, moves a row from *assumed/blocked* toward *proven*:
 
-1. **Discharge BR-1 in Lean (highest value; months).** Replace the index addend with a memory read and
-   prove `mload(weights[i]) = w[i]`. **Feasibility (investigated):** EVMYulLean's memory ops
-   (`readWithPadding`, `write`, `writeBytes`, `fromByteArrayBigEndian`) are *plain Lean defs, not
-   `@[extern]`/opaque* — only keccak and zero-init are FFI — so BR-1 is **provable in principle, with no
-   axiomatization and no trust re-introduction**. Two concrete obstacles make it months-scale, not a
-   downstream add-on: (i) helper defs such as `toBytes'` are `private` in EVMYulLean, so the byte-decoding
-   lemmas must be **upstreamed into EVMYulLean** (a downstream file cannot `unfold` them); (ii) the brick
-   set is large — the 32-byte big-endian round-trip, the `ByteArray.write`/`readWithPadding` round-trip,
-   zero-padding, the `& 0xffff` weight mask, the slot arithmetic, and the `activeWords`/size load guard.
-   Collapses most of the R4→R5 gap. Starting points (IR-extraction recipe + the full-fidelity simulation
-   relation `R`) are in `test-forge/fv/lean/bytecode-refinement/README.md`.
+1. **Discharge BR-1 in Lean (highest value; ~1–2 months).** Replace the index addend with a memory read
+   and prove `mload(weights[i]) = w[i]`. **Decomposed to the foundation (investigated 2026-06-20):**
+   - **Byte-decode layer — already proven upstream.** EVMYulLean already has `fromBytes'_toBytes'`
+     (round-trip), `extend_bytes_zero` / `fromBytes'_zeroPadBytes_32_eq` (zero-padding), and the bounds —
+     they are merely `private`. Exposing them is a one-liner (verified locally:
+     `fromBytesBigEndian_toBytesBigEndian` checks via `simp`). No new number theory is needed.
+   - **Memory layer — the real gap.** `mload∘mstore` reduces to a `ByteArray` *write-then-extract*
+     round-trip. But `ByteArray.write`/`readWithPadding` pad with `ffi.ByteArray.zeroes`, declared
+     **`opaque`** (`EvmYul/FFI/ffi.lean`) — so *nothing* about their results (size, contents) is provable
+     until `zeroes` is given a spec: a 1-line axiom (`size = n`, all-zero) or, cleaner, an upstream change
+     `opaque → def … @[implemented_by memset_zero]`. On top of that sits the genuinely-missing
+     `ByteArray` `extract∘write` / `copySlice` lemma set (Lean's `ByteArray` proof API is thin here).
+   - **Glue:** the `mload` guard (`addr < size ∧ addr < activeWords*32`, from the write's size facts + the
+     `M` activeWords arithmetic), the `& 0xffff` weight mask (`Fin.land` = mod 2¹⁶), the slot arithmetic,
+     and the simulation relation `R` over the ∀N loop.
+   - **Requires upstream EVMYulLean changes** (expose the byte lemmas; spec/de-opaque `zeroes`) — so it
+     cannot be done purely downstream. Starting points + the `R` sketch:
+     `test-forge/fv/lean/bytecode-refinement/README.md`.
 2. **Internalize OP-1 in the symbolic model.** The OP-1 ABI is now pinned by a real-EVM regression
    (`test-forge/fv/RelayEcrecoverABI.t.sol`). The remaining step is to model `ecrecover` with its real
    failure ABI (empty return / stale buffer) *inside* the symbolic suite — instead of a total

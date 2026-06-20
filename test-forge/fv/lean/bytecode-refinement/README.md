@@ -69,10 +69,13 @@ closes BR-3.
 - `ecrecover` (`0x01`) is the uninterpreted matcher (assumptions MC-2 / OP-1).
 
 Then prove `exec` of the loop preserves `R` with `(weight', nui') = RelaySigLoop.loop w weight nui sigs`,
-and transfer `RelaySigLoop.threshold_sound` through it. The hard part is the memory/calldata decoding
-lemmas. Feasibility note (investigated): EVMYulLean's memory ops (`readWithPadding`, `write`,
-`fromByteArrayBigEndian`, …) are **plain Lean defs, not `@[extern]`/opaque** (only keccak and zero-init are
-FFI), so the round-trip is **provable in principle** — no axiomatization needed. The catch: helpers like
-`toBytes'` are `private`, so these lemmas must be **upstreamed into EVMYulLean** rather than added here, and
-the full brick set (big-endian round-trip, `write`/`readWithPadding` round-trip, zero-padding, `& 0xffff`
-mask, slot arithmetic, `activeWords` guard) is multi-week-to-month. See the claims ledger, L10 §10.5.
+and transfer `RelaySigLoop.threshold_sound` through it. **Feasibility, decomposed (investigated):**
+- *Byte-decode layer — already proven upstream.* EVMYulLean already has `fromBytes'_toBytes'`,
+  `extend_bytes_zero`, `fromBytes'_zeroPadBytes_32_eq`, and the bounds — only `private`. Exposing the
+  big-endian round-trip is a one-liner (verified locally: `fromBytesBigEndian_toBytesBigEndian` via `simp`).
+- *Memory layer — the real gap.* `mload∘mstore` reduces to a `ByteArray` write-then-extract round-trip,
+  but `ByteArray.write`/`readWithPadding` pad with `ffi.ByteArray.zeroes`, which is **`opaque`** — so
+  nothing about them is provable until `zeroes` gets a spec (a 1-line axiom, or `opaque → def +
+  @[implemented_by]`). Then the missing `ByteArray` `extract∘write`/`copySlice` lemmas, the `mload` guard,
+  the `& 0xffff` mask, the slot arithmetic, and `R` over the loop. ~1–2 months; needs upstream EVMYulLean
+  changes (expose byte lemmas; spec `zeroes`). See the claims ledger, L10 §10.5.
