@@ -39,8 +39,13 @@ Both become theorems with one-line upstream edits; neither is a semantic assumpt
 * **`& 0xffff` weight mask — DONE** (`mask16_toNat`, `mask16_of_lt`): `and(x, 0xffff)` extracts the low 16
   bits (`= x.toNat mod 2¹⁶`), and is the identity on a 16-bit registered weight. *No* axioms beyond the
   standard three. This is the masked weight read at `Relay.sol:1327`.
+* **Data-layer capstone — DONE** (`weight_read`): a 16-bit weight written to a 32-byte slot is recovered by
+  the deployed read pattern `and(mload(slot), 0xffff)` under EVMYulLean's validated `MachineState` —
+  i.e. `mload(weights[i]) & 0xffff = w[i]` for one slot, the heart of BR-1.
 * **Remaining**: (iv) the simulation relation `R` over the ∀N loop — the multi-week integration that ties
-  the calldata/memory layout (slot arithmetic) to `RelaySigLoop.loop` and transfers `threshold_sound`.
+  the calldata/memory layout (slot arithmetic) to `RelaySigLoop.loop` and transfers `threshold_sound`. All
+  *bounded* data-layer facts are now proven; what is left is plumbing this read into the loop, not any
+  further fact about the read itself.
 -/
 
 namespace RelayDataLayer
@@ -347,6 +352,25 @@ theorem mask16_of_lt (x : UInt256) (h : x.toNat < 65536) :
     UInt256.land x (⟨0xffff⟩ : UInt256) = x :=
   toNat_inj (by rw [mask16_toNat, Nat.mod_eq_of_lt h])
 
+/-! ## BR-1 data-layer capstone (bounded part) -/
+
+/-- **The data-layer read, end to end.** A 16-bit weight `w` written into a 32-byte memory slot is
+    recovered by the deployed contract's actual read pattern — `and(mload(slot), 0xffff)` — executed under
+    EVMYulLean's validated `MachineState`. This is exactly the BR-1 data-layer claim
+    "`mload(weights[i]) & 0xffff = w[i]`" for one slot: it composes the byte-decode round-trip
+    (`mem_roundtrip`/`fromByteArray_toByteArray`), the `mstore`/`mload` guard discharge (`mstore_mload`),
+    and the weight mask (`mask16_of_lt`). Hole-free modulo the two documented upstream-dischargeable specs.
+
+    What remains for full BR-1 (the simulation relation `R`, §10.5 item iv) is *plumbing this into the
+    ∀N loop*: identifying the per-iteration slot from the calldata/memory layout and transferring
+    `RelaySigLoop.threshold_sound` — not any further fact about the read itself. -/
+theorem weight_read (ms : MachineState) (slot w : UInt256)
+    (hw : w.toNat < 65536)
+    (hmem : slot.toNat + 32 ≤ ms.memory.size)
+    (hM32 : MachineState.M ms.activeWords.toNat slot.toNat 32 * 32 < UInt256.size) :
+    UInt256.land ((ms.mstore slot w).mload slot).1 (⟨0xffff⟩ : UInt256) = w := by
+  rw [mstore_mload ms slot w hmem hM32]; exact mask16_of_lt w hw
+
 #print axioms fromBytesBigEndian_toBytesBigEndian
 #print axioms keystone
 #print axioms mem_roundtrip
@@ -355,4 +379,5 @@ theorem mask16_of_lt (x : UInt256) (h : x.toNat < 65536) :
 #print axioms mstore_mload
 #print axioms mask16_toNat
 #print axioms mask16_of_lt
+#print axioms weight_read
 end RelayDataLayer
