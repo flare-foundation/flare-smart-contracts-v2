@@ -69,13 +69,14 @@ closes BR-3.
 - `ecrecover` (`0x01`) is the uninterpreted matcher (assumptions MC-2 / OP-1).
 
 Then prove `exec` of the loop preserves `R` with `(weight', nui') = RelaySigLoop.loop w weight nui sigs`,
-and transfer `RelaySigLoop.threshold_sound` through it. **Feasibility, decomposed (investigated):**
-- *Byte-decode layer — already proven upstream.* EVMYulLean already has `fromBytes'_toBytes'`,
-  `extend_bytes_zero`, `fromBytes'_zeroPadBytes_32_eq`, and the bounds — only `private`. Exposing the
-  big-endian round-trip is a one-liner (verified locally: `fromBytesBigEndian_toBytesBigEndian` via `simp`).
-- *Memory layer — the real gap.* `mload∘mstore` reduces to a `ByteArray` write-then-extract round-trip,
-  but `ByteArray.write`/`readWithPadding` pad with `ffi.ByteArray.zeroes`, which is **`opaque`** — so
-  nothing about them is provable until `zeroes` gets a spec (a 1-line axiom, or `opaque → def +
-  @[implemented_by]`). Then the missing `ByteArray` `extract∘write`/`copySlice` lemmas, the `mload` guard,
-  the `& 0xffff` mask, the slot arithmetic, and `R` over the loop. ~1–2 months; needs upstream EVMYulLean
-  changes (expose byte lemmas; spec `zeroes`). See the claims ledger, L10 §10.5.
+and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility (investigated):**
+- *Byte-decode layer — ✅ done.* `DataLayer.lean` proves the big-endian round-trip
+  (`fromBytesBigEndian_toBytesBigEndian`) about EVMYulLean's real functions, hole-free (reuses EVMYulLean's
+  existing `@[simp] fromBytes'_toBytes'`; the padding/bounds lemmas also exist upstream).
+- *Memory keystone — reduced, no obstacle.* `mload∘mstore` collapses (via the `zeroes` spec) to
+  `(src.copySlice 0 mem d 32).extract d (d+32) = src`, which `ByteArray.ext` turns into a pure
+  `Array.extract`/`append` goal. Two frictions: `ffi.ByteArray.zeroes` is `opaque` → needs a 1-line spec
+  (or `opaque → def + @[implemented_by]`); and **Lean 4.22.0 has no ByteArray lemma layer**, so prove it
+  at the `Array.data` level (4.22 has `Array.extract` lemmas) or bump EVMYulLean to ≥4.31.
+- *Then* the `mload` guard, the `& 0xffff` mask, the slot arithmetic, and `R` over the loop. **~3–6 weeks
+  remaining** (byte layer done; keystone de-risked). See the claims ledger, L10 §10.5.
