@@ -36,6 +36,14 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
         uint64 availableAt;
     }
 
+    struct BatchRecord {
+        uint64 nonce;
+        uint64 batchEndTs;
+        uint64 paymentCount;
+        uint32 anchorIndex;
+        uint24 rewardEpochId;
+    }
+
     event UtxoBatchSettingsSet(
         bytes32 indexed walletId,
         bytes32 sourceId,
@@ -96,6 +104,16 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
     error InvalidFeeFactor(uint256 index);
     error ScheduledSignaturesUnsupported();
 
+    /**
+     * Registers a new PMW multisig UTXO account for a wallet. Verifies the UTXO-configured attestation
+     * proof, then stores the account index and anchors taken from the proof together with the
+     * authorization address allowed to submit payments. Initializes the batch size to 1.
+     * Emits PMWMultisigUtxoAccountAdded and UtxoBatchSettingsSet.
+     * @param _walletId The wallet id the account belongs to.
+     * @param _proof The UTXO-configured attestation proof carrying the account index and anchors.
+     * @param _authorizationAddress The address authorized to submit payments for this account.
+     * Can only be called by the wallet owner.
+     */
     function addPMWMultisigAccount(
         bytes32 _walletId,
         IPMWMultisigUtxoConfigured.Proof calldata _proof,
@@ -103,11 +121,28 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
     )
         external;
 
+    /**
+     * Appends newly attested anchors to an existing PMW multisig UTXO account. Verifies the
+     * UTXO-configured proof, requires the account index to match and the already-stored anchors to be
+     * unchanged, then appends the additional anchors. Emits UtxoAnchorsAdded.
+     * @param _proof The UTXO-configured attestation proof carrying the full anchor set; the existing
+     * anchors must match the stored ones and the proof must contain at least one new anchor.
+     * Can only be called by the wallet owner.
+     */
     function addAnchors(
         IPMWMultisigUtxoConfigured.Proof calldata _proof
     )
         external;
 
+    /**
+     * Sets the account's preferred batch size and duration. Both take effect from the next batch that
+     * opens; an already-open batch keeps the size snapshotted when it opened. Governance caps these
+     * per source via setMaxBatchSettings. Emits UtxoBatchSettingsSet.
+     * @param _account The account.
+     * @param _batchSize The maximum number of payments in a batch (must be greater than 0).
+     * @param _batchDurationSeconds The maximum batch duration in seconds.
+     * Can only be called by the wallet owner.
+     */
     function setBatchSettings(
         PMWMultisigAccount calldata _account,
         uint64 _batchSize,
@@ -115,6 +150,12 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
     )
         external;
 
+    /**
+     * Returns the account's configured batch settings, before the per-source maximum caps are applied.
+     * @param _account The account.
+     * @return _batchSize The configured maximum number of payments in a batch.
+     * @return _batchDurationSeconds The configured maximum batch duration in seconds.
+     */
     function getBatchSettings(
         PMWMultisigAccount calldata _account
     )
@@ -124,6 +165,12 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
             uint64 _batchDurationSeconds
         );
 
+    /**
+     * Returns the per-source maximum batch settings that cap each account's configured values.
+     * @param _sourceId The source id.
+     * @return _maxBatchSize The maximum number of payments in a batch for the source.
+     * @return _maxBatchDurationSeconds The maximum batch duration in seconds for the source.
+     */
     function getMaxBatchSettings(
         bytes32 _sourceId
     )
@@ -133,12 +180,23 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
             uint64 _maxBatchDurationSeconds
         );
 
+    /**
+     * Returns the per-source delay before an anchor used by a batch can be reused by a later batch.
+     * @param _sourceId The source id.
+     * @return _anchorReuseDelaySeconds The anchor reuse delay in seconds.
+     */
     function getAnchorReuseDelay(
         bytes32 _sourceId
     )
         external view
         returns (uint64 _anchorReuseDelaySeconds);
 
+    /**
+     * Returns the stored state of one of an account's anchors by index.
+     * @param _account The account.
+     * @param _anchorIndex The anchor index (must be less than getAnchorCount).
+     * @return _anchor The anchor state (genesis txid/vout, next nonce, and earliest reuse timestamp).
+     */
     function getAnchor(
         PMWMultisigAccount calldata _account,
         uint256 _anchorIndex
@@ -146,10 +204,31 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
         external view
         returns (UtxoAnchorState memory _anchor);
 
+    /**
+     * Returns the number of anchors registered for an account.
+     * @param _account The account.
+     * @return _anchorCount The number of anchors.
+     */
     function getAnchorCount(
         PMWMultisigAccount calldata _account
     )
         external view
         returns (uint256 _anchorCount);
+
+    /**
+     * Returns the record of a closed batch for an account, as identified by its batch payment id (the
+     * payment id of the batch's first payment). The record is written when the batch closes; a zeroed
+     * record (`paymentCount == 0`) means no such closed batch exists — the id is unknown or the batch is
+     * still open. A closed batch always has `paymentCount >= 1`, so that sentinel is unambiguous.
+     * @param _account The account.
+     * @param _batchPaymentId The batch payment id (first payment id of the batch).
+     * @return _batch The batch record.
+     */
+    function getBatchRecord(
+        PMWMultisigAccount calldata _account,
+        uint64 _batchPaymentId
+    )
+        external view
+        returns (BatchRecord memory _batch);
 
 }

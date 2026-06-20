@@ -141,4 +141,21 @@ interface ITeePaymentsBase is ITeePaymentsModel {
     )
         external view
         returns (uint256 _fee);
+
+    /**
+     * Returns the stored payment hash for an account's payment id — the `keccak256` of the original
+     * payment instruction bound to its id. Since the hash is one-way it does not reveal the
+     * instruction, but a caller about to reissue can recompute the same hash from the instruction it
+     * intends to submit and compare, to pre-validate off-chain before spending gas (a mismatch reverts
+     * `PaymentHashMismatch`). Returns 0 if no payment has been recorded at that id.
+     * @param _account The PMW multisig account.
+     * @param _paymentId The payment id.
+     * @return _paymentHash The stored payment hash, or 0 if none.
+     */
+    function getPaymentHash(
+        PMWMultisigAccount calldata _account,
+        uint64 _paymentId
+    )
+        external view
+        returns (bytes32 _paymentHash);
 }

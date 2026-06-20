@@ -123,6 +123,19 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
     }
 
     /**
+     * @inheritdoc ITeePaymentsBase
+     */
+    function getPaymentHash(
+        PMWMultisigAccount calldata _account,
+        uint64 _paymentId
+    )
+        external view
+        returns (bytes32 _paymentHash)
+    {
+        return paymentHashes[_toAccountHash(_account)][_paymentId];
+    }
+
+    /**
      * Updates external contract addresses.
      */
     function _updateContractAddresses(

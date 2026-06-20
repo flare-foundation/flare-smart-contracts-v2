@@ -34,14 +34,6 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         bool batchOpen;
     }
 
-    struct BatchRecord {
-        uint64 nonce;
-        uint64 batchEndTs;
-        uint64 paymentCount;
-        uint32 anchorIndex;
-        uint24 rewardEpochId;
-    }
-
     struct MaxBatchSettings {
         uint64 maxBatchSize;
         uint64 maxBatchDurationSeconds;
@@ -448,6 +440,19 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         returns (uint256)
     {
         return anchors[_toAccountHash(_account)].length;
+    }
+
+    /**
+     * @inheritdoc ITeePaymentsUtxo
+     */
+    function getBatchRecord(
+        ITeePaymentsBase.PMWMultisigAccount calldata _account,
+        uint64 _batchPaymentId
+    )
+        external view
+        returns (BatchRecord memory _batch)
+    {
+        _batch = batchRecords[_toAccountHash(_account)][_batchPaymentId];
     }
 
     /**

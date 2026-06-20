@@ -127,7 +127,7 @@ A `ReplacementAttempt { uint64 id; uint64 nextPaymentId; uint64 emittedCount; ui
 
 ### Batch settings
 
-`setBatchSettings(account, batchSize, batchDurationSeconds)` (wallet-owner) sets the account's preferred batch size/duration (effective from the next batch). Governance caps them per source via `setMaxBatchSettings` and sets the per-source anchor reuse delay via `setAnchorReuseDelay`. Getters: `getBatchSettings`, `getMaxBatchSettings`, `getAnchorReuseDelay`, `getAnchor`, `getAnchorCount`.
+`setBatchSettings(account, batchSize, batchDurationSeconds)` (wallet-owner) sets the account's preferred batch size/duration (effective from the next batch). Governance caps them per source via `setMaxBatchSettings` and sets the per-source anchor reuse delay via `setAnchorReuseDelay`. Getters: `getBatchSettings`, `getMaxBatchSettings`, `getAnchorReuseDelay`, `getAnchor`, `getAnchorCount`, and `getBatchRecord(account, batchPaymentId)` — the closed-batch record (`nonce`, `batchEndTs`, `paymentCount`, `anchorIndex`, `rewardEpochId`) consumed by the reissue flow; a zeroed record (`paymentCount == 0`) means the batch is still open or the id is unknown.
 
 ## Fees
 

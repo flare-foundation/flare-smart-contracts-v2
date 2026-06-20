@@ -434,6 +434,62 @@ contract TeePaymentsUtxoTest is Test {
             teePayments.getAnchor(account, 0).availableAt, 1200, "early close pulls window earlier than reservation");
     }
 
+    //// batch record ////
+
+    function testGetBatchRecord() public {
+        _addAccount(2);
+        // Batch holds 2 payments; the second pay fills it and closes the batch now.
+        vm.prank(walletOwner);
+        teePayments.setBatchSettings(account, 2, 300);
+
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r1")), address(0)); // paymentId 1
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r2")), address(0)); // paymentId 2 -> closes
+
+        // batchPaymentId == first payment id of the batch == 1.
+        ITeePaymentsUtxo.BatchRecord memory batch = teePayments.getBatchRecord(account, 1);
+        assertEq(batch.nonce, 1, "anchor 0's first batch nonce");
+        assertEq(batch.batchEndTs, uint64(vm.getBlockTimestamp()), "closed-on-full stamps current timestamp");
+        assertEq(batch.paymentCount, 2, "two payments in the batch");
+        assertEq(batch.anchorIndex, 0, "first batch uses anchor 0");
+        assertEq(batch.rewardEpochId, 10, "current reward epoch");
+    }
+
+    function testGetBatchRecordUnknownReturnsZeroed() public {
+        _addAccount(2);
+        // Batch holds 2 payments; a single pay leaves it open, so no record is written yet.
+        vm.prank(walletOwner);
+        teePayments.setBatchSettings(account, 2, 300);
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r1")), address(0)); // paymentId 1, batch open
+
+        // The still-open batch (id 1) has no record; an unknown id (99) likewise reads as zeroed.
+        assertEq(teePayments.getBatchRecord(account, 1).paymentCount, 0, "open batch has no record yet");
+        assertEq(teePayments.getBatchRecord(account, 99).paymentCount, 0, "unknown batch id reads zeroed");
+    }
+
+    //// payment hash ////
+
+    function testGetPaymentHash() public {
+        _addAccount(2);
+        ITeePaymentsBase.PaymentInstruction memory instr1 = _instruction(bytes32("r1"));
+
+        // Unknown payment id reads as 0.
+        assertEq(teePayments.getPaymentHash(account, 1), bytes32(0), "no payment recorded yet");
+
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, instr1, address(0)); // paymentId 1
+
+        // Matches keccak256(abi.encode(instruction, paymentId)) — what reissue validates against.
+        assertEq(
+            teePayments.getPaymentHash(account, 1),
+            keccak256(abi.encode(instr1, uint256(1))),
+            "stored hash matches the instruction bound to its id"
+        );
+        assertEq(teePayments.getPaymentHash(account, 2), bytes32(0), "unused id still reads 0");
+    }
+
     //// reissue / replacement block list ////
 
     function testReissueRecordsBlockList() public {
