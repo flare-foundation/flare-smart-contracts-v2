@@ -153,7 +153,7 @@ Status reflects the current tree.
 | **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
 | **OP-1** (ecrecover failure ABI) | Addressable | ✅ real-EVM regression done (`RelayEcrecoverABI.t.sol`); symbolic-model internalization pending |
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | weeks |
-| **BR-1** (data layer, `mload = w[i]`) | Addressable; **in progress** | byte-decode round-trip ✅ + memory **keystone** (write/read round-trip) ✅ — both committed hole-free (`DataLayer.lean`). **~2–4 weeks remaining**: wrap the keystone into `mload∘mstore` (needs the minimal `zeroes` spec) + `mload` guard + `&0xffff` mask + slot arithmetic + the simulation relation `R` |
+| **BR-1** (data layer, `mload = w[i]`) | Addressable; **in progress** | byte-decode ✅ + **whole ByteArray/memory layer** ✅ (`keystone` + `mem_roundtrip`, modulo one documented `zeroes` axiom) — committed (`DataLayer.lean`). **~1–3 weeks remaining**: `mstore`/`mload` wrapping (activeWords/size guard) + value decode + `&0xffff` mask + slot arithmetic + the simulation relation `R` |
 | whole-`relay()` extension, **OP-3/4** | Addressable | months–years (full end-to-end R5) |
 | **C-1** (Certora all-functions storage) | Addressable but **not recommended** | re-introduces the faithfulness risk the engagement avoids; per-sequence forms already proven |
 
@@ -167,17 +167,18 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      fromBytes'_toBytes'`, which fires downstream despite being `private`. The padding/bounds lemmas
      (`extend_bytes_zero`, `fromBytes'_zeroPadBytes_32_eq`) also already exist upstream. No new number
      theory needed.
-   - **Memory keystone — ✅ DONE (committed).** The write-then-read round-trip
-     `(src.copySlice 0 mem d 32).extract d (d+32) = src` (for `src.size = 32`, `mem.size ≥ d+32`) is
-     **proven hole-free** in `DataLayer.lean:keystone`, against EVMYulLean's *actual*
-     `ByteArray.copySlice`/`extract`. Since Lean 4.22 has no ByteArray lemma layer, the proof reduces via
-     `ByteArray.ext` to the `Array.data` level and closes with `Array.extract`/`append` lemmas; it needs
-     **no axioms beyond the standard three** (the `copySlice→extract` core dodges the `zeroes` padding).
-     This was the hard critical-path brick.
-   - **Remaining memory glue.** Wrap `keystone` into the full `mload∘mstore` round-trip: the
-     `ByteArray.write` → `copySlice` and `readWithPadding` → `extract` reductions (these *do* touch the
-     `opaque ffi.ByteArray.zeroes` padding, so they need its minimal spec — a 1-line axiom or upstream
-     `opaque → def … @[implemented_by memset_zero]`), plus the `mload` size/`activeWords` guard.
+   - **Memory layer — ✅ DONE (committed).** `DataLayer.lean` proves, against EVMYulLean's *actual*
+     `ByteArray` ops: `keystone` (the `copySlice→extract` round-trip; **no axioms beyond the standard
+     three**) and **`mem_roundtrip`**: `readWithPadding (write src 0 mem d 32) d 32 = src` — writing a
+     32-byte word into a large-enough buffer and reading it back is the identity. This is the heart of
+     `mload∘mstore`. Since Lean 4.22 has no ByteArray lemma layer, the proofs reduce via `ByteArray.ext`
+     to the `Array.data` level. The only assumption added is one documented axiom, `zeroes_data` (the
+     minimal spec for the `opaque ffi.ByteArray.zeroes`/`memset_zero`; dischargeable upstream by
+     `opaque → def … @[implemented_by]`). The hard ByteArray-grind risk is fully retired.
+   - **Remaining.** Wrap `mem_roundtrip` into `MachineState.mstore`/`mload` (discharge the
+     `activeWords`/size guard so `lookupMemory` takes the read branch); and the value decode
+     `fromByteArrayBigEndian (v.toByteArray) = v.toNat` (the byte round-trip above + the leading-zero pad,
+     via EVMYulLean's existing `extend_bytes_zero`).
    - **Glue:** the `mload` guard (`addr < size ∧ addr < activeWords*32`, from the write's size facts + the
      `M` activeWords arithmetic), the `& 0xffff` weight mask (`Fin.land` = mod 2¹⁶), the slot arithmetic,
      and the simulation relation `R` over the ∀N loop.

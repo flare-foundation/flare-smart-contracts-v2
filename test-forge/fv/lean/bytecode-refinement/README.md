@@ -73,11 +73,12 @@ and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility
 - *Byte-decode layer — ✅ done.* `DataLayer.lean` proves the big-endian round-trip
   (`fromBytesBigEndian_toBytesBigEndian`) about EVMYulLean's real functions, hole-free (reuses EVMYulLean's
   existing `@[simp] fromBytes'_toBytes'`; the padding/bounds lemmas also exist upstream).
-- *Memory keystone — ✅ done.* `DataLayer.lean:keystone` proves the write-then-read round-trip
-  `(src.copySlice 0 mem d 32).extract d (d+32) = src` (for `src.size=32`, `mem.size ≥ d+32`), hole-free,
-  against EVMYulLean's actual `ByteArray.copySlice`/`extract`. Lean 4.22 has no ByteArray lemma layer, so
-  it reduces via `ByteArray.ext` to the `Array.data` level and closes with `Array.extract`/`append`
-  lemmas — no axioms beyond the standard three.
-- *Remaining:* wrap `keystone` into `mload∘mstore` (the `write`/`readWithPadding` reductions, which touch
-  the `opaque ffi.ByteArray.zeroes` padding → need its minimal 1-line spec), then the `mload` guard, the
-  `& 0xffff` mask, the slot arithmetic, and `R` over the loop. **~2–4 weeks remaining.** See L10 §10.5.
+- *Whole ByteArray/memory layer — ✅ done.* `DataLayer.lean` proves `keystone` (the `copySlice→extract`
+  round-trip, no axioms beyond the standard three) and `mem_roundtrip`
+  (`readWithPadding (write src 0 mem d 32) d 32 = src`) — i.e. write-a-32-byte-word-then-read is the
+  identity, against EVMYulLean's actual `ByteArray.write`/`readWithPadding`. The heart of `mload∘mstore`.
+  Lean 4.22 has no ByteArray lemma layer, so the proofs reduce via `ByteArray.ext` to `Array.data`. One
+  documented axiom: `zeroes_data` (minimal spec for the `opaque` `memset_zero`; dischargeable upstream).
+- *Remaining:* wrap `mem_roundtrip` into `MachineState.mstore`/`mload` (the `activeWords`/size guard),
+  the value decode `fromByteArrayBigEndian (v.toByteArray) = v.toNat`, the `& 0xffff` mask, the slot
+  arithmetic, and `R` over the loop. **~1–3 weeks remaining.** See L10 §10.5.
