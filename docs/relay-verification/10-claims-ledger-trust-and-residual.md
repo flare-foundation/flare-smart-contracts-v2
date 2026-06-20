@@ -153,7 +153,7 @@ Status reflects the current tree.
 | **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
 | **OP-1** (ecrecover failure ABI) | Addressable | ✅ real-EVM regression done (`RelayEcrecoverABI.t.sol`); symbolic-model internalization pending |
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | weeks |
-| **BR-1** (data layer, `mload = w[i]`) | Addressable; **in progress** | byte-decode ✅ + **whole ByteArray/memory layer** ✅ (`keystone` + `mem_roundtrip`, modulo one documented `zeroes` axiom) — committed (`DataLayer.lean`). **~1–3 weeks remaining**: `mstore`/`mload` wrapping (activeWords/size guard) + value decode + `&0xffff` mask + slot arithmetic + the simulation relation `R` |
+| **BR-1** (data layer, `mload = w[i]`) | Addressable; **in progress** | byte-decode ✅ + whole ByteArray/memory layer ✅ (`keystone` + `mem_roundtrip`) + value decode ✅ (`fromByteArray_toByteArray`) + **`mstore`/`mload` wrapping** ✅ (`mstore_mload`: `(mstore a v).mload a = v`, activeWords/size guard discharged) — all committed (`DataLayer.lean`), modulo two documented upstream-dischargeable axioms (`zeroes_data`, `toByteArray_size`). **Remaining**: `&0xffff` mask + slot arithmetic (~1 week) + the simulation relation `R` (multi-week) |
 | whole-`relay()` extension, **OP-3/4** | Addressable | months–years (full end-to-end R5) |
 | **C-1** (Certora all-functions storage) | Addressable but **not recommended** | re-introduces the faithfulness risk the engagement avoids; per-sequence forms already proven |
 
@@ -175,19 +175,30 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      to the `Array.data` level. The only assumption added is one documented axiom, `zeroes_data` (the
      minimal spec for the `opaque ffi.ByteArray.zeroes`/`memset_zero`; dischargeable upstream by
      `opaque → def … @[implemented_by]`). The hard ByteArray-grind risk is fully retired.
-   - **Value-decode bricks — ✅ DONE.** `ofNat_toNat` (`ofNat ∘ toNat = id`) and `size_append`
-     (`(a++b).size = a.size + b.size`, absent on 4.22) committed in `DataLayer.lean`.
-   - **Remaining.** (i) Finish the value decode `fromByteArrayBigEndian (v.toByteArray) = v.toNat` — the
-     last sub-piece is `ByteArray.toList = data.toList` (a loop induction; no lemma on 4.22), then the
-     leading-zero argument via EVMYulLean's existing `extend_bytes_zero`. (ii) Wrap `mem_roundtrip` into
-     `MachineState.mstore`/`mload` (discharge the `activeWords`/size guard so `lookupMemory` reads).
-     (iii) The `& 0xffff` mask + slot arithmetic. (iv) The simulation relation `R` over the ∀N loop — the
-     multi-week integration that ties it all to `RelaySigLoop.loop` and transfers `threshold_sound`.
-   - **Glue:** the `mload` guard (`addr < size ∧ addr < activeWords*32`, from the write's size facts + the
-     `M` activeWords arithmetic), the `& 0xffff` weight mask (`Fin.land` = mod 2¹⁶), the slot arithmetic,
-     and the simulation relation `R` over the ∀N loop.
-   - **Requires upstream EVMYulLean changes** (spec/de-opaque `zeroes`; optionally a Lean bump). Starting
-     points + the `R` sketch: `test-forge/fv/lean/bytecode-refinement/README.md`.
+   - **Value-decode — ✅ DONE (committed).** `ofNat_toNat` (`ofNat ∘ toNat = id`), `size_append`
+     (`(a++b).size = a.size + b.size`, absent on 4.22), `toList_data` (`ByteArray.toList = data.toList`, via
+     the `toList.loop` invariant), and the capstone **`fromByteArray_toByteArray`**:
+     `fromByteArrayBigEndian (v.toByteArray) = v.toNat` — decoding the 32-byte big-endian word (leading
+     zero-pad) recovers the value, against EVMYulLean's *actual* `fromByteArrayBigEndian`/`UInt256.toByteArray`
+     (hole-free, `zeroes_data` only). The leading-zero argument is re-proved locally (`fromBytes'_append_zeros`,
+     `fromBytesBigEndian_replicate_append`) since the upstream `extend_bytes_zero` is `private`.
+   - **MachineState `mstore`/`mload` wrapping — ✅ DONE (committed).** `DataLayer.lean` proves
+     `mstore_lookupMemory` and `mstore_mload`: on EVMYulLean's validated `MachineState`,
+     `(mstore a v).mload a = v` whenever the buffer has room (`a+32 ≤ memory.size`) and the active-word count
+     does not overflow. This discharges the `lookupMemory` guard (`addr ≥ memory.size ∨ addr ≥ activeWords*32`
+     — proved false from the write's size-preservation and the `M`-activeWords arithmetic `M_lb`, with
+     `mul32_toNat` handling the `UInt256` modular product) and composes `mem_roundtrip` +
+     `fromByteArray_toByteArray` + `ofNat_toNat`. The conditional core rests on `zeroes_data` alone; the
+     unconditional `mstore_mload` adds the second documented spec `toByteArray_size`
+     (`(v.toByteArray).size = 32` — verified provable against a locally-patched EVMYulLean, blocked downstream
+     only because the upstream bound `toBytes'_UInt256_le` is `private`).
+   - **Remaining.** (iii) The `& 0xffff` weight mask (`Fin.land` = mod 2¹⁶) + the slot arithmetic
+     (`weights[i]` byte offset). (iv) The simulation relation `R` over the ∀N loop — the multi-week
+     integration that ties it all to `RelaySigLoop.loop` and transfers `threshold_sound`.
+   - **Upstream-dischargeable specs** (both access-modifier limitations, not semantic assumptions):
+     `zeroes_data` (spec/de-opaque `memset_zero`) and `toByteArray_size` (expose the `private`
+     `toBytes'_UInt256_le`). Starting points + the `R` sketch:
+     `test-forge/fv/lean/bytecode-refinement/README.md`.
 2. **Internalize OP-1 in the symbolic model.** The OP-1 ABI is now pinned by a real-EVM regression
    (`test-forge/fv/RelayEcrecoverABI.t.sol`). The remaining step is to model `ecrecover` with its real
    failure ABI (empty return / stale buffer) *inside* the symbolic suite — instead of a total

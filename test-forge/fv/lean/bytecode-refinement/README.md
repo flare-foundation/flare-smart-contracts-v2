@@ -81,8 +81,13 @@ and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility
   documented axiom: `zeroes_data` (minimal spec for the `opaque` `memset_zero`; dischargeable upstream).
 - *Value decode — ✅ done.* `DataLayer.lean` proves `fromByteArray_toByteArray`
   (`fromByteArrayBigEndian (v.toByteArray) = v.toNat`) against EVMYulLean's real `fromByteArrayBigEndian`
-  and `UInt256.toByteArray`, hole-free (only `zeroes_data` beyond the standard three). With `mem_roundtrip`
-  and `ofNat_toNat` this is what makes `(mstore a v).mload a = v`.
-- *Remaining:* wrap `mem_roundtrip` + `fromByteArray_toByteArray` into `MachineState.mstore`/`mload` (the
-  `activeWords`/size guard), the `& 0xffff` mask, the slot arithmetic, and `R` over the loop.
-  **~1–2 weeks remaining.** See L10 §10.5.
+  and `UInt256.toByteArray`, hole-free (only `zeroes_data` beyond the standard three).
+- *MachineState `mstore`/`mload` wrapping — ✅ done.* `DataLayer.lean` proves `mstore_lookupMemory` and
+  `mstore_mload`: on EVMYulLean's validated `MachineState`, `(mstore a v).mload a = v` whenever the buffer
+  has room and the active-word count does not overflow. This discharges the `lookupMemory` guard
+  (`addr ≥ memory.size ∨ addr ≥ activeWords*32`) and composes the byte layer — the operational
+  `mload∘mstore = id` for a 32-byte word. The conditional core rests on `zeroes_data` alone; the
+  unconditional form adds one sibling documented axiom `toByteArray_size` (verified provable, blocked
+  downstream only by the `private` upstream bound `toBytes'_UInt256_le`).
+- *Remaining:* the `& 0xffff` weight mask, the slot arithmetic, and `R` over the loop.
+  **~1 week + the multi-week `R` integration remaining.** See L10 §10.5.
