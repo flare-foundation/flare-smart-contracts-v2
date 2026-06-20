@@ -19,8 +19,8 @@ All commands are from the repo root unless noted: `flare-smart-contracts-v2/`.
 | z3 (SMT solver) | **4.12.6** | implicit Halmos dependency |
 | Kontrol / KEVM | Kontrol **v1.0.248**, K **v7.1.334** | pinned Docker image (§11.5) |
 | Certora CLI | **8.16.1** | `pip install certora-cli` (+ `CERTORAKEY` for cloud) |
-| Lean (Phase A) | Lean 4 core | `elan` (no mathlib needed) |
-| Lean (Gap B) | Lean **4.22.0** + mathlib 4.22.0 + FFI | `elan` + EVMYulLean (§11.7) |
+| Lean (the abstract proof) | Lean 4 core | `elan` (no mathlib needed) |
+| Lean (the bytecode refinement) | Lean **4.22.0** + mathlib 4.22.0 + FFI | `elan` + EVMYulLean (§11.7) |
 | EVMYulLean | NethermindEth/EVMYulLean @ HEAD | `git clone` (§11.7) |
 
 Repo build config: `foundry.toml` sets `src=contracts`, `test=test-forge`, `out=artifacts-forge`,
@@ -101,7 +101,7 @@ Pinned: Kontrol v1.0.248, K v7.1.334, `nixpkgs @ 9eac87a…`, base image by sha2
 
 ---
 
-## 11.6 R4a — Lean Phase A
+## 11.6 R4a — the abstract proof (Lean)
 
 ```bash
 # Lean 4 core (elan auto-fetches the toolchain); no mathlib, no EVM:
@@ -113,30 +113,30 @@ seconds.
 
 ---
 
-## 11.7 R4b — Lean Gap B (against validated EVM semantics)
+## 11.7 R4b — the bytecode refinement (against validated EVM semantics)
 
 ```bash
 # 1. build the validated semantics (one-time):
 cd /tmp && git clone --depth 1 https://github.com/NethermindEth/EVMYulLean evmyul2
 cd evmyul2 && lake exe cache get && lake build      # elan reads lean-toolchain → Lean 4.22.0
 # 2. check the capstone (use the GIT-COMMITTED copy to prove you're checking what's in version control):
-git -C <repo> show HEAD:test-forge/fv/lean/gapB/GapB_close.lean > /tmp/evmyul2/GapB_verify.lean
+git -C <repo> show HEAD:test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean > /tmp/evmyul2/RelayBytecodeRefinement_verify.lean
 cd /tmp/evmyul2
 export PATH="$HOME/.elan/bin:/usr/local/opt/openjdk/bin:$PATH"
-lake env lean GapB_verify.lean
+lake env lean RelayBytecodeRefinement_verify.lean
 ```
 
 Expect exit 0 and, from the file's trailing `#print axioms`:
 ```
-'GapB.loop_acc' depends on axioms: [propext, Classical.choice, Quot.sound]
-'GapB.bytecode_loop_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
-'GapB.bytecode_threshold_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBytecodeRefinement.loop_acc' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBytecodeRefinement.bytecode_loop_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBytecodeRefinement.bytecode_threshold_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
-No `error:`, no `sorry`/`sorryAx`. The staged bricks `gapB/GapB_*.lean` check the same way and are the
-tutorial trail; the engineering log is `gapB/PROGRESS.md`.
+No `error:`, no `sorry`/`sorryAx`. The file is self-contained; its scope and assumptions are in
+`test-forge/fv/lean/bytecode-refinement/README.md`.
 
 > Host notes: EVMYulLean's memory uses an FFI byte-array backend (keccak/sha2/`ByteArray.zeroes`).
-> `#eval`/`native_decide` on standalone files cannot link the extern lib — which is why the Gap-B proofs
+> `#eval`/`native_decide` on standalone files cannot link the extern lib — which is why the bytecode-refinement proofs
 > are symbolic and avoid `native_decide` entirely (this also keeps the axiom list clean).
 
 ---
@@ -164,7 +164,7 @@ Grep the build output for `sorryAx`/`error:` to mechanize the check in CI.
 | `build-smart-contracts`, `test-linter`, `test-linter-forge` | build/lint | `forge build` / solhint | ✅ |
 | (Kontrol) | R3 | Docker image; run offline (heavy) | manual/offline |
 | (Certora) | R3 | `certoraRun` (needs key) | manual/offline |
-| (Lean Phase A / Gap B) | R4 | `lean` / `lake env lean` | manual/offline |
+| (Lean the abstract proof / the bytecode refinement) | R4 | `lean` / `lake env lean` | manual/offline |
 
 R0–R2 run on every relevant push (the green pipeline). R3/R4 are heavyweight or key/toolchain-gated and are
 reproduced offline per the sections above; their artifacts are committed so the results are re-checkable.

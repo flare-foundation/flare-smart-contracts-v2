@@ -18,7 +18,7 @@ over-verifying the safe ones. ([L2](02-strategy-and-the-fidelity-ladder.md))
 
 No single tool defeats both the induction barrier and the assembly barrier over a whole assembly-heavy
 contract. So pick each tool for the rung where its strengths land, and let the layers overlap: Halmos on
-the *real bytecode* (bounded), Kontrol/Lean for *all sizes* (on a model / abstract), Gap B to *reconnect*
+the *real bytecode* (bounded), Kontrol/Lean for *all sizes* (on a model / abstract), the bytecode refinement to *reconnect*
 the unbounded result to a validated machine, and an explicit **bridge** (`RelayModelBridgeFV`) tying the
 model back to the bytecode. The overlaps are the assurance.
 
@@ -47,17 +47,17 @@ discipline: *never hide an assumption inside a proof; promote it to a named hypo
 
 ### 6. Build bottom-up, brick by brick, each independently checkable
 
-Both the Halmos suite and the Gap-B proof were assembled from small, separately-verified pieces (Halmos
-harnesses each with a vacuity control; Gap-B lemmas `step_ADD`, `getElem_Ok`, `body_eff`, `loop_step`, …
+Both the Halmos suite and the bytecode-refinement proof were assembled from small, separately-verified pieces (Halmos
+harnesses each with a vacuity control; the bytecode refinement lemmas `step_ADD`, `getElem_Ok`, `body_eff`, `loop_step`, …
 each `#print axioms`-clean before composition). Failures stay local, progress is measurable, and the final
-capstone is a short assembly. The staged `gapB/GapB_*.lean` files double as a tutorial trail.
+capstone is a short assembly.
 
 ### 7. Engineer against vacuity from day one
 
 A passing proof that is *trivially* true is worse than no proof — it gives false confidence. Pair every
 positive proof with an **anti-vacuity control** that must fail (Halmos `reach_*`, Kontrol `prove_reach_*`),
-and gate on both halves (`verify_fv.py`). This caught a real silent truncation here (the default `loop=2`
-making 3+-signature proofs vacuous). ([L4 §4.2](04-R2-bounded-symbolic-halmos.md))
+and gate on both halves (`verify_fv.py`). A too-small loop bound silently makes multi-iteration proofs
+vacuous; the control is exactly what catches it. ([L4 §4.2](04-R2-bounded-symbolic-halmos.md))
 
 ### 8. Fuel-genericity: reduce a definitional interpreter at symbolic fuel
 
@@ -81,32 +81,23 @@ vs. the Ethereum execution-spec tests) rather than rolling your own, and state c
 *inherits* that validation. You convert "trust my EVM model" into "trust the cross-client conformance
 corpus" — a much better trade. ([L2 §2.5](02-strategy-and-the-fidelity-ladder.md))
 
-### 11. Make CI reproduce the verification config, not just "run the tool"
+### 11. State the operational contract of every boundary call, not just its math
 
-A formal result that only holds under a non-default flag must encode that flag where CI reads it. Here a
-proof committed as "verified" depended on a local `--solver-timeout-assertion 0` that CI didn't supply, so
-it regressed to a false counterexample until the option was moved into `halmos.toml`. **Verification config
-belongs in version-controlled config the gate reads**, not in a test's comment. ([L11 §11.3](11-reproducibility.md))
+For each external/precompile call, document its **EVM/ABI behavior** — especially its failure modes — and
+verify the code-side checks that make it safe, *separately* from any cryptographic assumption. A precompile
+that returns *empty data with success* instead of reverting (e.g. `ecrecover` on a bad signature) and
+leaves the output buffer stale; an external call that can revert, re-enter, or forward value; a self-call's
+return shape — each is a place a wrong *behavioral* assumption silently becomes a bug. Symbolic tools often
+model such calls as total, well-formed functions and so do **not** exercise these failure modes, so the
+obligation must be discharged explicitly (tests + review) and recorded as a named assumption with its
+required checks. ([L10 §10.2](10-claims-ledger-trust-and-residual.md))
 
-### 12. Keep a resumable engineering log
+### 12. Put verification config where the gate reads it
 
-`PROGRESS.md` (and the out-of-repo `CHECKPOINT.md`) recorded every API fact, every gotcha *with its
-reason*, the fuel constants, and the resume commands. On a multi-session proof effort this is what makes
-work pickup-able after a context reset and turns hard-won tacit knowledge into reusable documentation.
-
-### 13. On estimation
-
-The Gap-B step was scoped at "weeks" and closed in hours. The honest post-mortem, worth internalizing:
-
-- **Scope settles the estimate.** "Weeks" was for the maximalist R5 reading; choosing the defensible R4
-  boundary (lesson 5) is itself most of the speedup.
-- **Research tasks are bimodal on the key trick.** Fuel-genericity (lesson 8) was the gate; found early,
-  the rest was routine. Estimate as a distribution ("fast if the trick exists, slow if not"), not a scalar.
-- **Re-estimate when feasibility gates fall.** Most initial risk was binary unknowns (does the semantics
-  build? does it drive symbolically?). Once those resolved in the first hour, the estimate should have
-  dropped sharply. Carrying the original number is a planning error.
-- **Match the clock to the executor.** "Weeks" is human-calendar time; tight machine-checked
-  iterate-compile loops run on a different clock.
+A result that holds only under a non-default tool setting (a solver timeout, a loop bound, a flag) must
+encode that setting in the **version-controlled config the CI gate loads** (`halmos.toml`, `foundry.toml`,
+…), never only in a test's comment — otherwise it passes locally and silently fails to reproduce in CI.
+([L11 §11.3](11-reproducibility.md))
 
 ---
 

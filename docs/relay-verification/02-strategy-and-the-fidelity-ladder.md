@@ -87,12 +87,12 @@ contract like this); the gap between R4 and R5 is the residual fenced in [L10](1
   12h/0 proofs), Certora on storage-slot havoc. The successes (Kontrol's ∀K) and the walls are both
   documented honestly. → [L5](05-R3-unbounded-attempts.md)
 
-- **Lean — the abstract proof (R4a, code-name *Phase A*)** proves the signature-loop soundness **∀N ∀K** as an abstract algorithm — fully
-  past the induction barrier, in a setting where induction is clean and no EVM model is needed. →
-  [L6](06-R4a-abstract-proof.md)
+- **Lean — the abstract proof (R4a)** proves the signature-loop soundness **∀N ∀K** as an abstract
+  algorithm — fully past the induction barrier, in a setting where induction is clean and no EVM model is
+  needed. → [L6](06-R4a-abstract-proof.md)
 
-- **Lean + EVMYulLean — the bytecode refinement (R4b, code-name *Gap B*)** lifts the abstract proof's result onto a loop run by a *validated EVM semantics*,
-  for all N — crossing the assembly barrier for the loop mechanism. →
+- **Lean + EVMYulLean — the bytecode refinement (R4b)** lifts the abstract proof's result onto a loop run
+  by a *validated EVM semantics*, for all N — crossing the assembly barrier for the loop mechanism. →
   [L7](07-R4b-bytecode-refinement.md)
 
 ---
@@ -104,20 +104,20 @@ unbounded induction at once — is intractable and conflates the two enemies. Th
 them is **refinement**:
 
 ```
-   abstract model  ⊨  PROPERTY            (Phase A: the math; induction is easy here)
-   concrete system  ⊑  abstract model     (Gap B: refinement vs validated EVM semantics)
+   abstract model  ⊨  PROPERTY            (the abstract proof: the math; induction is easy here)
+   concrete system  ⊑  abstract model     (the bytecode refinement: refinement vs validated EVM semantics)
    ─────────────────────────────────────
    concrete system  ⊨  PROPERTY           (by composition)
 ```
 
-Enemy 1 (unboundedness) is fought once, in the clean abstract setting (Phase A). Enemy 2 (the real
-machine) is fought once, with no high-level property to also juggle (Gap B). Each half stays small because
+Enemy 1 (unboundedness) is fought once, in the clean abstract setting (the abstract proof). Enemy 2 (the real
+machine) is fought once, with no high-level property to also juggle (the bytecode refinement). Each half stays small because
 it has one job. The refinement itself is by *simulation*: each concrete loop iteration reproduces one step
 of the abstract function.
 
 > ⚠ **Caveat (discharged in L7/L10):** in this engagement the refinement is established for the **loop
 > mechanism** (a counting accumulation loop), not a verbatim transcription of the whole signature routine.
-> Phase A's abstract model is *more general* than Gap B's concrete loop (it ranges over arbitrary signature
+> The abstract proof is *more general* than the bytecode refinement's concrete loop (it ranges over arbitrary signature
 > streams with a no-double-count discipline). The two meet at "an unbounded accumulating loop runs
 > faithfully and threshold-soundness transfers."
 
@@ -128,7 +128,7 @@ of the abstract function.
 R4 needs a computable, reason-about-able description of EVM execution *inside Lean*. The engagement uses
 **EVMYulLean** (NethermindEth) — a Lean 4 formalization of EVM/Yul execution that is **executed against
 the official Ethereum execution-spec test suites**, the same conformance corpus real EVM clients pass. So
-when a Gap-B proof says "the EVM model computes X", the claim *this model is the EVM* is backed by the
+when a the bytecode refinement proof says "the EVM model computes X", the claim *this model is the EVM* is backed by the
 cross-client test corpus, not by our say-so.
 
 The resulting trust chain for an R4 claim:
@@ -146,9 +146,8 @@ and the overflow bound — is the residual (L10).
 
 ## 2.6 Executive results table (all rungs)
 
-The whole stack at a glance. "Object" and "Coverage" are the two ladder axes; "Status" is the current,
-Gap-B-closed state. Detail and exact artifact names are in the per-rung docs and the claims ledger
-([L10](10-claims-ledger-trust-and-residual.md)).
+The whole stack at a glance. "Object" and "Coverage" are the two ladder axes. Detail and exact artifact
+names are in the per-rung docs and the claims ledger ([L10](10-claims-ledger-trust-and-residual.md)).
 
 | Rung | Tool | What it covers | Object | Coverage | Status |
 |------|------|----------------|--------|----------|--------|
@@ -156,8 +155,8 @@ Gap-B-closed state. Detail and exact artifact names are in the per-rung docs and
 | R2 | Halmos | sig/threshold accounting; full `relay()` epoch matrix; access control; lifecycle; Merkle; randomness; fees — 25 harnesses / **85 checks (57 proofs, 28 anti-vacuity controls)** | **real bytecode** | bounded (K≤3, N≤5) | ✅ green in CI (`test-fv-halmos`, gated by `verify_fv.py`) |
 | R3 | Kontrol | sig-loop weight invariant; random monotonicity — **∀K** (k-induction) | Solidity **model** | ∀K, N∈{3,5} | ✅ proven (Docker-pinned); full symbolic-N intractable (documented) |
 | R3 | Certora | 5 all-functions storage invariants (nonce/epoch monotonic, setter-immutable, hash/root write-once) | model | ∀ functions & sequences | ⚠ specified + locally typechecked; **not cloud-dischargeable** (assembly storage-havoc wall) |
-| R4a | Lean (Phase A) | sig-loop **threshold soundness** | abstract algorithm | **∀N ∀K** | ✅ hole-free (`[propext, Quot.sound]`) |
-| R4b | Lean + EVMYulLean (Gap B) | threshold soundness lifted onto **validated EVM semantics** (loop mechanism) | validated EVM model | **∀N** | ✅ hole-free (`[propext, Classical.choice, Quot.sound]`) |
+| R4a | Lean (the abstract proof) | sig-loop **threshold soundness** | abstract algorithm | **∀N ∀K** | ✅ hole-free (`[propext, Quot.sound]`) |
+| R4b | Lean + EVMYulLean (the bytecode refinement) | threshold soundness lifted onto **validated EVM semantics** (loop mechanism) | validated EVM model | **∀N** | ✅ hole-free (`[propext, Classical.choice, Quot.sound]`) |
 
 The two ⚠ rows are the honest results, not omissions: Kontrol's symbolic-N intractability and Certora's
 storage-havoc wall are the **convergent assembly-barrier finding** of §2.7.
@@ -176,8 +175,8 @@ The stack is sound *because* of how the rungs are chosen around this:
 
 - **Halmos** needs no storage model — it executes the real bytecode — so the security-critical surface is
   machine-checked at bounded size on the actual deployed code.
-- **Lean (Phase A)** gives the unbounded guarantee at the algorithm level, needing no EVM model.
-- **Gap B** reconnects the unbounded guarantee to a *validated* EVM semantics, stepping over the assembly
+- **Lean (the abstract proof)** gives the unbounded guarantee at the algorithm level, needing no EVM model.
+- **The bytecode refinement** reconnects the unbounded guarantee to a *validated* EVM semantics, stepping over the assembly
   barrier for the loop mechanism.
 - The **per-sequence** forms of the storage invariants Certora could not globally close *are* proven
   (Halmos `RelayGovernanceNonceFV` for the nonce, `RelayEpochAdvanceFV` for the epoch pointer, etc.).

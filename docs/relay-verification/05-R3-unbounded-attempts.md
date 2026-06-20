@@ -130,7 +130,7 @@ fail the *same way* is the signal, not a coincidence — it is the **assembly ba
 twice, a real property of the contract.
 
 This is exactly why the stack escalates to **R4 (Lean + validated EVM semantics)**, which does not
-reconstruct a storage model at all: Phase A reasons at the algorithm level (no EVM), and Gap B reasons
+reconstruct a storage model at all: the abstract proof reasons at the algorithm level (no EVM), and the bytecode refinement reasons
 against a *validated* operational semantics of the bytecode. The convergent wall both justifies the
 strategy and bounds the residual: what remains unverified after the stack is "all-functions storage
 invariants *over raw assembly storage*", whose **per-sequence** forms are already proven elsewhere.

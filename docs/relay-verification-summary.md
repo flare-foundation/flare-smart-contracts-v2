@@ -1,11 +1,8 @@
-# Relay.sol — formal verification summary (audit entry point)
+# Relay.sol — formal verification summary
 
-> **Superseded for navigation by [`docs/relay-verification/`](relay-verification/00-README.md)** — the
-> consolidated audit + tutorial + reproducibility set, which is current. In particular, **Gap B (§5 limit
-> #2 below) is now CLOSED** (the bytecode-level ∀N refinement is hole-free); see
-> [`relay-verification/07-R4b-bytecode-refinement.md`](relay-verification/07-R4b-bytecode-refinement.md)
-> and the claims ledger [`relay-verification/10-claims-ledger-trust-and-residual.md`](relay-verification/10-claims-ledger-trust-and-residual.md).
-> This file remains as the original concise map; where it and the new set differ, the new set is current.
+> The authoritative, complete write-up is **[`docs/relay-verification/`](relay-verification/00-README.md)**
+> (audit + tutorial + reproducibility, all rungs). This file is a brief one-page map; for the claims
+> ledger, the assumption register, and reproducibility, use that set.
 
 This is the map of the whole verification effort on `contracts/protocol/implementation/Relay.sol`. It
 states what is proven, by which tool, at what scope, under what assumptions, and — just as importantly —
@@ -83,9 +80,10 @@ also confirms the elaborate setup genuinely reaches acceptance.
    it havocs all storage. This is the **same wall Kontrol hit** (the N=10 model ran 12 h / 0 proofs). A
    tool-vs-contract-style mismatch, **not a vulnerability**. The per-sequence forms of these properties
    *are* proven (Halmos/Kontrol). Detail: `certora/README.md`.
-2. **Bytecode-level ∀N (Gap B)** — lifting the Lean ∀N∀K algorithm proof to the real bytecode via a
-   refinement against validated EVM semantics (EVMYulLean) is scoped and founded but **not completed**
-   (person-weeks–months). Detail + plan: `docs/relay-gapB-bytecode-refinement.md`.
+2. **Bytecode-level ∀N refinement** — lifting the abstract ∀N∀K proof onto a loop run by validated EVM
+   semantics (EVMYulLean) is **complete and hole-free** for the loop mechanism (the data layer, overflow
+   bound, and encoding fidelity remain stated assumptions). See
+   `test-forge/fv/lean/bytecode-refinement/` and `docs/relay-verification/07-R4b-bytecode-refinement.md`.
 3. **Full symbolic-N in Kontrol** — empirically state-explosive; mitigated by verified N∈{3,5} + the Lean
    ∀N proof + the bounded model↔bytecode bridge. Detail: `docs/relay-phase3-documented-items.md`.
 

@@ -26,29 +26,56 @@ in §10.2. *Blocked* = specified but not dischargeable by the chosen tool (with 
 
 ## 10.2 The assumption register (the trusted surface)
 
-Two groups: the **modeling contract** (suite-wide, by design) and the **rung-specific** residuals.
+Four groups: the **modeling contract** (cryptographic / trust, by design), the **operational boundary-call
+contracts** (the EVM-level behavior of every external/precompile call), the **bytecode-refinement
+residuals**, and the **tool-coverage limits**.
 
-### Modeling contract (suite-wide — where formal methods are the wrong tool, by design)
+### Modeling contract — cryptographic & trust (MC)
 
 | ID | Assumption | Justification |
 |----|-----------|---------------|
-| **MC-1** | `keccak256` is an injective uninterpreted function | standard; collision-resistance assumed |
-| **MC-2** | `ecrecover` is uninterpreted (ECDSA unforgeability) | we verify accounting, not cryptography |
+| **MC-1** | `keccak256` is an injective uninterpreted function (collision-resistance) | curve/hash math is not an EVM-level fact; proving it would be circular |
+| **MC-2** | `ecrecover` recovery is *mathematically* unforgeable: one cannot produce `(v,r,s)` recovering to an address whose key one does not hold (ECDSA security) | cryptographic assumption outside the EVM; the on-chain half (weight credited to `voters[i]` only when the recovered signer equals `voters[i]`, each index once) is **proven** |
 | **MC-3** | the signing-policy setter (FlareSystemsManager) supplies distinct, non-zero, canonically-ordered voters with normalized weights; `startingVotingRoundId` non-decreasing (**RLY-06**) | documented, not on-chain-enforced; `docs/relay-phase3-documented-items.md` |
 | **MC-4** | OZ `MerkleProof.verifyCalldata` internals are correct (call-site in scope) | audited library |
-| **MC-5** | `oldRelay` is a trusted, audited prior deployment | deployment assumption |
+| **MC-5** | `oldRelay` is a trusted, audited prior deployment; its return values are honest | deployment assumption |
 
-### Rung-specific residuals
+### Operational boundary-call contracts (OP) — the EVM-level behavior of each external call
 
-| ID | Assumption / limitation | Where | Status |
-|----|--------------------------|-------|--------|
-| **GB-1** | Gap-B data layer: each loop iteration's addend is the registered weight `mload(weights[i])` (the verified loop adds the index `i`) | R4b | assumed; validated vs. documented layout + reference encoder. **Highest-leverage open item** (§10.5) |
-| **GB-2** | Gap-B overflow bound: sums don't wrap 2²⁵⁶ (so `𝕌`-results = integer results) | R4b | true with vast margin (`totalWeight < 2¹⁶`); stated, not yet internalized in Lean |
-| **GB-3** | Gap-B encoding fidelity: the `For` node mirrors the loop's iterate-and-accumulate *skeleton*, not the whole signature routine | R4b | the no-double-count discipline is Phase A's `ValidRun`; crypto is MC-2 |
-| **K-1** | Kontrol base+step compose to ∀K at the *meta* level (no native loop-invariant rule in 1.0.248) | R3 | each piece machine-checked; composition by standard induction. Subsumed by Lean R4a (internal induction) |
-| **K-2** | Kontrol checks a faithful Solidity *model*, not the inline-assembly bytecode | R3 | bytecode side at K≤3 via Halmos `RelaySigParamFV`; tied by `RelayModelBridgeFV`; full bridge = future bmc-depth-1 obligation (`docs/relay-t1-bridge.md`) |
-| **C-1** | Certora storage invariants not cloud-dischargeable (assembly storage-havoc) | R3 | **blocked**, not a bug; per-sequence forms proven at R2; ghost/hook re-modeling possible but re-introduces faithfulness risk |
-| **A-EVM** | EVMYulLean *is* the EVM | R4b | validated against Ethereum execution-spec test suites (not provable; standard residual) |
+Each row states the **operational contract** of a boundary call, the **code-side obligation** that makes
+the contract safe, and **how that obligation is verified**. These are distinct from the mathematical
+assumptions above: they are about *EVM/ABI behavior*, not cryptography.
+
+| ID | Boundary (site) | Operational contract | Required code-side obligation | Verified by |
+|----|-----------------|----------------------|-------------------------------|-------------|
+| **OP-1** | `ecrecover` precompile `0x01` — raw `staticcall` (`Relay.sol:1284`) | **does not revert on a bad signature**: the `staticcall` returns *success* with **empty** return data (`returndatasize()==0`) and leaves the output buffer **unmodified** (stale-read hazard); returns 32 bytes only on a valid recovery | the call site **must** check (a) `staticcall` success, (b) **`returndatasize()==32`**, and (c) recovered signer `≠ 0` — all three are present (`"ecrecover error"`, `"ecrecover returned bad data"`, `"Zero signer"`). **Load-bearing: must never be removed.** | Foundry/Hardhat revert tests on the failure path + assembly review (`docs/relay-assembly-review.md`). **Not** exercised by the symbolic FV — see the note below. |
+| **OP-2** | `keccak256` (`SHA3` opcode) | total & deterministic; cannot return malformed output or "fail" (only out-of-gas) | none beyond gas | inherent (opcode); MC-1 supplies the algebraic model |
+| **OP-3** | `oldRelay.*` external calls, incl. value-bearing `oldRelay.verify{value: oldFee}(…)` (`Relay.sol:1567`) | a real cross-contract call that **may revert** and **may re-enter** `Relay`; forwards value | revert is propagated (`require(success,…)` on the relayed path); re-entrancy is benign (re-entered paths write no fee/nonce/root state — R1/R2); fee is forwarded exactly (M-1) | code review (`docs/relay-security-review.md`) + Foundry (`RelayVerifyFeeFV`, fee/old-relay tests); MC-5 supplies return-value trust |
+| **OP-4** | self-call `address(this).call(_relayMessage)` (`Relay.sol:1730`, `_verifyCustomSignature`) | ordinary external call to self: returns `(success, returnData)`; re-enters the `relay()` path | `require(success)` + `require(returnData.length == 35)` (the RLY-07 mode-1 discriminator) | Foundry custom-signature tests + review |
+| **OP-5** | precompile **surface bound** | the **only** precompile used is `0x01`; no `sha256 (0x02)`, identity, modexp, or EC ops are called | n/a (bounds which OP-contracts are in play) | assembly review (`docs/relay-assembly-review.md`) |
+
+> **FV blind spot (stated explicitly).** The symbolic suite models `ecrecover` as a *total* function that
+> always returns a well-formed 32-byte address (`E(hash,v,r,s) → address`, `returndatasize()==32`). It
+> therefore **does not exercise the OP-1 failure mode** (empty return / stale buffer). The OP-1 obligation
+> is what makes reality conform to that model; it is discharged by **tests + assembly review**, not by the
+> symbolic proofs. Any change to the `ecrecover` block must re-establish OP-1.
+
+### Bytecode-refinement residuals (BR) — the R4b model-to-deployment gap
+
+| ID | Assumption | Status |
+|----|-----------|--------|
+| **BR-1** | data layer: each loop iteration's addend is the registered weight `mload(weights[i])` (the verified loop adds the index `i`) | assumed; validated vs. documented layout + reference encoder. **Highest-leverage open item** (§10.5) |
+| **BR-2** | overflow bound: sums don't wrap 2²⁵⁶ (so `𝕌`-results = integer results) | true with vast margin (`totalWeight < 2¹⁶`); stated, not yet internalized in Lean |
+| **BR-3** | encoding fidelity: the `For` node mirrors the deployed loop's iterate-and-accumulate *skeleton*, not the whole signature routine | the no-double-count discipline is proven abstractly (`ValidRun`); cryptography is MC-2 |
+
+### Tool-coverage limits
+
+| ID | Limitation | Status |
+|----|-----------|--------|
+| **K-1** | Kontrol base+step compose to ∀K at the *meta* level (no native loop-invariant rule in 1.0.248) | each piece machine-checked; composition by standard induction. Subsumed by the abstract Lean proof (internal induction) |
+| **K-2** | Kontrol checks a faithful Solidity *model*, not the inline-assembly bytecode | bytecode side at K≤3 via Halmos `RelaySigParamFV`; tied by `RelayModelBridgeFV`; full bridge = future bmc-depth-1 obligation (`docs/relay-t1-bridge.md`) |
+| **C-1** | Certora storage invariants not cloud-dischargeable (assembly storage-havoc) | **blocked**, not a bug; per-sequence forms proven at R2; ghost/hook re-modeling possible but re-introduces faithfulness risk |
+| **A-EVM** | EVMYulLean *is* the EVM | validated against Ethereum execution-spec test suites (not provable; standard residual) |
 
 ---
 
@@ -61,13 +88,13 @@ fidelity / lower coverage (noted).
 | # | Property | Strongest rung | Object · coverage | Status | Evidence | Relies on |
 |---|----------|----------------|-------------------|--------|----------|-----------|
 | 1 | **Threshold soundness** (accept ⟹ enough distinct weight, no double-count) | R4a Lean | abstract algorithm · **∀N∀K** | **proven** (`[propext,Quot.sound]`) | `RelaySigLoop.lean:threshold_sound` | MC-1,2,3 |
-| 1b | same, on **validated EVM semantics** (loop mechanism) | R4b Lean | validated EVM · **∀N** | **proven** (`[propext,choice,Quot.sound]`) | `gapB/GapB_close.lean:bytecode_threshold_sound` | + GB-1,2,3, A-EVM |
+| 1b | same, on **validated EVM semantics** (loop mechanism) | R4b Lean | validated EVM · **∀N** | **proven** (`[propext,choice,Quot.sound]`) | `bytecode-refinement/RelayBytecodeRefinement.lean:bytecode_threshold_sound` | + BR-1,2,3, A-EVM |
 | 1c | same, **∀K** | R3 Kontrol | Solidity model · ∀K, N∈{3,5} | **proven** | `kontrol/RelaySigLoopFV.t.sol` | + K-1,2 |
-| 1d | same, on **real bytecode**, bounded | R2 Halmos | bytecode · K≤3,N≤5 | **proven** | `RelaySigFV`, `RelaySigParamFV` | MC-1,2,3 |
-| 1e | model↔bytecode bridge (`psAt` invariant) | R2 Halmos | bytecode · K≤3 | **proven** | `RelayModelBridgeFV` | MC-1,2 |
-| 2 | `relay()` **epoch-decision matrix** (all 5 gates) | R2 Halmos | bytecode · bounded | **proven** | `RelayWrongEpochFV`, `RelayDelayedPolicyFV`, `RelayFinalizationWindowFV`, `RelayCrossEpochFV`, `RelayThresholdScalingFV`, `RelayMustUseNewPolicyFV` | MC-1..5 |
+| 1d | same, on **real bytecode**, bounded | R2 Halmos | bytecode · K≤3,N≤5 | **proven** | `RelaySigFV`, `RelaySigParamFV` | MC-1,2,3, OP-1 |
+| 1e | model↔bytecode bridge (`psAt` invariant) | R2 Halmos | bytecode · K≤3 | **proven** | `RelayModelBridgeFV` | MC-1,2, OP-1 |
+| 2 | `relay()` **epoch-decision matrix** (all 5 gates) | R2 Halmos | bytecode · bounded | **proven** | `RelayWrongEpochFV`, `RelayDelayedPolicyFV`, `RelayFinalizationWindowFV`, `RelayCrossEpochFV`, `RelayThresholdScalingFV`, `RelayMustUseNewPolicyFV` | MC-1..5, OP-1 |
 | 3 | **threshold-increase rescale never weakens / no overflow** | R2 Halmos | arithmetic model · all 16-bit | **proven** | `RelayThresholdScalingFV` | — |
-| 4 | threshold consistency (setter + live Mode-1) | R2 Halmos | bytecode · bounded | **proven** | `RelayThresholdConsistencyFV`, `RelayModeOneFV` | MC-1,2,3 |
+| 4 | threshold consistency (setter + live Mode-1) | R2 Halmos | bytecode · bounded | **proven** | `RelayThresholdConsistencyFV`, `RelayModeOneFV` | MC-1,2,3, OP-1 |
 | 5 | **access control** (only setter rotates policy) | R2 Halmos | bytecode · bounded | **proven** | `RelayAccessControlFV` | MC-3 |
 | 6 | constructor **fail-closes** on bad config | R2 Halmos | bytecode | **proven** | `RelayConstructorFV` (L4/RLY-11) | — |
 | 7 | governance-fee **nonce replay protection** | R2 Halmos | bytecode · all nonces | **proven** | `RelayGovernanceNonceFV` (AC-2) | MC-1 |
@@ -78,7 +105,7 @@ fidelity / lower coverage (noted).
 | 10 | random value **binding / no-forgery** | R2 Halmos | bytecode | **proven** | `RelayRandomBindingFV` | MC-1 |
 | 11 | Merkle proof-element + alignment soundness | R2 Halmos | bytecode | **proven** | `RelayMerkleProofFV` | MC-1,4 |
 | 12 | Merkle fold injectivity / anti-forgery (**unbounded depth**) | R2 Halmos | fold model · ∀ depth | **proven** | `RelayMerkleFoldFV` | MC-1 |
-| 13 | **fee conservation** (`relay()` + `verify()`) | R2 Halmos | bytecode | **proven** | `RelayFeeConservationFV`, `RelayVerifyFeeFV` | — |
+| 13 | **fee conservation** (`relay()` + `verify()`, incl. old-relay forwarding) | R2 Halmos | bytecode | **proven** | `RelayFeeConservationFV`, `RelayVerifyFeeFV` | OP-3, OP-4 |
 | 14 | encoding canonicality / secure-bit / return discriminator / policy hash (P3/P5/P6/P8) | R2 Halmos | bytecode | **proven** | `RelayCanonicalityFV`, `RelayIsSecureNormFV`, `RelayReturnDiscriminatorFV`, `RelayPolicyHashFV` | MC-1 |
 | 15 | functional behavior, all modes | R0/R1 Foundry | bytecode · concrete+fuzz | **proven** (tests) | `Relay.t.sol` (52 tests) | — |
 | 16 | setter immutable / hash & root write-once **∀ function** | R3 Certora | model · ∀ seq | **blocked (C-1)** | `RelayInvariants.spec` | — |
@@ -98,9 +125,12 @@ For the strongest claims (rows 1/1b), every link is machine-checked or independe
   Lean proof correct          ← Lean kernel (small, well-scrutinized; no native_decide used)
    on EVMYulLean (R4b)         ← validated vs Ethereum execution-spec test suites      [A-EVM]
     on Lean's axioms           ← propext, Classical.choice, Quot.sound (standard, consistent)
-  + data layer / overflow / encoding                                          [GB-1, GB-2, GB-3]
+  + data layer / overflow / encoding                                          [BR-1, BR-2, BR-3]
   + cryptography / trusted setter / OZ / oldRelay                             [MC-1..5]
 ```
+
+(The deployed-bytecode rows additionally rely on the operational boundary contracts [OP-1..5] — e.g. the
+`ecrecover` `returndatasize`/zero-signer checks — which the symbolic tools do not exercise; see §10.2.)
 
 Outside the chain are exactly the registered assumptions. The engineering value of the stack is that this
 trusted surface is **small, named, and individually attackable** — instead of "trust 930 lines of assembly
@@ -112,23 +142,27 @@ by eye."
 
 Each item, if done, moves a row from *assumed/blocked* toward *proven*.
 
-1. **Discharge GB-1 in Lean (highest value).** Replace the index addend with a memory read and prove
+1. **Discharge BR-1 in Lean (highest value).** Replace the index addend with a memory read and prove
    `mload(weights[i]) = w[i]` — either a runtime EVMYulLean test exe that links the FFI memory model and
    checks representative layouts, or a symbolic memory-fragment axiomatization + a proof that the loop's
    slot arithmetic addresses it. Collapses most of the R4→R5 gap.
-2. **Tighten GB-3 / K-2.** Parse the emitted optimized Yul for the signature loop and prove the parsed AST
-   refines the Gap-B `For` node; and discharge the bmc-depth-1 model↔bytecode equivalence for Kontrol
-   (`docs/relay-t1-bridge.md`). Removes "is this the real loop?" for both R3 and R4b.
-3. **Internalize GB-2.** Carry a `Σ < 2²⁵⁶` hypothesis through `loop_acc` and prove `ofNat`-additivity under
+2. **Internalize OP-1 in the symbolic model.** Model `ecrecover` with its real failure ABI (empty return /
+   stale buffer) instead of a total clean-address function, so the symbolic suite itself would flag a
+   missing `returndatasize`/zero-signer check. This turns the OP-1 obligation from test-and-review into a
+   machine-checked property.
+3. **Tighten BR-3 / K-2.** Parse the emitted optimized Yul for the signature loop and prove the parsed AST
+   refines the bytecode-refinement `For` node; and discharge the bmc-depth-1 model↔bytecode equivalence for
+   Kontrol (`docs/relay-t1-bridge.md`). Removes "is this the real loop?" for both R3 and R4b.
+4. **Internalize BR-2.** Carry a `Σ < 2²⁵⁶` hypothesis through `loop_acc` and prove `ofNat`-additivity under
    it, making the `𝕌`→`ℕ` identification a theorem rather than a side remark.
-4. **Glue rows 1 and 1b explicitly.** A Lean lemma transporting `bytecode_threshold_sound` (modular,
-   index-addend) to `threshold_sound` (integer, weight-addend) **under GB-1+GB-2**, with the assumptions as
+5. **Glue rows 1 and 1b explicitly.** A Lean lemma transporting `bytecode_threshold_sound` (modular,
+   index-addend) to `threshold_sound` (integer, weight-addend) **under BR-1+BR-2**, with the assumptions as
    visible hypotheses.
-5. **If an audit requires C-1.** Re-model Relay's storage in CVL with ghost vars + raw `Sstore`/`Sload`
+6. **If an audit requires C-1.** Re-model Relay's storage in CVL with ghost vars + raw `Sstore`/`Sload`
    hooks mirroring the assembly writes, then state the invariants over ghosts — substantial, and it
    re-introduces the faithfulness risk the engagement otherwise avoids. Only if all-functions storage
    invariants are a hard requirement.
-6. **Regression-watch the walls.** Periodically re-confirm the Kontrol symbolic-N / Certora storage-havoc
+7. **Regression-watch the walls.** Periodically re-confirm the Kontrol symbolic-N / Certora storage-havoc
    stalls are unchanged, keeping the justification for R4 current.
 
 None is required for the result *as stated* (the ledger is complete on its own terms); they are the path
@@ -141,10 +175,13 @@ cryptography."
 
 - **Not claimed:** "the deployed `Relay.sol` bytecode is fully formally verified." The real statement is the
   ledger §10.3 + the assumptions §10.2.
-- **Not claimed:** the Gap-B loop is a verbatim copy of the signature routine. It is the
-  iterate-and-accumulate skeleton (GB-3), addend abstracted (GB-1), crypto out of scope (MC-2).
+- **Not claimed:** the bytecode-refinement loop is a verbatim copy of the signature routine. It is the
+  iterate-and-accumulate skeleton (BR-3), addend abstracted (BR-1), crypto out of scope (MC-2).
 - **Not claimed:** the cryptography is verified. It is assumed (MC-1, MC-2).
-- **Not claimed:** correctness in `𝕌` equals correctness in `ℕ` for free. It needs GB-2 (true with vast
+- **Not claimed:** the symbolic suite exercises the `ecrecover` failure ABI. It models a clean-address
+  return; the empty-return/stale-buffer safety is the OP-1 obligation, discharged by tests + assembly
+  review (§10.2).
+- **Not claimed:** correctness in `𝕌` equals correctness in `ℕ` for free. It needs BR-2 (true with vast
   margin, but stated).
 - **Not claimed:** the all-functions storage invariants are proven. They are specified + locally
   typechecked but **blocked** on this assembly-heavy contract (C-1); their per-sequence forms are proven.

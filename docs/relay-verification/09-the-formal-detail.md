@@ -1,19 +1,19 @@
 # L9 — The formal detail
 
 > **What you get from this level.** The verbatim Lean 4 development, walked end to end, at the precision
-> a referee needs to reconstruct or attack it. **§A** Phase A; **§B** the EVMYulLean API as we actually
-> use it; **§C** the Gap-B bricks and capstone; **§D** *fuel-genericity* in full; **§E** the non-obvious
+> a referee needs to reconstruct or attack it. **§A** the abstract proof; **§B** the EVMYulLean API as we actually
+> use it; **§C** the bytecode-refinement bricks and capstone; **§D** *fuel-genericity* in full; **§E** the non-obvious
 > pitfalls and their fixes; **§F** the axiom audit. File paths are relative to the repo root.
 >
 > Every code block below is copied from the committed sources
-> (`test-forge/fv/lean/RelaySigLoop.lean`, `test-forge/fv/lean/gapB/GapB_close.lean`). Line numbers cited
-> are as committed at the Gap-B-closed checkpoint.
+> (`test-forge/fv/lean/RelaySigLoop.lean`, `test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`);
+> cited line numbers are relative to those files.
 
 ---
 
-## §A. Phase A in full — `RelaySigLoop.lean`
+## §A. The abstract proof in full — `RelaySigLoop.lean`
 
-Phase A imports nothing but Lean core (`set_option linter.unusedVariables false` aside). Everything is
+The abstract proof imports nothing but Lean core (`set_option linter.unusedVariables false` aside). Everything is
 over `ℕ`.
 
 ### A.1 Prefix sum and its three facts
@@ -113,15 +113,15 @@ theorem insufficient_weight_cannot_accept (w : List Nat) (idxs : List Nat) (thr 
   Nat.not_lt.mp (fun hlt => absurd (threshold_sound w idxs thr hv hlt) (Nat.not_lt.mpr htot))
 ```
 
-That is the entire Phase A. It is small because the invariant is the right one; the `omega` calls
+That is the entire the abstract proof. It is small because the invariant is the right one; the `omega` calls
 discharge the linear-arithmetic glue. Nothing here mentions the EVM.
 
 ---
 
 ## §B. The EVMYulLean API, as we use it
 
-Gap B is built against EVMYulLean (`import EvmYul.Yul.Interpreter`). The facts we rely on — collected so
-they are never re-derived (full list in `gapB/PROGRESS.md`):
+The bytecode refinement is built against EVMYulLean (`import EvmYul.Yul.Interpreter`). The API facts it
+relies on:
 
 - **Words.** `Literal := UInt256`, and `UInt256 := Fin 2²⁵⁶` written `⟨val⟩`. So `⟨0⟩` is zero,
   `⟨1⟩` is one. `UInt256.ofNat n` is `n mod 2²⁵⁶`; `UInt256.add` is `+` mod 2²⁵⁶; `UInt256.lt a b`
@@ -145,7 +145,7 @@ The version/build pin (Lean 4.22.0, mathlib 4.22.0, FFI keccak/sha2) is in
 
 ---
 
-## §C. Gap B — `gapB/GapB_close.lean`, walked
+## §C. The bytecode refinement — `bytecode-refinement/RelayBytecodeRefinement.lean`, walked
 
 The file is self-contained: it re-proves its bricks locally so it checks with one `lake env lean`.
 
@@ -461,9 +461,9 @@ Every claim of correctness in this project is backed by Lean's `#print axioms`. 
 and the build prints, for all three:
 
 ```
-'GapB.loop_acc' depends on axioms: [propext, Classical.choice, Quot.sound]
-'GapB.bytecode_loop_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
-'GapB.bytecode_threshold_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBytecodeRefinement.loop_acc' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBytecodeRefinement.bytecode_loop_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBytecodeRefinement.bytecode_threshold_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 
 What this means, and why it is the right bar:
@@ -480,7 +480,7 @@ What this means, and why it is the right bar:
   Lean compiler + our FFI) and, for memory programs, cannot even link the FFI in a plain file. Our proofs
   reduce inside the kernel.
 
-The same audit applies to Phase A (`#print axioms threshold_sound` → `[propext, Classical.choice,
+The same audit applies to the abstract proof (`#print axioms threshold_sound` → `[propext, Classical.choice,
 Quot.sound]`). "Bulletproof" in this engagement is defined as exactly this: every committed theorem
 checks with that axiom list and nothing more.
 

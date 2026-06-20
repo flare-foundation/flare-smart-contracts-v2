@@ -1,4 +1,4 @@
-# L6 — R4a: the abstract proof (Phase A, Lean)
+# L6 — R4a: the abstract proof (Lean)
 
 > **What you get from this level.** The rung that fully defeats the induction barrier: a **∀N ∀K**,
 > machine-checked, hole-free proof that the signature-counting algorithm is threshold-sound. This is the
@@ -7,10 +7,10 @@
 
 ---
 
-## 6.1 What Phase A proves, and why it sits above Kontrol
+## 6.1 What the abstract proof proves, and why it sits above Kontrol
 
 Kontrol (R3) reached **∀K** at fixed voter counts N∈{3,5} on a Solidity model, with the final base+step
-composition done at the meta level. Phase A removes both limitations: it proves the soundness for **all N
+composition done at the meta level. The abstract proof removes both limitations: it proves the soundness for **all N
 and all K at once**, as an abstract algorithm, with the induction **internal and machine-checked**, and no
 `sorry`.
 
@@ -58,7 +58,7 @@ contrapositive — *insufficient total weight ⟹ can never accept* — follows 
 ## 6.4 Status and axiom audit
 
 - **Hole-free.** `#print axioms threshold_sound` = `[propext, Quot.sound]` — Lean's standard foundational
-  axioms only; **no `sorry`, no `sorryAx`, no extra axiom**. (Phase A doesn't even need `Classical.choice`.)
+  axioms only; **no `sorry`, no `sorryAx`, no extra axiom**. (the abstract proof doesn't even need `Classical.choice`.)
 - Checks in seconds with Lean 4 core (no mathlib, no EVM semantics).
 
 This is the "definition of done" the engagement uses for a Lean result (see [L9 §F](09-the-formal-detail.md)).
@@ -75,13 +75,13 @@ lean test-forge/fv/lean/RelaySigLoop.lean
 
 ---
 
-## 6.6 What Phase A establishes and does not
+## 6.6 What the abstract proof establishes and does not
 
 - **Establishes:** the *algorithm* is threshold-sound for **all N and all K**, machine-checked, no holes.
   This is the unbounded guarantee that no bounded tool (Halmos) and no fixed-N tool (Kontrol) can give.
 - **Does not:** say anything about the **EVM** or the deployed bytecode. It reasons about an abstract
   recursion over lists, not about `Relay.sol`'s compiled loop. Bridging "the algorithm is sound" to "a
-  validated model of the real machine runs this algorithm" is exactly the job of **Gap B (R4b)**.
+  validated model of the real machine runs this algorithm" is exactly the job of **the bytecode refinement (R4b)**.
 
-**Next:** [L7 — R4b: the bytecode refinement (Gap B)](07-R4b-bytecode-refinement.md), which lifts this
+**Next:** [L7 — R4b: the bytecode refinement (the bytecode refinement)](07-R4b-bytecode-refinement.md), which lifts this
 result onto a validated EVM semantics for all N.

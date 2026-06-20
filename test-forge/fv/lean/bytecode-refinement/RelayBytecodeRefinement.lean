@@ -1,6 +1,27 @@
 import EvmYul.Yul.Interpreter
 open EvmYul EvmYul.Yul EvmYul.Yul.Ast
-namespace GapB
+
+/-!
+# Relay signature loop — bytecode-level ∀N refinement against validated EVM/Yul semantics
+
+This file lifts the abstract signature-loop threshold soundness (`RelaySigLoop.lean`, ∀N ∀K) onto a loop
+executed by NethermindEth's validated EVMYulLean operational semantics, for all N. Self-contained: it
+re-proves every supporting lemma locally, so a single `lake env lean` checks the whole development.
+
+Capstone results (all hole-free; `#print axioms` ⊆ `{propext, Classical.choice, Quot.sound}`):
+* `loop_acc`            — the induction: the validated `exec` drives the loop and accumulates `absAcc`.
+* `bytecode_loop_correct` — ∀N: the interpreter runs the loop to completion (exact fuel `3N+10`) and the
+                            final accumulator equals `absAcc 0 N ⟨0⟩`.
+* `bytecode_threshold_sound` — ∀N: on that validated execution, accept (final weight > thr) ⟹ total
+                            accumulated weight > thr.
+
+Scope note: the encoded loop is memory-free (its body adds the loop index, not a memory load), so this
+establishes the loop *mechanism* on validated semantics. The data-layer fact (each addend is the
+registered weight), the 256-bit overflow bound, and the encoding fidelity are stated assumptions; see
+the verification documentation's claims ledger.
+-/
+
+namespace RelayBytecodeRefinement
 
 -- ===================== control-flow bricks =====================
 theorem exec_For (fuel : Nat) (c : Expr) (po bo : List Stmt) (s : EvmYul.Yul.State) :
@@ -205,4 +226,4 @@ theorem bytecode_threshold_sound (N : Nat) (hN : N < UInt256.size)
 #print axioms loop_acc
 #print axioms bytecode_loop_correct
 #print axioms bytecode_threshold_sound
-end GapB
+end RelayBytecodeRefinement

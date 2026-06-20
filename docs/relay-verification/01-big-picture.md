@@ -61,7 +61,7 @@ increasingly strong ways to gain that confidence:
    description it reasons about. If you proved something of a tidy blueprint but the real machine has
    hand-soldered wiring the blueprint glossed over, the proof may not apply. The strongest result proves
    the property about a faithful model of the *real hardware*. This is **Lean + a validated EVM
-   semantics** — the step the engagement code-names *Gap B* (§1.4).
+   semantics** — the bytecode refinement (§1.4).
 
 This ladder — "tried a few" → "proved it about the real machine for all inputs" — is the spine of the
 whole engagement, formalized in L2 as the **fidelity ladder**.
@@ -113,9 +113,9 @@ rung chosen for what it can reach that the rung below cannot:
 ```
    PROPERTY: "acceptance requires enough distinct voter weight" (+ the rest of relay())
 
-   R4b  GAP B  — Lean + validated EVM semantics ............ real machine, ∀N  (loop mechanism)
+   R4b  BYTECODE REFINEMENT — Lean + validated EVM semantics ... real machine, ∀N  (loop mechanism)
          ▲   lifts the abstract proof onto the validated bytecode semantics
-   R4a  PHASE A — Lean (core) ............................... abstract algorithm, ∀N ∀K
+   R4a  ABSTRACT PROOF — Lean (core) ....................... abstract algorithm, ∀N ∀K
          ▲   the math: induction, no EVM in sight
    R3   KONTROL (∀K on a Solidity model, N∈{3,5})  +  CERTORA (storage invariants — blocked)
          ▲   unbounded-in-K by induction; Certora hits the assembly wall (a finding)
@@ -129,24 +129,24 @@ rung chosen for what it can reach that the rung below cannot:
 - **R3 (Kontrol)** defeats Enemy 1 in the K dimension (∀K) by induction, but on a *model*, at fixed N;
   **Certora** tries the all-functions storage invariants and runs into Enemy 2 (the honest negative
   result).
-- **R4a — the abstract proof** (engagement code-name *Phase A*) defeats Enemy 1 fully (∀N∀K) — but as an
-  abstract algorithm, not the machine.
-- **R4b — the bytecode refinement** (engagement code-name *Gap B* — its label for *the gap between the
-  abstract proof and the real bytecode*) carries the abstract proof's result back down to a validated model
-  of the *real machine*, for all N —
-  the part Enemy 2 attacks.
+- **R4a — the abstract proof** defeats Enemy 1 fully (∀N∀K) — but as an abstract algorithm, not the
+  machine.
+- **R4b — the bytecode refinement** closes the gap between the abstract proof and the real bytecode: it
+  carries the abstract proof's result back down to a validated model of the *real machine*, for all N — the
+  part Enemy 2 attacks.
 
-The residual — explicitly *assumed*, validated separately — is small and named: the cryptography (Enemy
-out of scope by design), a trusted signing-policy setter, and the Gap-B data layer (that each loop
-iteration reads the intended weight from memory). L10 fences it precisely.
+The residual — explicitly *assumed*, validated separately — is small and named: the cryptography (out of
+scope by design), the operational ABI of each boundary call, a trusted signing-policy setter, and the
+bytecode-refinement data layer (that each loop iteration reads the intended weight from memory). L10 fences
+it precisely.
 
 > ⚠ **Caveat (discharged in L7/L10 — the most important one).** The loop run inside the validated EVM
-> model in Gap B is a *counting accumulation loop* — it captures the **loop mechanism** (iterate ∀N,
+> model at R4b is a *counting accumulation loop* — it captures the **loop mechanism** (iterate ∀N,
 > faithfully fold a per-step quantity), which is what Enemy 2 attacks. It is not a bit-for-bit copy of the
 > full signature routine with its cryptography, gap-skipping, and memory loads. The signature-specific
-> accounting (no double-counting, arbitrary streams) is what **Phase A** handles in full generality.
-> "Gap B closed" means *the abstract-vs-real bridge for the unbounded loop mechanism is machine-checked* —
-> not "the entire deployed contract is proven equivalent to Phase A."
+> accounting (no double-counting, arbitrary streams) is what **the abstract proof** handles in full
+> generality. The bytecode refinement therefore establishes *the abstract-vs-real bridge for the unbounded
+> loop mechanism* — not "the entire deployed contract is proven equivalent to the abstract proof."
 
 ---
 
@@ -162,8 +162,8 @@ surface:
   something the blueprint never said — but only up to a fixed size.
 - **Kontrol/Lean** (R3/R4) give you *all sizes*, catching the off-by-one that only manifests at large N or
   large K — which no bounded tool can reach.
-- **Gap B** (R4b) connects the two: it shows a validated model of the *real machine* genuinely runs the
-  unbounded loop, so the ∀N guarantee is not stranded at the abstract level.
+- **The bytecode refinement** (R4b) connects the two: it shows a validated model of the *real machine*
+  genuinely runs the unbounded loop, so the ∀N guarantee is not stranded at the abstract level.
 
 Stacked, they reduce the trusted, unverified surface to a single small, independently-checkable claim
 about memory contents and crypto — instead of trusting 930 lines of assembly by eye. That shrinkage is

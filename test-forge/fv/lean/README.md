@@ -1,50 +1,45 @@
-# Lean 4 — abstract ∀N ∀K proof of the signature-loop invariant (Phase A)
+# Lean 4 — machine-checked signature-loop soundness
 
-`RelaySigLoop.lean` is a **theorem-prover** proof of the Relay signature-loop weight invariant that is
-**genuinely universally quantified in both dimensions** — over all voter-set sizes N *and* all signature
-counts K — which neither Halmos (bounded K) nor Kontrol (bounded N; symbolic-N is state-explosive) could
-achieve. It is the "Phase A" deliverable of the theorem-prover track (see `../../../docs/relay-t1-bridge.md`
-and `../../../docs/relay-phase3-documented-items.md`).
+Two Lean developments prove the Relay signature-loop threshold soundness, fully universally quantified,
+where the bounded tools (Halmos: fixed K; Kontrol: fixed N) cannot reach:
 
-## What is proved
+| File | Result | Object | Coverage |
+|------|--------|--------|----------|
+| `RelaySigLoop.lean` | **the abstract proof** | the accounting algorithm (no EVM) | **∀N ∀K** |
+| `bytecode-refinement/RelayBytecodeRefinement.lean` | **the bytecode refinement** | a loop run by validated EVM/Yul semantics | **∀N** |
 
-For an **arbitrary** list of voter weights `w` (so N = `w.length` is arbitrary) and an **arbitrary**
-signature stream `idxs` (so K is arbitrary):
+Both are hole-free: no `sorry`/`admit`/`axiom`, `#print axioms` ⊆ `{propext, Classical.choice, Quot.sound}`.
 
-- `loop_inv` — the loop maintains the invariant `weight ≤ prefixSum(nextUnusedIndex)` and
-  `nextUnusedIndex ≤ N`, for every step (by induction on the signature stream).
+## `RelaySigLoop.lean` — the abstract proof (∀N ∀K)
+
+For an arbitrary list of voter weights `w` (so `N = w.length` is arbitrary) and an arbitrary signature
+stream `idxs` (so `K` is arbitrary):
+
+- `loop_inv` — the loop maintains `weight ≤ prefixSum(nextUnusedIndex)` and `nextUnusedIndex ≤ N`.
 - `threshold_sound` — **accept ⟹ enough genuine weight**: if the loop accepts (final weight > threshold),
-  the *total registered weight* exceeds the threshold.
-- `insufficient_weight_cannot_accept` — the contrapositive: if total registered weight ≤ threshold, the
-  loop can never accept, for any N and any K.
+  the total registered weight exceeds the threshold.
+- `insufficient_weight_cannot_accept` — the contrapositive.
 
-No voter is double-counted: the strictly-increasing-index discipline (G1+G2 on-chain) is encoded in the
-`ValidRun` predicate, so the bound `prefixSum(N)` counts each weight at most once.
-
-This mirrors the Kontrol model (`../kontrol/RelaySigLoopFV.t.sol`) exactly — same invariant
-`weight ≤ psAt(nextUnusedIndex)` — but with real ∀N ∀K induction instead of fixed N ∈ {3,5}.
-
-## Scope / trust boundary
-
-This proves the **abstract algorithm** (the accounting). It does *not* by itself connect to the EVM
-bytecode — that is the separate, expensive "Gap B" (bytecode refinement). The bytecode link is established
-at bounded K by the Halmos bridge (`../RelayModelBridgeFV.t.sol`, K=1,2,3) and the modeling contract
-(ecrecover/keccak assumed). Composition: abstract algorithm proven ∀N∀K (here) + algorithm matches the
-deployed bytecode where checkable (Halmos, K≤3).
-
-## Checking it
-
-Lean 4 (tested with 4.31.0), **core only — no mathlib**, so it checks in seconds:
+No voter is double-counted: the strictly-increasing-index discipline is encoded in the `ValidRun`
+predicate, so `prefixSum(N)` counts each weight at most once.
 
 ```bash
-lean RelaySigLoop.lean        # exit 0, no output = proved
+lean RelaySigLoop.lean        # Lean 4, core only (no mathlib) — checks in seconds
+#print axioms RelaySigLoop.threshold_sound   # [propext, Quot.sound]
 ```
 
-Integrity (no holes): the source contains no `sorry`/`admit`/`axiom`, and
+## `bytecode-refinement/RelayBytecodeRefinement.lean` — the bytecode refinement (∀N)
 
-```
-#print axioms RelaySigLoop.threshold_sound
-  -- depends on axioms: [propext, Quot.sound]      (Lean's standard foundational axioms; NO sorryAx)
-```
+Lifts the abstract result onto a loop executed by NethermindEth's validated EVMYulLean operational
+semantics, for all N: `bytecode_loop_correct` (the interpreter runs the loop to completion and computes
+the accumulator) and `bytecode_threshold_sound` (accept ⟹ total > threshold, on the validated semantics).
+The encoded loop is memory-free; the data-layer, overflow-bound, and encoding assumptions are stated in
+the claims ledger. Build/check instructions and the assumption boundary are in
+`bytecode-refinement/README.md` and `../../../docs/relay-verification/`.
 
-confirms the proof is complete — it does not even use `Classical.choice`.
+## Trust boundary
+
+The abstract proof owns the accounting; the bytecode refinement connects it to validated EVM semantics for
+the loop mechanism; the deployed-bytecode link at bounded K is the Halmos bridge
+(`../RelayModelBridgeFV.t.sol`, K≤3); cryptography (`ecrecover`/`keccak`) and the boundary-call
+operational contracts are stated assumptions. Full ledger: `../../../docs/relay-verification/`.

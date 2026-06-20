@@ -12,7 +12,7 @@ one of the two residual caveats.
 
 ---
 
-## §A. The abstract model and threshold soundness (Phase A)
+## §A. The abstract model and threshold soundness
 
 ### A.1 Objects
 
@@ -81,10 +81,10 @@ threshold** — for every voter count `N` and every signature stream length `K`,
 (carried by `ValidRun`). The contrapositive (`insufficient_weight_cannot_accept`) is a one-liner: if the
 total is within the threshold, the loop can never accept.
 
-> ⚠ **Caveat A (discharged in L10).** Phase A works over `ℕ`. The on-chain tally lives in `𝕌` (mod
+> ⚠ **Caveat A (discharged in L10).** the abstract proof works over `ℕ`. The on-chain tally lives in `𝕌` (mod
 > 2²⁵⁶). Identifying the two requires that the sums never wrap — i.e. the **overflow bound**. This is a
-> real side condition, established outside Phase A (in this engagement, `totalWeight < 2¹⁶`, far below
-> 2²⁵⁶). Phase A is the *integer* truth; L10 states what is needed to import it into `𝕌`.
+> real side condition, established outside the abstract proof (in this engagement, `totalWeight < 2¹⁶`, far below
+> 2²⁵⁶). The abstract proof is the *integer* truth; L10 states what is needed to import it into `𝕌`.
 
 ---
 
@@ -165,7 +165,7 @@ deliberate caveats, both discharged in L10:
 > `mload(weights[i])`; our body adds `i`. Replacing the memory load by `i` yields a *structurally
 > identical* accumulation — same iteration count, same "add a per-step quantity to `w`" shape — whose
 > faithful execution is what we prove. The identity "the per-step quantity is the right weight" is the
-> **data layer**, assumed and validated separately (L10). What Gap B establishes is that *the validated
+> **data layer**, assumed and validated separately (L10). What the bytecode refinement establishes is that *the validated
 > EVM really does iterate N times and accumulate the per-step quantity, for all N* — the part the
 > assembly barrier attacks.
 
@@ -177,7 +177,7 @@ $$
 \mathrm{absAcc}(a, m{+}1, w) = \mathrm{absAcc}(a{+}1,\, m,\, w + \mathrm{ofNat}\,a).
 $$
 So `absAcc(0, N, 0) = \sum_{a<N} \mathrm{ofNat}\,a` in `𝕌`. This is the `𝕌`-valued mirror of a prefix
-sum; structurally it plays the role `sumTake` plays in Phase A (a fold that adds one term per step).
+sum; structurally it plays the role `sumTake` plays in the abstract proof (a fold that adds one term per step).
 
 > **Theorem (`bytecode_loop_correct`, ∀ N < 2²⁵⁶).** For any machine state `ss` and any var-store `vs`
 > with `vs[i] = 0` and `vs[w] = 0`, there is a final store `vs'` such that

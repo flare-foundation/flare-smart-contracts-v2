@@ -1,6 +1,6 @@
-# L7 — R4b: the bytecode refinement (Gap B)
+# L7 — R4b: the bytecode refinement
 
-> **What you get from this level.** The top rung: lifting Phase A's ∀N∀K abstract soundness onto a loop
+> **What you get from this level.** The top rung: lifting the abstract proof's ∀N∀K abstract soundness onto a loop
 > executed by a **validated model of the EVM**, for all N — crossing the assembly barrier for the loop
 > mechanism. The overview, the result, and the honest residual. The mathematics is
 > [L8 §C](08-the-mathematics.md); the verbatim Lean, fuel-genericity, and axiom audit are
@@ -8,25 +8,26 @@
 
 ---
 
-## 7.1 The gap Gap B closes
+## 7.1 The gap the bytecode refinement closes
 
-Phase A proves the *algorithm* is sound (R4a) but says nothing about the EVM. Halmos runs the *real
+The abstract proof proves the *algorithm* is sound (R4a) but says nothing about the EVM. Halmos runs the *real
 bytecode* but only at bounded size (R2). Kontrol/Certora cannot reach the unbounded real machine because of
 the assembly barrier (R3). The missing connection — the "abstract-vs-real-machine" gap — is: *does a
 validated model of the real machine genuinely run the unbounded loop the way the abstract proof assumes?*
 
-Gap B answers yes, for all N, by **refinement against a validated EVM semantics**.
+The bytecode refinement answers yes, for all N, by **refinement against a validated EVM semantics**.
 
 **Validated semantics:** NethermindEth's **EVMYulLean** — a Lean 4 formalization of EVM/Yul execution that
 is itself **validated against the official Ethereum execution-spec test suites**. So "the EVM model
 computes X" inherits the cross-client conformance corpus (the trust chain is [L2 §2.5](02-strategy-and-the-fidelity-ladder.md)).
 
-**Artifacts:** `test-forge/fv/lean/gapB/GapB_close.lean` (the capstone) + `PROGRESS.md` (engineering log)
-+ the staged `GapB_*.lean` bricks.
+**Artifact:** `test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean` — self-contained (it
+re-proves every supporting lemma locally, so one `lake env lean` checks it). See
+`test-forge/fv/lean/bytecode-refinement/README.md`.
 
 ---
 
-## 7.2 What Gap B proves
+## 7.2 What the bytecode refinement proves
 
 A counting accumulation loop is encoded in the **real Yul AST** — `for { } lt(i,N) { i := add(i,1) } { w
 := add(w,i) }` — and run by the validated interpreter. Three theorems, all **hole-free** (`#print axioms` =
@@ -38,7 +39,7 @@ A counting accumulation loop is encoded in the **real Yul AST** — `for { } lt(
 | `bytecode_loop_correct` | **∀N**: the validated interpreter runs the loop to completion (exact fuel `3N+10`, no `OutOfFuel`/exception) and the final accumulator equals `absAcc(0,N,0)` |
 | `bytecode_threshold_sound` | **∀N**: on that validated execution, *accept* (final weight > `thr`) ⟹ total accumulation > `thr` |
 
-`bytecode_threshold_sound` is Phase A's `threshold_sound` shape — *accept ⟹ enough accumulated total* — now
+`bytecode_threshold_sound` is the abstract proof's `threshold_sound` shape — *accept ⟹ enough accumulated total* — now
 holding of a loop run by a **validated model of the real machine**, for every N. That is the rung-R4
 statement.
 
@@ -52,25 +53,27 @@ per-statement facts, and is what made the whole induction routine. Full treatmen
 
 ---
 
-## 7.3 The honest residual (what Gap B does *not* claim)
+## 7.3 The honest residual (what the bytecode refinement does *not* claim)
 
 This is the most important part of the rung for an auditor; the full ledger is [L10](10-claims-ledger-trust-and-residual.md).
 
-- **The loop is memory-free.** Its body adds the loop *index* `i`, not `mload(weights[i])`. So Gap B proves
-  the **loop mechanism** — iterate ∀N, faithfully fold a per-step quantity, threshold transfers — which is
-  the part the assembly barrier attacks. That the per-step quantity is the *registered weight* is the
-  **data layer (A1)**: assumed, validated separately (the slot arithmetic matches the documented layout and
-  the reference encoder). The refinement is agnostic to the addend's *value*, so a layout bug would falsify
-  A1, not the proof; A1 is the right place for a skeptic to push.
-- **Modular vs. integer arithmetic (A2).** Gap B reasons in `𝕌 = Fin 2²⁵⁶` (mod 2²⁵⁶); Phase A in `ℕ`.
-  Identifying the two requires the **overflow bound** (weights small enough not to wrap) — true for Relay
-  with vast margin (`totalWeight < 2¹⁶ ≪ 2²⁵⁶`), stated explicitly.
-- **Encoding fidelity (A3).** The `For` node mirrors the loop's iterate-and-accumulate *skeleton* (note the
-  no-init form, matching the optimizer); it is not a verbatim transcription of the whole signature routine
-  (cryptography is out of scope, A4; the no-double-count discipline is Phase A's `ValidRun`).
+- **The loop is memory-free.** Its body adds the loop *index* `i`, not `mload(weights[i])`. So the bytecode
+  refinement proves the **loop mechanism** — iterate ∀N, faithfully fold a per-step quantity, threshold
+  transfers — which is the part the assembly barrier attacks. That the per-step quantity is the *registered
+  weight* is the **data layer (BR-1)**: assumed, validated separately (the slot arithmetic matches the
+  documented layout and the reference encoder). The refinement is agnostic to the addend's *value*, so a
+  layout bug would falsify BR-1, not the proof; BR-1 is the right place for a skeptic to push.
+- **Modular vs. integer arithmetic (BR-2).** The bytecode refinement reasons in `𝕌 = Fin 2²⁵⁶` (mod 2²⁵⁶);
+  the abstract proof in `ℕ`. Identifying the two requires the **overflow bound** (weights small enough not
+  to wrap) — true for Relay with vast margin (`totalWeight < 2¹⁶ ≪ 2²⁵⁶`), stated explicitly.
+- **Encoding fidelity (BR-3).** The `For` node mirrors the loop's iterate-and-accumulate *skeleton* (note
+  the no-init form, matching the optimizer); it is not a verbatim transcription of the whole signature
+  routine (cryptography is out of scope, MC-2; the no-double-count discipline is the abstract proof's
+  `ValidRun`).
 
-"Gap B closed" therefore means: *the abstract-vs-real bridge for the unbounded loop mechanism is
-machine-checked against validated semantics, for all N* — not "the deployed contract is fully verified."
+The bytecode refinement therefore establishes: *the abstract-vs-real bridge for the unbounded loop
+mechanism, machine-checked against validated semantics, for all N* — not "the deployed contract is fully
+verified."
 
 ---
 
@@ -83,8 +86,8 @@ machine-checked against validated semantics, for all N* — not "the deployed co
 # Build the validated semantics (one-time), then check the capstone. See L11 for full detail.
 cd /tmp && git clone --depth 1 https://github.com/NethermindEth/EVMYulLean evmyul2
 cd evmyul2 && lake exe cache get && lake build
-cp <repo>/test-forge/fv/lean/gapB/GapB_close.lean .
-lake env lean GapB_close.lean
+cp <repo>/test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean .
+lake env lean RelayBytecodeRefinement.lean
 # expect exit 0 and, for loop_acc / bytecode_loop_correct / bytecode_threshold_sound:
 #   depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
@@ -93,14 +96,14 @@ lake env lean GapB_close.lean
 
 ## 7.5 Where this leaves the stack
 
-With Gap B closed, the chain is complete end-to-end at the loop-mechanism level:
+With the bytecode refinement in place, the chain is complete end-to-end at the loop-mechanism level:
 
 ```
 Halmos: the real bytecode obeys the model's prefix-sum invariant (RelayModelBridgeFV), K≤3      [R2]
-Phase A: the abstract algorithm is threshold-sound                              ∀N ∀K            [R4a]
-Gap B:   a validated EVM semantics runs the unbounded loop & soundness transfers ∀N              [R4b]
+Abstract proof:        the abstract algorithm is threshold-sound                              ∀N ∀K            [R4a]
+Bytecode refinement:   a validated EVM semantics runs the unbounded loop & soundness transfers ∀N              [R4b]
 ─────────────────────────────────────────────────────────────────────────────────────────────
-residual (assumed, validated separately): data layer (A1), overflow bound (A2), encoding (A3), crypto (A4)
+residual (assumed, validated separately): data layer (BR-1), overflow bound (BR-2), encoding (BR-3), crypto (MC-2), ecrecover ABI (OP-1)
 ```
 
 Everything from loop control flow through accumulation through threshold soundness is machine-checked; the
