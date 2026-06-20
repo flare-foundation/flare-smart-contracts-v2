@@ -8,6 +8,10 @@ evm_version = 'cancun'
 fs_permissions = [{ access = "read", path = "./artifacts-forge/"}]
 optimizer = true
 optimizer_runs = 200
+# Reference Yul IR artifacts (e.g. test-forge/fv/lean/relay_ir_optimized.yul) are kept for the
+# formal-verification work but are NOT contracts to compile. Skip them so `forge build` (and its
+# solar lint-on-build pass, which cannot parse solc's string-literal `object` names) ignores them.
+skip = ['*.yul']
 
 [dependencies]
 forge-std = "1.10.0"
