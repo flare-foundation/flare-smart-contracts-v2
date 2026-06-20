@@ -153,7 +153,7 @@ Status reflects the current tree.
 | **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
 | **OP-1** (ecrecover failure ABI) | Addressable | ✅ real-EVM regression done (`RelayEcrecoverABI.t.sol`); symbolic-model internalization pending |
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | weeks |
-| **BR-1** (data layer, `mload = w[i]`) | Addressable; **in progress** | byte-decode ✅ + whole ByteArray/memory layer ✅ (`keystone` + `mem_roundtrip`) + value decode ✅ (`fromByteArray_toByteArray`) + `mstore`/`mload` wrapping ✅ (`mstore_mload`) + **`&0xffff` weight mask** ✅ (`mask16_toNat`/`mask16_of_lt`) — all committed (`DataLayer.lean`), modulo two documented upstream-dischargeable axioms (`zeroes_data`, `toByteArray_size`). **Only remaining**: the simulation relation `R` over the ∀N loop (multi-week; the slot arithmetic folds into `R`) |
+| **BR-1** (data layer, `mload = w[i]`) | Addressable; **in progress** | byte-decode ✅ + ByteArray/memory layer ✅ (`mem_roundtrip`) + value decode ✅ + `mstore`/`mload` wrapping ✅ + `&0xffff` mask ✅ + data-layer capstone ✅ (`weight_read`: `mload(slot)&0xffff = w[i]`) — all in `DataLayer.lean` — **plus the memory-reading ∀N loop refinement** ✅ (`RelayLoopMemRead.lean`: `bytecode_threshold_sound_mem`, body = `w += mload(i·32)&0xffff` on the validated EVM). Modulo two documented upstream-dischargeable axioms (`zeroes_data`, `toByteArray_size`). **Remaining**: the rest of the loop body for full `R` — `ecrecover` (uninterpreted, MC-2/OP-1), strict-index `ValidRun`, calldata-layout decode (orthogonal to the proven weight accumulation) |
 | whole-`relay()` extension, **OP-3/4** | Addressable | months–years (full end-to-end R5) |
 | **C-1** (Certora all-functions storage) | Addressable but **not recommended** | re-introduces the faithfulness risk the engagement avoids; per-sequence forms already proven |
 
@@ -201,11 +201,23 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      stack into BR-1's data-layer claim for one slot: a 16-bit weight written to a 32-byte memory slot is
      recovered by the deployed read pattern `and(mload(slot), 0xffff)` under EVMYulLean's validated
      `MachineState` — `mload(weights[i]) & 0xffff = w[i]`. Hole-free modulo the two documented specs.
-   - **Remaining.** (iv) The simulation relation `R` over the ∀N loop — the multi-week integration that
-     plumbs `weight_read` into the loop: identifying the per-iteration slot from the calldata/memory layout
-     (the `weights[i]` slot arithmetic, which folds into `R`'s address map), and transferring
-     `RelaySigLoop.threshold_sound` through `R`. Every *bounded* data-layer fact is now proven; what is left
-     is the loop plumbing, not any further fact about the read itself.
+   - **Memory-reading loop refinement — ✅ DONE (committed).** `RelayLoopMemRead.lean` lifts the bytecode
+     loop refinement from the memory-free body (`w := w + i`) to the deployed contract's **actual masked
+     weight read** `w := w + (mload(i·32) & 0xffff)`, executed by the validated Yul `exec` for **all N**.
+     `bytecode_threshold_sound_mem` / `bytecode_threshold_sound_mem_int`: accept ⟹ the total of the masked
+     memory reads (modular / integer) exceeds the threshold — hole-free, *no* axioms beyond the standard
+     three. New brick `body_effM` proves one iteration of the real `mload`+`and` body (the `mload` is
+     state-preserving once the slot is active, so `activeWords` is unperturbed); `loop_accM` runs the
+     `3N+15`-fuel induction. This is the **data-flow core of the simulation relation `R`**: the per-iteration
+     addend is now a genuine `MLOAD`, not the loop index. The read-content hypothesis `hcov` is BR-1's
+     data-layer invariant, discharged per-slot by `weight_read`, so `absAccMNat rdv 0 N 0 = sumTake w N`.
+   - **Remaining for full `R`.** (iv) The rest of the loop body — `ecrecover` (the `0x01` staticcall as the
+     uninterpreted matcher, MC-2/OP-1; EVMYulLean's Yul interpreter leaves precompile `0x01` uninterpreted, so
+     the recovered signer factors out as a quantified input + hypothesis), the index extraction and signer
+     comparison, and the strict-index (`ValidRun`) discipline — plus the calldata-layout decode that
+     establishes `hcov` for the on-chain (calldata-resident) weights. These are **orthogonal** to the weight
+     accumulation now proven; they compose on top. The weight-summation half of `R` (the BR-1 essence) is
+     proven on the validated EVM.
    - **Upstream-dischargeable specs** (both access-modifier limitations, not semantic assumptions):
      `zeroes_data` (spec/de-opaque `memset_zero`) and `toByteArray_size` (expose the `private`
      `toBytes'_UInt256_le`). Starting points + the `R` sketch:

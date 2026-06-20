@@ -96,7 +96,17 @@ and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility
   weight written to a 32-byte slot is recovered by the deployed read pattern `and(mload(slot), 0xffff)`
   under EVMYulLean's validated `MachineState` — i.e. `mload(weights[i]) & 0xffff = w[i]` for one slot, the
   heart of BR-1.
-- *Remaining:* the simulation relation `R` over the loop — the multi-week integration that plumbs
-  `weight_read` into the ∀N loop (per-iteration slot from the calldata/memory layout) and transfers
-  `RelaySigLoop.threshold_sound`. Every *bounded* data-layer fact is now proven; what is left is the loop
-  plumbing, not a further fact about the read. See L10 §10.5.
+- *Memory-reading loop refinement — ✅ done (`RelayLoopMemRead.lean`).* The `For`-node loop body is now the
+  deployed contract's **actual masked weight read** `w := w + (mload(i·32) & 0xffff)`, executed by the
+  validated Yul `exec` for **all N**. `bytecode_threshold_sound_mem` (and its integer form
+  `bytecode_threshold_sound_mem_int`): accept ⟹ the total of the masked memory reads exceeds the threshold —
+  hole-free, *no* axioms beyond the standard three. The key new brick `body_effM` proves one iteration of the
+  `mload`+`and` body on the real semantics (the `mload` is state-preserving once the slot is active, so it
+  does not perturb `activeWords`); `loop_accM` runs the `3N+15`-fuel induction. This is the **data-flow core
+  of the simulation relation `R`** — the per-iteration addend is a genuine `MLOAD`, not the loop index. The
+  read-content hypothesis `hcov` is BR-1's data-layer invariant, discharged per-slot by `weight_read`
+  (`mrd rdv j = w[j]`, so `absAccMNat rdv 0 N 0 = RelaySigLoop.sumTake w N`).
+- *Remaining for full `R`:* the rest of the loop body — `ecrecover` (`0x01` staticcall, uninterpreted
+  matcher, MC-2/OP-1), index extraction, signer comparison, and the strict-index (`ValidRun`) discipline —
+  plus the calldata-layout decode that establishes `hcov` for the on-chain (calldata-resident) weights. These
+  are orthogonal to the weight accumulation now proven and compose on top. See L10 §10.5.
