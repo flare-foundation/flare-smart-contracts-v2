@@ -13,9 +13,10 @@ All commands are from the repo root unless noted: `flare-smart-contracts-v2/`.
 
 | Tool | Version (verified) | Install / source |
 |------|--------------------|------------------|
-| Foundry (`forge`) | 1.5.0-nightly (local); `foundry:stable` in CI | `curl -L https://foundry.paradigm.xyz \| bash && foundryup` |
-| `solc` | 0.8.27 | foundry-managed / system |
-| Halmos | latest via pip (CI: `python:3.12`) | `pip install --user halmos` |
+| Foundry (`forge`) | **1.7.1** (suite-verified); `foundry:stable` / `foundryup` in CI | `curl -L https://foundry.paradigm.xyz \| bash && foundryup` |
+| `solc` | 0.8.27 (Relay pragma `^0.8.13`) | foundry-managed / system |
+| Halmos | **0.3.3** (CI: `python:3.12`) | `pip install --user halmos` |
+| z3 (SMT solver) | **4.12.6** | implicit Halmos dependency |
 | Kontrol / KEVM | Kontrol **v1.0.248**, K **v7.1.334** | pinned Docker image (§11.5) |
 | Certora CLI | **8.16.1** | `pip install certora-cli` (+ `CERTORAKEY` for cloud) |
 | Lean (Phase A) | Lean 4 core | `elan` (no mathlib needed) |

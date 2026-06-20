@@ -12,8 +12,23 @@
 
 The engagement was run **research-first**: before writing proofs, survey the verification landscape and
 the contract, then choose a strategy deliberately. The survey covered the Act framework (Act spec →
-Coq/Isabelle with hevm proving bytecode-refines-spec), the broader EVM-FV landscape (Halmos, Kontrol/KEVM,
-Certora), and the existing audit reports for the live issue inventory.
+Coq/Rocq with hevm proving bytecode-refines-spec), the broader EVM-FV landscape (Halmos, Kontrol/KEVM,
+Certora, Echidna/Medusa), and the existing audit reports for the live issue inventory.
+
+**The pivotal finding that shaped tool choice.** Relay's core property is about *signature recovery*, and
+the verification must treat `ecrecover` as an uninterpreted function (modeling contract MC-2). The survey
+found that **hevm — Act's automatic backend — does not model `ecrecover` (precompile `0x01`) symbolically**
+(it forces the input concrete; only SHA-256 is available uninterpreted). So a pure Act/hevm bytecode proof
+of the signature path is *blocked today*. The tools that **do** model `ecrecover` as uninterpreted are
+**Halmos, Kontrol/KEVM, and Certora** — which is precisely why the stack is built from those three, with
+Act/Rocq noted as a north-star spec layer to revisit once hevm gains `ecrecover` support.
+
+The four researched paths, presented as a decision menu, were: **(A) Halmos** (Foundry-native symbolic,
+uninterpreted `ecrecover`, fast bounded proofs — recommended first); **(B) Kontrol/KEVM** (deductive,
+unbounded-K via k-induction); **(C) Act + Rocq** (human-readable spec → machine-checked proof, north-star,
+gated on hevm); **(D) Certora** (industrial, ghost `ecrecover`, risk: inline-assembly storage analysis).
+The chosen strategy was the **hybrid staged stack**: Halmos first, escalate to Kontrol, add Lean for the
+unbounded algorithm, and keep Act as the aspirational spec layer.
 
 Two facts from that survey drove everything:
 
