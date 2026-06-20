@@ -34,6 +34,16 @@ committed as *completed lemmas*, never as holes. This file is the resume point.
   if_neg hx, hbody, reviveJump, hpost, overwrite?]; cases (exec For ..) <;> rfl`.
 - **Next:** B-4 symbolic induction → B-5 transfer `threshold_sound` → differential-validate the data layer.
 
+- **B-4 BRICKS ALL PROVEN (hole-free)** — control flow: `loop_base`/`exec_For`/`loop_step` (GapB_refine.lean);
+  opcodes: `step_ADD`/`step_LT`/`step_AND` (GapB_ops.lean); statement effects: `assign_add_effect`
+  (x:=add(a,b)), `assign_add_lit_effect` (x:=add(a,c)), `cond_lt_eval` (lt(a,c)) (GapB_body.lean).
+  GOTCHAS solved: Identifier is a `def` not abbrev ⇒ keys must be `EvmYul.Identifier` VARIABLES (literals
+  collapse to String, GetElem? synth fails); RHS uses interpreter getElem! `s[a]!`; step lemmas via
+  `unfold step; rfl` (dbg_trace drops); per-statement via big `simp [exec,eval,evalArgs,evalTail,
+  evalPrimCall,execPrimCall,primCall,head',cons',reverse',multifill',State.multifill,State.insert,step_*]`.
+- **Current:** L_loop — induction assembling these (fuel bookkeeping ~3·iters+c; Finmap state tracking with
+  i≠w via lookup_insert/lookup_insert_of_ne) ⇒ exec(accLoop)=abstract fold; then transfer threshold_sound.
+
 ## How to resume (toolchain)
 
 ```bash
