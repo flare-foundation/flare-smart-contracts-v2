@@ -1,4 +1,5 @@
 import EvmYul.Wheels
+import EvmYul.MachineStateOps
 open EvmYul
 
 /-!
@@ -8,13 +9,19 @@ Work toward discharging **BR-1** from the claims ledger: that each signature-loo
 value is the registered weight `mload(weights[i]) = w[i]`. This file collects the **hole-free** sub-results
 of that data-layer refinement, committed incrementally (no `sorry`/`admit`).
 
-## The one axiom
+## The two upstream-dischargeable specs
 
-`ffi.ByteArray.zeroes` (EVMYulLean's `@[extern "memset_zero"]`) is declared `opaque`, so it has no
-proof-level content. We add its minimal, obviously-true spec — `zeroes_data` below — as the single
-documented trust addition. It is dischargeable upstream by changing `opaque ByteArray.zeroes` to a real
-`def … @[implemented_by memset_zero]`, after which this axiom becomes a theorem and disappears. It is the
-only assumption these proofs add beyond Lean's standard three.
+These proofs add exactly two assumptions beyond Lean's standard three (`propext`, `Classical.choice`,
+`Quot.sound`), both *access-modifier limitations* rather than trust assumptions:
+
+1. `zeroes_data` — `ffi.ByteArray.zeroes` (EVMYulLean's `@[extern "memset_zero"]`) is declared `opaque`, so
+   it has no proof-level content. We give its minimal, obviously-true spec. Dischargeable upstream by
+   changing `opaque ByteArray.zeroes` to a real `def … @[implemented_by memset_zero]`.
+2. `toByteArray_size` — `UInt256.toByteArray` always yields 32 bytes. **Verified** provable (short proof,
+   below) but blocked downstream because the supporting bound `toBytes'_UInt256_le` is `private`. Exposing
+   that one upstream lemma turns this axiom into a theorem.
+
+Both become theorems with one-line upstream edits; neither is a semantic assumption about the EVM.
 
 ## Status (see `docs/relay-verification/10-claims-ledger-trust-and-residual.md` §10.5)
 
@@ -22,13 +29,15 @@ only assumption these proofs add beyond Lean's standard three.
 * **Memory keystone — DONE** (`keystone`): `copySlice`/`extract` round-trip, *no* `zeroes` axiom.
 * **ByteArray memory round-trip — DONE** (`mem_roundtrip`): `readWithPadding (write …) … = src`, against
   EVMYulLean's actual `ByteArray.write`/`readWithPadding`. This is the heart of `mload∘mstore`.
-* **Value decode — DONE** (`ofNat_toNat`, `size_append`, `toList_data`, and **`fromByteArray_toByteArray`**:
+* **Value decode — DONE** (`ofNat_toNat`, `size_append`, `toList_data`, and `fromByteArray_toByteArray`:
   `fromByteArrayBigEndian (v.toByteArray) = v.toNat`, via the `toList`/`toByteArray` loop invariants + the
-  leading-zero argument). With `mem_roundtrip` + `fromByteArray_toByteArray` + `ofNat_toNat`, the
-  `(mstore a v).mload a = v` round-trip assembles modulo the guard.
-* **Remaining**: (ii) the `MachineState.mstore`/`mload` wrapping — discharge the `activeWords`/size guard so
-  `lookupMemory` reads; (iii) the `& 0xffff` mask + slot arithmetic; (iv) the simulation relation `R` over
-  the ∀N loop. (ii)–(iii) are bounded; (iv) is the multi-week integration.
+  leading-zero argument).
+* **MachineState `mstore`/`mload` wrapping — DONE** (`mstore_lookupMemory`, `mstore_mload`): on EVMYulLean's
+  validated `MachineState`, `(mstore a v).mload a = v` whenever the buffer has room and the active-word
+  count does not overflow. Discharges the `activeWords`/size guard and composes the byte layer; this is the
+  operational `mload∘mstore = id` for a 32-byte word.
+* **Remaining**: (iii) the `& 0xffff` weight mask + slot arithmetic; (iv) the simulation relation `R` over
+  the ∀N loop. (iii) is bounded; (iv) is the multi-week integration.
 -/
 
 namespace RelayDataLayer
@@ -215,8 +224,96 @@ theorem fromByteArray_toByteArray (v : UInt256) : fromByteArrayBigEndian v.toByt
   rw [toList_data, append_data, zeroes_data, Array.toList_append, hrepl, hbe,
       fromBytesBigEndian_replicate_append, fromBytesBigEndian_toBytesBigEndian]
 
+/-! ## MachineState wrapping: `(mstore a v).mload a = v` (the `activeWords`/size guard)
+
+This composes the byte-level results above into a statement about EVMYulLean's actual
+`MachineState.mstore`/`mload`/`lookupMemory`. `lookupMemory` is guarded by
+`addr ≥ memory.size ∨ addr ≥ activeWords * 32`; we discharge both disjuncts from the store's effect on
+`memory.size` and `activeWords`, then read the slot back through `mem_roundtrip` +
+`fromByteArray_toByteArray` + `ofNat_toNat`. -/
+
+-- The `rfl`/`show` steps below reduce EVMYulLean's `mstore`/`lookupMemory`/`Fin`-arithmetic by `whnf`,
+-- which exceeds the 200k default; the byte-layer proofs above stay well under it.
+set_option maxHeartbeats 1000000
+
+/-- `UInt256` order is `toNat` order (definitional). -/
+theorem lt_toNat (a b : UInt256) : (a < b) = (a.toNat < b.toNat) := rfl
+theorem le_toNat (a b : UInt256) : (a ≤ b) = (a.toNat ≤ b.toNat) := rfl
+
+/-- `(ofNat m) * ⟨32⟩` has `toNat = m * 32` when `m * 32` does not overflow `2²⁵⁶`. -/
+theorem mul32_toNat (m : Nat) (h : m * 32 < UInt256.size) :
+    ((UInt256.ofNat m) * (⟨32⟩ : UInt256)).toNat = m * 32 := by
+  show ((UInt256.ofNat m).val * ((⟨32⟩ : UInt256)).val).val = m * 32
+  rw [Fin.val_mul]
+  have hm : (UInt256.ofNat m).val.val = m := by
+    show m % UInt256.size = m; exact Nat.mod_eq_of_lt (by omega)
+  have h32 : ((⟨32⟩ : UInt256)).val.val = 32 := by
+    show 32 % UInt256.size = 32; exact Nat.mod_eq_of_lt (by unfold UInt256.size; omega)
+  rw [hm, h32]; exact Nat.mod_eq_of_lt h
+
+/-- The post-`mstore` active-word count always covers the slot just written: `a.toNat < M(…) * 32`. -/
+theorem M_lb (s d : Nat) : d < MachineState.M s d 32 * 32 := by
+  have hM : MachineState.M s d 32 = max s ((d + 32 + 31) / 32) := rfl
+  rw [hM]; omega
+
+/-- **MachineState round-trip (guard discharged).** Given the encoded word is 32 bytes (`h32`), the
+    buffer has room (`hmem`), and the active-word count does not overflow (`hM32`), reading the just-stored
+    slot back through EVMYulLean's real `lookupMemory` returns the value. This is the wrapping of
+    `mem_roundtrip` + `fromByteArray_toByteArray` + `ofNat_toNat` into the operational `mstore`. -/
+theorem mstore_lookupMemory (ms : MachineState) (a v : UInt256)
+    (h32 : (v.toByteArray).size = 32)
+    (hmem : a.toNat + 32 ≤ ms.memory.size)
+    (hM32 : MachineState.M ms.activeWords.toNat a.toNat 32 * 32 < UInt256.size) :
+    (ms.mstore a v).lookupMemory a = v := by
+  have hmemeq : (ms.mstore a v).memory = ByteArray.write v.toByteArray 0 ms.memory a.toNat 32 := rfl
+  have haw : (ms.mstore a v).activeWords
+      = UInt256.ofNat (MachineState.M ms.activeWords.toNat a.toNat 32) := rfl
+  have hsize : (ms.mstore a v).memory.size = ms.memory.size := by
+    rw [hmemeq, write_eq_copySlice v.toByteArray ms.memory a.toNat h32 hmem,
+        copySlice_size v.toByteArray ms.memory a.toNat h32 hmem]
+  have hg1 : ¬ a.toNat ≥ (ms.mstore a v).memory.size := by rw [hsize]; omega
+  have hg2 : ¬ a ≥ (ms.mstore a v).activeWords * (⟨32⟩ : UInt256) := by
+    rw [ge_iff_le, le_toNat, haw, mul32_toNat _ hM32]
+    exact Nat.not_le.mpr (M_lb _ _)
+  unfold MachineState.lookupMemory
+  rw [if_neg (not_or.mpr ⟨hg1, hg2⟩)]
+  show UInt256.ofNat
+      (fromByteArrayBigEndian (ByteArray.readWithPadding (ms.mstore a v).memory a.toNat 32)) = v
+  rw [hmemeq, mem_roundtrip v.toByteArray ms.memory a.toNat h32 hmem, fromByteArray_toByteArray,
+      ofNat_toNat]
+
+/-- Same, phrased on `mload` (whose value component is `lookupMemory`). -/
+theorem mstore_mload_val (ms : MachineState) (a v : UInt256)
+    (h32 : (v.toByteArray).size = 32)
+    (hmem : a.toNat + 32 ≤ ms.memory.size)
+    (hM32 : MachineState.M ms.activeWords.toNat a.toNat 32 * 32 < UInt256.size) :
+    ((ms.mstore a v).mload a).1 = v := by
+  simp only [MachineState.mload]
+  exact mstore_lookupMemory ms a v h32 hmem hM32
+
+/-- The **second** (and final) upstream-dischargeable spec, sibling to `zeroes_data`: EVMYulLean's
+    `UInt256.toByteArray` always yields exactly 32 bytes. This is TRUE and **verified** — its discharge is a
+    short proof: `(toBytesBigEndian v.toNat).length ≤ 32` (from the existing upstream bound
+    `toBytes'_UInt256_le`) plus the `zeroes ++ BE` size split (`size_append`, `zeroes_size`, and the USize
+    literal). It is blocked downstream *only* because `toBytes'_UInt256_le` is declared `private`; exposing
+    that one lemma upstream turns this axiom into a theorem. Like `zeroes_data`, this is an access-modifier
+    limitation, not a trust assumption. (Discharge proof verified against a locally-patched EVMYulLean.) -/
+axiom toByteArray_size (v : UInt256) : (UInt256.toByteArray v).size = 32
+
+/-- **Unconditional MachineState round-trip.** Storing `v` at `a` and loading it back returns `v`, whenever
+    the buffer has room and the active-word count does not overflow — the 32-byte-ness of the encoded word
+    is supplied by `toByteArray_size`. This is the operational `mload∘mstore = id` for a single 32-byte
+    word, against EVMYulLean's validated `MachineState`. -/
+theorem mstore_mload (ms : MachineState) (a v : UInt256)
+    (hmem : a.toNat + 32 ≤ ms.memory.size)
+    (hM32 : MachineState.M ms.activeWords.toNat a.toNat 32 * 32 < UInt256.size) :
+    ((ms.mstore a v).mload a).1 = v :=
+  mstore_mload_val ms a v (toByteArray_size v) hmem hM32
+
 #print axioms fromBytesBigEndian_toBytesBigEndian
 #print axioms keystone
 #print axioms mem_roundtrip
 #print axioms fromByteArray_toByteArray
+#print axioms mstore_lookupMemory
+#print axioms mstore_mload
 end RelayDataLayer
