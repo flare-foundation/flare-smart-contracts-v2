@@ -153,7 +153,7 @@ Status reflects the current tree.
 | **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
 | **OP-1** (ecrecover failure ABI) | Addressable | ✅ real-EVM regression done (`RelayEcrecoverABI.t.sol`); symbolic-model internalization pending |
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | weeks |
-| **BR-1** (data layer, `mload = w[i]`) | Addressable; **started** | byte-decode round-trip ✅ committed (`DataLayer.lean`); keystone reduced to a pure `Array` goal (no obstacle). **~3–6 weeks remaining**: a minimal `zeroes` spec + the Array-level `write/extract` proof on Lean 4.22 (or a Lean bump) + glue (guard, mask, slot, `R`) |
+| **BR-1** (data layer, `mload = w[i]`) | Addressable; **in progress** | byte-decode round-trip ✅ + memory **keystone** (write/read round-trip) ✅ — both committed hole-free (`DataLayer.lean`). **~2–4 weeks remaining**: wrap the keystone into `mload∘mstore` (needs the minimal `zeroes` spec) + `mload` guard + `&0xffff` mask + slot arithmetic + the simulation relation `R` |
 | whole-`relay()` extension, **OP-3/4** | Addressable | months–years (full end-to-end R5) |
 | **C-1** (Certora all-functions storage) | Addressable but **not recommended** | re-introduces the faithfulness risk the engagement avoids; per-sequence forms already proven |
 
@@ -167,17 +167,17 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      fromBytes'_toBytes'`, which fires downstream despite being `private`. The padding/bounds lemmas
      (`extend_bytes_zero`, `fromBytes'_zeroPadBytes_32_eq`) also already exist upstream. No new number
      theory needed.
-   - **Memory layer — the real gap, now reduced.** `mload∘mstore` collapses (via the `zeroes` spec) to
-     the single keystone `(src.copySlice 0 mem d 32).extract d (d+32) = src` (for `src.size = 32`,
-     `mem.size ≥ d+32`). **Verified that `ByteArray.ext` turns this into a pure `Array.extract`/`append`
-     goal** — i.e. no fundamental obstacle, it is standard `Array` reasoning. Two real frictions: (a)
-     `ByteArray.write`/`readWithPadding` pad with `ffi.ByteArray.zeroes`, declared **`opaque`**
-     (`EvmYul/FFI/ffi.lean`), so a minimal `zeroes` spec is required (1-line axiom, or upstream
-     `opaque → def … @[implemented_by memset_zero]`); (b) **EVMYulLean's pinned Lean 4.22.0 has *no*
-     ByteArray lemma layer** (no `extract_append`/`copySlice` lemmas — those arrived in later Lean), so
-     the keystone must be proven at the `Array.data` level (4.22's `Init/Data/Array/Extract.lean` has the
-     lemmas), *or* EVMYulLean bumped to ≥4.31 (which ships the ByteArray lemmas, shrinking the keystone to
-     a few lines — but the bump is its own mathlib-compat effort).
+   - **Memory keystone — ✅ DONE (committed).** The write-then-read round-trip
+     `(src.copySlice 0 mem d 32).extract d (d+32) = src` (for `src.size = 32`, `mem.size ≥ d+32`) is
+     **proven hole-free** in `DataLayer.lean:keystone`, against EVMYulLean's *actual*
+     `ByteArray.copySlice`/`extract`. Since Lean 4.22 has no ByteArray lemma layer, the proof reduces via
+     `ByteArray.ext` to the `Array.data` level and closes with `Array.extract`/`append` lemmas; it needs
+     **no axioms beyond the standard three** (the `copySlice→extract` core dodges the `zeroes` padding).
+     This was the hard critical-path brick.
+   - **Remaining memory glue.** Wrap `keystone` into the full `mload∘mstore` round-trip: the
+     `ByteArray.write` → `copySlice` and `readWithPadding` → `extract` reductions (these *do* touch the
+     `opaque ffi.ByteArray.zeroes` padding, so they need its minimal spec — a 1-line axiom or upstream
+     `opaque → def … @[implemented_by memset_zero]`), plus the `mload` size/`activeWords` guard.
    - **Glue:** the `mload` guard (`addr < size ∧ addr < activeWords*32`, from the write's size facts + the
      `M` activeWords arithmetic), the `& 0xffff` weight mask (`Fin.land` = mod 2¹⁶), the slot arithmetic,
      and the simulation relation `R` over the ∀N loop.
