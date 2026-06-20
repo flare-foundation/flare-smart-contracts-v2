@@ -36,8 +36,11 @@ Both become theorems with one-line upstream edits; neither is a semantic assumpt
   validated `MachineState`, `(mstore a v).mload a = v` whenever the buffer has room and the active-word
   count does not overflow. Discharges the `activeWords`/size guard and composes the byte layer; this is the
   operational `mload∘mstore = id` for a 32-byte word.
-* **Remaining**: (iii) the `& 0xffff` weight mask + slot arithmetic; (iv) the simulation relation `R` over
-  the ∀N loop. (iii) is bounded; (iv) is the multi-week integration.
+* **`& 0xffff` weight mask — DONE** (`mask16_toNat`, `mask16_of_lt`): `and(x, 0xffff)` extracts the low 16
+  bits (`= x.toNat mod 2¹⁶`), and is the identity on a 16-bit registered weight. *No* axioms beyond the
+  standard three. This is the masked weight read at `Relay.sol:1327`.
+* **Remaining**: (iv) the simulation relation `R` over the ∀N loop — the multi-week integration that ties
+  the calldata/memory layout (slot arithmetic) to `RelaySigLoop.loop` and transfers `threshold_sound`.
 -/
 
 namespace RelayDataLayer
@@ -310,10 +313,46 @@ theorem mstore_mload (ms : MachineState) (a v : UInt256)
     ((ms.mstore a v).mload a).1 = v :=
   mstore_mload_val ms a v (toByteArray_size v) hmem hM32
 
+/-! ## The `& 0xffff` weight mask (Relay.sol:1327, `and(mload(…), 0xffff)`) -/
+
+/-- Bitwise AND with `0xffff` is reduction mod 2¹⁶ (proved bit-by-bit; no `zeroes_data`). -/
+theorem land_65535 (n : Nat) : n &&& 65535 = n % 65536 := by
+  have h1 : (65535 : Nat) = 2 ^ 16 - 1 := by norm_num
+  have h2 : (65536 : Nat) = 2 ^ 16 := by norm_num
+  rw [h1, h2]
+  apply Nat.eq_of_testBit_eq
+  intro i
+  rw [Nat.testBit_and, Nat.testBit_two_pow_sub_one, Nat.testBit_mod_two_pow, Bool.and_comm]
+
+/-- `toNat` is injective on `UInt256`. -/
+theorem toNat_inj {a b : UInt256} (h : a.toNat = b.toNat) : a = b := by
+  obtain ⟨a⟩ := a; obtain ⟨b⟩ := b
+  apply congrArg UInt256.mk; apply Fin.ext; exact h
+
+/-- **Weight mask.** `and(x, 0xffff)` on EVMYulLean's `UInt256.land` extracts the low 16 bits: its value
+    is `x.toNat mod 2¹⁶`. This is the weight read at `Relay.sol:1327`. -/
+theorem mask16_toNat (x : UInt256) :
+    (UInt256.land x (⟨0xffff⟩ : UInt256)).toNat = x.toNat % 65536 := by
+  have hb : ((⟨0xffff⟩ : UInt256)).val.val = 65535 := by
+    show 0xffff % UInt256.size = 65535
+    exact Nat.mod_eq_of_lt (by unfold UInt256.size; omega)
+  show (Fin.land x.val (⟨0xffff⟩ : UInt256).val).val = x.toNat % 65536
+  rw [show (Fin.land x.val (⟨0xffff⟩ : UInt256).val).val
+        = (x.val.val &&& (⟨0xffff⟩ : UInt256).val.val) % UInt256.size from rfl, hb, land_65535]
+  exact Nat.mod_eq_of_lt (lt_trans (Nat.mod_lt _ (by norm_num)) (by unfold UInt256.size; omega))
+
+/-- A value already below 2¹⁶ is unchanged by the `& 0xffff` mask: registered weights are 16-bit
+    (`totalWeight < 2¹⁶`, `Relay.sol:350`), so the mask is the identity on a stored weight. -/
+theorem mask16_of_lt (x : UInt256) (h : x.toNat < 65536) :
+    UInt256.land x (⟨0xffff⟩ : UInt256) = x :=
+  toNat_inj (by rw [mask16_toNat, Nat.mod_eq_of_lt h])
+
 #print axioms fromBytesBigEndian_toBytesBigEndian
 #print axioms keystone
 #print axioms mem_roundtrip
 #print axioms fromByteArray_toByteArray
 #print axioms mstore_lookupMemory
 #print axioms mstore_mload
+#print axioms mask16_toNat
+#print axioms mask16_of_lt
 end RelayDataLayer
