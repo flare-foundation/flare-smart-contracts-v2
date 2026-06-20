@@ -70,5 +70,9 @@ closes BR-3.
 
 Then prove `exec` of the loop preserves `R` with `(weight', nui') = RelaySigLoop.loop w weight nui sigs`,
 and transfer `RelaySigLoop.threshold_sound` through it. The hard part is the memory/calldata decoding
-lemmas — EVMYulLean's memory is FFI-backed, so a runtime test executable that links the FFI is the likely
-route (see the claims ledger, L10 §10.5).
+lemmas. Feasibility note (investigated): EVMYulLean's memory ops (`readWithPadding`, `write`,
+`fromByteArrayBigEndian`, …) are **plain Lean defs, not `@[extern]`/opaque** (only keccak and zero-init are
+FFI), so the round-trip is **provable in principle** — no axiomatization needed. The catch: helpers like
+`toBytes'` are `private`, so these lemmas must be **upstreamed into EVMYulLean** rather than added here, and
+the full brick set (big-endian round-trip, `write`/`readWithPadding` round-trip, zero-padding, `& 0xffff`
+mask, slot arithmetic, `activeWords` guard) is multi-week-to-month. See the claims ledger, L10 §10.5.
