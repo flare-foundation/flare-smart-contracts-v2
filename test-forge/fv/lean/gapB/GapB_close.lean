@@ -182,6 +182,27 @@ theorem bytecode_loop_correct (N : Nat) (hN : N < UInt256.size)
            (EvmYul.Yul.State.Ok ss vs')[WW]! = absAcc 0 N ⟨0⟩ :=
   loop_acc N hN N 0 ⟨0⟩ ss vs (by omega) hi hw
 
+-- ===================== THRESHOLD SOUNDNESS, lifted to the bytecode =====================
+-- The deployed loop's final accumulator IS the total accumulated weight (absAcc 0 N ⟨0⟩). Hence if the
+-- bytecode "accepts" — its final weight strictly exceeds the threshold — then the TOTAL accumulated weight
+-- exceeds the threshold. This is RelaySigLoop.threshold_sound's content (accept ⟹ enough weight), now on
+-- the VALIDATED-SEMANTICS bytecode, for ALL N. (absAcc 0 N ⟨0⟩ = Σ_{j<N} ofNat j is the UInt256 mirror of
+-- RelaySigLoop.sumTake over the registered weights; see PROGRESS.md.)
+theorem bytecode_threshold_sound (N : Nat) (hN : N < UInt256.size)
+    (ss : EvmYul.SharedState .Yul) (vs vs' : VarStore) (thr : EvmYul.UInt256)
+    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
+    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = ⟨0⟩)
+    (hexec : EvmYul.Yul.exec (3 * N + 10) (Stmt.For (cond (UInt256.ofNat N)) post body) none (EvmYul.Yul.State.Ok ss vs)
+              = .ok (EvmYul.Yul.State.Ok ss vs'))
+    (haccept : thr < (EvmYul.Yul.State.Ok ss vs')[WW]!) :
+    thr < absAcc 0 N ⟨0⟩ := by
+  obtain ⟨vs'', hex2, hWW⟩ := bytecode_loop_correct N hN ss vs hi hw
+  rw [hexec] at hex2
+  simp only [Except.ok.injEq, EvmYul.Yul.State.Ok.injEq, true_and] at hex2
+  rw [hex2, hWW] at haccept
+  exact haccept
+
 #print axioms loop_acc
 #print axioms bytecode_loop_correct
+#print axioms bytecode_threshold_sound
 end GapB
