@@ -131,6 +131,8 @@ Expect exit 0 and, from the file's trailing `#print axioms`:
 'RelayBytecodeRefinement.loop_acc' depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayBytecodeRefinement.bytecode_loop_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayBytecodeRefinement.bytecode_threshold_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBytecodeRefinement.absAcc_val' depends on axioms: [propext]
+'RelayBytecodeRefinement.bytecode_threshold_sound_int' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 No `error:`, no `sorry`/`sorryAx`. The file is self-contained; its scope and assumptions are in
 `test-forge/fv/lean/bytecode-refinement/README.md`.

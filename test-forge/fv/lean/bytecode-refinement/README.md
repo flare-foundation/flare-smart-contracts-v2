@@ -15,7 +15,10 @@ operational semantics, for all N. It is self-contained — every supporting lemm
 - `bytecode_loop_correct` — ∀N < 2²⁵⁶: the interpreter runs the loop to completion with exact fuel
   `3N+10` (no `OutOfFuel`, no exception) and the final accumulator equals `absAcc 0 N ⟨0⟩`.
 - `bytecode_threshold_sound` — ∀N: on that validated execution, accept (final weight > `thr`) ⟹ total
-  accumulated weight > `thr`.
+  accumulated weight > `thr` (in `𝕌`, mod 2²⁵⁶).
+- `absAcc_val` / `bytecode_threshold_sound_int` — ∀N: under the explicit no-overflow hypothesis
+  `Σ < 2²⁵⁶`, the modular accumulator equals the *integer* accumulator, so accept ⟹ the **integer** total
+  > `thr`. This discharges the BR-2 (overflow-bound) assumption inside Lean.
 
 ## Scope and assumptions
 

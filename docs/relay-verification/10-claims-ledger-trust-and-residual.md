@@ -65,7 +65,7 @@ assumptions above: they are about *EVM/ABI behavior*, not cryptography.
 | ID | Assumption | Status |
 |----|-----------|--------|
 | **BR-1** | data layer: each loop iteration's addend is the registered weight `mload(weights[i])` (the verified loop adds the index `i`) | assumed; validated vs. documented layout + reference encoder. **Highest-leverage open item** (§10.5) |
-| **BR-2** | overflow bound: sums don't wrap 2²⁵⁶ (so `𝕌`-results = integer results) | true with vast margin (`totalWeight < 2¹⁶`); stated, not yet internalized in Lean |
+| **BR-2** | overflow bound: sums don't wrap 2²⁵⁶ (so `𝕌`-results = integer results) | **internalized in Lean** (`absAcc_val` / `bytecode_threshold_sound_int`): under the explicit hypothesis `Σ < 2²⁵⁶`, the modular accumulator equals the integer accumulator and accept ⟹ *integer* total > thr. The hypothesis holds with vast margin (`totalWeight < 2¹⁶`). |
 | **BR-3** | encoding fidelity: the `For` node mirrors the deployed loop's iterate-and-accumulate *skeleton*, not the whole signature routine | the no-double-count discipline is proven abstractly (`ValidRun`); cryptography is MC-2 |
 
 ### Tool-coverage limits
@@ -155,8 +155,9 @@ Each item, if done, moves a row from *assumed/blocked* toward *proven*.
 3. **Tighten BR-3 / K-2.** Parse the emitted optimized Yul for the signature loop and prove the parsed AST
    refines the bytecode-refinement `For` node; and discharge the bmc-depth-1 model↔bytecode equivalence for
    Kontrol (`docs/relay-t1-bridge.md`). Removes "is this the real loop?" for both R3 and R4b.
-4. **Internalize BR-2.** Carry a `Σ < 2²⁵⁶` hypothesis through `loop_acc` and prove `ofNat`-additivity under
-   it, making the `𝕌`→`ℕ` identification a theorem rather than a side remark.
+4. **Internalize BR-2 — done.** `absAcc_val` + `bytecode_threshold_sound_int` carry the `Σ < 2²⁵⁶`
+   hypothesis and make the `𝕌`→`ℕ` identification a theorem (the modular accumulator provably equals the
+   integer accumulator, so accept ⟹ *integer* total > thr).
 5. **Glue rows 1 and 1b explicitly.** A Lean lemma transporting `bytecode_threshold_sound` (modular,
    index-addend) to `threshold_sound` (integer, weight-addend) **under BR-1+BR-2**, with the assumptions as
    visible hypotheses.

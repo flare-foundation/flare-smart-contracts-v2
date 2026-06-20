@@ -30,14 +30,15 @@ re-proves every supporting lemma locally, so one `lake env lean` checks it). See
 ## 7.2 What the bytecode refinement proves
 
 A counting accumulation loop is encoded in the **real Yul AST** — `for { } lt(i,N) { i := add(i,1) } { w
-:= add(w,i) }` — and run by the validated interpreter. Three theorems, all **hole-free** (`#print axioms` =
+:= add(w,i) }` — and run by the validated interpreter. The theorems are all **hole-free** (`#print axioms` ⊆
 `[propext, Classical.choice, Quot.sound]`, no `sorryAx`):
 
 | Theorem | Statement (informal) |
 |---------|----------------------|
 | `loop_acc` | the induction engine: for all iteration counts, the validated `exec` drives the loop and accumulates the abstract accumulator `absAcc` |
 | `bytecode_loop_correct` | **∀N**: the validated interpreter runs the loop to completion (exact fuel `3N+10`, no `OutOfFuel`/exception) and the final accumulator equals `absAcc(0,N,0)` |
-| `bytecode_threshold_sound` | **∀N**: on that validated execution, *accept* (final weight > `thr`) ⟹ total accumulation > `thr` |
+| `bytecode_threshold_sound` | **∀N**: on that validated execution, *accept* (final weight > `thr`) ⟹ total accumulation > `thr` (in `𝕌`, mod 2²⁵⁶) |
+| `absAcc_val` / `bytecode_threshold_sound_int` | **∀N**: under the explicit no-overflow hypothesis `Σ < 2²⁵⁶`, the modular accumulator equals the *integer* accumulator, so *accept* ⟹ the **integer** total > `thr` (discharges BR-2 — see §7.3) |
 
 `bytecode_threshold_sound` is the abstract proof's `threshold_sound` shape — *accept ⟹ enough accumulated total* — now
 holding of a loop run by a **validated model of the real machine**, for every N. That is the rung-R4
@@ -63,9 +64,11 @@ This is the most important part of the rung for an auditor; the full ledger is [
   weight* is the **data layer (BR-1)**: assumed, validated separately (the slot arithmetic matches the
   documented layout and the reference encoder). The refinement is agnostic to the addend's *value*, so a
   layout bug would falsify BR-1, not the proof; BR-1 is the right place for a skeptic to push.
-- **Modular vs. integer arithmetic (BR-2).** The bytecode refinement reasons in `𝕌 = Fin 2²⁵⁶` (mod 2²⁵⁶);
-  the abstract proof in `ℕ`. Identifying the two requires the **overflow bound** (weights small enough not
-  to wrap) — true for Relay with vast margin (`totalWeight < 2¹⁶ ≪ 2²⁵⁶`), stated explicitly.
+- **Modular vs. integer arithmetic (BR-2) — now internalized.** The bytecode refinement reasons in
+  `𝕌 = Fin 2²⁵⁶` (mod 2²⁵⁶); the abstract proof in `ℕ`. `bytecode_threshold_sound_int` carries an explicit
+  `Σ < 2²⁵⁶` hypothesis and proves (via `absAcc_val`) that the modular accumulator equals the integer
+  accumulator, so accept ⟹ the integer total > thr. The hypothesis itself holds for Relay with vast margin
+  (`totalWeight < 2¹⁶ ≪ 2²⁵⁶`).
 - **Encoding fidelity (BR-3).** The `For` node mirrors the loop's iterate-and-accumulate *skeleton* (note
   the no-init form, matching the optimizer); it is not a verbatim transcription of the whole signature
   routine (cryptography is out of scope, MC-2; the no-double-count discipline is the abstract proof's

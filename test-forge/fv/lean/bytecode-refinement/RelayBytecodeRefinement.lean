@@ -223,7 +223,60 @@ theorem bytecode_threshold_sound (N : Nat) (hN : N < UInt256.size)
   rw [hex2, hWW] at haccept
   exact haccept
 
+-- ===================== BR-2: the modular accumulator carries the INTEGER sum (no overflow) =====================
+-- `absAccNat` is the ℕ-valued mirror of `absAcc`. Under a no-overflow bound the deployed loop's modular
+-- (𝕌) accumulator equals `ofNat` of the integer accumulator, so the 𝕌 threshold comparison IS the integer
+-- comparison — discharging the BR-2 side condition inside Lean rather than leaving it a prose remark.
+def absAccNat : Nat → Nat → Nat → Nat
+  | _, 0,     w => w
+  | a, m + 1, w => absAccNat (a + 1) m (w + a)
+
+theorem zero_ofNat : (⟨0⟩ : EvmYul.UInt256) = UInt256.ofNat 0 := by
+  unfold UInt256.ofNat; simp only [Id.run]; congr 1
+
+theorem ofNat_add (x y : Nat) :
+    UInt256.add (UInt256.ofNat x) (UInt256.ofNat y) = UInt256.ofNat (x + y) := by
+  unfold UInt256.add UInt256.ofNat; simp only [Id.run]; congr 1; apply Fin.ext
+  simp [Fin.val_add, Fin.val_ofNat, Nat.add_mod]
+
+theorem absAcc_val : ∀ (m a w : Nat), absAccNat a m w < UInt256.size →
+    (absAcc a m (UInt256.ofNat w)).val = absAccNat a m w := by
+  intro m
+  induction m with
+  | zero =>
+    intro a w h
+    show (UInt256.ofNat w).val = w
+    unfold UInt256.ofNat; simp only [Id.run]
+    show w % UInt256.size = w
+    exact Nat.mod_eq_of_lt h
+  | succ m ih =>
+    intro a w h
+    show (absAcc (a + 1) m (UInt256.add (UInt256.ofNat w) (UInt256.ofNat a))).val = absAccNat (a + 1) m (w + a)
+    rw [ofNat_add]
+    exact ih (a + 1) (w + a) h
+
+theorem absAcc_zero_val (N : Nat) (h : absAccNat 0 N 0 < UInt256.size) :
+    (absAcc 0 N (⟨0⟩ : EvmYul.UInt256)).val = absAccNat 0 N 0 := by
+  rw [zero_ofNat]; exact absAcc_val N 0 0 h
+
+-- THRESHOLD SOUNDNESS as an INTEGER inequality: under no overflow, accept ⟹ the integer total > thr.
+theorem bytecode_threshold_sound_int (N : Nat) (hN : N < UInt256.size)
+    (ss : EvmYul.SharedState .Yul) (vs vs' : VarStore) (thr : EvmYul.UInt256)
+    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
+    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = ⟨0⟩)
+    (hexec : EvmYul.Yul.exec (3 * N + 10) (Stmt.For (cond (UInt256.ofNat N)) post body) none (EvmYul.Yul.State.Ok ss vs)
+              = .ok (EvmYul.Yul.State.Ok ss vs'))
+    (haccept : thr < (EvmYul.Yul.State.Ok ss vs')[WW]!)
+    (hnoovf : absAccNat 0 N 0 < UInt256.size) :
+    thr.val < absAccNat 0 N 0 := by
+  have hmod := bytecode_threshold_sound N hN ss vs vs' thr hi hw hexec haccept
+  have key : (absAcc 0 N (⟨0⟩ : EvmYul.UInt256)).val = absAccNat 0 N 0 := absAcc_zero_val N hnoovf
+  have hlt : thr.val < (absAcc 0 N (⟨0⟩ : EvmYul.UInt256)).val := hmod
+  omega
+
 #print axioms loop_acc
 #print axioms bytecode_loop_correct
 #print axioms bytecode_threshold_sound
+#print axioms absAcc_val
+#print axioms bytecode_threshold_sound_int
 end RelayBytecodeRefinement
