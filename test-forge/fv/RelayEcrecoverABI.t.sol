@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+// OP-1 evidence (run on the REAL EVM, not Halmos).
+//
+// The `ecrecover` precompile (address 0x01) does NOT revert on a bad signature: the staticcall returns
+// SUCCESS with EMPTY return data (returndatasize() == 0) and leaves the caller's output buffer UNTOUCHED
+// (stale). That is the behavioral assumption a past bug violated ("it reverts on a wrong signature" —
+// false). Relay's raw-assembly ecrecover is made safe by three checks (Relay.sol:1283-1302): staticcall
+// success, returndatasize()==32, and recovered-signer != 0. This test pins that failure ABI as an
+// executable fact and shows the returndatasize discriminator is load-bearing.
+//
+// Why this is a `forge test`, not a Halmos `check_` harness: Halmos models the 0x01 precompile as a TOTAL
+// function returning a well-formed 32-byte address (returndatasize()==32 always), so it cannot exercise
+// this empty-return/stale-buffer failure mode (assumption OP-1 in the claims ledger). The real EVM
+// (revm, via `forge test`) does.
+//
+// RUN: forge test --match-contract RelayEcrecoverABITest -vvv
+
+contract RelayEcrecoverABITest {
+    // A bad signature: r = 0 is not a valid curve coordinate, so recovery fails.
+    uint256 constant V = 27;
+    uint256 constant R = 0;
+    uint256 constant S = 1;
+
+    /// The precompile on a bad signature: success, empty return, output buffer left stale.
+    function test_badSig_succeeds_emptyReturn_staleBuffer() external view {
+        bytes32 h = keccak256("msg");
+        bool ok;
+        uint256 outSize;
+        bytes32 outWord;
+        assembly {
+            let p := mload(0x40)
+            mstore(p, h)
+            mstore(add(p, 0x20), V)
+            mstore(add(p, 0x40), R)
+            mstore(add(p, 0x60), S)
+            let outPtr := add(p, 0x80)
+            mstore(outPtr, 0xdead) // sentinel: detect a stale (never-written) output slot
+            ok := staticcall(gas(), 0x01, p, 0x80, outPtr, 0x20)
+            outSize := returndatasize()
+            outWord := mload(outPtr)
+        }
+        // (1) the precompile does NOT revert on a bad signature:
+        require(ok, "OP-1 FAIL: precompile reverted (it must NOT revert on a bad signature)");
+        // (2) it returns EMPTY data, not 32 bytes:
+        require(outSize == 0, "OP-1 FAIL: a bad signature must return empty data (returndatasize 0)");
+        // (3) the output buffer is left UNTOUCHED -> reading it yields stale (here, attacker-free) bytes.
+        //     Without a returndatasize==32 check, this stale value would be read as the "recovered signer".
+        require(outWord == bytes32(uint256(0xdead)), "OP-1 FAIL: output buffer must be left stale on failure");
+    }
+
+    /// The safe discriminator: requiring returndatasize()==32 rejects the bad signature.
+    function test_returndatasizeGuard_rejectsBadSig() external view {
+        bytes32 h = keccak256("msg");
+        bool accepted;
+        assembly {
+            let p := mload(0x40)
+            mstore(p, h)
+            mstore(add(p, 0x20), V)
+            mstore(add(p, 0x40), R)
+            mstore(add(p, 0x60), S)
+            let ok := staticcall(gas(), 0x01, p, 0x80, add(p, 0x80), 0x20)
+            // Relay's guard: accept only if the call succeeded AND returned exactly 32 bytes.
+            accepted := and(ok, eq(returndatasize(), 32))
+        }
+        require(!accepted, "OP-1 FAIL: returndatasize==32 guard must reject a bad signature");
+    }
+
+    /// Solidity's high-level `ecrecover` is safe by construction: it returns address(0) (never reverts).
+    function test_solidityBuiltin_returnsZeroOnBadSig() external pure {
+        address rec = ecrecover(keccak256("msg"), uint8(V), bytes32(R), bytes32(S));
+        require(rec == address(0), "OP-1 FAIL: Solidity ecrecover should return address(0) on a bad signature");
+    }
+}

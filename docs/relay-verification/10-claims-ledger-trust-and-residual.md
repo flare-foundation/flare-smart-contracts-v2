@@ -48,7 +48,7 @@ assumptions above: they are about *EVM/ABI behavior*, not cryptography.
 
 | ID | Boundary (site) | Operational contract | Required code-side obligation | Verified by |
 |----|-----------------|----------------------|-------------------------------|-------------|
-| **OP-1** | `ecrecover` precompile `0x01` — raw `staticcall` (`Relay.sol:1284`) | **does not revert on a bad signature**: the `staticcall` returns *success* with **empty** return data (`returndatasize()==0`) and leaves the output buffer **unmodified** (stale-read hazard); returns 32 bytes only on a valid recovery | the call site **must** check (a) `staticcall` success, (b) **`returndatasize()==32`**, and (c) recovered signer `≠ 0` — all three are present (`"ecrecover error"`, `"ecrecover returned bad data"`, `"Zero signer"`). **Load-bearing: must never be removed.** | Foundry/Hardhat revert tests on the failure path + assembly review (`docs/relay-assembly-review.md`). **Not** exercised by the symbolic FV — see the note below. |
+| **OP-1** | `ecrecover` precompile `0x01` — raw `staticcall` (`Relay.sol:1284`) | **does not revert on a bad signature**: the `staticcall` returns *success* with **empty** return data (`returndatasize()==0`) and leaves the output buffer **unmodified** (stale-read hazard); returns 32 bytes only on a valid recovery | the call site **must** check (a) `staticcall` success, (b) **`returndatasize()==32`**, and (c) recovered signer `≠ 0` — all three are present (`"ecrecover error"`, `"ecrecover returned bad data"`, `"Zero signer"`). **Load-bearing: must never be removed.** | **`test-forge/fv/RelayEcrecoverABI.t.sol`** — a real-EVM regression that pins the empty-return/stale-buffer ABI and that the `returndatasize()==32` guard rejects a bad signature — plus Foundry/Hardhat failure-path tests + assembly review (`docs/relay-assembly-review.md`). **Not** exercised by the symbolic FV — see the note below. |
 | **OP-2** | `keccak256` (`SHA3` opcode) | total & deterministic; cannot return malformed output or "fail" (only out-of-gas) | none beyond gas | inherent (opcode); MC-1 supplies the algebraic model |
 | **OP-3** | `oldRelay.*` external calls, incl. value-bearing `oldRelay.verify{value: oldFee}(…)` (`Relay.sol:1567`) | a real cross-contract call that **may revert** and **may re-enter** `Relay`; forwards value | revert is propagated (`require(success,…)` on the relayed path); re-entrancy is benign (re-entered paths write no fee/nonce/root state — R1/R2); fee is forwarded exactly (M-1) | code review (`docs/relay-security-review.md`) + Foundry (`RelayVerifyFeeFV`, fee/old-relay tests); MC-5 supplies return-value trust |
 | **OP-4** | self-call `address(this).call(_relayMessage)` (`Relay.sol:1730`, `_verifyCustomSignature`) | ordinary external call to self: returns `(success, returnData)`; re-enters the `relay()` path | `require(success)` + `require(returnData.length == 35)` (the RLY-07 mode-1 discriminator) | Foundry custom-signature tests + review |
@@ -148,10 +148,11 @@ Each item, if done, moves a row from *assumed/blocked* toward *proven*.
    slot arithmetic addresses it. Collapses most of the R4→R5 gap. Concrete starting points (the IR-extraction
    recipe and the full-fidelity simulation relation `R`) are in
    `test-forge/fv/lean/bytecode-refinement/README.md`.
-2. **Internalize OP-1 in the symbolic model.** Model `ecrecover` with its real failure ABI (empty return /
-   stale buffer) instead of a total clean-address function, so the symbolic suite itself would flag a
-   missing `returndatasize`/zero-signer check. This turns the OP-1 obligation from test-and-review into a
-   machine-checked property.
+2. **Internalize OP-1 in the symbolic model.** The OP-1 ABI is now pinned by a real-EVM regression
+   (`test-forge/fv/RelayEcrecoverABI.t.sol`). The remaining step is to model `ecrecover` with its real
+   failure ABI (empty return / stale buffer) *inside* the symbolic suite — instead of a total
+   clean-address function — so the symbolic gate itself would flag a missing `returndatasize`/zero-signer
+   check rather than relying on the regression test.
 3. **Tighten BR-3 / K-2.** Parse the emitted optimized Yul for the signature loop and prove the parsed AST
    refines the bytecode-refinement `For` node; and discharge the bmc-depth-1 model↔bytecode equivalence for
    Kontrol (`docs/relay-t1-bridge.md`). Removes "is this the real loop?" for both R3 and R4b.

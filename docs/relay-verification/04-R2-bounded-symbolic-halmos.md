@@ -160,9 +160,9 @@ CI gate output).
   does **not** exercise the real failure ABI — on a bad signature the precompile returns *success with empty
   return data* and leaves the output buffer **unmodified**. The contract's `staticcall`-success,
   `returndatasize()==32`, and zero-signer checks are what make reality conform to this model
-  (assumption/obligation **OP-1** in [L10](10-claims-ledger-trust-and-residual.md)); they are verified by
-  Foundry/Hardhat failure-path tests and assembly review, not by the symbolic suite, and must never be
-  removed.
+  (assumption/obligation **OP-1** in [L10](10-claims-ledger-trust-and-residual.md)); they are verified by a
+  real-EVM regression (`test-forge/fv/RelayEcrecoverABI.t.sol`) plus Foundry/Hardhat failure-path tests and
+  assembly review, not by the symbolic suite, and must never be removed.
 - **Bound rationale.** K≤3, N≤5 are chosen to exercise every branch and the double-count/threshold
   boundaries while staying solver-tractable; the unbounded dimensions are escalated to R3/R4.
 
