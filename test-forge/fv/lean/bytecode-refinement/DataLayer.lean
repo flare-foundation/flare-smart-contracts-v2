@@ -22,12 +22,13 @@ only assumption these proofs add beyond Lean's standard three.
 * **Memory keystone — DONE** (`keystone`): `copySlice`/`extract` round-trip, *no* `zeroes` axiom.
 * **ByteArray memory round-trip — DONE** (`mem_roundtrip`): `readWithPadding (write …) … = src`, against
   EVMYulLean's actual `ByteArray.write`/`readWithPadding`. This is the heart of `mload∘mstore`.
-* **Value-decode bricks — DONE** (`ofNat_toNat`, `size_append`).
-* **Remaining**: (i) the value decode `fromByteArrayBigEndian (v.toByteArray) = v.toNat` — needs
-  `ByteArray.toList = data.toList` (a loop induction; no lemma on 4.22) + the leading-zero argument (via
-  EVMYulLean's `extend_bytes_zero`); (ii) the `MachineState.mstore`/`mload` wrapping (the `activeWords`/
-  size guard); (iii) the `& 0xffff` mask + slot arithmetic; (iv) the simulation relation `R` over the ∀N
-  loop. (i)–(iii) are bounded; (iv) is the multi-week integration.
+* **Value-decode bricks — DONE** (`ofNat_toNat`, `size_append`, **`toList_data`** = `ByteArray.toList =
+  data.toList`, proved via the `toList.loop` invariant).
+* **Remaining**: (i) finish the value decode `fromByteArrayBigEndian (v.toByteArray) = v.toNat` — with
+  `toList_data` in hand, what's left is the leading-zero argument (`fromBytes' (l ++ replicate n 0) =
+  fromBytes' l`) + the `toByteArray` = `zeroes ++ BE` decomposition; (ii) the `MachineState.mstore`/`mload`
+  wrapping (the `activeWords`/size guard); (iii) the `& 0xffff` mask + slot arithmetic; (iv) the simulation
+  relation `R` over the ∀N loop. (i)–(iii) are bounded; (iv) is the multi-week integration.
 -/
 
 namespace RelayDataLayer
@@ -67,6 +68,33 @@ theorem append_data (a b : ByteArray) : (a ++ b).data = a.data ++ b.data := by
 theorem size_append (a b : ByteArray) : (a ++ b).size = a.size + b.size := by
   show (a ++ b).data.size = a.data.size + b.data.size
   rw [append_data]; simp [Array.size_append]
+
+/-- `ByteArray.get!` agrees with `data.toList` indexing (helper for `toList_data`). -/
+private theorem get!_eq (bs : ByteArray) (i : Nat) (h : i < bs.size) :
+    bs.get! i = bs.data.toList[i]'(by rw [Array.length_toList]; exact h) := by
+  obtain ⟨d⟩ := bs
+  have h' : i < d.size := h
+  show d[i]! = d.toList[i]
+  rw [Array.getElem_toList]; exact getElem!_pos d i h'
+
+/-- Loop invariant of `ByteArray.toList.loop`: it reverses its accumulator and appends the data tail. -/
+private theorem toList_loop (bs : ByteArray) (i : Nat) (r : List UInt8) :
+    ByteArray.toList.loop bs i r = r.reverse ++ bs.data.toList.drop i := by
+  induction i, r using ByteArray.toList.loop.induct bs with
+  | case1 i r h ih =>
+    rw [ByteArray.toList.loop, if_pos h, ih, List.reverse_cons,
+        List.drop_eq_getElem_cons (show i < bs.data.toList.length by rw [Array.length_toList]; exact h),
+        get!_eq bs i h]
+    simp
+  | case2 i r h =>
+    have hb : bs.data.size = bs.size := rfl
+    rw [ByteArray.toList.loop, if_neg h, List.drop_eq_nil_of_le (by rw [Array.length_toList]; omega)]
+    simp
+
+/-- `ByteArray.toList = data.toList` (no such lemma on Lean 4.22; proved via the loop invariant). -/
+theorem toList_data (bs : ByteArray) : bs.toList = bs.data.toList := by
+  show ByteArray.toList.loop bs 0 [] = bs.data.toList
+  rw [toList_loop]; simp
 
 private theorem array_core (A B C : Array UInt8) (d : Nat) (hA : A.size = d) (hB : B.size = 32) :
     ((A ++ B) ++ C).extract d (d + 32) = B := by
