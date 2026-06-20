@@ -17,12 +17,21 @@ Capstones (all hole-free; `#print axioms` ⊆ `{propext, Classical.choice, Quot.
                        `absAccM` (the sum of masked slot reads).
 * `bytecode_loop_correct_mem` — ∀N: exact fuel `3N+15`, the final accumulator equals `absAccM rdv 0 N ⟨0⟩`.
 * `bytecode_threshold_sound_mem` — ∀N: accept (final weight > thr) ⟹ total masked-read weight > thr.
+* `bridge`           — the integer masked-read accumulator equals the abstract `sigLoop` accumulated weight,
+                       under the data-layer correspondence `mrd rdv k = w[idxs[k]]`.
+* **`relay_loop_sound`** — the full simulation-relation conclusion: ∀N, if the deployed loop (with its real
+                       masked memory read, on the validated EVM) accepts, then the TOTAL registered voting
+                       weight exceeds the threshold — no voter double-counted.
 
-Modeling choice: weights are memory-resident at 32-byte-aligned slots `i·32`, and the loop reads
-`mload(i·32) & 0xffff` for `i = 0…N-1`. The hypothesis `hcov` (each slot read is state-preserving and
-returns `rdv i`) is exactly BR-1's data-layer invariant — `DataLayer.weight_read` shows each such read
-recovers the registered 16-bit weight, so `rdv i & 0xffff = w[i]`. The signature matching / strict-index
-discipline (ecrecover, `ValidRun`) is orthogonal (assumptions MC-2 / OP-1) and composes on top.
+Modeling choice: weights are memory-resident at 32-byte-aligned slots, and the loop reads
+`mload(slot) & 0xffff`. The behaviour of the external call is an **assumption**, as throughout the
+engagement: ecrecover (the `0x01` staticcall) is *not* modeled — its effect (signature `k` selects voter
+`idxs[k]`, whose registered weight is the addend) and the strict-index discipline are captured by the
+hypotheses of `relay_loop_sound` (`hcov`, `hcorr`, `hvalid`, `hnoovf`; assumptions MC-2 / OP-1 / BR-1 / BR-2).
+Everything else — the loop mechanism, the `mload`, the mask, the accumulation, the accept gate, and the
+accounting soundness — is *proven* against the validated semantics. `DataLayer.weight_read` discharges the
+per-slot read (`hcorr`); the abstract `sigLoop`/`threshold_sound` are restated here (identical to
+`../RelaySigLoop.lean`) so a single `lake env lean` checks the whole chain.
 -/
 
 namespace RelayLoopMemRead
@@ -316,9 +325,153 @@ theorem bytecode_threshold_sound_mem_int (N : Nat) (hN : N < UInt256.size) (rdv 
   have hlt : thr.val < (absAccM rdv 0 N (⟨0⟩ : EvmYul.UInt256)).val := hmod
   omega
 
+-- ===================== abstract signature loop (self-contained restatement of RelaySigLoop) =====================
+-- Pure ℕ/List accounting model of the loop, with the cryptography abstracted: a "signature" is the voter
+-- index it carries, and we reason about the weight it contributes. `ValidRun` encodes the
+-- strictly-increasing-in-range index discipline (no double-count). Restated here so this file checks with a
+-- single `lake env lean`; identical to `test-forge/fv/lean/RelaySigLoop.lean`.
+
+/-- prefix sum of the first `k` registered weights (on-chain `psAt(k)`). -/
+def sumTake : List Nat → Nat → Nat
+  | _,        0      => 0
+  | [],       _ + 1  => 0
+  | x :: xs,  k + 1  => x + sumTake xs k
+
+theorem sumTake_succ (w : List Nat) (idx : Nat) :
+    sumTake w (idx + 1) = sumTake w idx + w.getD idx 0 := by
+  induction idx generalizing w with
+  | zero => cases w with
+    | nil => rfl
+    | cons x xs => simp [sumTake, List.getD]
+  | succ n ih => cases w with
+    | nil => rfl
+    | cons x xs =>
+      have hg : (x :: xs).getD (n + 1) 0 = xs.getD n 0 := rfl
+      simp only [sumTake, ih xs, hg]; omega
+
+theorem sumTake_le_succ (w : List Nat) (k : Nat) : sumTake w k ≤ sumTake w (k + 1) := by
+  rw [sumTake_succ]; exact Nat.le_add_right _ _
+
+theorem sumTake_mono (w : List Nat) {i j : Nat} (h : i ≤ j) : sumTake w i ≤ sumTake w j := by
+  induction h with
+  | refl => exact Nat.le_refl _
+  | step _ ih => exact Nat.le_trans ih (sumTake_le_succ w _)
+
+/-- The on-chain signature loop accounting: state `(weight, nextUnusedIndex)`, one step per signature index.
+    (Named `sigLoop` to avoid clashing with `EvmYul.Yul.loop`.) -/
+def sigLoop : List Nat → Nat → Nat → List Nat → (Nat × Nat)
+  | _, weight, nui, []          => (weight, nui)
+  | w, weight, nui, idx :: rest => sigLoop w (weight + w.getD idx 0) (idx + 1) rest
+
+/-- A valid signature stream: indices strictly increasing and in range (no double-count). This encodes the
+    deployed loop's guards (`nui ≤ idx`, `idx < numberOfVoters`) — i.e. the assumption that execution did not
+    revert on any iteration. -/
+inductive ValidRun (w : List Nat) : Nat → List Nat → Prop
+  | nil  {nui} : ValidRun w nui []
+  | cons {nui idx rest} :
+      nui ≤ idx → idx < w.length → ValidRun w (idx + 1) rest → ValidRun w nui (idx :: rest)
+
+theorem loop_inv (w : List Nat) :
+    ∀ (idxs : List Nat) (nui weight : Nat),
+      weight ≤ sumTake w nui → nui ≤ w.length → ValidRun w nui idxs →
+      (sigLoop w weight nui idxs).1 ≤ sumTake w (sigLoop w weight nui idxs).2 ∧
+      (sigLoop w weight nui idxs).2 ≤ w.length := by
+  intro idxs
+  induction idxs with
+  | nil => intro nui weight hw hn _; exact ⟨hw, hn⟩
+  | cons idx rest ih =>
+    intro nui weight hw hn hv
+    cases hv with
+    | cons hle hlt hrest =>
+      simp only [sigLoop]
+      apply ih (idx + 1) (weight + w.getD idx 0)
+      · have h2 : sumTake w nui ≤ sumTake w idx := sumTake_mono w hle
+        have h4 : sumTake w idx + w.getD idx 0 = sumTake w (idx + 1) := (sumTake_succ w idx).symm
+        omega
+      · omega
+      · exact hrest
+
+/-- THRESHOLD SOUNDNESS (∀N ∀K, abstract): accept (final weight > thr) ⟹ total registered weight > thr. -/
+theorem threshold_sound (w : List Nat) (idxs : List Nat) (thr : Nat)
+    (hv : ValidRun w 0 idxs) (hacc : thr < (sigLoop w 0 0 idxs).1) :
+    thr < sumTake w w.length := by
+  obtain ⟨hw, hb⟩ := loop_inv w idxs 0 0 (Nat.zero_le _) (Nat.zero_le _) hv
+  have hmono : sumTake w (sigLoop w 0 0 idxs).2 ≤ sumTake w w.length := sumTake_mono w hb
+  omega
+
+-- ===================== THE BRIDGE: EVM masked-read sum = abstract loop accumulator =====================
+-- Under the data-layer correspondence `mrd rdv k = w[idxs[k]]` (the EVM word read at loop position `k`,
+-- masked by 0xffff, is the registered weight of the voter that signature `k` selects — this is where the
+-- ecrecover→signer→voter mapping and the calldata decode enter, as an ASSUMPTION about the external call),
+-- the integer accumulator of the validated EVM loop equals the abstract `sigLoop` accumulated weight.
+theorem bridge (w : List Nat) (rdv : Nat → EvmYul.UInt256) :
+    ∀ (idxs : List Nat) (a wgt nui : Nat),
+      (∀ k, k < idxs.length → mrd rdv (a + k) = w.getD (idxs.getD k 0) 0) →
+      absAccMNat rdv a idxs.length wgt = (sigLoop w wgt nui idxs).1 := by
+  intro idxs
+  induction idxs with
+  | nil => intro a wgt nui _; rfl
+  | cons idx rest ih =>
+    intro a wgt nui hcorr
+    have h0 : mrd rdv a = w.getD idx 0 := by
+      have := hcorr 0 (Nat.succ_pos _); simpa using this
+    show absAccMNat rdv (a + 1) rest.length (wgt + mrd rdv a) = (sigLoop w (wgt + w.getD idx 0) (idx + 1) rest).1
+    rw [h0]
+    apply ih (a + 1) (wgt + w.getD idx 0) (idx + 1)
+    intro k hk
+    have hk1 : k + 1 < (idx :: rest).length := by simpa using Nat.succ_lt_succ hk
+    have hc := hcorr (k + 1) hk1
+    have e1 : a + (k + 1) = a + 1 + k := by omega
+    have e2 : (idx :: rest).getD (k + 1) 0 = rest.getD k 0 := rfl
+    rw [e1, e2] at hc
+    exact hc
+
+-- ===================== FULL SIMULATION-RELATION SOUNDNESS =====================
+/-- **The relay signature loop is sound, on the validated EVM, for all N.**
+    If the deployed loop — modeled with its *actual* masked memory read `w += mload(slot)&0xffff` executed by
+    EVMYulLean's validated Yul `exec` — accepts (final weight strictly exceeds the threshold), then the TOTAL
+    registered voting weight exceeds the threshold. No voter is double-counted.
+
+    The behaviour of the external call is an **assumption**, as throughout the engagement: ecrecover (the
+    `0x01` staticcall) is not modeled; instead its effect — that signature `k` selects voter `idxs[k]`, whose
+    registered weight is what the iteration adds — is captured by the hypotheses
+    * `hcov`  — each per-iteration slot read is state-preserving and returns `rdv k` (the memory holds the
+                selected weight at slot `k`; the data layer, dischargeable by `DataLayer.weight_read`);
+    * `hcorr` — `mrd rdv k = w[idxs[k]]`: the masked read is the registered weight of the selected voter
+                (this is where ecrecover→recovered-signer→voter and the calldata decode enter);
+    * `hvalid`— `ValidRun w 0 idxs`: the selected indices are strictly increasing and in range (the deployed
+                guards passed, i.e. execution did not revert — no double-count);
+    * `hnoovf`— the accumulated weight stays below `2²⁵⁶` (BR-2).
+    Everything *else* — the loop mechanism, the memory read, the mask, the accumulation, the accept gate — is
+    proven against the validated semantics. -/
+theorem relay_loop_sound (w idxs : List Nat) (rdv : Nat → EvmYul.UInt256)
+    (ss : EvmYul.SharedState .Yul) (vs vs' : VarStore) (thr : EvmYul.UInt256)
+    (hN : idxs.length < UInt256.size)
+    (hcov : ∀ j, j < idxs.length →
+      ss.toMachineState.mload (UInt256.mul (UInt256.ofNat j) ⟨32⟩) = (rdv j, ss.toMachineState))
+    (hcorr : ∀ k, k < idxs.length → mrd rdv k = w.getD (idxs.getD k 0) 0)
+    (hvalid : ValidRun w 0 idxs)
+    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
+    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = ⟨0⟩)
+    (hexec : EvmYul.Yul.exec (3 * idxs.length + 15)
+        (Stmt.For (cond (UInt256.ofNat idxs.length)) post bodyM) none (EvmYul.Yul.State.Ok ss vs)
+              = .ok (EvmYul.Yul.State.Ok ss vs'))
+    (haccept : thr < (EvmYul.Yul.State.Ok ss vs')[WW]!)
+    (hnoovf : (sigLoop w 0 0 idxs).1 < UInt256.size) :
+    thr.val < sumTake w w.length := by
+  have hbridge : absAccMNat rdv 0 idxs.length 0 = (sigLoop w 0 0 idxs).1 :=
+    bridge w rdv idxs 0 0 0 (fun k hk => by rw [Nat.zero_add]; exact hcorr k hk)
+  have hnoovf' : absAccMNat rdv 0 idxs.length 0 < UInt256.size := by rw [hbridge]; exact hnoovf
+  have h1 := bytecode_threshold_sound_mem_int idxs.length hN rdv ss vs vs' thr hcov hi hw hexec haccept hnoovf'
+  rw [hbridge] at h1
+  exact threshold_sound w idxs thr.val hvalid h1
+
 #print axioms body_effM
 #print axioms loop_accM
 #print axioms bytecode_loop_correct_mem
 #print axioms bytecode_threshold_sound_mem
 #print axioms bytecode_threshold_sound_mem_int
+#print axioms threshold_sound
+#print axioms bridge
+#print axioms relay_loop_sound
 end RelayLoopMemRead
