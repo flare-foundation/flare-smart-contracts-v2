@@ -61,7 +61,7 @@ increasingly strong ways to gain that confidence:
    description it reasons about. If you proved something of a tidy blueprint but the real machine has
    hand-soldered wiring the blueprint glossed over, the proof may not apply. The strongest result proves
    the property about a faithful model of the *real hardware*. This is **Lean + a validated EVM
-   semantics** (Gap B).
+   semantics** — the step the engagement code-names *Gap B* (§1.4).
 
 This ladder — "tried a few" → "proved it about the real machine for all inputs" — is the spine of the
 whole engagement, formalized in L2 as the **fidelity ladder**.
@@ -129,8 +129,11 @@ rung chosen for what it can reach that the rung below cannot:
 - **R3 (Kontrol)** defeats Enemy 1 in the K dimension (∀K) by induction, but on a *model*, at fixed N;
   **Certora** tries the all-functions storage invariants and runs into Enemy 2 (the honest negative
   result).
-- **R4a (Phase A)** defeats Enemy 1 fully (∀N∀K) — but as an abstract algorithm, not the machine.
-- **R4b (Gap B)** carries R4a's result back down to a validated model of the *real machine*, for all N —
+- **R4a — the abstract proof** (engagement code-name *Phase A*) defeats Enemy 1 fully (∀N∀K) — but as an
+  abstract algorithm, not the machine.
+- **R4b — the bytecode refinement** (engagement code-name *Gap B* — its label for *the gap between the
+  abstract proof and the real bytecode*) carries the abstract proof's result back down to a validated model
+  of the *real machine*, for all N —
   the part Enemy 2 attacks.
 
 The residual — explicitly *assumed*, validated separately — is small and named: the cryptography (Enemy

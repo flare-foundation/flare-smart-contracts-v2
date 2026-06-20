@@ -87,11 +87,11 @@ contract like this); the gap between R4 and R5 is the residual fenced in [L10](1
   12h/0 proofs), Certora on storage-slot havoc. The successes (Kontrol's ∀K) and the walls are both
   documented honestly. → [L5](05-R3-unbounded-attempts.md)
 
-- **Lean (R4a, Phase A)** proves the signature-loop soundness **∀N ∀K** as an abstract algorithm — fully
+- **Lean — the abstract proof (R4a, code-name *Phase A*)** proves the signature-loop soundness **∀N ∀K** as an abstract algorithm — fully
   past the induction barrier, in a setting where induction is clean and no EVM model is needed. →
   [L6](06-R4a-abstract-proof.md)
 
-- **Lean + EVMYulLean (R4b, Gap B)** lifts Phase A's result onto a loop run by a *validated EVM semantics*,
+- **Lean + EVMYulLean — the bytecode refinement (R4b, code-name *Gap B*)** lifts the abstract proof's result onto a loop run by a *validated EVM semantics*,
   for all N — crossing the assembly barrier for the loop mechanism. →
   [L7](07-R4b-bytecode-refinement.md)
 
