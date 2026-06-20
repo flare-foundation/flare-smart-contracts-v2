@@ -175,10 +175,14 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      to the `Array.data` level. The only assumption added is one documented axiom, `zeroes_data` (the
      minimal spec for the `opaque ffi.ByteArray.zeroes`/`memset_zero`; dischargeable upstream by
      `opaque → def … @[implemented_by]`). The hard ByteArray-grind risk is fully retired.
-   - **Remaining.** Wrap `mem_roundtrip` into `MachineState.mstore`/`mload` (discharge the
-     `activeWords`/size guard so `lookupMemory` takes the read branch); and the value decode
-     `fromByteArrayBigEndian (v.toByteArray) = v.toNat` (the byte round-trip above + the leading-zero pad,
-     via EVMYulLean's existing `extend_bytes_zero`).
+   - **Value-decode bricks — ✅ DONE.** `ofNat_toNat` (`ofNat ∘ toNat = id`) and `size_append`
+     (`(a++b).size = a.size + b.size`, absent on 4.22) committed in `DataLayer.lean`.
+   - **Remaining.** (i) Finish the value decode `fromByteArrayBigEndian (v.toByteArray) = v.toNat` — the
+     last sub-piece is `ByteArray.toList = data.toList` (a loop induction; no lemma on 4.22), then the
+     leading-zero argument via EVMYulLean's existing `extend_bytes_zero`. (ii) Wrap `mem_roundtrip` into
+     `MachineState.mstore`/`mload` (discharge the `activeWords`/size guard so `lookupMemory` reads).
+     (iii) The `& 0xffff` mask + slot arithmetic. (iv) The simulation relation `R` over the ∀N loop — the
+     multi-week integration that ties it all to `RelaySigLoop.loop` and transfers `threshold_sound`.
    - **Glue:** the `mload` guard (`addr < size ∧ addr < activeWords*32`, from the write's size facts + the
      `M` activeWords arithmetic), the `& 0xffff` weight mask (`Fin.land` = mod 2¹⁶), the slot arithmetic,
      and the simulation relation `R` over the ∀N loop.

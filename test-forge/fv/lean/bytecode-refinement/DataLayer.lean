@@ -22,9 +22,12 @@ only assumption these proofs add beyond Lean's standard three.
 * **Memory keystone — DONE** (`keystone`): `copySlice`/`extract` round-trip, *no* `zeroes` axiom.
 * **ByteArray memory round-trip — DONE** (`mem_roundtrip`): `readWithPadding (write …) … = src`, against
   EVMYulLean's actual `ByteArray.write`/`readWithPadding`. This is the heart of `mload∘mstore`.
-* **Remaining**: the `MachineState.mstore`/`mload` wrapping (the `activeWords`/size guard), the value
-  decode `fromByteArrayBigEndian (v.toByteArray) = v.toNat`, the `& 0xffff` mask, the slot arithmetic, and
-  the simulation relation `R` over the ∀N loop.
+* **Value-decode bricks — DONE** (`ofNat_toNat`, `size_append`).
+* **Remaining**: (i) the value decode `fromByteArrayBigEndian (v.toByteArray) = v.toNat` — needs
+  `ByteArray.toList = data.toList` (a loop induction; no lemma on 4.22) + the leading-zero argument (via
+  EVMYulLean's `extend_bytes_zero`); (ii) the `MachineState.mstore`/`mload` wrapping (the `activeWords`/
+  size guard); (iii) the `& 0xffff` mask + slot arithmetic; (iv) the simulation relation `R` over the ∀N
+  loop. (i)–(iii) are bounded; (iv) is the multi-week integration.
 -/
 
 namespace RelayDataLayer
@@ -37,6 +40,14 @@ axiom zeroes_data (n : USize) : (ffi.ByteArray.zeroes n).data = Array.replicate 
 theorem fromBytesBigEndian_toBytesBigEndian (n : Nat) :
     fromBytesBigEndian (toBytesBigEndian n) = n := by
   simp [fromBytesBigEndian, toBytesBigEndian]
+
+/-- Value-decode brick: `ofNat ∘ toNat = id` on `UInt256`. -/
+theorem ofNat_toNat (v : UInt256) : UInt256.ofNat v.toNat = v := by
+  unfold UInt256.ofNat UInt256.toNat
+  simp only [Id.run]
+  apply congrArg UInt256.mk; apply Fin.ext
+  show v.val.val % UInt256.size = v.val.val
+  exact Nat.mod_eq_of_lt v.val.isLt
 
 /-! ## ByteArray helpers (Lean 4.22 has no ByteArray lemma layer, so these drop to `Array.data`) -/
 
@@ -51,6 +62,11 @@ theorem append_data (a b : ByteArray) : (a ++ b).data = a.data ++ b.data := by
         apply Array.eq_empty_of_size_eq_zero; have hb : a.size = a.data.size := rfl
         simp only [Array.size_extract]; omega]
   simp
+
+/-- `ByteArray` append adds sizes (no ByteArray `size_append` exists on Lean 4.22). -/
+theorem size_append (a b : ByteArray) : (a ++ b).size = a.size + b.size := by
+  show (a ++ b).data.size = a.data.size + b.data.size
+  rw [append_data]; simp [Array.size_append]
 
 private theorem array_core (A B C : Array UInt8) (d : Nat) (hA : A.size = d) (hB : B.size = 32) :
     ((A ++ B) ++ C).extract d (d + 32) = B := by
