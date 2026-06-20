@@ -1,10 +1,10 @@
-# L3 — The mathematics
+# L8 — The mathematics
 
 > **What you get from this level.** The actual objects, in mathematical notation, with theorem
 > statements and proof *sketches* you could in principle reconstruct by hand. Prose still carries the
-> argument; the verbatim Lean is L4. Three parts: **§A** the abstract model and its soundness theorem;
+> argument; the verbatim Lean is L9. Three parts: **§A** the abstract model and its soundness theorem;
 > **§B** the EVM as an operational semantics; **§C** the refinement that links them, including the one
-> non-obvious technical device (*fuel-genericity*). Caveats raised here are discharged in L5.
+> non-obvious technical device (*fuel-genericity*). Caveats raised here are discharged in L10.
 
 Throughout, `ℕ` is the naturals and `𝕌 := Fin 2²⁵⁶` is the type of EVM machine words ("UInt256"),
 with arithmetic performed **modulo 2²⁵⁶**. Keep the distinction `ℕ` vs `𝕌` in view; it is the source of
@@ -81,10 +81,10 @@ threshold** — for every voter count `N` and every signature stream length `K`,
 (carried by `ValidRun`). The contrapositive (`insufficient_weight_cannot_accept`) is a one-liner: if the
 total is within the threshold, the loop can never accept.
 
-> ⚠ **Caveat A (discharged in L5).** Phase A works over `ℕ`. The on-chain tally lives in `𝕌` (mod
+> ⚠ **Caveat A (discharged in L10).** Phase A works over `ℕ`. The on-chain tally lives in `𝕌` (mod
 > 2²⁵⁶). Identifying the two requires that the sums never wrap — i.e. the **overflow bound**. This is a
 > real side condition, established outside Phase A (in this engagement, `totalWeight < 2¹⁶`, far below
-> 2²⁵⁶). Phase A is the *integer* truth; L5 states what is needed to import it into `𝕌`.
+> 2²⁵⁶). Phase A is the *integer* truth; L10 states what is needed to import it into `𝕌`.
 
 ---
 
@@ -155,7 +155,7 @@ for { } lt(i, N) { i := add(i, 1) }      // cond: i < N ;  post: i := i + 1
 i.e. `cond(N) = LT(i, N)`, `post = [ i := ADD(i, 1) ]`, `body = [ w := ADD(w, i) ]`.
 
 This is a **memory-free** loop: the body adds the loop *index* `i`, not a value loaded from memory. Two
-deliberate caveats, both discharged in L5:
+deliberate caveats, both discharged in L10:
 
 > ⚠ **Caveat C1 (memory/FFI).** EVMYulLean's memory is backed by a foreign byte-array; memory-touching
 > programs cannot be *concretely evaluated* inside a plain proof file. A memory-free encoding sidesteps
@@ -165,7 +165,7 @@ deliberate caveats, both discharged in L5:
 > `mload(weights[i])`; our body adds `i`. Replacing the memory load by `i` yields a *structurally
 > identical* accumulation — same iteration count, same "add a per-step quantity to `w`" shape — whose
 > faithful execution is what we prove. The identity "the per-step quantity is the right weight" is the
-> **data layer**, assumed and validated separately (L5). What Gap B establishes is that *the validated
+> **data layer**, assumed and validated separately (L10). What Gap B establishes is that *the validated
 > EVM really does iterate N times and accumulate the per-step quantity, for all N* — the part the
 > assembly barrier attacks.
 
@@ -238,7 +238,7 @@ layers — `succ (succ (... fuel ...))` — and reduces the statement to its eff
 In the induction, the symbolic fuel `3m+10` is rewritten as `(3m+3) + 7` (or `+6`) to match, and the
 generic lemma fires. **One statement at a time, at symbolic fuel, with no monotonicity lemma in sight.**
 This is the crux that turned an apparently-blocked proof into a routine induction; it is reusable on any
-fuel-indexed interpreter (L6).
+fuel-indexed interpreter (L12).
 
 ### C.4 Transferring threshold soundness to the bytecode
 
@@ -257,7 +257,7 @@ of a loop run by a **validated model of the real machine**, for all N. That is t
 > ⚠ **Caveat C3 (modular order).** `thr < absAcc(0,N,0)` is a comparison in `𝕌` (it compares residues
 > mod 2²⁵⁶). To read it as the Phase-A integer statement `thr < sumTake(w, N)` you need both the
 > overflow bound (Caveat A) and the data layer (Caveat C2). The bytecode theorem is exactly the modular,
-> mechanism-level statement; L5 spells out the two side conditions that upgrade it to the integer one and
+> mechanism-level statement; L10 spells out the two side conditions that upgrade it to the integer one and
 > why they hold for Relay.
 
 ---
@@ -273,5 +273,5 @@ of a loop run by a **validated model of the real machine**, for all N. That is t
 | `bytecode_loop_correct` | refinement at `a=0,m=N`: final `w` = `absAcc(0,N,0)`, all N | R4 |
 | `bytecode_threshold_sound` | soundness transferred onto the validated semantics, all N | R4 |
 
-**Next:** [L4 — The formal detail](04-the-formal-detail.md): the verbatim Lean, every tactic, the
+**Next:** [L9 — The formal detail](09-the-formal-detail.md): the verbatim Lean, every tactic, the
 EVMYulLean API, the gotchas, and the axiom audit.

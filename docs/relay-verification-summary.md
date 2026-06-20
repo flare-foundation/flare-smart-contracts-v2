@@ -1,5 +1,12 @@
 # Relay.sol — formal verification summary (audit entry point)
 
+> **Superseded for navigation by [`docs/relay-verification/`](relay-verification/00-README.md)** — the
+> consolidated audit + tutorial + reproducibility set, which is current. In particular, **Gap B (§5 limit
+> #2 below) is now CLOSED** (the bytecode-level ∀N refinement is hole-free); see
+> [`relay-verification/07-R4b-bytecode-refinement.md`](relay-verification/07-R4b-bytecode-refinement.md)
+> and the claims ledger [`relay-verification/10-claims-ledger-trust-and-residual.md`](relay-verification/10-claims-ledger-trust-and-residual.md).
+> This file remains as the original concise map; where it and the new set differ, the new set is current.
+
 This is the map of the whole verification effort on `contracts/protocol/implementation/Relay.sol`. It
 states what is proven, by which tool, at what scope, under what assumptions, and — just as importantly —
 what is **not** proven and why. Per-area detail lives in the linked docs.

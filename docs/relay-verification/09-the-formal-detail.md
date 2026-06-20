@@ -1,4 +1,4 @@
-# L4 — The formal detail
+# L9 — The formal detail
 
 > **What you get from this level.** The verbatim Lean 4 development, walked end to end, at the precision
 > a referee needs to reconstruct or attack it. **§A** Phase A; **§B** the EVMYulLean API as we actually
@@ -138,10 +138,10 @@ they are never re-derived (full list in `gapB/PROGRESS.md`):
   (State × Literal)`. Expression calls go `eval → evalArgs/evalTail → evalPrimCall → execPrimCall →
   primCall → step` (the per-opcode `Semantics` dispatch).
 - **Validation.** EVMYulLean is exercised against the Ethereum execution-spec tests; that is the basis
-  for treating it as *the* EVM (L2 §2.4).
+  for treating it as *the* EVM (L2 §2.5).
 
 The version/build pin (Lean 4.22.0, mathlib 4.22.0, FFI keccak/sha2) is in
-[L6](06-reproduce-and-lessons.md).
+[L11](11-reproducibility.md).
 
 ---
 
@@ -484,5 +484,5 @@ The same audit applies to Phase A (`#print axioms threshold_sound` → `[propext
 Quot.sound]`). "Bulletproof" in this engagement is defined as exactly this: every committed theorem
 checks with that axiom list and nothing more.
 
-**Next:** [L5 — Limits, trust & residual](05-limits-trust-and-residual.md): the precise boundary — what
+**Next:** [L10 — Claims ledger, trust & residual](10-claims-ledger-trust-and-residual.md): the precise boundary — what
 is proven, what is assumed, and what a skeptic must still verify to trust the deployment.
