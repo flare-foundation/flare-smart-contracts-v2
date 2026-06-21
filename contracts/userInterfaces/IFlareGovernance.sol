@@ -55,7 +55,7 @@ interface IFlareGovernance {
 
     error OnlyExecutor();
     error OnlyGovernance();
-    error TimelockInvalidSelector();
+    error TimelockCallNotFound();
     error TimelockNotAllowedYet();
     error AlreadyInProductionMode();
     error GovernedAlreadyInitialized();

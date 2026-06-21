@@ -195,7 +195,7 @@ contract FlareGovernedBaseTest is Test {
         _switchToProduction();
         _mockIsExecutor(executor, true);
         bytes memory call = abi.encodeCall(harness.setValue, (7));
-        vm.expectRevert(IFlareGovernance.TimelockInvalidSelector.selector);
+        vm.expectRevert(IFlareGovernance.TimelockCallNotFound.selector);
         vm.prank(executor);
         IFlareGovernance(address(harness)).executeGovernanceCall(call);
     }
@@ -214,10 +214,10 @@ contract FlareGovernedBaseTest is Test {
         vm.prank(productionGovernance);
         IIFlareGovernance(address(harness)).cancelGovernanceCall(call);
 
-        // After cancel, execute should revert with TimelockInvalidSelector.
+        // After cancel, execute should revert with TimelockCallNotFound.
         _mockIsExecutor(executor, true);
         vm.warp(vm.getBlockTimestamp() + TIMELOCK);
-        vm.expectRevert(IFlareGovernance.TimelockInvalidSelector.selector);
+        vm.expectRevert(IFlareGovernance.TimelockCallNotFound.selector);
         vm.prank(executor);
         IFlareGovernance(address(harness)).executeGovernanceCall(call);
     }
@@ -225,7 +225,7 @@ contract FlareGovernedBaseTest is Test {
     function testCancelRevertsForUnrecordedCall() public {
         _switchToProduction();
         bytes memory call = abi.encodeCall(harness.setValue, (99));
-        vm.expectRevert(IFlareGovernance.TimelockInvalidSelector.selector);
+        vm.expectRevert(IFlareGovernance.TimelockCallNotFound.selector);
         vm.prank(productionGovernance);
         IIFlareGovernance(address(harness)).cancelGovernanceCall(call);
     }

@@ -87,7 +87,7 @@ library FlareGovernance {
         require(isExecutor(msg.sender), IFlareGovernance.OnlyExecutor());
         bytes32 callHash = keccak256(_encodedCall);
         uint256 allowedAfterTimestamp = state.timelockedCalls[callHash];
-        require(allowedAfterTimestamp != 0, IFlareGovernance.TimelockInvalidSelector());
+        require(allowedAfterTimestamp != 0, IFlareGovernance.TimelockCallNotFound());
         require(block.timestamp >= allowedAfterTimestamp, IFlareGovernance.TimelockNotAllowedYet());
         delete state.timelockedCalls[callHash];
         state.executing = true;
@@ -110,7 +110,7 @@ library FlareGovernance {
         checkOnlyGovernance();
         State storage state = getState();
         bytes32 callHash = keccak256(_encodedCall);
-        require(state.timelockedCalls[callHash] != 0, IFlareGovernance.TimelockInvalidSelector());
+        require(state.timelockedCalls[callHash] != 0, IFlareGovernance.TimelockCallNotFound());
         delete state.timelockedCalls[callHash];
         emit IFlareGovernance.TimelockedGovernanceCallCanceled(callHash);
     }
