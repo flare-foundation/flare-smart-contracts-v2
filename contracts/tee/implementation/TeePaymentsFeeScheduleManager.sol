@@ -122,6 +122,9 @@ contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, Flare
     {
         require(_schedule.length > 0, EmptyScheduleNotAllowed());
         _checkProjectOwner(_projectId);
+        // PMW payment accounts — the only consumers of project schedules — can only be registered
+        // under the system extension (id 0), so a schedule on any other project would be dead state.
+        require(flareTeeManager.getExtensionId(_projectId) == 0, OnlySystemExtensionId());
         bytes memory encoded = _validateAndEncodeSchedule(_sourceId, _schedule);
         projectSchedules[_projectId][_sourceId] = encoded;
         emit ProjectFeeScheduleSet(_projectId, _sourceId, _schedule);

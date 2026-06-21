@@ -79,6 +79,7 @@ interface ITeePaymentsFeeScheduleManager {
     error TooManySchedules();
     error DelayTooLarge(uint256 delay, uint256 maxDelay);
     error OnlyProjectOwner();
+    error OnlySystemExtensionId();
     error AccountNotRegistered();
     error UnsupportedSourceId(bytes32 sourceId);
     error InvalidFeeScheduleConfig(bytes32 sourceId, uint8 maxSchedules, uint16 maxDelaySeconds);
@@ -89,6 +90,8 @@ interface ITeePaymentsFeeScheduleManager {
     /**
      * Sets the default fee schedule for the given project + source id.
      * Empty schedules are rejected — use clearProjectFeeSchedule instead.
+     * Reverts unless the project is on the system extension (id 0), since PMW payment accounts
+     * — the only consumers of these schedules — can only be registered under extension 0.
      * Emits ProjectFeeScheduleSet event.
      * @param _projectId The project id.
      * @param _sourceId The source id.
