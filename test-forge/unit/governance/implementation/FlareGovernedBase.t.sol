@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { Test, Vm } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { FlareUpgradeableBase } from
     "../../../../contracts/governance/implementation/FlareUpgradeableBase.sol";
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
@@ -74,7 +74,7 @@ contract FlareGovernedBaseTest is Test {
     // Initial state
     // -------------------------------------------------------------------------
 
-    function testGovernanceIsInitialGovernanceBeforeProductionMode() public view {
+    function testGovernanceIsInitialGovernanceBeforeProductionMode() public {
         assertEq(harness.governance(), initialGovernance);
         assertFalse(harness.productionMode());
         assertEq(address(harness.governanceSettings()), address(governanceSettings));

@@ -357,11 +357,11 @@ contract TeePaymentsTest is Test {
 
     //// misc ////
 
-    function testPaymentModel() public view {
+    function testPaymentModel() public {
         assertEq(uint256(teePayments.paymentModel()), uint256(PaymentModel.ACCOUNT));
     }
 
-    function testGetAuthorizationAddressUnset() public view {
+    function testGetAuthorizationAddressUnset() public {
         assertEq(teePayments.getAuthorizationAddress(pmwMultisigAccount), address(0));
     }
 
