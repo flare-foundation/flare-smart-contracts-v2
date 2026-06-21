@@ -122,6 +122,9 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
 
         _mockGetOwner(PROJECT_ID, projectOwner);
         _mockGetOwner(OTHER_PROJECT_ID, otherUser);
+        // Default: both projects sit on the system extension (id 0).
+        _mockGetExtensionId(PROJECT_ID, 0);
+        _mockGetExtensionId(OTHER_PROJECT_ID, 0);
         // Default: account -> WALLET_ID -> PROJECT_ID owned by projectOwner
         _mockGetWalletId(teePayments, WALLET_ID);
         _mockGetWalletProjectId(WALLET_ID, PROJECT_ID);
@@ -354,6 +357,17 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
             new ITeePaymentsFeeScheduleManager.FeeSchedule[](0);
         vm.prank(projectOwner);
         vm.expectRevert(ITeePaymentsFeeScheduleManager.EmptyScheduleNotAllowed.selector);
+        manager.setProjectFeeSchedule(PROJECT_ID, SOURCE_ID, schedule);
+    }
+
+    // A schedule on a non-system-extension project would be dead state (PMW accounts only ever
+    // register under extension 0), so the owner of such a project must not be able to set one.
+    function testSetProjectFeeScheduleRevertNonSystemExtension() public {
+        _setConfig(SOURCE_ID, 5, 3600);
+        _mockGetExtensionId(PROJECT_ID, 1);
+        ITeePaymentsFeeScheduleManager.FeeSchedule[] memory schedule = _makeSchedule(10000, 0);
+        vm.prank(projectOwner);
+        vm.expectRevert(ITeePaymentsFeeScheduleManager.OnlySystemExtensionId.selector);
         manager.setProjectFeeSchedule(PROJECT_ID, SOURCE_ID, schedule);
     }
 
@@ -678,6 +692,14 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
             flareTeeManager,
             abi.encodeWithSelector(IWalletProjectManager.getOwner.selector, _projectId),
             abi.encode(_owner)
+        );
+    }
+
+    function _mockGetExtensionId(bytes32 _projectId, uint256 _extensionId) internal {
+        vm.mockCall(
+            flareTeeManager,
+            abi.encodeWithSelector(IWalletProjectManager.getExtensionId.selector, _projectId),
+            abi.encode(_extensionId)
         );
     }
 
