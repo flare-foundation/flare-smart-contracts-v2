@@ -3,7 +3,7 @@
  * Called via vm.ffi() from VrfVerifier.t.sol.
  *
  * Usage: node generate_vrf_proof.js <mode> [nonce]
- *   mode: "valid" | "wrong_pk" | "tampered_gamma"
+ *   mode: "valid" | "wrong_pk" | "tampered_gamma" | "pk_x_unverifiable" | "gamma_x_unverifiable"
  *   nonce: optional nonce string (default: "test-nonce")
  *
  * Outputs ABI-encoded: (Proof, pkX, pkY, nonce)
@@ -65,6 +65,21 @@ function randomBigInt(max) {
     return (BigInt("0x" + bytes.toString("hex")) % (max - 1n)) + 1n;
 }
 
+// Finds an on-curve secp256k1 point whose x-coordinate lies in [N, P).
+// Such points exist (the gap P - N is ~2^128 wide) but cannot occur for a
+// real key/gamma with probability > 2^{-128}, so we construct one explicitly
+// to exercise the PkXUnverifiable / GammaXUnverifiable guards.
+function onCurvePointWithXAboveN() {
+    let x = N;
+    for (let i = 0; i < 1000; i++) {
+        const rhs = ((((x * x) % P) * x) % P + 7n) % P;
+        const y = modSqrt(rhs);
+        if (y !== 0n) return { x, y };
+        x += 1n;
+    }
+    throw new Error("could not find on-curve point with x >= N");
+}
+
 function generateProof(sk, pk, nonceBytes) {
     const h = hashToCurve(nonceBytes);
     if (h.x >= N) throw new Error("h.x >= N");
@@ -101,6 +116,14 @@ if (mode === "wrong_pk") {
     outputPkY = wrongPk.y;
 } else if (mode === "tampered_gamma") {
     outputGamma = secp256k1.ProjectivePoint.BASE.multiply(randomBigInt(N)).toAffine();
+} else if (mode === "pk_x_unverifiable") {
+    // On-curve public key with x in [N, P): rejected by the PkXUnverifiable guard.
+    const pkUnverifiable = onCurvePointWithXAboveN();
+    outputPkX = pkUnverifiable.x;
+    outputPkY = pkUnverifiable.y;
+} else if (mode === "gamma_x_unverifiable") {
+    // On-curve gamma with x in [N, P): rejected by the GammaXUnverifiable guard.
+    outputGamma = onCurvePointWithXAboveN();
 }
 
 // Encode as (Proof, pkX, pkY, nonce) matching VrfVerifier.Proof struct layout

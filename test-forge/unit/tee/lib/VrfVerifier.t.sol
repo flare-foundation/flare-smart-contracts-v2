@@ -100,6 +100,30 @@ contract VrfVerifierTest is Test {
         verifier.verifyRandomness(proof, pkX, pkY, nonce);
     }
 
+    function testRejectPkXUnverifiable() public {
+        (
+            IVrfVerifier.Proof memory proof,
+            uint256 pkX,
+            uint256 pkY,
+            bytes memory nonce
+        ) = _generateProof("pk_x_unverifiable", "test-nonce");
+
+        vm.expectRevert(IVrfVerifier.PkXUnverifiable.selector);
+        verifier.verifyRandomness(proof, pkX, pkY, nonce);
+    }
+
+    function testRejectGammaXUnverifiable() public {
+        (
+            IVrfVerifier.Proof memory proof,
+            uint256 pkX,
+            uint256 pkY,
+            bytes memory nonce
+        ) = _generateProof("gamma_x_unverifiable", "test-nonce");
+
+        vm.expectRevert(IVrfVerifier.GammaXUnverifiable.selector);
+        verifier.verifyRandomness(proof, pkX, pkY, nonce);
+    }
+
     function testVerifyMultipleKeyPairs() public {
         for (uint256 i = 0; i < 3; i++) {
             (

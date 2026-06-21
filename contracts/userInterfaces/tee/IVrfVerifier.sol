@@ -38,8 +38,14 @@ interface IVrfVerifier {
     /// Public key point does not satisfy y² = x³ + 7.
     error PkNotOnCurve();
 
+    /// Public key x-coordinate is in [N, P) and therefore cannot be checked via the ecrecover trick.
+    error PkXUnverifiable();
+
     /// Gamma point does not satisfy y² = x³ + 7.
     error GammaNotOnCurve();
+
+    /// Gamma x-coordinate is in [N, P) and therefore cannot be checked via the ecrecover trick.
+    error GammaXUnverifiable();
 
     /// Challenge scalar c is zero or >= curve order N.
     error COutOfRange();
@@ -47,8 +53,8 @@ interface IVrfVerifier {
     /// Response scalar s is >= curve order N.
     error SOutOfRange();
 
-    /// Hash-to-curve produced h.x >= N, making ecrecover invalid.
-    error DegenerateInput();
+    /// Hash-to-curve x-coordinate is in [N, P) and therefore cannot be checked via the ecrecover trick.
+    error HXUnverifiable();
 
     /// Witness point u does not match c·pk + s·G.
     error InvalidUWitness();
@@ -84,7 +90,11 @@ interface IVrfVerifier {
         returns (bool _valid);
 
     /**
-     * Derive the randomness output from a verified gamma point.
+     * Derive the randomness output from a gamma point.
+     * @dev This function performs NO verification — it simply hashes the gamma coordinates.
+     *      It MUST only be called with a gamma that has already been accepted by
+     *      {verifyRandomness}; calling it on an unverified gamma yields the hash of
+     *      attacker-chosen data, not verified randomness.
      */
     function randomnessFromProof(
         uint256 _gammaX,

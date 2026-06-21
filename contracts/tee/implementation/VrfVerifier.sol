@@ -48,12 +48,20 @@ contract VrfVerifier is IVrfVerifier {
         require(_proof.c > 0 && _proof.c < N, COutOfRange());
         require(_proof.s < N, SOutOfRange());
 
+        // The ecrecover trick passes pk.x and gamma.x as the signature's r value, which
+        // ecrecover only accepts in [1, N). An x-coordinate in [N, P) (probability ≈ 2^{-128})
+        // would make ecrecover return address(0) and surface as a misleading witness error,
+        // so reject it up front with a clear, dedicated error.
+        require(_pkX < N, PkXUnverifiable());
+        require(_proof.gamma.x < N, GammaXUnverifiable());
+
         // Hash the nonce to a curve point.
         Point memory h = _hashToCurve(_nonce);
 
-        // Guard against the rare case h.x >= N (would make ecrecover invalid).
-        // Probability ≈ (P − N) / P ≈ 2^{−128}.
-        require(h.x < N, DegenerateInput());
+        // Guard against the rare case h.x in [N, P) (would make the ecrecover trick invalid).
+        // Probability ≈ (P − N) / P ≈ 2^{−128}. Mirrors the PkXUnverifiable / GammaXUnverifiable
+        // guards above for the other two ecrecover inputs.
+        require(h.x < N, HXUnverifiable());
 
         // verify witnesses u and cGamma
         address wantU = _toAddress(_proof.u.x, _proof.u.y);
