@@ -93,6 +93,7 @@ interface IExtensionManager is ITeeCommonErrors {
     error PlatformEmpty();
     error KeyTypeEmpty();
     error KeyTypeAlreadyExists(bytes32 keyType);
+    error NoKeyTypes();
     error NoSigningAlgos(bytes32 keyType);
     error SigningAlgoEmpty();
     error SigningAlgoAlreadyExists(bytes32 keyType, bytes32 signingAlgo);

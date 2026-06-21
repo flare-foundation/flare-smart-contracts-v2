@@ -613,6 +613,14 @@ contract ExtensionManagerFacetTest is Test {
         flareTeeManager.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
     }
 
+    function testAddSystemSupportedKeyTypesAndSigningAlgosRevertNoKeyTypes() public {
+        bytes32[] memory emptyKeyTypes = new bytes32[](0);
+        bytes32[][] memory emptyAlgos = new bytes32[][](0);
+        vm.prank(initialGovernance);
+        vm.expectRevert(IExtensionManager.NoKeyTypes.selector);
+        flareTeeManager.addSystemSupportedKeyTypesAndSigningAlgos(emptyKeyTypes, emptyAlgos);
+    }
+
     function testAddSystemSupportedKeyTypesAndSigningAlgosRevertLengthsMismatch() public {
         keyTypes = new bytes32[](1);
         vm.prank(initialGovernance);
@@ -670,6 +678,14 @@ contract ExtensionManagerFacetTest is Test {
     function testRemoveSystemSupportedKeyTypesAndSigningAlgosRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         flareTeeManager.removeSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+    }
+
+    function testRemoveSystemSupportedKeyTypesAndSigningAlgosRevertNoKeyTypes() public {
+        bytes32[] memory emptyKeyTypes = new bytes32[](0);
+        bytes32[][] memory emptyAlgos = new bytes32[][](0);
+        vm.prank(initialGovernance);
+        vm.expectRevert(IExtensionManager.NoKeyTypes.selector);
+        flareTeeManager.removeSystemSupportedKeyTypesAndSigningAlgos(emptyKeyTypes, emptyAlgos);
     }
 
     function testRemoveSystemSupportedKeyTypesAndSigningAlgosRevertLengthsMismatch() public {
@@ -872,7 +888,7 @@ contract ExtensionManagerFacetTest is Test {
     // setExtensionOperator / getExtensionOperator
     // =========================================================================
 
-    function testGetExtensionOperatorDefaultsToZero() public view {
+    function testGetExtensionOperatorDefaultsToZero() public {
         assertEq(
             IExtensionManager(address(flareTeeManager)).getExtensionOperator(extensionId),
             address(0)
@@ -963,6 +979,13 @@ contract ExtensionManagerFacetTest is Test {
         flareTeeManager.addSystemSupportedPlatforms(platforms);
     }
 
+    function testAddSystemSupportedPlatformsRevertNoPlatforms() public {
+        bytes32[] memory emptyPlatforms = new bytes32[](0);
+        vm.prank(initialGovernance);
+        vm.expectRevert(IExtensionManager.NoPlatforms.selector);
+        flareTeeManager.addSystemSupportedPlatforms(emptyPlatforms);
+    }
+
     function testAddSystemSupportedPlatformsRevertPlatformEmpty() public {
         platforms[0] = bytes32(0);
         vm.prank(initialGovernance);
@@ -999,6 +1022,13 @@ contract ExtensionManagerFacetTest is Test {
     function testRemoveSystemSupportedPlatformsRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         flareTeeManager.removeSystemSupportedPlatforms(platforms);
+    }
+
+    function testRemoveSystemSupportedPlatformsRevertNoPlatforms() public {
+        bytes32[] memory emptyPlatforms = new bytes32[](0);
+        vm.prank(initialGovernance);
+        vm.expectRevert(IExtensionManager.NoPlatforms.selector);
+        flareTeeManager.removeSystemSupportedPlatforms(emptyPlatforms);
     }
 
     function testRemoveSystemSupportedPlatformsRevertPlatformNotFound() public {

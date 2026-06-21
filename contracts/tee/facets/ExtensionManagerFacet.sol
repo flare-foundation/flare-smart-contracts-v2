@@ -223,6 +223,7 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         external
         onlyGovernance
     {
+        require(_platforms.length > 0, NoPlatforms());
         ExtensionManager.State storage s = ExtensionManager.getState();
         for (uint256 i = 0; i < _platforms.length; i++) {
             require(_platforms[i] != bytes32(0), PlatformEmpty());
@@ -238,6 +239,7 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         external
         onlyGovernance
     {
+        require(_platforms.length > 0, NoPlatforms());
         ExtensionManager.State storage s = ExtensionManager.getState();
         for (uint256 i = 0; i < _platforms.length; i++) {
             require(s.systemSupportedPlatforms.remove(_platforms[i]), PlatformNotFound(_platforms[i]));
@@ -253,6 +255,7 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         external
         onlyGovernance
     {
+        require(_keyTypes.length > 0, NoKeyTypes());
         require(_keyTypes.length == _signingAlgosByKeyType.length, LengthsMismatch());
         ExtensionManager.State storage s = ExtensionManager.getState();
         for (uint256 i = 0; i < _keyTypes.length; i++) {
@@ -282,6 +285,7 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         external
         onlyGovernance
     {
+        require(_keyTypes.length > 0, NoKeyTypes());
         require(_keyTypes.length == _signingAlgosByKeyType.length, LengthsMismatch());
         ExtensionManager.State storage s = ExtensionManager.getState();
         for (uint256 i = 0; i < _keyTypes.length; i++) {
