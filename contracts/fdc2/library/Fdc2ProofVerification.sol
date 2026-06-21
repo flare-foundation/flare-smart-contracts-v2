@@ -80,6 +80,12 @@ library Fdc2ProofVerification {
     /**
      * Verifies cosigner signatures against a caller-supplied cosigner set + threshold. No-op when
      * `_cosignersThreshold == 0`. Reverts if the threshold is not met or a recovered signer is not in the set.
+     * @dev The actual cosigner ECDSA signatures are recovered and checked against the caller-supplied
+     *      (authoritative, current) set here, independently of the signature path (TEE or signing policy).
+     *      The signed `Fdc2ResponseHeader.cosigners` / `cosignersThreshold` are intentionally NOT consulted:
+     *      checking the recovered signatures against the live set is strictly stronger than a header-equality
+     *      check, and avoids spurious reverts when the cosigner set is rotated between request and proof
+     *      submission. The header's cosigner fields therefore may differ from the current set and still pass.
      * @param _fdc2Verification The Fdc2Verification contract address.
      * @param _messageHash The signed-payload message hash (wrapped internally for the cosigner preimage).
      * @param _cosignerSignatures The cosigner signatures.
