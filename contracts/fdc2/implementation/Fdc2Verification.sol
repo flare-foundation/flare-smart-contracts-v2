@@ -83,6 +83,7 @@ contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
         external view
         returns (address[] memory _signingTeeIds)
     {
+        require(_signatures.length > 0, NoTeeSignatures());
         _signingTeeIds = new address[](_signatures.length);
         IFlareTeeManager flareTeeManagerTmp = flareTeeManager; // used in loop
         require(

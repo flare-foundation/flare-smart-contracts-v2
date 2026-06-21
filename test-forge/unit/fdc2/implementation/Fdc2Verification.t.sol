@@ -141,16 +141,17 @@ contract Fdc2VerificationTest is Test {
         fdc2Verification.verifyTeeSignatures(signatures, messageHash);
     }
 
-    function testVerifyTeeSignatures() public {
+    function testVerifyTeeSignaturesRevertNoTeeSignatures() public {
         Signature[] memory signatures = new Signature[](0);
-        address[] memory teeIds =
-            fdc2Verification.verifyTeeSignatures(signatures, messageHash);
-        assertEq(teeIds.length, 0);
+        vm.expectRevert(IFdc2Verification.NoTeeSignatures.selector);
+        fdc2Verification.verifyTeeSignatures(signatures, messageHash);
+    }
 
-        signatures = new Signature[](2);
+    function testVerifyTeeSignatures() public {
+        Signature[] memory signatures = new Signature[](2);
         signatures[0] = signature;
         signatures[1] = _createSignature(newPrivateKey);
-        teeIds = fdc2Verification.verifyTeeSignatures(signatures, messageHash);
+        address[] memory teeIds = fdc2Verification.verifyTeeSignatures(signatures, messageHash);
         assertEq(teeIds.length, 2);
         assertEq(teeIds[0], teeId);
         assertEq(teeIds[1], newTeeId);

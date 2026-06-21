@@ -28,6 +28,7 @@ interface IFdc2Verification {
     error CosignersThresholdNotMet();
     error InvalidCosigner(address cosigner);
     error SystemExtensionEmergencyPaused();
+    error NoTeeSignatures();
 
     /**
      * Verifies the signing policy signatures using the signing policy threshold.
@@ -57,8 +58,9 @@ interface IFdc2Verification {
 
     /**
      * Verifies the TEE signatures.
-     * Does not check for empty array - callers must check that at least one signature is provided.
-     * Does not enforce any threshold - callers must check that the number of signatures meets their own threshold.
+     * Reverts with NoTeeSignatures if the array is empty (guarantees at least one verified signer on return).
+     * Does not enforce any threshold beyond non-emptiness - callers must check that the number of signatures
+     * meets their own threshold.
      * Each recovered signer must be a PRODUCTION-status TEE machine on the system extension (id 0); reverts with
      * InvalidTeeMachineExtensionId, TeeMachineNotAvailable or DuplicatedTeeId otherwise.
      * Reverts with SystemExtensionEmergencyPaused if the system extension is emergency paused.
