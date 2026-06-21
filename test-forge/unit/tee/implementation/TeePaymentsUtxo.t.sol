@@ -469,6 +469,66 @@ contract TeePaymentsUtxoTest is Test {
         assertEq(teePayments.getBatchRecord(account, 99).paymentCount, 0, "unknown batch id reads zeroed");
     }
 
+    //// batch payment id lookup ////
+
+    function testGetBatchPaymentIdSinglePaymentBatches() public {
+        _addAccount(2);
+        // Default batch size is 1, so every payment is its own batch (paymentId == batchPaymentId).
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r1")), address(0)); // paymentId 1
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r2")), address(0)); // paymentId 2
+
+        // Both are batch starts: derived from the id itself, no slot stored.
+        assertEq(teePayments.getBatchPaymentId(account, 1), 1, "payment 1 is its own batch");
+        assertEq(teePayments.getBatchPaymentId(account, 2), 2, "payment 2 is its own batch");
+    }
+
+    function testGetBatchPaymentIdMultiPaymentBatch() public {
+        _addAccount(2);
+        // Two payments per batch: batch #1 = {1,2} on anchor 0, batch #2 = {3,4} on anchor 1.
+        vm.prank(walletOwner);
+        teePayments.setBatchSettings(account, 2, 300);
+        for (uint256 i = 1; i <= 4; i++) {
+            vm.prank(authorizationAddress);
+            teePayments.pay{value: 100}(account, _instruction(bytes32(i)), address(0));
+        }
+
+        assertEq(teePayments.getBatchPaymentId(account, 1), 1, "batch #1 first payment");
+        assertEq(teePayments.getBatchPaymentId(account, 2), 1, "batch #1 second payment maps to start");
+        assertEq(teePayments.getBatchPaymentId(account, 3), 3, "batch #2 first payment");
+        assertEq(teePayments.getBatchPaymentId(account, 4), 3, "batch #2 second payment maps to start");
+    }
+
+    function testGetBatchPaymentIdOpenBatch() public {
+        _addAccount(2);
+        // Batch holds up to 3 payments; two pays leave it open. The lookup must still resolve the
+        // non-first payment, proving the stored slot (not the closed-batch record) backs the getter.
+        vm.prank(walletOwner);
+        teePayments.setBatchSettings(account, 3, 300);
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r1")), address(0)); // paymentId 1
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r2")), address(0)); // paymentId 2
+
+        assertEq(teePayments.getBatchPaymentId(account, 1), 1, "open batch first payment");
+        assertEq(teePayments.getBatchPaymentId(account, 2), 1, "open batch second payment maps to start");
+    }
+
+    function testGetBatchPaymentIdRevertInvalid() public {
+        _addAccount(2);
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r1")), address(0)); // paymentId 1; nextPaymentId 2
+
+        // Id 0 was never issued (ids start at 1).
+        vm.expectRevert(ITeePaymentsBase.InvalidPaymentId.selector);
+        teePayments.getBatchPaymentId(account, 0);
+
+        // Id 2 has not been assigned yet (equals nextPaymentId).
+        vm.expectRevert(ITeePaymentsBase.InvalidPaymentId.selector);
+        teePayments.getBatchPaymentId(account, 2);
+    }
+
     //// payment hash ////
 
     function testGetPaymentHash() public {

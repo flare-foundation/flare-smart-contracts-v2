@@ -102,6 +102,8 @@ Fullness is **not** a trigger here: a batch that fills is closed synchronously b
 
 `pay` closes a due batch, opens a fresh one if needed, records the payment, and — because the only *new* close reason after open is fullness (block time and reward epoch are fixed within a call) — captures `_isBatchFull` once and, if full, closes the batch **at the current block**, emitting `batchEndTs = block.timestamp` (the actual close time) rather than the planned end. That lets off-chain consumers detect a full close immediately via the standard "`batchEndTs` has passed" rule without tracking batch-size history. Closing stamps a `BatchRecord { nonce, batchEndTs, paymentCount, anchorIndex, rewardEpochId }`.
 
+`pay` also indexes each payment to its batch so the mapping is resolvable on-chain. The index is **sparse**: a slot is written only when `paymentId != batchPaymentId`, i.e. for every payment *except* the batch's first — for which `paymentId == batchPaymentId` and the answer needs no stored slot. Single-payment batches (the common case) therefore cost no extra storage. `getBatchPaymentId(account, paymentId)` returns the stored value, or the `paymentId` itself when the slot is zero (the batch-start sentinel; payment ids start at 1, so 0 is unambiguous). It works for open and closed batches alike and reverts `InvalidPaymentId` for an id that was never issued.
+
 ### Instruction id and message
 
 The UTXO instruction id binds the anchor index and the per-anchor nonce:
@@ -127,7 +129,7 @@ A `ReplacementAttempt { uint64 id; uint64 nextPaymentId; uint64 emittedCount; ui
 
 ### Batch settings
 
-`setBatchSettings(account, batchSize, batchDurationSeconds)` (wallet-owner) sets the account's preferred batch size/duration (effective from the next batch). Governance caps them per source via `setMaxBatchSettings` and sets the per-source anchor reuse delay via `setAnchorReuseDelay`. Getters: `getBatchSettings`, `getMaxBatchSettings`, `getAnchorReuseDelay`, `getAnchor`, `getAnchorCount`, and `getBatchRecord(account, batchPaymentId)` — the closed-batch record (`nonce`, `batchEndTs`, `paymentCount`, `anchorIndex`, `rewardEpochId`) consumed by the reissue flow; a zeroed record (`paymentCount == 0`) means the batch is still open or the id is unknown.
+`setBatchSettings(account, batchSize, batchDurationSeconds)` (wallet-owner) sets the account's preferred batch size/duration (effective from the next batch). Governance caps them per source via `setMaxBatchSettings` and sets the per-source anchor reuse delay via `setAnchorReuseDelay`. Getters: `getBatchSettings`, `getMaxBatchSettings`, `getAnchorReuseDelay`, `getAnchor`, `getAnchorCount`, `getBatchRecord(account, batchPaymentId)` — the closed-batch record (`nonce`, `batchEndTs`, `paymentCount`, `anchorIndex`, `rewardEpochId`) consumed by the reissue flow; a zeroed record (`paymentCount == 0`) means the batch is still open or the id is unknown — and `getBatchPaymentId(account, paymentId)`, which resolves any issued payment id to the batch it belongs to (see [Batches](#batches)).
 
 ## Fees
 

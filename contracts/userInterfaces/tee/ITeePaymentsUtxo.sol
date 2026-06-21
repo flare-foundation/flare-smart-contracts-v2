@@ -231,4 +231,19 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
         external view
         returns (BatchRecord memory _batch);
 
+    /**
+     * Returns the batch payment id (the first payment id of the batch) that a given payment belongs to.
+     * Works for payments in both open and closed batches. Reverts with `InvalidPaymentId` if the payment
+     * id was never issued for the account (zero, or not less than the next payment id to be assigned).
+     * @param _account The account.
+     * @param _paymentId The payment id to resolve.
+     * @return _batchPaymentId The batch payment id the payment belongs to.
+     */
+    function getBatchPaymentId(
+        PMWMultisigAccount calldata _account,
+        uint64 _paymentId
+    )
+        external view
+        returns (uint64 _batchPaymentId);
+
 }

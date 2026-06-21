@@ -71,6 +71,10 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
     mapping(bytes32 accountHash => UtxoAnchorState[]) private anchors;
     mapping(bytes32 accountHash => mapping(uint256 batchPaymentId => BatchRecord)) private batchRecords;
     mapping(bytes32 accountHash => mapping(uint256 batchPaymentId => uint64)) private replacementCounters;
+    // Sparse paymentId -> batchPaymentId index. Only written for payments that are NOT the first of
+    // their batch; for a batch's first payment paymentId == batchPaymentId, which the getter derives
+    // without a stored slot. A zero entry therefore means "first payment of its batch".
+    mapping(bytes32 accountHash => mapping(uint256 paymentId => uint64)) private batchPaymentIdByPayment;
     mapping(bytes32 accountHash => mapping(uint256 batchPaymentId => ReplacementAttempt)) private activeReplacements;
     mapping(bytes32 sourceId => uint64 anchorReuseDelaySeconds) private anchorReuseDelaySeconds;
     mapping(bytes32 sourceId => MaxBatchSettings) private maxBatchSettings;
@@ -108,6 +112,11 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         _paymentId = state.nextPaymentId++;
         paymentHashes[accountHash][_paymentId] = _getPaymentHash(_paymentInstruction, _paymentId);
         state.batchPaymentCount++;
+        // Index this payment to its batch, skipping the batch's first payment (paymentId ==
+        // batchPaymentId, derived by the getter) so single-payment batches cost no extra SSTORE.
+        if (_paymentId != state.batchPaymentId) {
+            batchPaymentIdByPayment[accountHash][_paymentId] = state.batchPaymentId;
+        }
         // The batch was rolled/opened at the start of this call, so the only new reason it can need
         // closing now is that this payment filled it (block.timestamp and reward epoch are fixed within
         // the call). Capture it once and reuse for both the emitted close timestamp and the final close.
@@ -453,6 +462,25 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         returns (BatchRecord memory _batch)
     {
         _batch = batchRecords[_toAccountHash(_account)][_batchPaymentId];
+    }
+
+    /**
+     * @inheritdoc ITeePaymentsUtxo
+     */
+    function getBatchPaymentId(
+        ITeePaymentsBase.PMWMultisigAccount calldata _account,
+        uint64 _paymentId
+    )
+        external view
+        returns (uint64 _batchPaymentId)
+    {
+        bytes32 accountHash = _toAccountHash(_account);
+        require(_paymentId > 0 && _paymentId < states[accountHash].nextPaymentId, InvalidPaymentId());
+        _batchPaymentId = batchPaymentIdByPayment[accountHash][_paymentId];
+        // Zero sentinel: this payment is the first of its batch, where batchPaymentId == paymentId.
+        if (_batchPaymentId == 0) {
+            _batchPaymentId = _paymentId;
+        }
     }
 
     /**
