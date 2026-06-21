@@ -6,7 +6,7 @@ Three FCC facets provide the on-chain verification layer:
 
 - [`VerificationFacet`](../../../contracts/tee/facets/VerificationFacet.sol) + [`library/Verification`](../../../contracts/tee/library/Verification.sol) — the central verification logic for TEE attestation proofs and availability checks. State stored in `Verification.State` includes the per-machine challenge, challenge timestamp, and the per-machine validity window.
 - [`library/SystemStateVerifier`](../../../contracts/tee/library/SystemStateVerifier.sol) — validates the TEE-attested system-state payload, which must now be **empty**, and requires the machine's stored `initialTeeId` to be zero. Consumed library-internally by `Verification._validateResponseBody`; not exposed as a diamond facet. See [System state verification](#system-state-verification).
-- [`VrfFacet`](../../../contracts/tee/facets/VrfFacet.sol) + [`library/Vrf`](../../../contracts/tee/library/Vrf.sol) — VRF proof verification, plus an external [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) UUPS contract for stand-alone verification outside the diamond.
+- [`VrfFacet`](../../../contracts/tee/facets/VrfFacet.sol) + [`library/Vrf`](../../../contracts/tee/library/Vrf.sol) — VRF proof verification, plus a stand-alone [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) contract (deployed directly, no proxy) for verification outside the diamond.
 
 ## The TEE attestation flow
 
@@ -71,7 +71,7 @@ The library is exposed only as a library (`SystemStateVerifier`), not as a diamo
 `VrfFacet` exposes the VRF request side (see [Key Management / VRF](./KeyManagement.md#vrf)). The verification side has two paths:
 
 - **Inside the diamond**: `VrfFacet` itself can verify a returned VRF proof against the wallet's public key and the original seed.
-- **Stand-alone**: [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) is a separate UUPS contract that consumers can call directly. It reads the relevant TEE machine's public key from the diamond and verifies the supplied VRF proof — useful for application contracts that want to verify VRF outputs without depending on a specific facet selector.
+- **Stand-alone**: [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) is a separate, stateless contract — deployed directly, outside the diamond, with no proxy or upgrade path. Consumers call it directly, passing the VRF proof together with the prover's public key and the nonce; it verifies the proof and returns a boolean — useful for application contracts that want to verify VRF outputs without depending on a specific facet selector.
 
 VRF verification follows standard ECVRF: given `(publicKey, seed, output, proof)`, check that the proof is a valid Schnorr-style demonstration that `output = VRF(privateKey, seed)`. Failed verification returns `false` (or reverts with `InvalidVrfProof()` depending on entry point).
 

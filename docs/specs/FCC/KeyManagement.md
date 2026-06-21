@@ -159,7 +159,7 @@ The two paths coexist — neither replaces the other. They share the restore-sid
 1. A user submits a VRF request — a seed, a target wallet, a key type — via the facet.
 2. The facet emits a `(F_WALLET, "VRF")` instruction.
 3. The TEE produces a VRF output using its key and the seed; emits a proof.
-4. The off-chain layer relays the proof back; consumer contracts verify it using [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) (a stand-alone UUPS contract outside the diamond).
+4. The off-chain layer relays the proof back; consumer contracts verify it using [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) (a stand-alone contract outside the diamond, deployed directly with no proxy).
 
 Since VRF outputs are deterministic given (key, seed), they're reproducible across all TEEs in a wallet's set — every TEE holding the key produces the same output for the same input.
 
