@@ -136,6 +136,18 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
     }
 
     /**
+     * @inheritdoc ITeePaymentsBase
+     */
+    function getNextPaymentId(
+        PMWMultisigAccount calldata _account
+    )
+        external view
+        returns (uint64 _nextPaymentId)
+    {
+        return _getNextPaymentId(_toAccountHash(_account));
+    }
+
+    /**
      * Updates external contract addresses.
      */
     function _updateContractAddresses(
@@ -213,6 +225,16 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
         // Each payment model emits its own registration event (account: PMWMultisigAccountAdded;
         // UTXO: PMWMultisigUtxoAccountAdded) after this returns — no generic event from the base.
     }
+
+    /**
+     * Returns the next payment id for an account hash. Implemented by each payment model, which owns
+     * its own account state.
+     */
+    function _getNextPaymentId(
+        bytes32 _accountHash
+    )
+        internal view virtual
+        returns (uint64 _nextPaymentId);
 
     function _checkProductionOrPausedWallet(
         bytes32 _walletId

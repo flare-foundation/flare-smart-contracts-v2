@@ -448,7 +448,8 @@ contract TeePaymentsUtxoTest is Test {
         teePayments.pay{value: 100}(account, _instruction(bytes32("r2")), address(0)); // paymentId 2 -> closes
 
         // batchPaymentId == first payment id of the batch == 1.
-        ITeePaymentsUtxo.BatchRecord memory batch = teePayments.getBatchRecord(account, 1);
+        (ITeePaymentsUtxo.BatchRecord memory batch, bool open) = teePayments.getBatchRecord(account, 1);
+        assertFalse(open, "closed batch is not flagged open");
         assertEq(batch.nonce, 1, "anchor 0's first batch nonce");
         assertEq(batch.batchEndTs, uint64(vm.getBlockTimestamp()), "closed-on-full stamps current timestamp");
         assertEq(batch.paymentCount, 2, "two payments in the batch");
@@ -458,15 +459,55 @@ contract TeePaymentsUtxoTest is Test {
 
     function testGetBatchRecordUnknownReturnsZeroed() public {
         _addAccount(2);
-        // Batch holds 2 payments; a single pay leaves it open, so no record is written yet.
+        // Batch holds 2 payments; a single pay leaves it open.
         vm.prank(walletOwner);
         teePayments.setBatchSettings(account, 2, 300);
         vm.prank(authorizationAddress);
         teePayments.pay{value: 100}(account, _instruction(bytes32("r1")), address(0)); // paymentId 1, batch open
 
-        // The still-open batch (id 1) has no record; an unknown id (99) likewise reads as zeroed.
-        assertEq(teePayments.getBatchRecord(account, 1).paymentCount, 0, "open batch has no record yet");
-        assertEq(teePayments.getBatchRecord(account, 99).paymentCount, 0, "unknown batch id reads zeroed");
+        // An id that is neither a closed batch nor the open one reads as zeroed and not open.
+        (ITeePaymentsUtxo.BatchRecord memory unknown, bool open) = teePayments.getBatchRecord(account, 99);
+        assertEq(unknown.paymentCount, 0, "unknown batch id reads zeroed");
+        assertFalse(open, "unknown batch id is not flagged open");
+    }
+
+    function testGetBatchRecordOpenBatchSynthesized() public {
+        _addAccount(2);
+        // Batch holds up to 2 payments and runs 300s, so a single pay leaves it open (no stored record).
+        vm.prank(walletOwner);
+        teePayments.setBatchSettings(account, 2, 300);
+        uint64 openedAt = uint64(vm.getBlockTimestamp());
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r1")), address(0)); // paymentId 1, batch open
+
+        // The open batch (id 1) is synthesized from live state: one payment, planned end = open + 300s.
+        (ITeePaymentsUtxo.BatchRecord memory batch, bool open) = teePayments.getBatchRecord(account, 1);
+        assertTrue(open, "open batch is flagged open");
+        assertEq(batch.paymentCount, 1, "one payment so far in the open batch");
+        assertEq(batch.batchEndTs, openedAt + 300, "open batch reports its planned end");
+        assertEq(batch.nonce, 1, "anchor 0's first batch nonce");
+        assertEq(batch.anchorIndex, 0, "first batch uses anchor 0");
+        assertEq(batch.rewardEpochId, 10, "current reward epoch");
+
+        // Filling it closes the batch; the stored record now stamps the actual (current) close time.
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r2")), address(0)); // paymentId 2 -> closes
+        (ITeePaymentsUtxo.BatchRecord memory closed, bool stillOpen) = teePayments.getBatchRecord(account, 1);
+        assertFalse(stillOpen, "filled batch is now closed");
+        assertEq(closed.paymentCount, 2, "closed batch holds two payments");
+        assertEq(closed.batchEndTs, uint64(vm.getBlockTimestamp()), "full close stamps current timestamp");
+    }
+
+    function testGetNextPaymentId() public {
+        _addAccount(2);
+        // No payment made yet: next id starts at 1.
+        assertEq(teePayments.getNextPaymentId(account), 1, "starts at 1");
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r1")), address(0));
+        assertEq(teePayments.getNextPaymentId(account), 2, "advances after a payment");
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("r2")), address(0));
+        assertEq(teePayments.getNextPaymentId(account), 3, "advances again");
     }
 
     //// batch payment id lookup ////

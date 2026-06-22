@@ -264,10 +264,11 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
             _proof.responseBody.accountAddress,
             _authorizationAddress
         );
-        states[accountHash].nextPaymentId = 1;
-        states[accountHash].batchSize = 1;
-        states[accountHash].accountIndex = accountIndex;
-        states[accountHash].anchorCount = anchorCount;
+        AccountState storage state = states[accountHash];
+        state.nextPaymentId = 1;
+        state.batchSize = 1;
+        state.accountIndex = accountIndex;
+        state.anchorCount = anchorCount;
 
         _appendAnchors(accountHash, _proof.requestBody.anchors, 0);
 
@@ -434,9 +435,9 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         external view
         returns (UtxoAnchorState memory _anchor)
     {
-        bytes32 accountHash = _toAccountHash(_account);
-        require(_anchorIndex < anchors[accountHash].length, AnchorIndexOutOfBounds());
-        _anchor = anchors[accountHash][_anchorIndex];
+        UtxoAnchorState[] storage accountAnchors = anchors[_toAccountHash(_account)];
+        require(_anchorIndex < accountAnchors.length, AnchorIndexOutOfBounds());
+        _anchor = accountAnchors[_anchorIndex];
     }
 
     /**
@@ -459,9 +460,30 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         uint64 _batchPaymentId
     )
         external view
-        returns (BatchRecord memory _batch)
+        returns (
+            BatchRecord memory _batch,
+            bool _open
+        )
     {
-        _batch = batchRecords[_toAccountHash(_account)][_batchPaymentId];
+        bytes32 accountHash = _toAccountHash(_account);
+        _batch = batchRecords[accountHash][_batchPaymentId];
+        if (_batch.paymentCount == 0) {
+            // No closed record: if this is the currently-open batch, synthesize the record from the
+            // live account state and flag it open. Here batchEndTs is the batch's *planned* end; a
+            // closed record instead stamps the actual close time (the current block when a batch closes
+            // on fullness). Unknown ids fall through as a zeroed record with _open false.
+            AccountState storage state = states[accountHash];
+            if (state.batchOpen && state.batchPaymentId == _batchPaymentId) {
+                _batch = BatchRecord({
+                    nonce: state.batchNonce,
+                    batchEndTs: state.batchEndTs,
+                    paymentCount: state.batchPaymentCount,
+                    anchorIndex: state.batchAnchorIndex,
+                    rewardEpochId: state.batchRewardEpochId
+                });
+                _open = true;
+            }
+        }
     }
 
     /**
@@ -475,7 +497,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         returns (uint64 _batchPaymentId)
     {
         bytes32 accountHash = _toAccountHash(_account);
-        require(_paymentId > 0 && _paymentId < states[accountHash].nextPaymentId, InvalidPaymentId());
+        require(_paymentId > 0 && _paymentId < _getNextPaymentId(accountHash), InvalidPaymentId());
         _batchPaymentId = batchPaymentIdByPayment[accountHash][_paymentId];
         // Zero sentinel: this payment is the first of its batch, where batchPaymentId == paymentId.
         if (_batchPaymentId == 0) {
@@ -633,6 +655,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         // anchor whose reuse window has cleared, so a busy cursor anchor moves on to the next free
         // chain (including any newly added ones) instead of blocking. Revert only if all are busy,
         // reporting the earliest free timestamp.
+        UtxoAnchorState[] storage accountAnchors = anchors[_accountHash];
         uint32 count = _state.anchorCount;
         uint32 start = _state.nextAnchorIndex;
         uint32 anchorIndex = start;
@@ -640,7 +663,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         uint64 earliestAvailableAt = type(uint64).max;
         for (uint32 i = 0; i < count; i++) {
             uint32 candidate = uint32((uint256(start) + i) % count);
-            uint64 candidateAvailableAt = anchors[_accountHash][candidate].availableAt;
+            uint64 candidateAvailableAt = accountAnchors[candidate].availableAt;
             if (candidateAvailableAt <= block.timestamp) {
                 anchorIndex = candidate;
                 found = true;
@@ -651,7 +674,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
             }
         }
         require(found, AnchorNotReady(earliestAvailableAt));
-        UtxoAnchorState storage anchor = anchors[_accountHash][anchorIndex];
+        UtxoAnchorState storage anchor = accountAnchors[anchorIndex];
         _state.batchPaymentId = _state.nextPaymentId;
         _state.batchEndTs = uint64(block.timestamp) + effectiveBatchDurationSeconds;
         _state.batchPaymentCount = 0;
@@ -755,6 +778,18 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
                 availableAt: 0
             }));
         }
+    }
+
+    /**
+     * @inheritdoc TeePaymentsBase
+     */
+    function _getNextPaymentId(
+        bytes32 _accountHash
+    )
+        internal view override
+        returns (uint64)
+    {
+        return states[_accountHash].nextPaymentId;
     }
 
     function _paymentInstructionMatches(

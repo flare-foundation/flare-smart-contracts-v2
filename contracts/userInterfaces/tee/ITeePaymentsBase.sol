@@ -158,4 +158,18 @@ interface ITeePaymentsBase is ITeePaymentsModel {
     )
         external view
         returns (bytes32 _paymentHash);
+
+    /**
+     * Returns the next payment id that will be assigned for an account, i.e. one past the most recent
+     * payment. The latest issued payment id is therefore `_nextPaymentId - 1`; a value of 1 means no
+     * payment has been made yet. Read it to bootstrap a scan of an account's payments (or, for UTXO
+     * accounts, to resolve the current batch via `getBatchPaymentId`/`getBatchRecord`).
+     * @param _account The PMW multisig account.
+     * @return _nextPaymentId The next payment id to be assigned.
+     */
+    function getNextPaymentId(
+        PMWMultisigAccount calldata _account
+    )
+        external view
+        returns (uint64 _nextPaymentId);
 }

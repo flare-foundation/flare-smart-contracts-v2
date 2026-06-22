@@ -194,8 +194,9 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
             _authorizationAddress
         );
         uint64 initialNonce = _proof.responseBody.sequence;
-        states[accountHash].initialNonce = initialNonce;
-        states[accountHash].nextPaymentId = 1;
+        AccountState storage state = states[accountHash];
+        state.initialNonce = initialNonce;
+        state.nextPaymentId = 1;
         emit PMWMultisigAccountAdded(
             _walletId,
             _proof.header.sourceId,
@@ -229,6 +230,18 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         returns (PaymentModel)
     {
         return PaymentModel.ACCOUNT;
+    }
+
+    /**
+     * @inheritdoc TeePaymentsBase
+     */
+    function _getNextPaymentId(
+        bytes32 _accountHash
+    )
+        internal view override
+        returns (uint64)
+    {
+        return states[_accountHash].nextPaymentId;
     }
 
     function _nativeNonce(

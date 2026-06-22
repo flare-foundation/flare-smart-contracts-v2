@@ -254,6 +254,18 @@ contract TeePaymentsTest is Test {
         assertEq(second, 2);
     }
 
+    function testGetNextPaymentId() public {
+        _addAccount();
+        // No payment made yet: next id starts at 1.
+        assertEq(teePayments.getNextPaymentId(pmwMultisigAccount), 1, "starts at 1");
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
+        assertEq(teePayments.getNextPaymentId(pmwMultisigAccount), 2, "advances after a payment");
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")), address(0));
+        assertEq(teePayments.getNextPaymentId(pmwMultisigAccount), 3, "advances again");
+    }
+
     function testPayRevertAmountZero() public {
         _addAccount();
         ITeePaymentsBase.PaymentInstruction memory instruction = _createPaymentInstruction(bytes32("ref1"));

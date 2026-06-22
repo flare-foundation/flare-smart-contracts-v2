@@ -216,20 +216,29 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
         returns (uint256 _anchorCount);
 
     /**
-     * Returns the record of a closed batch for an account, as identified by its batch payment id (the
-     * payment id of the batch's first payment). The record is written when the batch closes; a zeroed
-     * record (`paymentCount == 0`) means no such closed batch exists — the id is unknown or the batch is
-     * still open. A closed batch always has `paymentCount >= 1`, so that sentinel is unambiguous.
+     * Returns the record of a batch for an account, as identified by its batch payment id (the payment
+     * id of the batch's first payment). For a closed batch this is the stored record; for the
+     * currently-open batch the record is synthesized from the live account state, in which case
+     * `batchEndTs` is the batch's *planned* end (a closed record instead stamps the actual close time).
+     * A zeroed record (`paymentCount == 0`) means the id is unknown — neither a closed batch nor the
+     * open one. Any existing batch (open or closed) has `paymentCount >= 1`, so that sentinel is
+     * unambiguous. `_open` disambiguates the two non-zeroed cases: when true the record is the live,
+     * still-mutating open batch (and `batchEndTs` is its planned end); when false it is a final closed
+     * record (and `batchEndTs` is the actual close time).
      * @param _account The account.
      * @param _batchPaymentId The batch payment id (first payment id of the batch).
      * @return _batch The batch record.
+     * @return _open True if the record is the currently-open batch, false for a closed or unknown id.
      */
     function getBatchRecord(
         PMWMultisigAccount calldata _account,
         uint64 _batchPaymentId
     )
         external view
-        returns (BatchRecord memory _batch);
+        returns (
+            BatchRecord memory _batch,
+            bool _open
+        );
 
     /**
      * Returns the batch payment id (the first payment id of the batch) that a given payment belongs to.
