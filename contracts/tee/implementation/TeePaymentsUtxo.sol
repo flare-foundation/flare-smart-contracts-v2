@@ -9,6 +9,7 @@ import { ITeePaymentsUtxo } from "../../userInterfaces/tee/ITeePaymentsUtxo.sol"
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { DEFAULT_FEE_SCHEDULE } from "../../userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
 import { IPMWMultisigUtxoConfigured } from "../../userInterfaces/fdc2/IPMWMultisigUtxoConfigured.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 
 /**
  * TeePaymentsUtxo is a contract used for instructing TEE based UTXO wallet payments.
@@ -66,6 +67,9 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         uint64 nonce;
         uint64 batchEndTs;
     }
+
+    /// Flare systems manager contract.
+    IFlareSystemsManager public flareSystemsManager;
 
     mapping(bytes32 accountHash => AccountState) private states;
     mapping(bytes32 accountHash => UtxoAnchorState[]) private anchors;
@@ -513,6 +517,17 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         returns (PaymentModel)
     {
         return PaymentModel.UTXO;
+    }
+
+    function _updateContractAddresses(
+        bytes32[] memory _contractNameHashes,
+        address[] memory _contractAddresses
+    )
+        internal override
+    {
+        super._updateContractAddresses(_contractNameHashes, _contractAddresses);
+        flareSystemsManager = IFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 
     function _sendReissueMessages(

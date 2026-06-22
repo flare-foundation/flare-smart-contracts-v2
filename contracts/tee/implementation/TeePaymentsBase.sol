@@ -6,15 +6,11 @@ import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
 import { ITeePaymentsBase, PAY, REISSUE } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
-import {
-    ITeePaymentsFeeScheduleManager
-} from "../../userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
 import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
 import {
     ITeePaymentsConfigVerifier
 } from "../../userInterfaces/tee/ITeePaymentsConfigVerifier.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
-import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
@@ -29,10 +25,6 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
 
     /// FlareTeeManager Diamond contract.
     IIFlareTeeManager public flareTeeManager;
-    /// Flare systems manager contract.
-    IFlareSystemsManager public flareSystemsManager;
-    /// Shared fee schedule registry.
-    ITeePaymentsFeeScheduleManager public teePaymentsFeeScheduleManager;
     /// Shared sourceId -> TeePayments registry.
     ITeePaymentsRegistry public teePaymentsRegistry;
     /// Shared PMW configuration request + verify contract.
@@ -158,10 +150,6 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
     {
         flareTeeManager = IIFlareTeeManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareTeeManager"));
-        flareSystemsManager = IFlareSystemsManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
-        teePaymentsFeeScheduleManager = ITeePaymentsFeeScheduleManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsFeeScheduleManager"));
         teePaymentsRegistry = ITeePaymentsRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsRegistry"));
         teePaymentsConfigVerifier = ITeePaymentsConfigVerifier(

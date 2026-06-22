@@ -2,6 +2,9 @@
 pragma solidity ^0.8.35;
 
 import { TeePaymentsBase } from "./TeePaymentsBase.sol";
+import {
+    ITeePaymentsFeeScheduleManager
+} from "../../userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
 import { ITeePaymentsBase, PAY, REISSUE } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
 import { ITeePaymentsModel, PaymentModel } from "../../userInterfaces/tee/ITeePaymentsModel.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
@@ -16,6 +19,9 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         uint64 initialNonce;
         uint64 nextPaymentId;
     }
+
+    /// Shared fee schedule registry.
+    ITeePaymentsFeeScheduleManager public teePaymentsFeeScheduleManager;
 
     mapping(bytes32 accountHash => AccountState) private states;
     mapping(bytes32 accountHash => mapping(uint256 paymentId => uint256)) private reissueCounter;
@@ -242,6 +248,17 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         returns (uint64)
     {
         return states[_accountHash].nextPaymentId;
+    }
+
+    function _updateContractAddresses(
+        bytes32[] memory _contractNameHashes,
+        address[] memory _contractAddresses
+    )
+        internal override
+    {
+        super._updateContractAddresses(_contractNameHashes, _contractAddresses);
+        teePaymentsFeeScheduleManager = ITeePaymentsFeeScheduleManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsFeeScheduleManager"));
     }
 
     function _nativeNonce(
