@@ -13,6 +13,7 @@ import { ITeePaymentsUtxo } from "../../../../contracts/userInterfaces/tee/ITeeP
 import {
     ITeePaymentsConfigVerifier
 } from "../../../../contracts/userInterfaces/tee/ITeePaymentsConfigVerifier.sol";
+import { IAddressValidator } from "../../../../contracts/userInterfaces/tee/IAddressValidator.sol";
 import { ITeePaymentsRegistry } from "../../../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { PaymentModel } from "../../../../contracts/userInterfaces/tee/ITeePaymentsModel.sol";
 import { IInstructions } from "../../../../contracts/userInterfaces/tee/IInstructions.sol";
@@ -65,6 +66,7 @@ contract TeePaymentsUtxoTest is Test {
     address private flareTeeManager;
     address private teePaymentsFeeScheduleManager;
     address private teePaymentsConfigVerifier;
+    address private addressValidator;
 
     address private governance;
     address private addressUpdater;
@@ -86,6 +88,7 @@ contract TeePaymentsUtxoTest is Test {
         flareTeeManager = address(new SendInstructionsSpy());
         teePaymentsFeeScheduleManager = makeAddr("teePaymentsFeeScheduleManager");
         teePaymentsConfigVerifier = makeAddr("teePaymentsConfigVerifier");
+        addressValidator = makeAddr("addressValidator");
 
         TeePaymentsUtxo impl = new TeePaymentsUtxo();
         TeePaymentsProxy proxy = new TeePaymentsProxy(
@@ -118,22 +121,26 @@ contract TeePaymentsUtxoTest is Test {
         teePaymentsRegistry.registerSources(regs);
 
         vm.startPrank(addressUpdater);
-        bytes32[] memory names = new bytes32[](6);
-        address[] memory addrs = new address[](6);
+        bytes32[] memory names = new bytes32[](7);
+        address[] memory addrs = new address[](7);
         names[0] = keccak256(abi.encode("AddressUpdater"));
         names[1] = keccak256(abi.encode("FlareTeeManager"));
         names[2] = keccak256(abi.encode("FlareSystemsManager"));
         names[3] = keccak256(abi.encode("TeePaymentsFeeScheduleManager"));
         names[4] = keccak256(abi.encode("TeePaymentsRegistry"));
         names[5] = keccak256(abi.encode("TeePaymentsConfigVerifier"));
+        names[6] = keccak256(abi.encode("AddressValidator"));
         addrs[0] = addressUpdater;
         addrs[1] = flareTeeManager;
         addrs[2] = mockFSM;
         addrs[3] = teePaymentsFeeScheduleManager;
         addrs[4] = address(teePaymentsRegistry);
         addrs[5] = teePaymentsConfigVerifier;
+        addrs[6] = addressValidator;
         teePayments.updateContractAddresses(names, addrs);
         vm.stopPrank();
+
+        _mockIsValidAddress(true);
 
         _mockGetWalletProjectId(walletId, projectId);
         _mockGetExtensionId(projectId, 0);
@@ -288,6 +295,14 @@ contract TeePaymentsUtxoTest is Test {
         teePayments.setAnchorReuseDelay(SOURCE_ID, 720);
     }
 
+    function _mockIsValidAddress(bool _valid) private {
+        vm.mockCall(
+            addressValidator,
+            abi.encodeWithSelector(IAddressValidator.isValidAddress.selector),
+            abi.encode(_valid)
+        );
+    }
+
     //// pay ////
 
     function testPay() public {
@@ -296,6 +311,14 @@ contract TeePaymentsUtxoTest is Test {
         uint64 paymentId = teePayments.pay{value: 100}(
             account, _instruction(bytes32("ref1")), address(0));
         assertEq(paymentId, 1);
+    }
+
+    function testPayRevertsInvalidRecipientAddress() public {
+        _addAccount(2);
+        _mockIsValidAddress(false);
+        vm.expectRevert(ITeePaymentsBase.InvalidRecipientAddress.selector);
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, _instruction(bytes32("ref1")), address(0));
     }
 
     function testPayRevertAmountZero() public {

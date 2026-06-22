@@ -45,6 +45,7 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         require(_paymentInstruction.amount > 0, PaymentAmountZero());
         bytes32 accountHash = _toAccountHash(_account);
         _checkAuthorizationAddress(accountHash);
+        _requireValidRecipientAddress(_account.sourceId, _paymentInstruction.recipientAddress);
 
         bytes32 walletId = accountHashToWalletId[accountHash];
         _checkWalletStatus(walletId);

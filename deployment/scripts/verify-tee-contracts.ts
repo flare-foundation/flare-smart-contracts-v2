@@ -52,6 +52,9 @@ const teeContractNames = new Set([
   // TeePaymentsFeeScheduleManager (impl + proxy)
   "TeePaymentsFeeScheduleManagerImplementation",
   "TeePaymentsFeeScheduleManager",
+  // AddressValidator (impl + proxy)
+  "AddressValidatorImplementation",
+  "AddressValidator",
   // TeeRewardOffersManager (impl + proxy)
   "TeeRewardOffersManagerImplementation",
   "TeeRewardOffersManager",

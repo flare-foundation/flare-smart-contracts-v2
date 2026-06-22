@@ -82,6 +82,12 @@ import {TeePaymentsConfigVerifier} from
     "../../contracts/tee/implementation/TeePaymentsConfigVerifier.sol";
 import {TeePaymentsConfigVerifierProxy} from
     "../../contracts/tee/proxy/TeePaymentsConfigVerifierProxy.sol";
+import {AddressValidator} from
+    "../../contracts/tee/implementation/AddressValidator.sol";
+import {AddressValidatorProxy} from
+    "../../contracts/tee/proxy/AddressValidatorProxy.sol";
+import {IAddressValidator} from
+    "../../contracts/userInterfaces/tee/IAddressValidator.sol";
 import {TeePaymentsFeeScheduleManager} from
     "../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol";
 import {TeePaymentsFeeScheduleManagerProxy} from
@@ -232,6 +238,7 @@ contract DeployTeeContracts is Script {
     address private teePaymentsFeeScheduleManagerAddr;
     address private teePaymentsRegistryAddr;
     address private teePaymentsConfigVerifierAddr;
+    address private addressValidatorAddr;
 
     // Registry entries — one entry per configured sourceId across all TeePayments proxies.
     ITeePaymentsRegistry.SourceRegistration[] private sourceRegistrations;
@@ -264,6 +271,7 @@ contract DeployTeeContracts is Script {
         _deployFdc2Contracts();
         _deployTeePaymentsRegistry();
         _deployTeePaymentsConfigVerifier();
+        _deployAddressValidator();
         _deployTeePayments();
         _deployTeePaymentsFeeScheduleManager();
         _deployTeeRewardOffersManager();
@@ -277,6 +285,7 @@ contract DeployTeeContracts is Script {
         _configureFdc2RequestFees();
         _configureFdc2InflationConfigurations();
         _registerTeePaymentsSources();
+        _configureAddressValidatorSources();
         _configureUtxoBatchSettings();
         _configureUtxoAnchorReuseDelay();
         _configureFeeScheduleSourceLimits();
@@ -915,6 +924,33 @@ contract DeployTeeContracts is Script {
     }
 
     // =========================================================================
+    // Deploy AddressValidator (always deployed, before TeePayments)
+    // =========================================================================
+
+    function _deployAddressValidator() internal {
+        AddressValidator impl = new AddressValidator();
+        _logDeployed(
+            "AddressValidatorImplementation",
+            "AddressValidator.sol",
+            address(impl)
+        );
+
+        AddressValidatorProxy proxy =
+            new AddressValidatorProxy(
+                IGovernanceSettings(governanceSettings),
+                deployer,
+                deployer,
+                address(impl)
+            );
+        addressValidatorAddr = address(proxy);
+        _logDeployed(
+            "AddressValidator",
+            "AddressValidatorProxy.sol",
+            addressValidatorAddr
+        );
+    }
+
+    // =========================================================================
     // Deploy VrfVerifier
     // =========================================================================
 
@@ -936,6 +972,7 @@ contract DeployTeeContracts is Script {
         _wireFdc2InflationConfigurations();
         _wireFdc2RewardOffersManager();
         _wireTeePaymentsConfigVerifier();
+        _wireAddressValidator();
         _wireTeePayments();
         _wireTeeRewardOffersManager();
         _wireTeePaymentsFeeScheduleManager();
@@ -1001,24 +1038,36 @@ contract DeployTeeContracts is Script {
     }
 
     function _wireTeePayments() internal {
-        bytes32[] memory names = new bytes32[](6);
+        bytes32[] memory names = new bytes32[](7);
         names[0] = _encodeContractName("AddressUpdater");
         names[1] = _encodeContractName("FlareTeeManager");
         names[2] = _encodeContractName("FlareSystemsManager");
         names[3] = _encodeContractName("TeePaymentsFeeScheduleManager");
         names[4] = _encodeContractName("TeePaymentsRegistry");
         names[5] = _encodeContractName("TeePaymentsConfigVerifier");
-        address[] memory addrs = new address[](6);
+        names[6] = _encodeContractName("AddressValidator");
+        address[] memory addrs = new address[](7);
         addrs[0] = addressUpdater;
         addrs[1] = flareTeeManagerAddress;
         addrs[2] = flareSystemsManager;
         addrs[3] = teePaymentsFeeScheduleManagerAddr;
         addrs[4] = teePaymentsRegistryAddr;
         addrs[5] = teePaymentsConfigVerifierAddr;
+        addrs[6] = addressValidatorAddr;
         for (uint256 i = 0; i < teePaymentsAddresses.length; i++) {
             TeePayments(teePaymentsAddresses[i])
                 .updateContractAddresses(names, addrs);
         }
+    }
+
+    function _wireAddressValidator() internal {
+        // AddressValidator has no upstream dependencies; still needs AddressUpdater wired for consistency.
+        bytes32[] memory names = new bytes32[](1);
+        names[0] = _encodeContractName("AddressUpdater");
+        address[] memory addrs = new address[](1);
+        addrs[0] = addressUpdater;
+        AddressValidator(addressValidatorAddr)
+            .updateContractAddresses(names, addrs);
     }
 
     function _wireTeePaymentsConfigVerifier() internal {
@@ -1221,6 +1270,64 @@ contract DeployTeeContracts is Script {
     }
 
     // =========================================================================
+    // Configure AddressValidator per-source {chainKind, network} profiles
+    // =========================================================================
+
+    function _configureAddressValidatorSources() internal {
+        TeePaymentsConfiguration[] memory accountConfigs = abi.decode(
+            vm.parseJson(config, ".teePaymentsConfigurations"),
+            (TeePaymentsConfiguration[])
+        );
+        TeePaymentsUtxoConfiguration[] memory utxoConfigs = abi.decode(
+            vm.parseJson(config, ".teePaymentsUtxoConfigurations"),
+            (TeePaymentsUtxoConfiguration[])
+        );
+
+        uint256 total;
+        for (uint256 i = 0; i < accountConfigs.length; i++) {
+            total += accountConfigs[i].sourceConfigs.length;
+        }
+        for (uint256 i = 0; i < utxoConfigs.length; i++) {
+            total += utxoConfigs[i].sourceConfigs.length;
+        }
+        if (total == 0) return;
+
+        // chainKind is derived from the config's keyType; network from the deploy target
+        // (flare/songbird -> mainnet, every other network -> testnet).
+        IAddressValidator.Network network = _addressValidatorNetwork();
+        IAddressValidator.SourceConfig[] memory inputs =
+            new IAddressValidator.SourceConfig[](total);
+        uint256 k;
+        for (uint256 i = 0; i < accountConfigs.length; i++) {
+            IAddressValidator.ChainKind kind =
+                _chainKindForKeyType(bytes32(bytes(accountConfigs[i].keyType)));
+            for (uint256 j = 0; j < accountConfigs[i].sourceConfigs.length; j++) {
+                inputs[k++] = IAddressValidator.SourceConfig({
+                    sourceId: bytes32(bytes(accountConfigs[i].sourceConfigs[j].sourceId)),
+                    chainKind: kind,
+                    network: network
+                });
+            }
+        }
+        for (uint256 i = 0; i < utxoConfigs.length; i++) {
+            IAddressValidator.ChainKind kind =
+                _chainKindForKeyType(bytes32(bytes(utxoConfigs[i].keyType)));
+            for (uint256 j = 0; j < utxoConfigs[i].sourceConfigs.length; j++) {
+                inputs[k++] = IAddressValidator.SourceConfig({
+                    sourceId: bytes32(bytes(utxoConfigs[i].sourceConfigs[j].sourceId)),
+                    chainKind: kind,
+                    network: network
+                });
+            }
+        }
+
+        console2.log(
+            "Configuring AddressValidator sources, count:", total
+        );
+        AddressValidator(addressValidatorAddr).setSourceConfigs(inputs);
+    }
+
+    // =========================================================================
     // Set FDC2 request fee configurations
     // =========================================================================
 
@@ -1312,6 +1419,9 @@ contract DeployTeeContracts is Script {
         // TeePaymentsConfigVerifier (always deployed)
         TeePaymentsConfigVerifier(teePaymentsConfigVerifierAddr)
             .switchToProductionMode();
+        // AddressValidator (always deployed)
+        AddressValidator(addressValidatorAddr)
+            .switchToProductionMode();
     }
 
     // =========================================================================
@@ -1327,6 +1437,19 @@ contract DeployTeeContracts is Script {
         if (chainId == 16) return "coston";
         if (chainId == 114) return "coston2";
         return "scdev";
+    }
+
+    // The AddressValidator network for this deploy target (flare/songbird -> mainnet, else testnet).
+    // Only Bitcoin/Dogecoin enforce network; EVM and XRPL addresses are network-agnostic by format.
+    function _addressValidatorNetwork()
+        internal view
+        returns (IAddressValidator.Network)
+    {
+        uint256 chainId = block.chainid;
+        if (chainId == 14 || chainId == 19) {
+            return IAddressValidator.Network.Mainnet; // flare / songbird
+        }
+        return IAddressValidator.Network.Testnet;
     }
 
     // =========================================================================
@@ -1482,5 +1605,19 @@ contract DeployTeeContracts is Script {
         returns (bool)
     {
         return keccak256(bytes(_network)) == keccak256(bytes("scdev"));
+    }
+
+    // Maps a config keyType to the AddressValidator chain kind (keyType is the chain family).
+    function _chainKindForKeyType(
+        bytes32 _keyType
+    )
+        internal pure
+        returns (IAddressValidator.ChainKind)
+    {
+        if (_keyType == bytes32("XRP")) return IAddressValidator.ChainKind.Xrpl;
+        if (_keyType == bytes32("EVM")) return IAddressValidator.ChainKind.Evm;
+        if (_keyType == bytes32("BTC")) return IAddressValidator.ChainKind.Bitcoin;
+        if (_keyType == bytes32("DOGE")) return IAddressValidator.ChainKind.Dogecoin;
+        revert("AddressValidator: unknown keyType");
     }
 }

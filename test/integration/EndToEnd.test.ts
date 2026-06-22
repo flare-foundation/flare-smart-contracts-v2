@@ -18,6 +18,9 @@ import {
   AddressBinderInstance,
   AddressUpdaterContract,
   AddressUpdaterInstance,
+  AddressValidatorContract,
+  AddressValidatorInstance,
+  AddressValidatorProxyContract,
   CChainStakeContract,
   CChainStakeInstance,
   CleanupBlockNumberManagerContract,
@@ -145,6 +148,8 @@ const TeePaymentsConfigVerifier: TeePaymentsConfigVerifierContract = artifacts.r
 const TeePaymentsConfigVerifierProxy: TeePaymentsConfigVerifierProxyContract = artifacts.require(
   "TeePaymentsConfigVerifierProxy"
 );
+const AddressValidator: AddressValidatorContract = artifacts.require("AddressValidator");
+const AddressValidatorProxy: AddressValidatorProxyContract = artifacts.require("AddressValidatorProxy");
 const TeePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerContract = artifacts.require(
   "TeePaymentsFeeScheduleManager"
 );
@@ -423,6 +428,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
   let teePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerInstance;
   let teePaymentsRegistry: TeePaymentsRegistryInstance;
   let teePaymentsConfigVerifier: TeePaymentsConfigVerifierInstance;
+  let addressValidator: AddressValidatorInstance;
   let fdc2Hub: Fdc2HubInstance;
   let fdc2RequestFeeConfigurations: Fdc2RequestFeeConfigurationsInstance;
   let fdc2Verification: Fdc2VerificationInstance;
@@ -883,6 +889,17 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     teePaymentsConfigVerifier = await TeePaymentsConfigVerifier.at(teePaymentsConfigVerifierProxy.address);
     addressUpdatableContracts.push(teePaymentsConfigVerifier.address);
 
+    // Deploy shared sourceId-aware recipient address validator (resolved by TeePayments via AddressUpdater)
+    const addressValidatorImpl = await AddressValidator.new();
+    const addressValidatorProxy = await AddressValidatorProxy.new(
+      governanceSettings.address,
+      accounts[0],
+      addressUpdater.address,
+      addressValidatorImpl.address
+    );
+    addressValidator = await AddressValidator.at(addressValidatorProxy.address);
+    addressUpdatableContracts.push(addressValidator.address);
+
     const teePaymentsImpl: TeePaymentsInstance = await TeePayments.new();
     let teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings.address,
@@ -985,6 +1002,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         Contracts.TEE_PAYMENTS_FEE_SCHEDULE_MANAGER,
         Contracts.TEE_PAYMENTS_REGISTRY,
         Contracts.TEE_PAYMENTS_CONFIG_VERIFIER,
+        Contracts.ADDRESS_VALIDATOR,
       ],
       [
         addressUpdater.address,
@@ -1016,6 +1034,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         teePaymentsFeeScheduleManager.address,
         teePaymentsRegistry.address,
         teePaymentsConfigVerifier.address,
+        addressValidator.address,
       ],
       addressUpdatableContracts,
       { from: accounts[0] }
@@ -1036,6 +1055,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         sourceId: BTC_SOURCE_ID,
         teePayments: teePaymentsBTC.address,
       },
+    ]);
+    // Configure AddressValidator per-source {chainKind, network} profiles so pay()/reissue() recipient
+    // address validation passes. ChainKind enum: Bitcoin=0, Dogecoin=1, Xrpl=2, Evm=3. Network enum:
+    // Mainnet=0, Testnet=1, Regtest=2. Testnet mirrors the local/test deployment in deploy-contracts.
+    await addressValidator.setSourceConfigs([
+      { sourceId: XRP_SOURCE_ID, chainKind: 2, network: 1 },
+      { sourceId: BTC_SOURCE_ID, chainKind: 0, network: 1 },
     ]);
     // set system supported platforms
     await flareTeeManager.addSystemSupportedPlatforms(
@@ -2706,7 +2732,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     const tx2 = await teePaymentsBTC.pay(
       { sourceId: BTC_SOURCE_ID, accountAddress: "bc1qutxoaccount" },
       {
-        recipientAddress: "bc1qrecipient",
+        recipientAddress: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
         tokenId: constants.ZERO_BYTES32,
         amount: "1500",
         maxFee: 1000,
@@ -2729,7 +2755,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       accountAddress: "bc1qutxoaccount",
       accountIndex: BTC_ACCOUNT_INDEX,
       anchorIndex: 0,
-      recipientAddress: "bc1qrecipient",
+      recipientAddress: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
       tokenId: constants.ZERO_BYTES32,
       amount: "1500",
       maxFee: 1000,
@@ -2804,7 +2830,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       1,
       [
         {
-          recipientAddress: "bc1qrecipient",
+          recipientAddress: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
           tokenId: constants.ZERO_BYTES32,
           amount: "1500",
           maxFee: 1000,
@@ -2828,7 +2854,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       accountAddress: "bc1qutxoaccount",
       accountIndex: BTC_ACCOUNT_INDEX,
       anchorIndex: 0,
-      recipientAddress: "bc1qrecipient",
+      recipientAddress: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
       tokenId: constants.ZERO_BYTES32,
       amount: "1500",
       maxFee: 5000000,

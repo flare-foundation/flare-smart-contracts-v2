@@ -16,6 +16,7 @@ Supporting contracts, all outside the diamond:
 - [`TeePaymentsRegistry`](../../../contracts/tee/implementation/TeePaymentsRegistry.sol) — maps each `sourceId` to its `(keyType, opType, paymentModel, TeePayments)` binding.
 - [`TeePaymentsConfigVerifier`](../../../contracts/tee/implementation/TeePaymentsConfigVerifier.sol) — requests and validates the PMW configuration attestations used to register accounts/anchors.
 - [`TeePaymentsFeeScheduleManager`](../../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol) — per-extension fee schedules (see [Operation Fees](./OperationFees.md)).
+- [`AddressValidator`](../../../contracts/tee/implementation/AddressValidator.sol) — validates each payment's recipient address against the chain/network configured for its `sourceId` (see [Recipient address validation](#recipient-address-validation)).
 
 ## Shared base — registration, authorization, dispatch
 
@@ -35,6 +36,8 @@ Supporting contracts, all outside the diamond:
 Because the whole FDC2 proof (header + request body + response body) is signature-verified together, the payment contracts read the verified fields **straight from the calldata `proof`** — there is no returned struct.
 
 **Authorization** — `pay`/`reissue` are gated by `_checkAuthorizationAddress` (`authorizationAddresses[accountHash] == msg.sender`); registration and `addAnchors` are gated by wallet ownership.
+
+**Recipient address validation** — `pay` (both models) calls `_requireValidRecipientAddress(sourceId, recipientAddress)`, which reverts `InvalidRecipientAddress()` unless [`AddressValidator.isValidAddress(sourceId, recipientAddress)`](../../../contracts/tee/implementation/AddressValidator.sol) returns true. The validator (injected via `AddressUpdatable` as `"AddressValidator"`) maps each `sourceId`, by governance config, to a `{chainKind, network}` profile and runs the matching stateless validator: Bitcoin (Base58Check legacy + Bech32/Bech32m SegWit) and Dogecoin (Base58Check only), both network-enforced; XRPL (classic r-addresses — network-agnostic by format — and X-addresses whose `X`/`T` prefix network is enforced, with reserved tag flags rejected); or EVM (canonical EIP-55, network-agnostic). It is fail-closed — an unconfigured `sourceId` is rejected — so governance must configure every active source. `reissue` re-sends an already-paid (already-validated) instruction and is not re-checked.
 
 **Dispatch** — `_sendPaymentInstructions` forwards `msg.value` to [`FlareTeeManager.sendSystemInstructions`](../../../contracts/tee/facets/InstructionsFacet.sol) with the computed `instructionId`, the receiving TEEs, the op type/command, the ABI-encoded message, and the wallet's cosigner set. That emits the `TeeInstructionsSent` event the off-chain pipeline consumes.
 

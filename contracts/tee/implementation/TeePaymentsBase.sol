@@ -10,6 +10,7 @@ import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegis
 import {
     ITeePaymentsConfigVerifier
 } from "../../userInterfaces/tee/ITeePaymentsConfigVerifier.sol";
+import { IAddressValidator } from "../../userInterfaces/tee/IAddressValidator.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
@@ -32,6 +33,8 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
     ITeePaymentsRegistry public teePaymentsRegistry;
     /// Shared PMW configuration request + verify contract.
     ITeePaymentsConfigVerifier public teePaymentsConfigVerifier;
+    /// Shared sourceId-aware recipient address validator.
+    IAddressValidator public addressValidator;
 
     modifier onlyWalletOwner(PMWMultisigAccount calldata _account) {
         _checkOnlyWalletOwner(_account);
@@ -157,6 +160,8 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsRegistry"));
         teePaymentsConfigVerifier = ITeePaymentsConfigVerifier(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsConfigVerifier"));
+        addressValidator = IAddressValidator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "AddressValidator"));
     }
 
     // flareTeeManager is a trusted system contract set via AddressUpdatable, not an arbitrary address.
@@ -293,6 +298,15 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
         internal view
     {
         require(authorizationAddresses[_accountHash] == msg.sender, OnlyAuthorizationAddress());
+    }
+
+    function _requireValidRecipientAddress(
+        bytes32 _sourceId,
+        string calldata _recipientAddress
+    )
+        internal view
+    {
+        require(addressValidator.isValidAddress(_sourceId, _recipientAddress), InvalidRecipientAddress());
     }
 
     function _checkWalletStatus(

@@ -14,6 +14,7 @@ import {
     ITeePaymentsConfigVerifier
 } from "../../../../contracts/userInterfaces/tee/ITeePaymentsConfigVerifier.sol";
 import { ITeePaymentsRegistry } from "../../../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
+import { IAddressValidator } from "../../../../contracts/userInterfaces/tee/IAddressValidator.sol";
 import { PaymentModel } from "../../../../contracts/userInterfaces/tee/ITeePaymentsModel.sol";
 import {
     ITeePaymentsFeeScheduleManager
@@ -52,6 +53,7 @@ contract TeePaymentsTest is Test {
     address private flareTeeManager;
     address private teePaymentsFeeScheduleManager;
     address private teePaymentsConfigVerifier;
+    address private addressValidator;
 
     address private governance;
     address private addressUpdater;
@@ -110,24 +112,29 @@ contract TeePaymentsTest is Test {
         flareTeeManager = makeAddr("flareTeeManager");
         teePaymentsFeeScheduleManager = makeAddr("teePaymentsFeeScheduleManager");
         teePaymentsConfigVerifier = makeAddr("teePaymentsConfigVerifier");
+        addressValidator = makeAddr("addressValidator");
 
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](6);
-        contractAddresses = new address[](6);
+        contractNameHashes = new bytes32[](7);
+        contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("FlareTeeManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("TeePaymentsFeeScheduleManager"));
         contractNameHashes[4] = keccak256(abi.encode("TeePaymentsRegistry"));
         contractNameHashes[5] = keccak256(abi.encode("TeePaymentsConfigVerifier"));
+        contractNameHashes[6] = keccak256(abi.encode("AddressValidator"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = flareTeeManager;
         contractAddresses[2] = mockFSM;
         contractAddresses[3] = teePaymentsFeeScheduleManager;
         contractAddresses[4] = address(teePaymentsRegistry);
         contractAddresses[5] = teePaymentsConfigVerifier;
+        contractAddresses[6] = addressValidator;
         teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
+
+        _mockIsValidAddress(true);
 
         _mockGetWalletProjectId(walletId, projectId);
         _mockGetExtensionId(projectId, 0);
@@ -159,6 +166,14 @@ contract TeePaymentsTest is Test {
         vm.deal(authorizationAddress, 1 ether);
         vm.deal(walletOwner, 1 ether);
         vm.warp(500);
+    }
+
+    function _mockIsValidAddress(bool _valid) private {
+        vm.mockCall(
+            addressValidator,
+            abi.encodeWithSelector(IAddressValidator.isValidAddress.selector),
+            abi.encode(_valid)
+        );
     }
 
     //// addPMWMultisigAccount ////
@@ -240,6 +255,18 @@ contract TeePaymentsTest is Test {
             address(0)
         );
         assertEq(paymentId, 1);
+    }
+
+    function testPayRevertsInvalidRecipientAddress() public {
+        _addAccount();
+        _mockIsValidAddress(false);
+        vm.expectRevert(ITeePaymentsBase.InvalidRecipientAddress.selector);
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: fee}(
+            pmwMultisigAccount,
+            _createPaymentInstruction(bytes32("ref1")),
+            address(0)
+        );
     }
 
     function testPayIncrementsPaymentId() public {

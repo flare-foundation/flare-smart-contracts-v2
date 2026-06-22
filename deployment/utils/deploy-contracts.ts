@@ -84,6 +84,9 @@ import {
   TeePaymentsConfigVerifierContract,
   TeePaymentsConfigVerifierInstance,
   TeePaymentsConfigVerifierProxyContract,
+  AddressValidatorContract,
+  AddressValidatorInstance,
+  AddressValidatorProxyContract,
   TeePaymentsFeeScheduleManagerContract,
   TeePaymentsFeeScheduleManagerInstance,
   TeePaymentsFeeScheduleManagerProxyContract,
@@ -172,6 +175,7 @@ export interface DeployedContracts {
   readonly teePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerInstance;
   readonly teePaymentsRegistry: TeePaymentsRegistryInstance;
   readonly teePaymentsConfigVerifier: TeePaymentsConfigVerifierInstance;
+  readonly addressValidator: AddressValidatorInstance;
   readonly teePayments: (TeePaymentsInstance | TeePaymentsUtxoInstance)[];
   readonly fdc2Hub: Fdc2HubInstance;
   readonly fdc2InflationConfigurations: Fdc2InflationConfigurationsInstance;
@@ -262,6 +266,8 @@ export async function deployContracts(
   const TeePaymentsConfigVerifierProxy = hre.artifacts.require(
     "TeePaymentsConfigVerifierProxy"
   ) as TeePaymentsConfigVerifierProxyContract;
+  const AddressValidator = hre.artifacts.require("AddressValidator") as AddressValidatorContract;
+  const AddressValidatorProxy = hre.artifacts.require("AddressValidatorProxy") as AddressValidatorProxyContract;
   const TeePaymentsFeeScheduleManager = hre.artifacts.require(
     "TeePaymentsFeeScheduleManager"
   ) as TeePaymentsFeeScheduleManagerContract;
@@ -680,6 +686,17 @@ export async function deployContracts(
   const teePaymentsConfigVerifier = await TeePaymentsConfigVerifier.at(teePaymentsConfigVerifierProxy.address);
   addressUpdatableContracts.push(teePaymentsConfigVerifier.address);
 
+  // Shared sourceId-aware recipient address validator
+  const addressValidatorImpl = await AddressValidator.new();
+  const addressValidatorProxy = await AddressValidatorProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address,
+    addressValidatorImpl.address
+  );
+  const addressValidator = await AddressValidator.at(addressValidatorProxy.address);
+  addressUpdatableContracts.push(addressValidator.address);
+
   const teePaymentsList: (TeePaymentsInstance | TeePaymentsUtxoInstance)[] = [];
   const sourceRegistrations: {
     keyType: string;
@@ -855,6 +872,7 @@ export async function deployContracts(
       Contracts.TEE_PAYMENTS_FEE_SCHEDULE_MANAGER,
       Contracts.TEE_PAYMENTS_REGISTRY,
       Contracts.TEE_PAYMENTS_CONFIG_VERIFIER,
+      Contracts.ADDRESS_VALIDATOR,
     ],
     [
       addressUpdater.address,
@@ -894,6 +912,7 @@ export async function deployContracts(
       teePaymentsFeeScheduleManager.address,
       teePaymentsRegistry.address,
       teePaymentsConfigVerifier.address,
+      addressValidator.address,
     ],
     addressUpdatableContracts,
     { from: governanceAccount.address }
@@ -902,6 +921,47 @@ export async function deployContracts(
   // Register sourceId -> TeePayments bindings in the registry
   if (sourceRegistrations.length > 0) {
     await teePaymentsRegistry.registerSources(sourceRegistrations, { from: governanceAccount.address });
+  }
+
+  // Configure AddressValidator per-source {chainKind, network} profiles. chainKind is derived from
+  // keyType; this local/test deployment uses the testnet network. Network is only enforced for
+  // Bitcoin/Dogecoin; EVM and XRPL addresses are network-agnostic by format.
+  // ChainKind enum order: Bitcoin=0, Dogecoin=1, Xrpl=2, Evm=3.
+  const chainKindForKeyType = (keyType: string): number => {
+    switch (keyType) {
+      case "BTC":
+        return 0; // Bitcoin
+      case "DOGE":
+        return 1; // Dogecoin
+      case "XRP":
+        return 2; // Xrpl
+      case "EVM":
+        return 3; // Evm
+      default:
+        throw new Error(`AddressValidator: unknown keyType '${keyType}'`);
+    }
+  };
+  const addressValidatorConfigs: { sourceId: string; chainKind: number; network: number }[] = [];
+  for (const cfg of TEE_PAYMENTS_CONFIGURATIONS) {
+    for (const src of cfg.sourceConfigs) {
+      addressValidatorConfigs.push({
+        sourceId: web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
+        chainKind: chainKindForKeyType(cfg.keyType),
+        network: 1, // Testnet
+      });
+    }
+  }
+  for (const cfg of TEE_PAYMENTS_UTXO_CONFIGURATIONS) {
+    for (const src of cfg.sourceConfigs) {
+      addressValidatorConfigs.push({
+        sourceId: web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
+        chainKind: chainKindForKeyType(cfg.keyType),
+        network: 1, // Testnet
+      });
+    }
+  }
+  if (addressValidatorConfigs.length > 0) {
+    await addressValidator.setSourceConfigs(addressValidatorConfigs, { from: governanceAccount.address });
   }
 
   if (teePaymentsUtxoAddress !== undefined) {
@@ -1209,6 +1269,7 @@ export async function deployContracts(
     teePaymentsFeeScheduleManager,
     teePaymentsRegistry,
     teePaymentsConfigVerifier,
+    addressValidator,
     teePayments: teePaymentsList,
     fdc2Hub,
     fdc2InflationConfigurations,

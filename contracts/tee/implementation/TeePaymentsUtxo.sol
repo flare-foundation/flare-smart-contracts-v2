@@ -104,6 +104,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         bytes32 accountHash = _toAccountHash(_account);
         bytes32 walletId = accountHashToWalletId[accountHash];
         _checkAuthorizationAddress(accountHash);
+        _requireValidRecipientAddress(_account.sourceId, _paymentInstruction.recipientAddress);
         _checkWalletStatus(walletId);
 
         AccountState storage state = states[accountHash];

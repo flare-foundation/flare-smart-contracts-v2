@@ -54,6 +54,7 @@ interface ITeePaymentsBase is ITeePaymentsModel {
     error PaymentAmountZero();
     error InvalidPaymentId();
     error AuthorizationAddressZero();
+    error InvalidRecipientAddress();
 
     /**
      * Payment instruction method.

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.35;
 
 import {Test} from "forge-std/Test.sol";
-import {XrplXAddress} from "../../../../contracts/tee/library/XrplXAddress.sol";
+import {XrplXAddress} from "../../../mock/XrplXAddress.sol";
 
 // Harness so the (internal) library functions get a real external entry point for size/gas measurement.
 contract XrplXAddressHarness {

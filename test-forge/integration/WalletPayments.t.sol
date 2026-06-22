@@ -30,6 +30,7 @@ import { ITeePaymentsBase } from "../../contracts/userInterfaces/tee/ITeePayment
 import {
     ITeePaymentsConfigVerifier
 } from "../../contracts/userInterfaces/tee/ITeePaymentsConfigVerifier.sol";
+import { IAddressValidator } from "../../contracts/userInterfaces/tee/IAddressValidator.sol";
 import { PaymentModel } from "../../contracts/userInterfaces/tee/ITeePaymentsModel.sol";
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
 import { IPMWMultisigAccountConfigured } from "../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
@@ -89,6 +90,7 @@ contract WalletPaymentsTest is Test {
     address private fdc2HubMock;
     address private fdc2VerificationMock;
     address private teePaymentsConfigVerifierMock;
+    address private addressValidatorMock;
 
     bytes32 private projectId;
     bytes32 private opType;
@@ -133,6 +135,7 @@ contract WalletPaymentsTest is Test {
         fdc2HubMock = makeAddr("Fdc2Hub");
         fdc2VerificationMock = makeAddr("Fdc2Verification");
         teePaymentsConfigVerifierMock = makeAddr("TeePaymentsConfigVerifier");
+        addressValidatorMock = makeAddr("AddressValidator");
 
         PublicKey[] memory publicKeys = new PublicKey[](1);
         publicKeys[0] = PublicKey(keccak256("1"), keccak256("1"));
@@ -233,22 +236,29 @@ contract WalletPaymentsTest is Test {
         );
 
         // TeePayments resolves: AddressUpdater, FlareTeeManager, FlareSystemsManager,
-        // TeePaymentsFeeScheduleManager, TeePaymentsRegistry, TeePaymentsConfigVerifier
-        contractNameHashes = new bytes32[](6);
-        contractAddresses = new address[](6);
+        // TeePaymentsFeeScheduleManager, TeePaymentsRegistry, TeePaymentsConfigVerifier, AddressValidator
+        contractNameHashes = new bytes32[](7);
+        contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("FlareTeeManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("TeePaymentsFeeScheduleManager"));
         contractNameHashes[4] = keccak256(abi.encode("TeePaymentsRegistry"));
         contractNameHashes[5] = keccak256(abi.encode("TeePaymentsConfigVerifier"));
+        contractNameHashes[6] = keccak256(abi.encode("AddressValidator"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = address(flareTeeManager);
         contractAddresses[2] = flareSystemsManagerMock;
         contractAddresses[3] = address(teePaymentsFeeScheduleManager);
         contractAddresses[4] = address(teePaymentsRegistry);
         contractAddresses[5] = teePaymentsConfigVerifierMock;
+        contractAddresses[6] = addressValidatorMock;
         teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
+        vm.mockCall(
+            addressValidatorMock,
+            abi.encodeWithSelector(IAddressValidator.isValidAddress.selector),
+            abi.encode(true)
+        );
 
         // TeePaymentsFeeScheduleManager resolves: AddressUpdater, FlareTeeManager, TeePaymentsRegistry
         contractNameHashes = new bytes32[](3);
