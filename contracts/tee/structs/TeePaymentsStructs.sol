@@ -19,4 +19,6 @@ interface TeePaymentsStructs {
     function utxoPaymentInstructionMessageStruct(ITeePaymentsUtxo.UtxoPaymentInstructionMessage calldata) external;
 
     function utxoAnchorStateStruct(ITeePaymentsUtxo.UtxoAnchorState calldata) external;
+
+    function batchRecordStruct(ITeePaymentsUtxo.BatchRecord calldata) external;
 }
