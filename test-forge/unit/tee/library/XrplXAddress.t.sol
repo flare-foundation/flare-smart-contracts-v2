@@ -117,6 +117,26 @@ contract XrplXAddressTest is Test {
         harness = new XrplXAddressHarness();
     }
 
+    // --- revert paths (state-touching cheatcodes: non-view) ---
+
+    function testDecodeRevertsOnBadChecksum() public {
+        // last char tampered
+        vm.expectRevert(XrplXAddress.InvalidClassicAddress.selector);
+        harness.decodeClassicAddress("rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpg");
+    }
+
+    function testDecodeRevertsOnBadCharacter() public {
+        // '0' is not in the Base58 alphabet
+        vm.expectRevert(XrplXAddress.InvalidBase58Character.selector);
+        harness.decodeClassicAddress("rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYp0");
+    }
+
+    function testDecodeXAddressRevertsOnBadChecksum() public {
+        // last char tampered
+        vm.expectRevert(XrplXAddress.InvalidXAddress.selector);
+        harness.decodeXAddress("XVLhHMPHU98es4dbozjVtdWzVrDjtV5fdx1mHp98tDMoQXc");
+    }
+
     function testEncodeNoTag() public view {
         assertEq(
             harness.encode(ACCT_A, 0, false, false),
@@ -172,33 +192,7 @@ contract XrplXAddressTest is Test {
         );
     }
 
-    function testDecodeRevertsOnBadChecksum() public {
-        // last char tampered
-        vm.expectRevert(XrplXAddress.InvalidClassicAddress.selector);
-        harness.decodeClassicAddress("rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpg");
-    }
-
-    function testDecodeRevertsOnBadCharacter() public {
-        // '0' is not in the Base58 alphabet
-        vm.expectRevert(XrplXAddress.InvalidBase58Character.selector);
-        harness.decodeClassicAddress("rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYp0");
-    }
-
     // --- X-address -> (accountId, tag, network) ---
-
-    function _assertDecode(
-        string memory _x,
-        bytes20 _expectedAcct,
-        uint32 _expectedTag,
-        bool _expectedHasTag,
-        bool _expectedTest
-    ) internal view {
-        (bytes20 acct, uint32 tag, bool hasTag, bool test) = harness.decodeXAddress(_x);
-        assertEq(acct, _expectedAcct);
-        assertEq(tag, _expectedTag);
-        assertEq(hasTag, _expectedHasTag);
-        assertEq(test, _expectedTest);
-    }
 
     function testDecodeXAddressNoTag() public view {
         _assertDecode("XVLhHMPHU98es4dbozjVtdWzVrDjtV5fdx1mHp98tDMoQXb", ACCT_A, 0, false, false);
@@ -223,12 +217,6 @@ contract XrplXAddressTest is Test {
 
     function testDecodeXAddressTestNetwork() public view {
         _assertDecode("TVE26TYGhfLC7tQDno7G8dGtxSkYQnTNrgQwkM2tPvGzJRR", ACCT_A, 13, true, true);
-    }
-
-    function testDecodeXAddressRevertsOnBadChecksum() public {
-        // last char tampered
-        vm.expectRevert(XrplXAddress.InvalidXAddress.selector);
-        harness.decodeXAddress("XVLhHMPHU98es4dbozjVtdWzVrDjtV5fdx1mHp98tDMoQXc");
     }
 
     function testEncodeDecodeRoundTrip() public view {
@@ -286,10 +274,6 @@ contract XrplXAddressTest is Test {
 
     // --- format-agnostic validation ---
 
-    function _assertFormat(string memory _addr, XrplXAddress.AddressFormat _expected) internal view {
-        assertEq(uint8(harness.validateAddress(_addr)), uint8(_expected));
-    }
-
     function testValidateAddressDetectsFormat() public view {
         _assertFormat(CLASSIC_A, XrplXAddress.AddressFormat.Classic);
         _assertFormat(CLASSIC_PEPPER, XrplXAddress.AddressFormat.Classic);
@@ -304,5 +288,25 @@ contract XrplXAddressTest is Test {
         _assertFormat("XVLhHMPHU98es4dbozjVtdWzVrDjtVoUhWS5SgMMoLoBzqR", XrplXAddress.AddressFormat.Invalid);
         _assertFormat("", XrplXAddress.AddressFormat.Invalid); // empty
         _assertFormat("1GWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpf", XrplXAddress.AddressFormat.Invalid); // unknown prefix
+    }
+
+    // --- internal helpers ---
+
+    function _assertDecode(
+        string memory _x,
+        bytes20 _expectedAcct,
+        uint32 _expectedTag,
+        bool _expectedHasTag,
+        bool _expectedTest
+    ) internal view {
+        (bytes20 acct, uint32 tag, bool hasTag, bool test) = harness.decodeXAddress(_x);
+        assertEq(acct, _expectedAcct);
+        assertEq(tag, _expectedTag);
+        assertEq(hasTag, _expectedHasTag);
+        assertEq(test, _expectedTest);
+    }
+
+    function _assertFormat(string memory _addr, XrplXAddress.AddressFormat _expected) internal view {
+        assertEq(uint8(harness.validateAddress(_addr)), uint8(_expected));
     }
 }

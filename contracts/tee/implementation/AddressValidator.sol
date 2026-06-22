@@ -34,7 +34,7 @@ contract AddressValidator is IIAddressValidator, FlareUpgradeableBase {
         address _initialGovernance,
         address _addressUpdater
     )
-        external
+        external virtual
         initializer
     {
         FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);

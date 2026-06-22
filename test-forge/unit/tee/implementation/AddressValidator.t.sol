@@ -50,20 +50,6 @@ contract AddressValidatorTest is Test {
         validator.setSourceConfigs(configs);
     }
 
-    function testDispatchesPerChain() public view {
-        assertTrue(validator.isValidAddress(SRC_BTC, BTC_MAIN));
-        assertTrue(validator.isValidAddress(SRC_DOGE, DOGE_MAIN));
-        assertTrue(validator.isValidAddress(SRC_XRP, XRP_CLASSIC));
-        assertTrue(validator.isValidAddress(SRC_ETH, EVM_CHK));
-    }
-
-    function testRejectsCrossChainAddress() public view {
-        // A Bitcoin address is not valid for the Dogecoin source, and vice-versa.
-        assertFalse(validator.isValidAddress(SRC_DOGE, BTC_MAIN));
-        assertFalse(validator.isValidAddress(SRC_BTC, DOGE_MAIN));
-        assertFalse(validator.isValidAddress(SRC_BTC, XRP_CLASSIC));
-    }
-
     function testEnforcesNetwork() public {
         // Reconfigure BTC source as testnet: a mainnet address must now be rejected.
         IAddressValidator.SourceConfig[] memory configs = new IAddressValidator.SourceConfig[](1);
@@ -73,12 +59,6 @@ contract AddressValidatorTest is Test {
         validator.setSourceConfigs(configs);
         assertFalse(validator.isValidAddress(SRC_BTC, BTC_MAIN));
         assertTrue(validator.isValidAddress(SRC_BTC, "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"));
-    }
-
-    function testUnconfiguredSourceFailsClosed() public view {
-        assertFalse(validator.isValidAddress(SRC_UNCONFIGURED, BTC_MAIN));
-        (, , bool configured) = validator.getSourceConfig(SRC_UNCONFIGURED);
-        assertTrue(!configured);
     }
 
     function testXrplXAddressNetworkEnforced() public {
@@ -98,14 +78,6 @@ contract AddressValidatorTest is Test {
         assertTrue(validator.isValidAddress(SRC_XRP, XRP_XADDR_TEST));
         assertFalse(validator.isValidAddress(SRC_XRP, XRP_XADDR_MAIN));
         assertTrue(validator.isValidAddress(SRC_XRP, XRP_CLASSIC));
-    }
-
-    function testGetSourceConfig() public view {
-        (IAddressValidator.ChainKind kind, IAddressValidator.Network network, bool configured) =
-            validator.getSourceConfig(SRC_BTC);
-        assertEq(uint8(kind), uint8(IAddressValidator.ChainKind.Bitcoin));
-        assertEq(uint8(network), uint8(IAddressValidator.Network.Mainnet));
-        assertTrue(configured);
     }
 
     function testSetSourceConfigsOnlyGovernance() public {
@@ -133,5 +105,33 @@ contract AddressValidatorTest is Test {
             SRC_ETH, IAddressValidator.ChainKind.Evm, IAddressValidator.Network.Mainnet);
         vm.prank(governance);
         validator.setSourceConfigs(configs);
+    }
+
+    function testUnconfiguredSourceFailsClosed() public view {
+        assertFalse(validator.isValidAddress(SRC_UNCONFIGURED, BTC_MAIN));
+        (, , bool configured) = validator.getSourceConfig(SRC_UNCONFIGURED);
+        assertTrue(!configured);
+    }
+
+    function testGetSourceConfig() public view {
+        (IAddressValidator.ChainKind kind, IAddressValidator.Network network, bool configured) =
+            validator.getSourceConfig(SRC_BTC);
+        assertEq(uint8(kind), uint8(IAddressValidator.ChainKind.Bitcoin));
+        assertEq(uint8(network), uint8(IAddressValidator.Network.Mainnet));
+        assertTrue(configured);
+    }
+
+    function testDispatchesPerChain() public view {
+        assertTrue(validator.isValidAddress(SRC_BTC, BTC_MAIN));
+        assertTrue(validator.isValidAddress(SRC_DOGE, DOGE_MAIN));
+        assertTrue(validator.isValidAddress(SRC_XRP, XRP_CLASSIC));
+        assertTrue(validator.isValidAddress(SRC_ETH, EVM_CHK));
+    }
+
+    function testRejectsCrossChainAddress() public view {
+        // A Bitcoin address is not valid for the Dogecoin source, and vice-versa.
+        assertFalse(validator.isValidAddress(SRC_DOGE, BTC_MAIN));
+        assertFalse(validator.isValidAddress(SRC_BTC, DOGE_MAIN));
+        assertFalse(validator.isValidAddress(SRC_BTC, XRP_CLASSIC));
     }
 }

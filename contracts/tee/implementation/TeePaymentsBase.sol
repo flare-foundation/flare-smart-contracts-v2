@@ -5,7 +5,7 @@ import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgra
 import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
-import { ITeePaymentsBase, PAY, REISSUE } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
+import { ITeePaymentsBase } from "../../userInterfaces/tee/ITeePaymentsBase.sol";
 import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
 import {
     ITeePaymentsConfigVerifier
@@ -53,17 +53,6 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
     )
         external virtual
         initializer
-    {
-        _initializeTeePaymentsBase(_governanceSettings, _initialGovernance, _addressUpdater);
-    }
-
-    function _initializeTeePaymentsBase(
-        IGovernanceSettings _governanceSettings,
-        address _initialGovernance,
-        address _addressUpdater
-    )
-        internal
-        onlyInitializing
     {
         FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }

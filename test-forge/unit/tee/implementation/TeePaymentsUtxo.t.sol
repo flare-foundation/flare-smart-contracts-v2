@@ -295,14 +295,6 @@ contract TeePaymentsUtxoTest is Test {
         teePayments.setAnchorReuseDelay(SOURCE_ID, 720);
     }
 
-    function _mockIsValidAddress(bool _valid) private {
-        vm.mockCall(
-            addressValidator,
-            abi.encodeWithSelector(IAddressValidator.isValidAddress.selector),
-            abi.encode(_valid)
-        );
-    }
-
     //// pay ////
 
     function testPay() public {
@@ -657,22 +649,6 @@ contract TeePaymentsUtxoTest is Test {
         assertTrue(finalized2, "second chunk completes and finalizes the batch reissue");
     }
 
-    //// helpers ////
-
-    function _reissueFee(
-        uint256 _maxFee
-    )
-        internal pure returns (ITeePaymentsBase.ReissueFeeParams memory)
-    {
-        uint256[] memory maxFeePerPayment = new uint256[](1);
-        maxFeePerPayment[0] = _maxFee;
-        return ITeePaymentsBase.ReissueFeeParams({
-            maxFeePerPayment: maxFeePerPayment,
-            factorsBIPSPerPayment: new int16[][](0),
-            delaysSeconds: new uint16[](0)
-        });
-    }
-
     function testGetPaymentFeePay() public {
         _addAccount(2);
         uint256 expectedFee = 900;
@@ -690,44 +666,12 @@ contract TeePaymentsUtxoTest is Test {
         teePayments.getPaymentFee(account, bytes32("PAY"));
     }
 
+    //// helpers ////
+
     function _addAccount(uint32 _anchorCount) internal {
         _mockVerifyUtxo(_anchorCount);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, _utxoProof(_anchorCount), authorizationAddress);
-    }
-
-    function _instruction(
-        bytes32 _ref
-    )
-        internal pure returns (ITeePaymentsBase.PaymentInstruction memory)
-    {
-        return ITeePaymentsBase.PaymentInstruction({
-            recipientAddress: "bc1qrecipient",
-            tokenId: bytes(""),
-            amount: 1000,
-            maxFee: 10,
-            paymentReference: _ref
-        });
-    }
-
-    function _utxoProof(
-        uint32 _anchorCount
-    )
-        internal view returns (IPMWMultisigUtxoConfigured.Proof memory _proof)
-    {
-        IPMWMultisigUtxoConfigured.Anchor[] memory anchors =
-            new IPMWMultisigUtxoConfigured.Anchor[](_anchorCount);
-        for (uint32 i = 0; i < _anchorCount; i++) {
-            anchors[i] = IPMWMultisigUtxoConfigured.Anchor({
-                genesisAnchorTxid: keccak256(abi.encode("txid", i)),
-                genesisAnchorVout: i
-            });
-        }
-        _proof.header.sourceId = SOURCE_ID;
-        _proof.requestBody.accountIndex = ACCOUNT_INDEX;
-        _proof.requestBody.anchors = anchors;
-        _proof.responseBody.status = IPMWMultisigUtxoConfigured.PMWMultisigUtxoStatus.OK;
-        _proof.responseBody.accountAddress = accountAddress;
     }
 
     // verifyUtxoConfiguredProof is validate-only (returns nothing); the contract reads the verified
@@ -812,10 +756,66 @@ contract TeePaymentsUtxoTest is Test {
         );
     }
 
+    function _utxoProof(
+        uint32 _anchorCount
+    )
+        internal view returns (IPMWMultisigUtxoConfigured.Proof memory _proof)
+    {
+        IPMWMultisigUtxoConfigured.Anchor[] memory anchors =
+            new IPMWMultisigUtxoConfigured.Anchor[](_anchorCount);
+        for (uint32 i = 0; i < _anchorCount; i++) {
+            anchors[i] = IPMWMultisigUtxoConfigured.Anchor({
+                genesisAnchorTxid: keccak256(abi.encode("txid", i)),
+                genesisAnchorVout: i
+            });
+        }
+        _proof.header.sourceId = SOURCE_ID;
+        _proof.requestBody.accountIndex = ACCOUNT_INDEX;
+        _proof.requestBody.anchors = anchors;
+        _proof.responseBody.status = IPMWMultisigUtxoConfigured.PMWMultisigUtxoStatus.OK;
+        _proof.responseBody.accountAddress = accountAddress;
+    }
+
     function _lastMessageBatchEndTs() internal view returns (uint64) {
         bytes memory raw = SendInstructionsSpy(flareTeeManager).lastMessage();
         ITeePaymentsUtxo.UtxoPaymentInstructionMessage memory message =
             abi.decode(raw, (ITeePaymentsUtxo.UtxoPaymentInstructionMessage));
         return message.batchEndTs;
+    }
+
+    function _instruction(
+        bytes32 _ref
+    )
+        internal pure returns (ITeePaymentsBase.PaymentInstruction memory)
+    {
+        return ITeePaymentsBase.PaymentInstruction({
+            recipientAddress: "bc1qrecipient",
+            tokenId: bytes(""),
+            amount: 1000,
+            maxFee: 10,
+            paymentReference: _ref
+        });
+    }
+
+    function _reissueFee(
+        uint256 _maxFee
+    )
+        internal pure returns (ITeePaymentsBase.ReissueFeeParams memory)
+    {
+        uint256[] memory maxFeePerPayment = new uint256[](1);
+        maxFeePerPayment[0] = _maxFee;
+        return ITeePaymentsBase.ReissueFeeParams({
+            maxFeePerPayment: maxFeePerPayment,
+            factorsBIPSPerPayment: new int16[][](0),
+            delaysSeconds: new uint16[](0)
+        });
+    }
+
+    function _mockIsValidAddress(bool _valid) private {
+        vm.mockCall(
+            addressValidator,
+            abi.encodeWithSelector(IAddressValidator.isValidAddress.selector),
+            abi.encode(_valid)
+        );
     }
 }

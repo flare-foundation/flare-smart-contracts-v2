@@ -680,18 +680,18 @@ contract WalletPaymentsTest is Test {
         return pk;
     }
 
-    function _getAddress(PublicKey memory _pk) internal pure returns (address) {
-        uint256[2] memory publicKeyPair = [uint256(_pk.x), uint256(_pk.y)];
-        bytes32 hash = keccak256(abi.encodePacked(publicKeyPair));
-        return address(uint160(uint256(hash)));
-    }
-
     function _mockVerifyAccountConfiguredProof() internal {
         vm.mockCall(
             teePaymentsConfigVerifierMock,
             abi.encodeWithSelector(ITeePaymentsConfigVerifier.verifyAccountConfiguredProof.selector),
             ""
         );
+    }
+
+    function _getAddress(PublicKey memory _pk) internal pure returns (address) {
+        uint256[2] memory publicKeyPair = [uint256(_pk.x), uint256(_pk.y)];
+        bytes32 hash = keccak256(abi.encodePacked(publicKeyPair));
+        return address(uint160(uint256(hash)));
     }
 
     function _createSignature(

@@ -29,14 +29,6 @@ contract DogecoinAddressTest is Test {
         harness = new DogecoinAddressHarness();
     }
 
-    function _main(string memory _a) internal view returns (bool) {
-        return harness.isValid(_a, false);
-    }
-
-    function _test(string memory _a) internal view returns (bool) {
-        return harness.isValid(_a, true);
-    }
-
     function testValidMainnet() public view {
         assertTrue(_main(P2PKH_MAIN));
         assertTrue(_main(P2SH_MAIN));
@@ -61,5 +53,13 @@ contract DogecoinAddressTest is Test {
         assertFalse(_main("")); // empty
         assertFalse(_main("DFpN6QqFfUm3gKNaxN6tNcab1FArL9cZLF")); // tampered checksum
         assertFalse(_main("DFpN6QqFfUm3gKNaxN6tNcab1FArL9cZL0")); // '0' not in base58 alphabet
+    }
+
+    function _main(string memory _a) internal view returns (bool) {
+        return harness.isValid(_a, false);
+    }
+
+    function _test(string memory _a) internal view returns (bool) {
+        return harness.isValid(_a, true);
     }
 }

@@ -239,6 +239,17 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         return PaymentModel.ACCOUNT;
     }
 
+    function _updateContractAddresses(
+        bytes32[] memory _contractNameHashes,
+        address[] memory _contractAddresses
+    )
+        internal override
+    {
+        super._updateContractAddresses(_contractNameHashes, _contractAddresses);
+        teePaymentsFeeScheduleManager = ITeePaymentsFeeScheduleManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsFeeScheduleManager"));
+    }
+
     /**
      * @inheritdoc TeePaymentsBase
      */
@@ -249,17 +260,6 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         returns (uint64)
     {
         return states[_accountHash].nextPaymentId;
-    }
-
-    function _updateContractAddresses(
-        bytes32[] memory _contractNameHashes,
-        address[] memory _contractAddresses
-    )
-        internal override
-    {
-        super._updateContractAddresses(_contractNameHashes, _contractAddresses);
-        teePaymentsFeeScheduleManager = ITeePaymentsFeeScheduleManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsFeeScheduleManager"));
     }
 
     function _nativeNonce(

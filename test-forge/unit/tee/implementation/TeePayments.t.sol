@@ -168,14 +168,6 @@ contract TeePaymentsTest is Test {
         vm.warp(500);
     }
 
-    function _mockIsValidAddress(bool _valid) private {
-        vm.mockCall(
-            addressValidator,
-            abi.encodeWithSelector(IAddressValidator.isValidAddress.selector),
-            abi.encode(_valid)
-        );
-    }
-
     //// addPMWMultisigAccount ////
 
     function testAddPMWMultisigAccount() public {
@@ -430,19 +422,6 @@ contract TeePaymentsTest is Test {
         teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
     }
 
-    function _emptyReissueFeeParams()
-        internal pure
-        returns (ITeePaymentsBase.ReissueFeeParams memory)
-    {
-        uint256[] memory maxFeePerPayment = new uint256[](1);
-        maxFeePerPayment[0] = 10;
-        return ITeePaymentsBase.ReissueFeeParams({
-            maxFeePerPayment: maxFeePerPayment,
-            factorsBIPSPerPayment: new int16[][](0),
-            delaysSeconds: new uint16[](0)
-        });
-    }
-
     // verifyAccountConfiguredProof is validate-only (returns nothing); the contract reads the verified
     // fields from the proof. Mock it to simply not revert.
     function _mockVerifyAccountConfiguredProof() internal {
@@ -548,6 +527,19 @@ contract TeePaymentsTest is Test {
         );
     }
 
+    function _emptyReissueFeeParams()
+        internal pure
+        returns (ITeePaymentsBase.ReissueFeeParams memory)
+    {
+        uint256[] memory maxFeePerPayment = new uint256[](1);
+        maxFeePerPayment[0] = 10;
+        return ITeePaymentsBase.ReissueFeeParams({
+            maxFeePerPayment: maxFeePerPayment,
+            factorsBIPSPerPayment: new int16[][](0),
+            delaysSeconds: new uint16[](0)
+        });
+    }
+
     function _createPaymentInstruction(
         bytes32 _paymentReference
     )
@@ -560,5 +552,13 @@ contract TeePaymentsTest is Test {
             maxFee: 10,
             paymentReference: _paymentReference
         });
+    }
+
+    function _mockIsValidAddress(bool _valid) private {
+        vm.mockCall(
+            addressValidator,
+            abi.encodeWithSelector(IAddressValidator.isValidAddress.selector),
+            abi.encode(_valid)
+        );
     }
 }

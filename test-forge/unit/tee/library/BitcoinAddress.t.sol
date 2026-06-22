@@ -45,18 +45,6 @@ contract BitcoinAddressTest is Test {
         harness = new BitcoinAddressHarness();
     }
 
-    function _main(string memory _a) internal view returns (bool) {
-        return harness.isValid(_a, BitcoinAddress.Network.Mainnet);
-    }
-
-    function _test(string memory _a) internal view returns (bool) {
-        return harness.isValid(_a, BitcoinAddress.Network.Testnet);
-    }
-
-    function _regtest(string memory _a) internal view returns (bool) {
-        return harness.isValid(_a, BitcoinAddress.Network.Regtest);
-    }
-
     function testValidMainnet() public view {
         assertTrue(_main(P2PKH_MAIN));
         assertTrue(_main(P2SH_MAIN));
@@ -106,5 +94,17 @@ contract BitcoinAddressTest is Test {
         assertFalse(_main("bc1Qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4")); // mixed case
         assertFalse(_main("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5")); // tampered bech32 checksum
         assertFalse(_main("bc1")); // too short / no data
+    }
+
+    function _main(string memory _a) internal view returns (bool) {
+        return harness.isValid(_a, BitcoinAddress.Network.Mainnet);
+    }
+
+    function _test(string memory _a) internal view returns (bool) {
+        return harness.isValid(_a, BitcoinAddress.Network.Testnet);
+    }
+
+    function _regtest(string memory _a) internal view returns (bool) {
+        return harness.isValid(_a, BitcoinAddress.Network.Regtest);
     }
 }
