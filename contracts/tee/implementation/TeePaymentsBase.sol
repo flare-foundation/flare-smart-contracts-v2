@@ -20,6 +20,9 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
 
     mapping(bytes32 walletId => PMWMultisigAccount[]) internal walletAccounts;
     mapping(bytes32 accountHash => bytes32 walletId) internal accountHashToWalletId;
+    // Written by the concrete payment models (TeePayments, TeePaymentsUtxo) at pay time; this abstract
+    // base only reads it, so slither's uninitialized-state check fires here as a false positive.
+    //slither-disable-next-line uninitialized-state
     mapping(bytes32 accountHash => mapping(uint256 paymentId => bytes32)) internal paymentHashes;
     mapping(bytes32 accountHash => address) internal authorizationAddresses;
 
