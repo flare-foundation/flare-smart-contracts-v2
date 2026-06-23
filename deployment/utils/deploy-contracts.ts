@@ -924,9 +924,11 @@ export async function deployContracts(
   }
 
   // Configure AddressValidator per-source {chainKind, network} profiles. chainKind is derived from
-  // keyType; this local/test deployment uses the testnet network. Network is only enforced for
-  // Bitcoin/Dogecoin; EVM and XRPL addresses are network-agnostic by format.
-  // ChainKind enum order: Bitcoin=0, Dogecoin=1, Xrpl=2, Evm=3.
+  // keyType. This is the local simulation deployment only: the Bitcoin source uses regtest (a local
+  // sim runs a regtest node, so SegWit addresses are bcrt1...), and the others use testnet. Network is
+  // only enforced for Bitcoin/Dogecoin and XRPL X-addresses; EVM and XRPL classic addresses are
+  // network-agnostic by format.
+  // ChainKind enum order: Bitcoin=0, Dogecoin=1, Xrpl=2, Evm=3. Network enum: Mainnet=0, Testnet=1, Regtest=2.
   const chainKindForKeyType = (keyType: string): number => {
     switch (keyType) {
       case "BTC":
@@ -941,13 +943,14 @@ export async function deployContracts(
         throw new Error(`AddressValidator: unknown keyType '${keyType}'`);
     }
   };
+  const networkForKeyType = (keyType: string): number => (keyType === "BTC" ? 2 : 1); // BTC regtest, else testnet
   const addressValidatorConfigs: { sourceId: string; chainKind: number; network: number }[] = [];
   for (const cfg of TEE_PAYMENTS_CONFIGURATIONS) {
     for (const src of cfg.sourceConfigs) {
       addressValidatorConfigs.push({
         sourceId: web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
         chainKind: chainKindForKeyType(cfg.keyType),
-        network: 1, // Testnet
+        network: networkForKeyType(cfg.keyType),
       });
     }
   }
@@ -956,7 +959,7 @@ export async function deployContracts(
       addressValidatorConfigs.push({
         sourceId: web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
         chainKind: chainKindForKeyType(cfg.keyType),
-        network: 1, // Testnet
+        network: networkForKeyType(cfg.keyType),
       });
     }
   }
