@@ -79,7 +79,7 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         bytes32 sourceOpType = _sourceOpType(_account.sourceId);
         _sendPaymentInstructions(
             sourceOpType,
-            _instructionId(sourceOpType, PAY, _account.sourceId, _account.accountAddress, message.paymentId, 0),
+            _computeInstructionId(sourceOpType, PAY, _account.sourceId, _account.accountAddress, message.paymentId, 0),
             _toTeeIds(message.teeIdKeyIdPairs),
             PAY,
             abi.encode(message),
@@ -154,7 +154,7 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         }
 
         bytes32 sourceOpType = _sourceOpType(message.sourceId);
-        bytes32 instructionId = _instructionId(
+        bytes32 instructionId = _computeInstructionId(
             sourceOpType, REISSUE, message.sourceId, message.senderAddress, message.paymentId, reissueNumber
         );
 

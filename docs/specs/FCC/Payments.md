@@ -43,7 +43,7 @@ Because the whole FDC2 proof (header + request body + response body) is signatur
 
 ### Unified instruction id
 
-Both models compute the `instructionId` through the shared [`TeePaymentsBase._instructionId(opType, opCommand, sourceId, accountAddress, paymentId, reissueNumber)`](../../../contracts/tee/implementation/TeePaymentsBase.sol) helper, so every payment instruction has the same preimage:
+Both models compute the `instructionId` through the shared [`TeePaymentsBase._computeInstructionId(opType, opCommand, sourceId, accountAddress, paymentId, reissueNumber)`](../../../contracts/tee/implementation/TeePaymentsBase.sol) helper, so every payment instruction has the same preimage:
 
 ```
 keccak256(abi.encode(opType, opCommand, sourceId, accountAddress, paymentId, reissueNumber))
@@ -80,10 +80,10 @@ State per account is minimal: `AccountState { uint64 initialNonce; uint64 nextPa
 1. `paymentId = nextPaymentId++`; record `paymentHashes[accountHash][paymentId]`.
 2. Native nonce = `_nativeNonce(initialNonce, paymentId)` = `initialNonce + paymentId - 1`.
 3. Build the `PaymentInstructionMessage` (wallet id, sender/recipient, amount, max fee, fee schedule from `TeePaymentsFeeScheduleManager.getEffectiveSchedule`, payment reference, nonce, paymentId).
-4. Instruction id = `_instructionId(opType, "PAY", sourceId, accountAddress, paymentId, 0)` (see [unified instruction id](#unified-instruction-id)).
+4. Instruction id = `_computeInstructionId(opType, "PAY", sourceId, accountAddress, paymentId, 0)` (see [unified instruction id](#unified-instruction-id)).
 5. Dispatch. Returns `paymentId`.
 
-**`reissue(account, paymentId, [paymentInstruction], reissueFeeParams, claimBackAddress)`** re-sends exactly one previously-paid payment (e.g. with a higher max fee). It requires `paymentInstructions.length == 1`, verifies the supplied instruction against the stored `paymentHashes[accountHash][paymentId]` **before** any external calls (cheap revert), bumps a per-`(account, paymentId)` `reissueCounter` to a `reissueNumber` (starting at 1; PAY uses 0), and dispatches with op command `"REISSUE"` and instruction id `_instructionId(opType, "REISSUE", sourceId, accountAddress, paymentId, reissueNumber)`. It always returns `true` — the account model reissues a single payment in one instruction, so it is finalized immediately.
+**`reissue(account, paymentId, [paymentInstruction], reissueFeeParams, claimBackAddress)`** re-sends exactly one previously-paid payment (e.g. with a higher max fee). It requires `paymentInstructions.length == 1`, verifies the supplied instruction against the stored `paymentHashes[accountHash][paymentId]` **before** any external calls (cheap revert), bumps a per-`(account, paymentId)` `reissueCounter` to a `reissueNumber` (starting at 1; PAY uses 0), and dispatches with op command `"REISSUE"` and instruction id `_computeInstructionId(opType, "REISSUE", sourceId, accountAddress, paymentId, reissueNumber)`. It always returns `true` — the account model reissues a single payment in one instruction, so it is finalized immediately.
 
 The registration event is `PMWMultisigAccountAdded(walletId, sourceId, accountAddress, authorizationAddress, initialNonce)`.
 
@@ -124,8 +124,8 @@ Fullness is **not** a trigger here: a batch that fills is closed synchronously b
 The UTXO instruction id binds the batch's first payment id (`batchPaymentId`); see [unified instruction id](#unified-instruction-id) for the shared preimage:
 
 ```
-PAY:     _instructionId(opType, "PAY",     sourceId, accountAddress, batchPaymentId, 0)
-REISSUE: _instructionId(opType, "REISSUE", sourceId, accountAddress, batchPaymentId, reissueNumber)
+PAY:     _computeInstructionId(opType, "PAY",     sourceId, accountAddress, batchPaymentId, 0)
+REISSUE: _computeInstructionId(opType, "REISSUE", sourceId, accountAddress, batchPaymentId, reissueNumber)
 ```
 
 `batchPaymentId` — the batch's first payment id, a per-account monotonic value shared by every payment in the batch — is the batch identity in the id preimage; every off-chain party that recomputes the id must use it. (The settling transaction is still located off-chain by `(walletId, anchorIndex, nonce)`, which the message carries.) The message (`UtxoPaymentInstructionMessage`) carries the account index, the selected anchor's **index** (not its address or genesis outpoint — both are derived off-chain from the wallet's (parent) xpubs + threshold + `accountIndex` + `anchorIndex`), the nonce, the payment id, the batch payment id, and `batchEndTs`.

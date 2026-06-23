@@ -152,7 +152,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         bytes32 sourceOpType = _sourceOpType(_account.sourceId);
         // `batchPaymentId` (the batch's first paymentId, monotonic per account) is the batch identity
         // in the id preimage; it is shared by every payment in the batch. PAY uses reissue number 0.
-        bytes32 instructionId = _instructionId(
+        bytes32 instructionId = _computeInstructionId(
             sourceOpType, PAY, _account.sourceId, _account.accountAddress, state.batchPaymentId, 0
         );
         // Checks-effects-interactions: close the batch (state write) before the external instruction send.
@@ -219,7 +219,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         // Same `batchPaymentId` identity as the original batch's PAY id, with the replacement
         // attempt id (reissueNumber, starting at 1) appended so two replacements of the same batch
         // that both restart from the beginning derive distinct instruction ids.
-        context.instructionId = _instructionId(
+        context.instructionId = _computeInstructionId(
             sourceOpType, REISSUE, _account.sourceId, _account.accountAddress, _batchPaymentId, replacement.id
         );
         (context.cosigners, context.cosignersThreshold) =

@@ -371,7 +371,7 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
      * account model `paymentId` is the payment's own id; for the UTXO model it is the batch's first
      * payment id (`batchPaymentId`), shared by every payment in the batch.
      */
-    function _instructionId(
+    function _computeInstructionId(
         bytes32 _opType,
         bytes32 _opCommand,
         bytes32 _sourceId,
