@@ -150,11 +150,11 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         (address[] memory cosigners, uint64 cosignersThreshold) =
             flareTeeManager.getWalletCosignersAndThreshold(walletId);
         bytes32 sourceOpType = _sourceOpType(_account.sourceId);
-        // `(walletId, anchorIndex, nonce)` is the batch identity; the id preimage places anchorIndex
-        // immediately before nonce. Off-chain recomputers must match this byte ordering exactly.
-        bytes32 instructionId = keccak256(abi.encode(
-            sourceOpType, PAY, _account.sourceId, _account.accountAddress, state.batchAnchorIndex, state.batchNonce
-        ));
+        // `batchPaymentId` (the batch's first paymentId, monotonic per account) is the batch identity
+        // in the id preimage; it is shared by every payment in the batch. PAY uses reissue number 0.
+        bytes32 instructionId = _instructionId(
+            sourceOpType, PAY, _account.sourceId, _account.accountAddress, state.batchPaymentId, 0
+        );
         // Checks-effects-interactions: close the batch (state write) before the external instruction send.
         // The message and instructionId are already built above, so closing here does not affect them.
         if (batchFull) {
@@ -216,13 +216,12 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         context.accountHash = accountHash;
         context.walletId = walletId;
         context.opType = sourceOpType;
-        // Same `(anchorIndex, nonce)` identity as the original batch's PAY id, with the replacement
-        // attempt id (reissueNumber) appended so two replacements of the same batch that both restart
-        // from the beginning derive distinct instruction ids.
-        context.instructionId = keccak256(abi.encode(
-            sourceOpType, REISSUE, _account.sourceId, _account.accountAddress,
-            batch.anchorIndex, batch.nonce, replacement.id
-        ));
+        // Same `batchPaymentId` identity as the original batch's PAY id, with the replacement
+        // attempt id (reissueNumber, starting at 1) appended so two replacements of the same batch
+        // that both restart from the beginning derive distinct instruction ids.
+        context.instructionId = _instructionId(
+            sourceOpType, REISSUE, _account.sourceId, _account.accountAddress, _batchPaymentId, replacement.id
+        );
         (context.cosigners, context.cosignersThreshold) =
             flareTeeManager.getWalletCosignersAndThreshold(walletId);
         context.batchPaymentId = _batchPaymentId;

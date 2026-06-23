@@ -503,10 +503,10 @@ contract WalletPaymentsTest is Test {
         vm.expectRevert(ITeePaymentsBase.OnlyAuthorizationAddress.selector);
         teePayments.pay(account1, instruction, address(0));
 
-        // first payment: paymentId 1, native nonce = sequence (2) + paymentId (1) - 1 = 2.
-        // The instruction id binds the native nonce, not the paymentId.
+        // first payment: paymentId 1 (native nonce = sequence (2) + paymentId (1) - 1 = 2).
+        // Unified instruction id: binds the paymentId and a trailing reissue number (0 for PAY).
         bytes32 instructionId = keccak256(abi.encode(
-            XRP_OP_TYPE, bytes32("PAY"), XRP_SOURCE_ID, account1.accountAddress, uint64(2)
+            XRP_OP_TYPE, bytes32("PAY"), XRP_SOURCE_ID, account1.accountAddress, uint64(1), uint64(0)
         ));
         IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
         teeMachines[0] = teeMachine1;
@@ -599,11 +599,11 @@ contract WalletPaymentsTest is Test {
         factorsBIPSPerPayment[0] = new int16[](0);
         uint16[] memory delaysSeconds = new uint16[](0);
 
-        // reissue the payment created in testPay (paymentId 1, native nonce 2); reissueNumber starts at 0.
-        // The instruction id binds the native nonce, not the paymentId.
-        uint256 reissueNumber = 0;
+        // reissue the payment created in testPay (paymentId 1, native nonce 2); reissue numbers
+        // start at 1 (PAY uses 0). The unified instruction id binds the paymentId and reissueNumber.
+        uint64 reissueNumber = 1;
         bytes32 instructionId = keccak256(abi.encode(
-            XRP_OP_TYPE, bytes32("REISSUE"), XRP_SOURCE_ID, account1.accountAddress, uint64(2), reissueNumber
+            XRP_OP_TYPE, bytes32("REISSUE"), XRP_SOURCE_ID, account1.accountAddress, uint64(1), reissueNumber
         ));
         IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
         teeMachines[0] = teeMachine1;

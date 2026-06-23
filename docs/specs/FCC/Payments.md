@@ -41,6 +41,16 @@ Because the whole FDC2 proof (header + request body + response body) is signatur
 
 **Dispatch** — `_sendPaymentInstructions` forwards `msg.value` to [`FlareTeeManager.sendSystemInstructions`](../../../contracts/tee/facets/InstructionsFacet.sol) with the computed `instructionId`, the receiving TEEs, the op type/command, the ABI-encoded message, and the wallet's cosigner set. That emits the `TeeInstructionsSent` event the off-chain pipeline consumes.
 
+### Unified instruction id
+
+Both models compute the `instructionId` through the shared [`TeePaymentsBase._instructionId(opType, opCommand, sourceId, accountAddress, paymentId, reissueNumber)`](../../../contracts/tee/implementation/TeePaymentsBase.sol) helper, so every payment instruction has the same preimage:
+
+```
+keccak256(abi.encode(opType, opCommand, sourceId, accountAddress, paymentId, reissueNumber))
+```
+
+A payment and each of its reissues differ only by `opCommand` (`"PAY"` vs `"REISSUE"`) and the trailing `reissueNumber`: **PAY always uses `reissueNumber == 0`**, while **REISSUE uses `1, 2, ...`**. `paymentId` is the payment's own id in the account model, or the batch's first payment id (`batchPaymentId`) in the UTXO model (see each model below). Off-chain recomputers must match this byte ordering exactly.
+
 **Fee pre-flight** — `pay`/`reissue` are `payable` and revert `FeeTooLow()` if `msg.value` is short of the per-instruction fee (see [Operation Fees](./OperationFees.md)). A wallet computes the exact amount to send with the read-only `getPaymentFee(account, opCommand)` on `TeePaymentsBase` (shared by both models): it resolves the wallet from the account (`accountHashToWalletId`, reverting `PMWMultisigAccountNotRegistered()` for an unknown account) and the op type from the source (`_sourceOpType`), then returns `FlareTeeManager.calculateFeeByWalletId(walletId, opType, opCommand)`. Pass `bytes32("PAY")` or `bytes32("REISSUE")` as `opCommand`; the result equals what the corresponding dispatch will charge (it reverts `ThresholdNotMet()` if the wallet has too few available keys).
 
 **Shared read getters** on `TeePaymentsBase` (both models): `getPaymentFee` (above), `getPaymentHash(account, paymentId)` (the per-payment hash, or 0 if none), and `getNextPaymentId(account)` — the next payment id to be assigned, so the latest issued id is `getNextPaymentId - 1` (a value of 1 means no payment yet). `getNextPaymentId` reads each model's own account state through an internal `_getNextPaymentId` hook; for UTXO accounts it is the entry point to resolve the current batch (`getBatchPaymentId(getNextPaymentId - 1)` → `getBatchRecord`).
@@ -70,10 +80,10 @@ State per account is minimal: `AccountState { uint64 initialNonce; uint64 nextPa
 1. `paymentId = nextPaymentId++`; record `paymentHashes[accountHash][paymentId]`.
 2. Native nonce = `_nativeNonce(initialNonce, paymentId)` = `initialNonce + paymentId - 1`.
 3. Build the `PaymentInstructionMessage` (wallet id, sender/recipient, amount, max fee, fee schedule from `TeePaymentsFeeScheduleManager.getEffectiveSchedule`, payment reference, nonce, paymentId).
-4. Instruction id = `keccak256(abi.encode(opType, "PAY", sourceId, accountAddress, nonce))`.
+4. Instruction id = `_instructionId(opType, "PAY", sourceId, accountAddress, paymentId, 0)` (see [unified instruction id](#unified-instruction-id)).
 5. Dispatch. Returns `paymentId`.
 
-**`reissue(account, paymentId, [paymentInstruction], reissueFeeParams, claimBackAddress)`** re-sends exactly one previously-paid payment (e.g. with a higher max fee). It requires `paymentInstructions.length == 1`, verifies the supplied instruction against the stored `paymentHashes[accountHash][paymentId]` **before** any external calls (cheap revert), bumps a per-`(account, paymentId)` `reissueCounter` to a `reissueNumber`, and dispatches with op command `"REISSUE"` and instruction id `keccak256(abi.encode(opType, "REISSUE", sourceId, accountAddress, nonce, reissueNumber))`. It always returns `true` — the account model reissues a single payment in one instruction, so it is finalized immediately.
+**`reissue(account, paymentId, [paymentInstruction], reissueFeeParams, claimBackAddress)`** re-sends exactly one previously-paid payment (e.g. with a higher max fee). It requires `paymentInstructions.length == 1`, verifies the supplied instruction against the stored `paymentHashes[accountHash][paymentId]` **before** any external calls (cheap revert), bumps a per-`(account, paymentId)` `reissueCounter` to a `reissueNumber` (starting at 1; PAY uses 0), and dispatches with op command `"REISSUE"` and instruction id `_instructionId(opType, "REISSUE", sourceId, accountAddress, paymentId, reissueNumber)`. It always returns `true` — the account model reissues a single payment in one instruction, so it is finalized immediately.
 
 The registration event is `PMWMultisigAccountAdded(walletId, sourceId, accountAddress, authorizationAddress, initialNonce)`.
 
@@ -111,14 +121,14 @@ Fullness is **not** a trigger here: a batch that fills is closed synchronously b
 
 ### Instruction id and message
 
-The UTXO instruction id binds the anchor index and the per-anchor nonce:
+The UTXO instruction id binds the batch's first payment id (`batchPaymentId`); see [unified instruction id](#unified-instruction-id) for the shared preimage:
 
 ```
-PAY:     keccak256(abi.encode(opType, "PAY",     sourceId, accountAddress, anchorIndex, nonce))
-REISSUE: keccak256(abi.encode(opType, "REISSUE", sourceId, accountAddress, anchorIndex, nonce, reissueNumber))
+PAY:     _instructionId(opType, "PAY",     sourceId, accountAddress, batchPaymentId, 0)
+REISSUE: _instructionId(opType, "REISSUE", sourceId, accountAddress, batchPaymentId, reissueNumber)
 ```
 
-`(walletId, anchorIndex, nonce)` is the batch identity everywhere off-chain, so the id preimage places `anchorIndex` immediately before `nonce`; every off-chain party that recomputes the id must match this byte ordering. The message (`UtxoPaymentInstructionMessage`) carries the account index, the selected anchor's **index** (not its address or genesis outpoint — both are derived off-chain from the wallet's (parent) xpubs + threshold + `accountIndex` + `anchorIndex`), the nonce, the payment id, the batch payment id, and `batchEndTs`.
+`batchPaymentId` — the batch's first payment id, a per-account monotonic value shared by every payment in the batch — is the batch identity in the id preimage; every off-chain party that recomputes the id must use it. (The settling transaction is still located off-chain by `(walletId, anchorIndex, nonce)`, which the message carries.) The message (`UtxoPaymentInstructionMessage`) carries the account index, the selected anchor's **index** (not its address or genesis outpoint — both are derived off-chain from the wallet's (parent) xpubs + threshold + `accountIndex` + `anchorIndex`), the nonce, the payment id, the batch payment id, and `batchEndTs`.
 
 ### Reissue / replacement
 

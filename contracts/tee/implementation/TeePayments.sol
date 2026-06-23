@@ -79,7 +79,7 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         bytes32 sourceOpType = _sourceOpType(_account.sourceId);
         _sendPaymentInstructions(
             sourceOpType,
-            keccak256(abi.encode(sourceOpType, PAY, _account.sourceId, _account.accountAddress, message.nonce)),
+            _instructionId(sourceOpType, PAY, _account.sourceId, _account.accountAddress, message.paymentId, 0),
             _toTeeIds(message.teeIdKeyIdPairs),
             PAY,
             abi.encode(message),
@@ -131,7 +131,9 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         message.nonce = _nativeNonce(state.initialNonce, _paymentId);
 
         message.teeIdKeyIdPairs = flareTeeManager.receivingTeesAndKeys(message.walletId);
-        uint256 reissueNumber = reissueCounter[accountHash][_paymentId]++;
+        // Reissue numbers start at 1 (PAY uses 0), so the unified instruction id distinguishes a
+        // payment from each of its reissues by the trailing reissueNumber.
+        uint64 reissueNumber = uint64(++reissueCounter[accountHash][_paymentId]);
 
         (address[] memory cosigners, uint64 cosignersThreshold) =
             flareTeeManager.getWalletCosignersAndThreshold(message.walletId);
@@ -152,9 +154,9 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         }
 
         bytes32 sourceOpType = _sourceOpType(message.sourceId);
-        bytes32 instructionId = keccak256(abi.encode(
-            sourceOpType, REISSUE, message.sourceId, message.senderAddress, message.nonce, reissueNumber
-        ));
+        bytes32 instructionId = _instructionId(
+            sourceOpType, REISSUE, message.sourceId, message.senderAddress, message.paymentId, reissueNumber
+        );
 
         message.recipientAddress = paymentInstruction.recipientAddress;
         message.tokenId = paymentInstruction.tokenId;

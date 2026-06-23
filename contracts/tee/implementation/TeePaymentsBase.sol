@@ -363,6 +363,28 @@ abstract contract TeePaymentsBase is ITeePaymentsBase, FlareUpgradeableBase {
         return keccak256(abi.encode(_paymentInstruction, _paymentId));
     }
 
+    /**
+     * Computes the payment instruction id, unified across both payment models. Every payment
+     * instruction shares the same preimage shape - `(opType, opCommand, sourceId, accountAddress,
+     * paymentId, reissueNumber)` - so a PAY and its REISSUEs differ only by `opCommand` and the
+     * `reissueNumber`: PAY always uses `reissueNumber == 0`, REISSUE uses `1, 2, ...`. For the
+     * account model `paymentId` is the payment's own id; for the UTXO model it is the batch's first
+     * payment id (`batchPaymentId`), shared by every payment in the batch.
+     */
+    function _instructionId(
+        bytes32 _opType,
+        bytes32 _opCommand,
+        bytes32 _sourceId,
+        string memory _accountAddress,
+        uint64 _paymentId,
+        uint64 _reissueNumber
+    )
+        internal pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_opType, _opCommand, _sourceId, _accountAddress, _paymentId, _reissueNumber));
+    }
+
     function _addToUint64(
         uint64 _value,
         uint256 _increment
