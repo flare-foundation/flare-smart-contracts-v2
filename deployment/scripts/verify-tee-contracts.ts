@@ -44,8 +44,15 @@ const teeContractNames = new Set([
   "Fdc2InflationConfigurations",
   "Fdc2RewardOffersManagerImplementation",
   "Fdc2RewardOffersManager",
-  // TeePayments (impl + per-source proxies are matched below via prefix)
+  // TeePayments — account payments (impl + shared proxy)
   "TeePaymentsImplementation",
+  "TeePayments",
+  // TeePayments — UTXO payments (impl + shared proxy)
+  "TeePaymentsUtxoImplementation",
+  "TeePaymentsUtxo",
+  // TeePaymentsConfigVerifier (impl + proxy)
+  "TeePaymentsConfigVerifierImplementation",
+  "TeePaymentsConfigVerifier",
   // TeePaymentsRegistry (impl + proxy)
   "TeePaymentsRegistryImplementation",
   "TeePaymentsRegistry",
@@ -78,13 +85,13 @@ const teeContractNames = new Set([
   "VrfFacet",
   "ExternalAddressesFacet",
   "ExtensionGovernanceFacet",
+  "MachinePathManagerFacet",
   "WalletProjectPauseFacet",
   "MachineEmergencyPauseFacet",
 ]);
 
-// Also match TeePayments_ prefixed entries (e.g. TeePayments_F_XRP)
 function isTeeContract(name: string): boolean {
-  return teeContractNames.has(name) || name.startsWith("TeePayments_");
+  return teeContractNames.has(name);
 }
 
 const contracts = raw
