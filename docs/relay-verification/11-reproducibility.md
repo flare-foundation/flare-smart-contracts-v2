@@ -37,7 +37,7 @@ forge test -vvv --match-path 'test-forge/unit/protocol/implementation/Relay.t.so
 forge coverage --match-path 'test-forge/unit/protocol/implementation/Relay.t.sol'
 ```
 
-Expect: 52 tests pass. **CI:** `test-unit-forge` (`forge test -vvv`), `coverage-forge` (+ `coverage-forge-reports`).
+Expect: 59 tests pass. **CI:** `test-unit-forge` (`forge test -vvv`), `coverage-forge` (+ `coverage-forge-reports`).
 
 ---
 

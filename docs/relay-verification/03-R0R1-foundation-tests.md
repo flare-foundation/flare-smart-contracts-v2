@@ -21,13 +21,21 @@ or inductive tool is invoked.
 
 ## 3.2 What is covered
 
-**Artifact:** `test-forge/unit/protocol/implementation/Relay.t.sol` — **52 test functions**, ~1025 lines.
-(The engagement grew this from 31 to 52 as part of hardening.) The suite spans all three `relay()` modes
+**Artifact:** `test-forge/unit/protocol/implementation/Relay.t.sol` — **59 test functions**, ~1145 lines.
+(The engagement grew this from 31 to 59 as part of hardening.) The suite spans all three `relay()` modes
 and the auxiliary entry points:
 
 - **Signing-policy / hashing:** `test_signingPolicyHash_matchesContract`,
   `test_event_signatures_match_canonical` — the on-chain policy hash and event ABI match the canonical
   reference encoder.
+- **Signing-policy rotation (Mode 1, protocolId == 0):** `RelayPolicyRotationTest` — relaying a *new*
+  signing policy advances `lastInitializedRewardEpoch` (`test_relayNewSigningPolicy_happyPath`); the new
+  policy must be `lastInitialized + 1` (`_wrongRewardEpoch_reverts`) with enough weight
+  (`_lowWeight_reverts`) and present metadata (`_noNewPolicySize_reverts`); post-rotation a message is
+  finalized by the new policy (`_thenRelayWithNewPolicy`), the old policy is then locked out
+  (`_mustUseNewSignPolicy_afterRotation_reverts`), and a future-epoch message under the current policy
+  needs the +20% increased threshold (`_crossEpoch_oldPolicy_thresholdIncrease`). This ports the
+  policy-rotation lifecycle the Hardhat suite covers (`Relay.test.ts`, "Verification").
 - **Governance-fee mode (protocolId == 1):** happy path then **replay rejected**
   (`test_governanceFeeSetup_happyPath_then_replayRejected`), strictly-increasing / non-sequential nonce
   handling, address binding, invalid-protocolId revert, and mode-gating

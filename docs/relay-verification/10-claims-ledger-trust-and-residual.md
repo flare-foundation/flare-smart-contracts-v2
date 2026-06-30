@@ -107,7 +107,7 @@ fidelity / lower coverage (noted).
 | 12 | Merkle fold injectivity / anti-forgery (**unbounded depth**) | R2 Halmos | fold model · ∀ depth | **proven** | `RelayMerkleFoldFV` | MC-1 |
 | 13 | **fee conservation** (`relay()` + `verify()`, incl. old-relay forwarding) | R2 Halmos | bytecode | **proven** | `RelayFeeConservationFV`, `RelayVerifyFeeFV` | OP-3, OP-4 |
 | 14 | encoding canonicality / secure-bit / return discriminator / policy hash (P3/P5/P6/P8) | R2 Halmos | bytecode | **proven** | `RelayCanonicalityFV`, `RelayIsSecureNormFV`, `RelayReturnDiscriminatorFV`, `RelayPolicyHashFV` | MC-1 |
-| 15 | functional behavior, all modes | R0/R1 Foundry | bytecode · concrete+fuzz | **proven** (tests) | `Relay.t.sol` (52 tests) | — |
+| 15 | functional behavior, all modes | R0/R1 Foundry | bytecode · concrete+fuzz | **proven** (tests) | `Relay.t.sol` (59 tests) | — |
 | 16 | setter immutable / hash & root write-once **∀ function** | R3 Certora | model · ∀ seq | **blocked (C-1)** | `RelayInvariants.spec` | — |
 
 **Reading the ledger.** The security core (row 1) is established at four fidelities: ∀N∀K abstract (R4a),

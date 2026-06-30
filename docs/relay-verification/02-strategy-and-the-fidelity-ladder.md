@@ -153,7 +153,7 @@ names are in the per-rung docs and the claims ledger ([L10](10-claims-ledger-tru
 
 | Rung | Tool | What it covers | Object | Coverage | Status |
 |------|------|----------------|--------|----------|--------|
-| R0/R1 | Foundry | functional behavior of all modes; coverage 31→52 tests | real bytecode | concrete + fuzz | ✅ green in CI (`test-unit-forge`, `coverage-forge`) |
+| R0/R1 | Foundry | functional behavior of all modes (incl. signing-policy rotation); coverage 31→59 tests | real bytecode | concrete + fuzz | ✅ green in CI (`test-unit-forge`, `coverage-forge`) |
 | R2 | Halmos | sig/threshold accounting; full `relay()` epoch matrix; access control; lifecycle; Merkle; randomness; fees — 25 harnesses / **85 checks (57 proofs, 28 anti-vacuity controls)** | **real bytecode** | bounded (K≤3, N≤5) | ✅ green in CI (`test-fv-halmos`, gated by `verify_fv.py`) |
 | R3 | Kontrol | sig-loop weight invariant; random monotonicity — **∀K** (k-induction) | Solidity **model** | ∀K, N∈{3,5} | ✅ proven (Docker-pinned); full symbolic-N intractable (documented) |
 | R3 | Certora | 5 all-functions storage invariants (nonce/epoch monotonic, setter-immutable, hash/root write-once) | model | ∀ functions & sequences | ⚠ specified + locally typechecked; **not cloud-dischargeable** (assembly storage-havoc wall) |
