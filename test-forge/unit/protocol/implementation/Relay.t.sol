@@ -931,6 +931,126 @@ contract RelayConstructorTest is RelayTestBase {
 
 }
 
+// Signing-policy ROTATION lifecycle — the protocolId == 0 ("Mode 1") new-signing-policy relay and the
+// message relays that span a rotation. This is the area the Hardhat suite (Relay.test.ts, "Verification")
+// exercises extensively but the Foundry unit suite did not; ported here in the harness's own Solidity style
+// (no TS encoders — the new-policy calldata layout is reconstructed directly).
+contract RelayPolicyRotationTest is RelayTestBase {
+    bytes internal policy;       // epoch-1 (initial / current) signing policy
+    bytes internal policy2;      // epoch-2 (next) signing policy
+    uint32 internal startVRID2;  // starting voting round id of epoch 2
+
+    function setUp() public override {
+        super.setUp();
+        policy = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
+        startVRID2 = START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION;
+        policy2 = _buildSigningPolicy(uint24(REWARD_EPOCH_ID + 1), startVRID2, THRESHOLD, SEED);
+    }
+
+    // relay() calldata for a Mode-1 new-signing-policy relay:
+    //   selector || signerPolicy || protocolId(0x00) || newPolicy || signatures.
+    // The signers sign the EIP-191 prefix over the *signing-policy hash of the new policy*
+    // (web3.eth.accounts.sign semantics in the TS suite), NOT keccak(message).
+    function _newPolicyRelay(bytes memory signerPolicy, bytes memory newPolicy, uint256 numSigners)
+        internal view returns (bytes memory)
+    {
+        bytes32 signedHash =
+            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _signingPolicyHash(newPolicy)));
+        bytes memory sigs = _signatures(signedHash, _firstK(numSigners));
+        return abi.encodePacked(Relay.relay.selector, signerPolicy, uint8(0), newPolicy, sigs);
+    }
+
+    // relay() calldata for a Mode-2 non-random message signed by `signerPolicy`.
+    function _msgRelay(bytes memory signerPolicy, uint8 pid, uint32 vrid, bytes32 root, uint256 numSigners)
+        internal view returns (bytes memory)
+    {
+        bytes memory message = _protocolMessage(pid, vrid, false, root);
+        bytes memory sigs = _signatures(_ethSignedHash(message), _firstK(numSigners));
+        return abi.encodePacked(Relay.relay.selector, signerPolicy, message, sigs);
+    }
+
+    // bubbles the inner relay() revert data so vm.expectRevert can match the exact reason
+    function relayRaw(bytes calldata rm) external {
+        (bool ok, bytes memory ret) = address(relay).call(rm);
+        if (!ok) {
+            assembly { revert(add(ret, 0x20), mload(ret)) }
+        }
+    }
+
+    // HH "Should relay a new signing policy": Mode-1 relay signed by the current policy advances
+    // lastInitializedRewardEpoch to the new epoch and records its starting voting round id.
+    function test_relayNewSigningPolicy_happyPath() public {
+        (uint32 le0,) = relay.lastInitializedRewardEpochData();
+        assertEq(le0, REWARD_EPOCH_ID, "precondition: last initialized epoch == 1");
+
+        (bool ok,) = address(relay).call(_newPolicyRelay(policy, policy2, 3)); // 3*100 = 300 > 260
+        assertTrue(ok, "new signing policy relay should succeed");
+
+        (uint32 le1, uint32 sv1) = relay.lastInitializedRewardEpochData();
+        assertEq(le1, REWARD_EPOCH_ID + 1, "last initialized advanced to epoch 2");
+        assertEq(sv1, startVRID2, "starting voting round id recorded for epoch 2");
+    }
+
+    // HH "Should relay a message with new signing policy": after the rotation, an epoch-2 message is
+    // finalized by the NEW (epoch-2) policy at the base threshold.
+    function test_relayNewSigningPolicy_thenRelayWithNewPolicy() public {
+        (bool okRot,) = address(relay).call(_newPolicyRelay(policy, policy2, 3));
+        require(okRot, "rotation failed");
+
+        (bool ok,) = address(relay).call(_msgRelay(policy2, 3, startVRID2, keccak256("root2"), 3));
+        assertTrue(ok, "epoch-2 message under epoch-2 policy should finalize");
+        assertTrue(relay.isFinalized(3, startVRID2), "message finalized");
+    }
+
+    // HH "...wrong reward epoch": the relayed policy must be for lastInitialized + 1.
+    function test_relayNewSigningPolicy_wrongRewardEpoch_reverts() public {
+        bytes memory policy3 =
+            _buildSigningPolicy(uint24(REWARD_EPOCH_ID + 2), startVRID2 + REWARD_EPOCH_DURATION, THRESHOLD, SEED);
+        vm.expectRevert("Not next reward epoch"); // epoch 3 while lastInitialized == 1
+        this.relayRaw(_newPolicyRelay(policy, policy3, 3));
+    }
+
+    // HH "...wrong signature / low weight": insufficient signer weight on the Mode-1 relay falls through
+    // to "Not enough weight" (the new policy is not initialized).
+    function test_relayNewSigningPolicy_lowWeight_reverts() public {
+        vm.expectRevert("Not enough weight"); // 2*100 = 200 < 260
+        this.relayRaw(_newPolicyRelay(policy, policy2, 2));
+        (uint32 le,) = relay.lastInitializedRewardEpochData();
+        assertEq(le, REWARD_EPOCH_ID, "failed relay must not advance the epoch");
+    }
+
+    // HH "...not provided new sign policy size": protocolId 0 with no new-policy metadata at all.
+    function test_relayNewSigningPolicy_noNewPolicySize_reverts() public {
+        bytes memory bad = abi.encodePacked(Relay.relay.selector, policy, uint8(0)); // nothing after protocolId
+        vm.expectRevert("No new sign policy size");
+        this.relayRaw(bad);
+    }
+
+    // HH "...when a new was initialized and votingRoundId is over startingVotingRoundId": once the epoch-2
+    // policy exists, relaying an epoch-2 message with the OLD epoch-1 policy is rejected.
+    function test_relay_mustUseNewSignPolicy_afterRotation_reverts() public {
+        (bool okRot,) = address(relay).call(_newPolicyRelay(policy, policy2, 3));
+        require(okRot, "rotation failed");
+
+        // epoch-2 message (vrid == startVRID2) signed by the old epoch-1 policy
+        vm.expectRevert("Must use new sign policy");
+        this.relayRaw(_msgRelay(policy, 3, startVRID2, keccak256("r"), 3));
+    }
+
+    // HH "...old signing policy and 20% signatures more" / "...less then 20%+ more weight": relaying a
+    // FUTURE-epoch message with the current policy (before a newer one exists) requires the increased
+    // threshold (260 * 1.2 = 312): 3 signers (300) fail, 4 signers (400) pass.
+    function test_relay_crossEpoch_oldPolicy_thresholdIncrease() public {
+        bytes32 root = keccak256("xe");
+        (bool ok3,) = address(relay).call(_msgRelay(policy, 3, startVRID2, root, 3)); // 300 < 312
+        assertFalse(ok3, "3 signers (300) below the increased threshold (312) must fail");
+
+        (bool ok4,) = address(relay).call(_msgRelay(policy, 3, startVRID2, root, 4)); // 400 > 312
+        assertTrue(ok4, "4 signers (400) above the increased threshold (312) must pass");
+        assertTrue(relay.isFinalized(3, startVRID2), "future-epoch message finalized with +20% weight");
+    }
+}
+
 // Minimal old-relay mock: satisfies the Relay constructor compatibility checks
 // (signingPolicySetter()==0 and matching stateData() timing fields) and returns a configurable verify().
 contract MockOldRelay {
