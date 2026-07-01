@@ -14,7 +14,7 @@ composition done at the meta level. The abstract proof removes both limitations:
 and all K at once**, as an abstract algorithm, with the induction **internal and machine-checked**, and no
 `sorry`.
 
-**Artifact:** `test-forge/fv/lean/RelaySigLoop.lean` (Lean 4, core only — no mathlib, no EVM).
+**Artifact:** [`test-forge/fv/lean/RelaySigLoop.lean`](../../test-forge/fv/lean/RelaySigLoop.lean) (Lean 4, core only — no mathlib, no EVM).
 
 **The theorem (`threshold_sound`).** For every list of voter weights `w` (so every voter count
 `N = |w|`), every signature stream `idxs` (so every length `K`) that obeys the strictly-increasing-in-range
@@ -80,7 +80,7 @@ lean test-forge/fv/lean/RelaySigLoop.lean
 - **Establishes:** the *algorithm* is threshold-sound for **all N and all K**, machine-checked, no holes.
   This is the unbounded guarantee that no bounded tool (Halmos) and no fixed-N tool (Kontrol) can give.
 - **Does not:** say anything about the **EVM** or the deployed bytecode. It reasons about an abstract
-  recursion over lists, not about `Relay.sol`'s compiled loop. Bridging "the algorithm is sound" to "a
+  recursion over lists, not about [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol)'s compiled loop. Bridging "the algorithm is sound" to "a
   validated model of the real machine runs this algorithm" is exactly the job of **the bytecode refinement (R4b)**.
 
 **Next:** [L7 — R4b: the bytecode refinement (the bytecode refinement)](07-R4b-bytecode-refinement.md), which lifts this

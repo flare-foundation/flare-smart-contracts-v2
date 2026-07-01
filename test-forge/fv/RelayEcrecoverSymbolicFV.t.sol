@@ -25,6 +25,10 @@ pragma solidity 0.8.27;
 // reverts (fail-closed) on any failing check, which is at least as strong as "not accepted".
 //
 // RUN (CI gate auto-discovers `check_`): HALMOS=halmos python3 test-forge/fv/verify_fv.py
+//
+// New to Halmos? See test-forge/fv/README.md §2 — a `check_` function is a ∀-proof over its symbolic
+// arguments; `vm.assume` is a hypothesis, `assert` is the goal, and `check_reach_*` is the anti-vacuity
+// control that verify_fv.py requires to be REFUTED by a counterexample.
 
 /// Reproduces the ecrecover precompile's return ABI. `mode == 0` => bad signature: SUCCESS + EMPTY return
 /// (`returndatasize()` 0, output buffer left untouched). `mode != 0` => good: return the 32-byte `word`

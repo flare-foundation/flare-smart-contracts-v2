@@ -7,13 +7,13 @@
 > **§G** the axiom audit. File paths are relative to the repo root.
 >
 > Every code block below is copied from the committed sources
-> (`test-forge/fv/lean/RelaySigLoop.lean`, `test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`,
-> `…/DataLayer.lean`, `…/RelayLoopMemRead.lean`);
+> ([`test-forge/fv/lean/RelaySigLoop.lean`](../../test-forge/fv/lean/RelaySigLoop.lean), [`test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean),
+> [`…/DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean), [`…/RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean));
 > cited line numbers are relative to those files.
 
 ---
 
-## §A. The abstract proof in full — `RelaySigLoop.lean`
+## §A. The abstract proof in full — [`RelaySigLoop.lean`](../../test-forge/fv/lean/RelaySigLoop.lean)
 
 The abstract proof imports nothing but Lean core (`set_option linter.unusedVariables false` aside). Everything is
 over `ℕ`.
@@ -147,7 +147,7 @@ The version/build pin (Lean 4.22.0, mathlib 4.22.0, FFI keccak/sha2) is in
 
 ---
 
-## §C. The bytecode refinement — `bytecode-refinement/RelayBytecodeRefinement.lean`, walked
+## §C. The bytecode refinement — [`bytecode-refinement/RelayBytecodeRefinement.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean), walked
 
 The file is self-contained: it re-proves its bricks locally so it checks with one `lake env lean`.
 
@@ -450,7 +450,7 @@ definitional interpreter.
 
 ---
 
-## §F. The data layer and the memory-reading loop — `DataLayer.lean`, `RelayLoopMemRead.lean`
+## §F. The data layer and the memory-reading loop — [`DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean), [`RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean)
 
 §C proved the loop *mechanism* with a memory-free body. Two further files discharge the data layer
 (Caveat C2 / BR-1) and lift the result onto the deployed contract's real masked memory read, ∀N.

@@ -21,7 +21,7 @@ or inductive tool is invoked.
 
 ## 3.2 What is covered
 
-**Artifact:** `test-forge/unit/protocol/implementation/Relay.t.sol` — **59 test functions**, ~1145 lines.
+**Artifact:** [`test-forge/unit/protocol/implementation/Relay.t.sol`](../../test-forge/unit/protocol/implementation/Relay.t.sol) — **59 test functions**, ~1145 lines.
 (The engagement grew this from 31 to 59 as part of hardening.) The suite spans all three `relay()` modes
 and the auxiliary entry points:
 
@@ -35,7 +35,7 @@ and the auxiliary entry points:
   finalized by the new policy (`_thenRelayWithNewPolicy`), the old policy is then locked out
   (`_mustUseNewSignPolicy_afterRotation_reverts`), and a future-epoch message under the current policy
   needs the +20% increased threshold (`_crossEpoch_oldPolicy_thresholdIncrease`). This ports the
-  policy-rotation lifecycle the Hardhat suite covers (`Relay.test.ts`, "Verification").
+  policy-rotation lifecycle the Hardhat suite covers ([`Relay.test.ts`](../../test/unit/protocol/implementation/Relay.test.ts), "Verification").
 - **Governance-fee mode (protocolId == 1):** happy path then **replay rejected**
   (`test_governanceFeeSetup_happyPath_then_replayRejected`), strictly-increasing / non-sequential nonce
   handling, address binding, invalid-protocolId revert, and mode-gating

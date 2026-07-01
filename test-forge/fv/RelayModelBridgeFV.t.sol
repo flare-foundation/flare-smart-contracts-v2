@@ -24,6 +24,10 @@ import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
 // `_psAt` below is byte-identical in meaning to the Kontrol model's `_psAt` (conditional prefix sum of the
 // 16-bit voter weights). Concrete N=3 policy, SYMBOLIC weights + threshold, symbolic signatures, ecrecover
 // uninterpreted; same-epoch so no threshold-increase. halmos.toml loop=6 covers the 3-signature loop.
+//
+// New to Halmos? See test-forge/fv/README.md §2 — a `check_` function is a ∀-proof over its symbolic
+// arguments; `vm.assume` is a hypothesis, `assert` is the goal, and `check_reach_*` is the anti-vacuity
+// control that verify_fv.py requires to be REFUTED by a counterexample.
 contract RelayModelBridgeFV is RelayTestBase {
     bytes32 internal constant ROOT = keccak256("fv-bridge-root");
     uint256 internal constant NV = 3;
@@ -62,6 +66,9 @@ contract RelayModelBridgeFV is RelayTestBase {
     }
 
     // BRIDGE K=1 — real bytecode accept => model invariant psAt(1) > threshold.
+    // Reads as: ∀ w0,thr,a . accept ⟹ _psAt(1,..) > thr. The `if (ok)` is the antecedent of the
+    // implication (not control flow to skip a test): when the REAL bytecode accepts, the pure-Solidity
+    // model's prefix sum must already exceed thr. A PASS ties bytecode behavior to the model at K=1.
     function check_bridge_1sig(uint16 w0, uint16 thr, Sig calldata a) external {
         (Relay r, bytes memory p) = _deploy(w0, 0, 0, thr);
         bool ok = _call(r, p, abi.encodePacked(uint16(1), _sig(a, 0)));
@@ -89,6 +96,10 @@ contract RelayModelBridgeFV is RelayTestBase {
     function check_reach_bridge_canAccept(uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
         external
     {
+        // Guards the bridge against a trivial "always reverts" reading: the assume puts us where the model
+        // PREDICTS acceptance (psAt(3) > thr), then asserts ¬ok so verify_fv.py demands a counterexample —
+        // ecrecover being uninterpreted, the solver can match all three recovered signers and the real
+        // bytecode DOES accept. A refutation confirms the bridge implications above are non-vacuous.
         vm.assume(w0 > 0 && w1 > 0 && w2 > 0);
         vm.assume(_psAt(3, w0, w1, w2) > thr);
         (Relay r, bytes memory p) = _deploy(w0, w1, w2, thr);

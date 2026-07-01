@@ -96,7 +96,7 @@ required checks. ([L10 §10.2](10-claims-ledger-trust-and-residual.md))
 ### 12. Put verification config where the gate reads it
 
 A result that holds only under a non-default tool setting (a solver timeout, a loop bound, a flag) must
-encode that setting in the **version-controlled config the CI gate loads** (`halmos.toml`, `foundry.toml`,
+encode that setting in the **version-controlled config the CI gate loads** ([`halmos.toml`](../../halmos.toml), [`foundry.toml`](../../foundry.toml),
 …), never only in a test's comment — otherwise it passes locally and silently fails to reproduce in CI.
 ([L11 §11.3](11-reproducibility.md))
 

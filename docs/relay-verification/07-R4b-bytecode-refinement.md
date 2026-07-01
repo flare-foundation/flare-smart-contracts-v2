@@ -24,9 +24,9 @@ The bytecode refinement answers yes, for all N, by **refinement against a valida
 is itself **validated against the official Ethereum execution-spec test suites**. So "the EVM model
 computes X" inherits the cross-client conformance corpus (the trust chain is [L2 §2.5](02-strategy-and-the-fidelity-ladder.md)).
 
-**Artifact:** `test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean` — self-contained (it
+**Artifact:** [`test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean) — self-contained (it
 re-proves every supporting lemma locally, so one `lake env lean` checks it). See
-`test-forge/fv/lean/bytecode-refinement/README.md`.
+[`test-forge/fv/lean/bytecode-refinement/README.md`](../../test-forge/fv/lean/bytecode-refinement/README.md).
 
 ---
 
@@ -64,7 +64,7 @@ data layer (BR-1) — that each addend is the *registered weight* `mload(weights
 left as a stated assumption. It is now **proven against the validated semantics**, in two committed, hole-free
 files.
 
-**The data layer, brick by brick (`DataLayer.lean`).** Each fact is proved about EVMYulLean's *actual*
+**The data layer, brick by brick ([`DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean)).** Each fact is proved about EVMYulLean's *actual*
 `ByteArray` / `MachineState` / `UInt256` operations. (Lean 4.22 has no `ByteArray` lemma layer, so the proofs
 descend to the `Array.data` level — see [L9](09-the-formal-detail.md).)
 
@@ -81,7 +81,7 @@ These add exactly **two** documented, upstream-dischargeable axioms beyond the s
 (the `opaque` `memset_zero`) and `toByteArray_size` (blocked only by a `private` upstream bound). Both are
 *access-modifier* limitations, not semantic assumptions; each becomes a theorem with a one-line upstream edit.
 
-**The memory-reading loop, ∀N (`RelayLoopMemRead.lean`).** §7.2's body is replaced by the deployed contract's
+**The memory-reading loop, ∀N ([`RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean)).** §7.2's body is replaced by the deployed contract's
 *actual* masked read `w := w + (mload(i·32) & 0xffff)`, executed by the validated Yul `exec`:
 
 - `body_effM` — one iteration of the real `mload`+`and` body (the `mload` is state-preserving once the slot

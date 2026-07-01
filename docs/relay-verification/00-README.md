@@ -19,7 +19,7 @@ precise teaches the wrong thing. The same precision serves all three.
 
 ## The result in one paragraph
 
-`Relay.sol`'s security-critical accounting is verified by a **five-rung stack**, each rung covering what
+[`Relay.sol`](../../contracts/protocol/implementation/Relay.sol)'s security-critical accounting is verified by a **five-rung stack**, each rung covering what
 the one below cannot. Concrete and fuzz tests (R0/R1) exercise the deployed contract. **Halmos** (R2)
 symbolically executes the **real bytecode** across 25 harnesses / 85 checks, proving the signature/
 threshold accounting, the full `relay()` epoch-decision matrix, access control, lifecycle, Merkle and
@@ -79,15 +79,15 @@ L10 §residual). Engineer reproducing: L11, with each rung doc alongside. Newcom
 - **Scope** is always stated: input coverage (a few / random / bounded-all / unbounded-all) **and** object
   fidelity (real bytecode / a model / a validated EVM semantics / an abstract algorithm).
 - **The two Lean developments.** R4 is two Lean files: **the abstract proof** — the ∀N ∀K
-  threshold-soundness theorem (`test-forge/fv/lean/RelaySigLoop.lean`); and **the bytecode refinement** —
+  threshold-soundness theorem ([`test-forge/fv/lean/RelaySigLoop.lean`](../../test-forge/fv/lean/RelaySigLoop.lean)); and **the bytecode refinement** —
   the step lifting it onto validated EVM semantics
-  (`test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`).
+  ([`test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean)).
 
 ---
 
 ## Relationship to the other engagement docs
 
 This set is the authoritative, consolidated audit + tutorial + reproducibility view. Deeper
-tool-specific references live alongside it: `certora/README.md`, `test-forge/fv/kontrol/README.md`,
-`test-forge/fv/lean/bytecode-refinement/README.md`, `docs/relay-assembly-review.md`,
-`docs/relay-phase3-documented-items.md`, and `docs/relay-t1-bridge.md`.
+tool-specific references live alongside it: [`certora/README.md`](../../certora/README.md), [`test-forge/fv/kontrol/README.md`](../../test-forge/fv/kontrol/README.md),
+[`test-forge/fv/lean/bytecode-refinement/README.md`](../../test-forge/fv/lean/bytecode-refinement/README.md), [`docs/relay-assembly-review.md`](../../docs/relay-assembly-review.md),
+[`docs/relay-phase3-documented-items.md`](../../docs/relay-phase3-documented-items.md), and [`docs/relay-t1-bridge.md`](../../docs/relay-t1-bridge.md).

@@ -10,7 +10,7 @@
 ## 5.1 Kontrol/KEVM — ∀K by k-induction (a real success, on a model)
 
 **Tool:** Kontrol `v1.0.248` over KEVM (`K v7.1.334`), fully pinned (see §5.4). **Artifacts:**
-`test-forge/fv/kontrol/` — `RelaySigLoopFV.t.sol`, `RelayRandomMonoFV.t.sol`, `run.sh`, `Dockerfile`,
+`test-forge/fv/kontrol/` — [`RelaySigLoopFV.t.sol`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol), [`RelayRandomMonoFV.t.sol`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol), `run.sh`, `Dockerfile`,
 `foundry.toml`, `README.md`.
 
 Kontrol proves properties by **k-induction** — it discharges a base case and an inductive step whose
@@ -47,9 +47,9 @@ anti-vacuity discipline as the Halmos suite.
    not *itself* machine-checked — each piece is. (This is one motivation for the Lean proof at R4, where the
    induction *is* internal and machine-checked.)
 3. **It checks a faithful Solidity *model* of the loop body, not Relay's inline-assembly bytecode.** The
-   bytecode side at K≤3 is covered by Halmos (`RelaySigParamFV`), and `RelayModelBridgeFV` ties the model's
+   bytecode side at K≤3 is covered by Halmos ([`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol)), and [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol) ties the model's
    `psAt` invariant to the real bytecode. A bmc-depth-1 model↔bytecode equivalence obligation would fully
-   bridge the gap (future work; see [L10](10-claims-ledger-trust-and-residual.md) and `docs/relay-t1-bridge.md`).
+   bridge the gap (future work; see [L10](10-claims-ledger-trust-and-residual.md) and [`docs/relay-t1-bridge.md`](../../docs/relay-t1-bridge.md)).
 
 **The wall — full symbolic-N.** Making N itself symbolic (rather than the {3,5} concrete models) is
 empirically **state-explosive**: the N=10 attempt ran **~12 hours and produced 0 proofs**. This is the
@@ -63,8 +63,8 @@ but not the whole ∀N∀K story either.
 
 ## 5.2 Certora — all-functions storage invariants (specified, blocked by the wall)
 
-**Tool:** `certora-cli 8.16.1`. **Artifacts:** `certora/Relay.conf`, `certora/specs/RelayInvariants.spec`,
-`certora/README.md`.
+**Tool:** `certora-cli 8.16.1`. **Artifacts:** [`certora/Relay.conf`](../../certora/Relay.conf), [`certora/specs/RelayInvariants.spec`](../../certora/specs/RelayInvariants.spec),
+[`certora/README.md`](../../certora/README.md).
 
 Certora's distinctive strength is **parametric** invariants: a `rule … (method f)` is checked for **every**
 external/public method and arbitrary arguments — i.e., over all callers and all call sequences, not just
@@ -73,8 +73,8 @@ properties where that would beat the other tools:
 
 | Rule | Property |
 |------|----------|
-| `nonceMonotonic` | `governanceFeeNonce` never decreases, ∀ function (globalizes RLY-02 / the 2-call `RelayGovernanceNonceFV`) |
-| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function incl. `relay()` Mode-1 (globalizes the +1 step of `RelayEpochAdvanceFV`) |
+| `nonceMonotonic` | `governanceFeeNonce` never decreases, ∀ function (globalizes RLY-02 / the 2-call [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol)) |
+| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function incl. `relay()` Mode-1 (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol)) |
 | `signingPolicySetterImmutable` | the setter authority is immutable after construction |
 | `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared |
 | `merkleRootWriteOnce` | a finalized Merkle root is write-once per (protocolId, votingRoundId) |
@@ -85,7 +85,7 @@ signatures the prover admits.
 **Status: specified + locally typechecked, cloud-run executed, not cloud-dischargeable.**
 
 - The specs pass Certora's **local** pipeline — `certoraRun certora/Relay.conf --compilation_steps_only` —
-  which compiles `Relay.sol` under Certora and **typechecks the spec against the real contract** (exit 0,
+  which compiles [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol) under Certora and **typechecks the spec against the real contract** (exit 0,
   only benign OZ-`MerkleProof` summarization warnings). So the rules are confirmed **well-formed against the
   actual contract**, not just syntactically.
 - The actual proof runs on Certora's **cloud** (needs `CERTORAKEY`). **Two cloud runs were executed**

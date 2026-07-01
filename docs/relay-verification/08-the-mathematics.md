@@ -265,7 +265,7 @@ of a loop run by a **validated model of the real machine**, for all N. That is t
 
 ### C.5 Discharging the addend identity: the memory-reading loop and the full relation
 
-Caveat C2 is no longer a standing assumption. A second development (`RelayLoopMemRead.lean`) replaces the
+Caveat C2 is no longer a standing assumption. A second development ([`RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean)) replaces the
 memory-free body with the deployed contract's *actual* masked memory read and proves the analogous theorems,
 ∀N, against the validated semantics — then composes with the abstract proof of §A.
 

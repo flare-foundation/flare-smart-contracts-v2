@@ -22,6 +22,10 @@ import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase + e
 // the Relay.sol:976 threshold-increase path is inert. The reachability control is the anti-vacuity
 // tripwire: a CANONICAL (v=27, low-s) single signature with w0 > thr MUST be able to accept, asserted
 // as !accept EXPECTING A COUNTEREXAMPLE — if it ever PASSES the two negative proofs are vacuous.
+//
+// New to Halmos? See test-forge/fv/README.md §2 — a `check_` function is a ∀-proof over its symbolic
+// arguments; `vm.assume` is a hypothesis, `assert` is the goal, and `check_p3_reachability_*` is the
+// anti-vacuity control that verify_fv.py requires to be REFUTED by a counterexample.
 contract RelayCanonicalityFV is RelayTestBase {
     bytes32 internal constant ROOT = keccak256("fv-root"); // concrete, non-zero (RLY-04)
     uint256 internal constant NV = 1;
@@ -64,6 +68,9 @@ contract RelayCanonicalityFV is RelayTestBase {
     // ---- P3.a — bad v: v not in {27,28} cannot accept, even when w0 > thr. EXPECT: PASS. ----
     // The "Bad v" revert (Relay.sol:1269) precedes the weight add (:1325), so no acceptance is possible.
     // w0 > thr supplies the "would otherwise suffice" premise; v is fully symbolic, ASSUMED non-canonical.
+    // Reads as: ∀ w0,thr,a . (v∉{27,28} ∧ w0>thr) ⟹ ¬accept. The first assume restricts the ∀ to
+    // non-canonical v (the case under test); the second supplies the "would otherwise suffice" premise
+    // so a PASS is not vacuous by weight. PASS ⟹ no bad-v signature can finalize even at winning weight.
     function check_p3_badV_cannotAccept(uint16 w0, uint16 thr, Sig calldata a) external {
         vm.assume(a.v != 27 && a.v != 28); // v & 0xff == v for uint8, so this is the exact bad-v set
         vm.assume(uint256(w0) > uint256(thr)); // single signature alone exceeds the threshold
@@ -92,6 +99,9 @@ contract RelayCanonicalityFV is RelayTestBase {
         vm.assume(uint256(w0) > uint256(thr));
         (Relay r, bytes memory p) = _deploy(w0, thr);
         // v=27 canonical; s = 1 is well below secp256k1n/2 (low-s); r symbolic so ecrecover can match.
+        // Inverted contract: this assert MUST be refuted. Because ecrecover is uninterpreted the solver is
+        // free to set recovered == voters[0], so a canonical winning-weight sig reaches acceptance and the
+        // witness (a concrete r_) proves the two P3 negatives above rule out something actually reachable.
         bytes memory sigs = abi.encodePacked(uint16(1), _sig(27, r_, bytes32(uint256(1)), 0));
         assert(!_call(r, p, sigs)); // EXPECT counterexample (canonical acceptance is reachable)
     }

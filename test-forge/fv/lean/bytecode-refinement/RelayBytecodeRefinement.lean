@@ -19,6 +19,12 @@ Scope note: the encoded loop is memory-free (its body adds the loop index, not a
 establishes the loop *mechanism* on validated semantics. The data-layer fact (each addend is the
 registered weight), the 256-bit overflow bound, and the encoding fidelity are stated assumptions; see
 the verification documentation's claims ledger.
+
+New to this suite? See `../../README.md` §3 (how to read a Lean proof + how to re-check it against
+EVMYulLean) and `README.md` in this directory (the ∀N refinement, walked). Reading aid for the tactics:
+`unfold`/`simp only` rewrite by definitions; `omega` decides linear arithmetic; the `set_option
+maxHeartbeats` lines just raise the elaboration budget for the heavier `whnf` reductions. Trust check: the
+`#print axioms` lines at the bottom must each be `[propext, Classical.choice, Quot.sound]` (no `sorryAx`).
 -/
 
 namespace RelayBytecodeRefinement

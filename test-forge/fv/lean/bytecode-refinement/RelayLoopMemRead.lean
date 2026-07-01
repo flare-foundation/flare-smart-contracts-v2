@@ -32,6 +32,13 @@ Everything else — the loop mechanism, the `mload`, the mask, the accumulation,
 accounting soundness — is *proven* against the validated semantics. `DataLayer.weight_read` discharges the
 per-slot read (`hcorr`); the abstract `sigLoop`/`threshold_sound` are restated here (identical to
 `../RelaySigLoop.lean`) so a single `lake env lean` checks the whole chain.
+
+New to this suite? See `../../README.md` §3. This file is the capstone of the ∀N refinement: `relay_loop_sound`
+is the top theorem (deployed loop accepts ⟹ total registered weight > threshold, for all N). Read the header
+tables in `RelayBytecodeRefinement.lean` and `DataLayer.lean` first — this file composes their results with
+the abstract proof. The trust check is the same everywhere: the `#print axioms` at the bottom must be
+`[propext, Classical.choice, Quot.sound]` (plus the two documented specs `zeroes_data`/`toByteArray_size`
+where the memory *write* round-trip is used); no `sorryAx`.
 -/
 
 namespace RelayLoopMemRead

@@ -14,6 +14,10 @@ import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase + e
 // Harness shape: CONCRETE signing policy (N=5 voters, weight 100 each, threshold 260); only the
 // SIGNATURES are symbolic. ecrecover is uninterpreted, so the solver may freely set
 // recovered == voters[index] (the conservative worst case) and no real keypairs are needed.
+//
+// New to Halmos? See test-forge/fv/README.md §2 — a `check_` function is a ∀-proof over its symbolic
+// arguments; `vm.assume` is a hypothesis, `assert` is the goal, and every `check_reach…` control is the
+// anti-vacuity tripwire that verify_fv.py requires to be REFUTED by a counterexample.
 contract RelaySigFV is RelayTestBase {
     bytes internal policy;
     bytes32 internal constant ROOT = keccak256("fv-root"); // concrete, non-zero (passes RLY-04)
@@ -40,10 +44,15 @@ contract RelaySigFV is RelayTestBase {
 
     // P2 — Threshold soundness (bounded, 2 signers). Two voters carry 200 <= threshold 260, so NO pair
     // of signatures can make relay() accept. EXPECT: PASS.
+    // In logic: ∀ (v0,r0,s0,v1,r1,s1) . ¬accept. The six params are the ∀-quantified symbolic inputs;
+    // a PASS means the solver found NO assignment (no calldata) making relay() accept — i.e. no
+    // counterexample to the negative property exists in the bounded region.
     function check_threshold_twoVoters_cannotAccept(
         uint8 v0, bytes32 r0, bytes32 s0,
         uint8 v1, bytes32 r1, bytes32 s1
     ) external {
+        // uint16(2) = signature COUNT; the two _sig() blobs carry distinct indices 0,1. ecrecover is
+        // uninterpreted, so recovered may equal voters[0],voters[1] — the strongest case, still < threshold.
         bytes memory sigs = abi.encodePacked(uint16(2), _sig(v0, r0, s0, 0), _sig(v1, r1, s1, 1));
         assert(!_relayCall(sigs));
     }
@@ -65,6 +74,9 @@ contract RelaySigFV is RelayTestBase {
     // Non-vacuity control: 3 distinct voters (300 > 260) MUST be able to finalize, so this asserts
     // !ok expecting a COUNTEREXAMPLE. If it ever PASSES, the loop bound is too small (or the accept
     // path is otherwise unreachable) and the two proofs above are vacuous. EXPECT: COUNTEREXAMPLE.
+    // Note the inverted contract: unlike the check_ proofs above, this one MUST FAIL (be refuted with a
+    // witness). verify_fv.py treats a `reach` control that PASSES as a hard error — a proof that no one
+    // can accept would make every "cannot accept" theorem true only vacuously.
     function check_reachability_threeVoters_canAccept(
         uint8 v0, bytes32 r0, bytes32 s0,
         uint8 v1, bytes32 r1, bytes32 s1,

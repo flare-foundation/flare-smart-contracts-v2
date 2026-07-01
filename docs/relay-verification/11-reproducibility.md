@@ -23,9 +23,9 @@ All commands are from the repo root unless noted: `flare-smart-contracts-v2/`.
 | Lean (the bytecode refinement) | Lean **4.22.0** + mathlib 4.22.0 + FFI | `elan` + EVMYulLean (§11.7) |
 | EVMYulLean | NethermindEth/EVMYulLean @ HEAD | `git clone` (§11.7) |
 
-Repo build config: `foundry.toml` sets `src=contracts`, `test=test-forge`, `out=artifacts-forge`,
+Repo build config: [`foundry.toml`](../../foundry.toml) sets `src=contracts`, `test=test-forge`, `out=artifacts-forge`,
 `evm_version=cancun`, `optimizer=true/200`, and `skip=['*.yul']` (so reference IR artifacts aren't
-compiled). FV config: `halmos.toml` sets `loop=6`, `solver-timeout-assertion=0`, `forge-build-out=artifacts-forge`.
+compiled). FV config: [`halmos.toml`](../../halmos.toml) sets `loop=6`, `solver-timeout-assertion=0`, `forge-build-out=artifacts-forge`.
 
 ---
 
@@ -60,7 +60,7 @@ Expect from the gate:
 [fv] OK — all proofs hold and every reachability control is live (non-vacuous).
 ```
 **CI:** `test-fv-halmos` (`python:3.12` image; installs halmos + foundry, `forge build`, then the gate).
-Triggered on changes to `Relay.sol`, the relay interfaces, `test-forge/fv/**`, or `halmos.toml`.
+Triggered on changes to [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol), the relay interfaces, `test-forge/fv/**`, or [`halmos.toml`](../../halmos.toml).
 
 > Note: a Halmos "counterexample" on an obviously-true assertion is usually a **solver timeout**, not a
 > bug. `solver-timeout-assertion=0` in `halmos.toml` is what lets the nonlinear `RelayThresholdScalingFV`
@@ -135,7 +135,7 @@ Expect exit 0 and, from the file's trailing `#print axioms`:
 'RelayBytecodeRefinement.bytecode_threshold_sound_int' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 No `error:`, no `sorry`/`sorryAx`. The file is self-contained; its scope and assumptions are in
-`test-forge/fv/lean/bytecode-refinement/README.md`.
+[`test-forge/fv/lean/bytecode-refinement/README.md`](../../test-forge/fv/lean/bytecode-refinement/README.md).
 
 > Host notes: EVMYulLean's memory uses an FFI byte-array backend (keccak/sha2/`ByteArray.zeroes`).
 > `#eval`/`native_decide` on standalone files cannot link the extern lib — which is why the bytecode-refinement proofs

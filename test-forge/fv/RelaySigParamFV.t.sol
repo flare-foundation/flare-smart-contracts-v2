@@ -16,6 +16,10 @@ import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase
 // uninterpreted; voters are concrete distinct addresses (A4 by construction); message is same-epoch so
 // the Relay.sol:976 threshold-increase does not apply. halmos.toml sets loop = 6 (>= signer count);
 // the reachability control is the anti-vacuity tripwire (must produce a counterexample).
+//
+// New to Halmos? See test-forge/fv/README.md §2 — a `check_` function is a ∀-proof over its symbolic
+// arguments; `vm.assume` restricts that ∀ (a hypothesis), `assert` is the goal, and `check_reachability_*`
+// is the anti-vacuity control that verify_fv.py requires to be REFUTED by a counterexample.
 contract RelaySigParamFV is RelayTestBase {
     bytes32 internal constant ROOT = keccak256("fv-root"); // concrete, non-zero (RLY-04)
     uint256 internal constant NV = 3;
@@ -51,6 +55,10 @@ contract RelaySigParamFV is RelayTestBase {
     // For each K: provide K signatures at distinct indices 0..K-1, assume their total weight <= thr,
     // and prove relay() cannot accept. This pins the contract's actual (prefix) accept condition.
 
+    // Reads as: ∀ w0,thr,a . (w0 ≤ thr) ⟹ ¬accept. The weight w0 and threshold thr are now themselves
+    // symbolic (unlike RelaySigFV's concrete 100/260), so a PASS is the parametric theorem over ALL
+    // single-voter weight/threshold pairs, not one instance. vm.assume(w0 ≤ thr) is the hypothesis that
+    // restricts the ∀ to the "below threshold" region — the only region where soundness must hold.
     function check_threshold_1sig_param(uint16 w0, uint16 thr, Sig calldata a) external {
         vm.assume(uint256(w0) <= uint256(thr));
         (Relay r, bytes memory p) = _deploy(w0, 0, 0, thr);
@@ -85,6 +93,9 @@ contract RelaySigParamFV is RelayTestBase {
     function check_noDoubleCount_tailDup_param(uint16 w0, uint16 w1, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
         external
     {
+        // Hypothesis: counting voters 0 and 1 ONCE each (w0+w1) does not clear thr. So the only route to
+        // acceptance would be to count voter 1 a SECOND time via the repeated index — which the contract's
+        // strict-increase index guard forbids. A PASS shows that double-counting escape is impossible.
         vm.assume(uint256(w0) + uint256(w1) <= uint256(thr));
         (Relay r, bytes memory p) = _deploy(w0, w1, 0, thr);
         bytes memory sigs = abi.encodePacked(
@@ -106,6 +117,9 @@ contract RelaySigParamFV is RelayTestBase {
     }
 
     // ---- Non-vacuity control: acceptance MUST be reachable (3 distinct voters, thr below the sum). ----
+    // Mirror image of the proofs above: here thr is BELOW the honest sum, so acceptance ought to be
+    // possible; asserting ¬accept must therefore be REFUTED. A counterexample witnesses that the accept
+    // path is live (loop bound large enough) — without it every "cannot accept" proof would be vacuous.
     function check_reachability_param(uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
         external
     {

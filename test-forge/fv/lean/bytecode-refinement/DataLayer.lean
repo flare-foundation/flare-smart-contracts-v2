@@ -46,6 +46,13 @@ Both become theorems with one-line upstream edits; neither is a semantic assumpt
   the calldata/memory layout (slot arithmetic) to `RelaySigLoop.loop` and transfers `threshold_sound`. All
   *bounded* data-layer facts are now proven; what is left is plumbing this read into the loop, not any
   further fact about the read itself.
+
+New to this suite? See `../../README.md` §3 (how to read a Lean proof + re-check it). Orientation: this file
+reasons about EVMYulLean's *real* `ByteArray`/`MachineState` operations. Lean 4.22 has no `ByteArray` lemma
+layer, so the proofs deliberately descend to the underlying `Array` via `ByteArray.ext` (two `ByteArray`s are
+equal iff their `.data` arrays are). The two `axiom`s below (`zeroes_data`, `toByteArray_size`) are documented
+*upstream-dischargeable specs* — one for an `opaque` FFI symbol, one for a `private` upstream bound — not
+semantic assumptions; each `#print axioms` at the bottom shows exactly which results depend on them.
 -/
 
 namespace RelayDataLayer

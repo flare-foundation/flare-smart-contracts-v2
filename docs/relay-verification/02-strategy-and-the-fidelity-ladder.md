@@ -154,7 +154,7 @@ names are in the per-rung docs and the claims ledger ([L10](10-claims-ledger-tru
 | Rung | Tool | What it covers | Object | Coverage | Status |
 |------|------|----------------|--------|----------|--------|
 | R0/R1 | Foundry | functional behavior of all modes (incl. signing-policy rotation); coverage 31→59 tests | real bytecode | concrete + fuzz | ✅ green in CI (`test-unit-forge`, `coverage-forge`) |
-| R2 | Halmos | sig/threshold accounting; full `relay()` epoch matrix; access control; lifecycle; Merkle; randomness; fees — 25 harnesses / **85 checks (57 proofs, 28 anti-vacuity controls)** | **real bytecode** | bounded (K≤3, N≤5) | ✅ green in CI (`test-fv-halmos`, gated by `verify_fv.py`) |
+| R2 | Halmos | sig/threshold accounting; full `relay()` epoch matrix; access control; lifecycle; Merkle; randomness; fees — 25 harnesses / **85 checks (57 proofs, 28 anti-vacuity controls)** | **real bytecode** | bounded (K≤3, N≤5) | ✅ green in CI (`test-fv-halmos`, gated by [`verify_fv.py`](../../test-forge/fv/verify_fv.py)) |
 | R3 | Kontrol | sig-loop weight invariant; random monotonicity — **∀K** (k-induction) | Solidity **model** | ∀K, N∈{3,5} | ✅ proven (Docker-pinned); full symbolic-N intractable (documented) |
 | R3 | Certora | 5 all-functions storage invariants (nonce/epoch monotonic, setter-immutable, hash/root write-once) | model | ∀ functions & sequences | ⚠ specified + locally typechecked; **not cloud-dischargeable** (assembly storage-havoc wall) |
 | R4a | Lean (the abstract proof) | sig-loop **threshold soundness** | abstract algorithm | **∀N ∀K** | ✅ hole-free (`[propext, Quot.sound]`) |
@@ -181,7 +181,7 @@ The stack is sound *because* of how the rungs are chosen around this:
 - **The bytecode refinement** reconnects the unbounded guarantee to a *validated* EVM semantics, stepping over the assembly
   barrier for the loop mechanism.
 - The **per-sequence** forms of the storage invariants Certora could not globally close *are* proven
-  (Halmos `RelayGovernanceNonceFV` for the nonce, `RelayEpochAdvanceFV` for the epoch pointer, etc.).
+  (Halmos [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol) for the nonce, [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol) for the epoch pointer, etc.).
 
 So the residual after the full stack is not "the security core is untested" but "all-functions storage
 invariants *over raw assembly storage* are not automatically dischargeable" — incremental assurance over an

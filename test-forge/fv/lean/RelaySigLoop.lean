@@ -11,6 +11,16 @@
 
   Models the on-chain ACCOUNTING; assumes the cryptography (ecrecover/keccak), as in the whole engagement:
   here a "signature" is just the index it carries, and we reason about the weight it contributes.
+
+  NEW TO LEAN / THIS SUITE?  See ../README.md §3 (how to read a Lean proof, and how to re-check it). This
+  file is pure ℕ/List — it imports no EVM model, so a mathematician can read it as ordinary induction.
+  Orientation for the tactics used below:
+    • `induction xs with | nil => … | cons x xs ih => …`  — structural induction; `ih` is the hypothesis.
+    • `omega`  — a decision procedure for linear integer arithmetic; it discharges the numeric "glue".
+    • `xs.getD i d`  — the i-th element of list `xs`, or the default `d` if `i` is out of range.
+    • `simp only [lemmas]` / `rw [lemma]`  — rewrite the goal using the named equations.
+  The trust check: the `#print axioms` at the very bottom must be `[propext, Classical.choice, Quot.sound]`
+  (Lean's three standard axioms) with no `sorryAx` — that certifies the proof is complete and gap-free.
 -/
 set_option linter.unusedVariables false
 

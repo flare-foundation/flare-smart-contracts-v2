@@ -13,7 +13,7 @@ agreed-upon data — a new "signing policy", a random number, or a Merkle root s
 facts. Each validator carries a **weight** (roughly, stake-proportional voting power). A proposal is
 **accepted** only if the combined weight of its signers exceeds a **threshold** (a supermajority).
 
-`Relay.sol` is the smart contract that performs this check on-chain. Given a proposal and a bundle of
+[`Relay.sol`](../../contracts/protocol/implementation/Relay.sol) is the smart contract that performs this check on-chain. Given a proposal and a bundle of
 signatures, its core job is to:
 
 1. recover which validator produced each signature,
@@ -87,7 +87,7 @@ mathematical heart of the upper rungs (Kontrol for ∀K, Lean for ∀N∀K).
 
 ### Enemy 2 — The opaque-machine problem (inline assembly)
 
-`Relay.sol`'s hot path is roughly **930 lines of hand-written EVM assembly** (Yul/inline assembly), not
+[`Relay.sol`](../../contracts/protocol/implementation/Relay.sol)'s hot path is roughly **930 lines of hand-written EVM assembly** (Yul/inline assembly), not
 ordinary Solidity. It manages its own memory and storage layout by hand, for gas efficiency.
 
 The analogy: most tools expect a machine described by a high-level blueprint (structured Solidity), from

@@ -1,9 +1,9 @@
 # Relay.sol — Formal Verification (Phase 0 modeling contract + Phase 1 plan)
 
-**Target:** `contracts/protocol/implementation/Relay.sol` @ `relay-fix-3`.
+**Target:** [`contracts/protocol/implementation/Relay.sol`](../contracts/protocol/implementation/Relay.sol) @ `relay-fix-3`.
 **Primary focus (per author):** the `relay()` function and signature verification.
 **Tooling:** Halmos (bounded symbolic execution on the Foundry harness) for Phase 1; Kontrol (KEVM, inductive) reserved for Phase 2.
-**Substrate:** `test-forge/unit/protocol/implementation/Relay.t.sol` (52 concrete tests) is reused as the symbolic harness.
+**Substrate:** [`test-forge/unit/protocol/implementation/Relay.t.sol`](../test-forge/unit/protocol/implementation/Relay.t.sol) (59 concrete tests) is reused as the symbolic harness.
 
 This document is the **modeling contract**: it fixes *exactly* what we prove and what we assume, so that every Phase-1 "PASS" has a precise meaning. Read this before trusting any proof.
 
@@ -44,7 +44,7 @@ Halmos models precompile `0x01` as an uninterpreted function `E(hash,v,r,s) → 
 
 - **This gives the adversary strictly more power than reality**: when searching for a counterexample, the solver may freely set `E(h,v_i,r_i,s_i) = voters[i]`. Any accounting invariant that survives this (e.g. "cannot accept with ≤ threshold of distinct registered weight") therefore holds *a fortiori* under real ECDSA. Uninterpreted ecrecover is the **conservative, sound** choice for the threshold/no-double-count theorems.
 - **What this deliberately does NOT prove:** "a non-voter cannot contribute weight." That rests on **ECDSA unforgeability** (cannot produce `(v,r,s)` recovering to an address whose key you don't hold), which is a **cryptographic assumption outside the EVM model** (assumption **A2′**, out of scope). FV proves the *on-chain half* — weight is credited to `voters[i]` only on the path where the recovered signer equals `voters[i]`, each index at most once — and A2′ supplies the other half. Together: "only the quorum can finalize." We machine-check the first half and **state** the second.
-- **Failure ABI (OP-1) — internalized.** The uninterpreted `E` above is *total*: it always returns a 32-byte address (`returndatasize()==32`), so it does not model the precompile's real bad-signature behaviour (**success + empty return, output buffer left stale** — it does *not* revert, unlike a naive reading of Solidity's `ecrecover` builtin). That failure mode is covered separately: `test-forge/fv/RelayEcrecoverSymbolicFV.t.sol` reaches the empty-return branch via a mock reproducing the precompile's ABI and proves, symbolically over all stale-buffer contents, that Relay's `staticcall`-success / `returndatasize()==32` / non-zero-signer guard (`Relay.sol:1283-1302`) rejects it; `test-forge/fv/RelayEcrecoverABI.t.sol` pins the same ABI on the real EVM.
+- **Failure ABI (OP-1) — internalized.** The uninterpreted `E` above is *total*: it always returns a 32-byte address (`returndatasize()==32`), so it does not model the precompile's real bad-signature behaviour (**success + empty return, output buffer left stale** — it does *not* revert, unlike a naive reading of Solidity's `ecrecover` builtin). That failure mode is covered separately: [`test-forge/fv/RelayEcrecoverSymbolicFV.t.sol`](../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol) reaches the empty-return branch via a mock reproducing the precompile's ABI and proves, symbolically over all stale-buffer contents, that Relay's `staticcall`-success / `returndatasize()==32` / non-zero-signer guard ([`Relay.sol:1283-1302`](../contracts/protocol/implementation/Relay.sol#L1283)) rejects it; [`test-forge/fv/RelayEcrecoverABI.t.sol`](../test-forge/fv/RelayEcrecoverABI.t.sol) pins the same ABI on the real EVM.
 
 ### 2.3 Bounded loops (assumption **A3**)
 K signers, Merkle depth ≤ D, fixed. Stated per result.
@@ -59,7 +59,7 @@ Halmos's default handling of gas (ignored), `staticcall` to `0x01` (intercepted 
 
 ## 3. The signature loop, as code (what we are reasoning about)
 
-Per provided signature, `relay()` does (`Relay.sol`):
+Per provided signature, `relay()` does ([`Relay.sol`](../contracts/protocol/implementation/Relay.sol)):
 
 1. `index + 1 > numberOfVoters` → revert `"Index out of range"` — `:1257`
 2. `index < nextUnusedIndex` → revert `"Index out of order"`; then `nextUnusedIndex = index + 1` — `:1261`
@@ -82,7 +82,7 @@ Each obligation: informal statement; formal statement; assumptions; tool/bound; 
 - **Informal:** the loop cannot count more weight than the registered voters it actually matched, and never a voter twice.
 - **Formal:** on any non-reverting execution with K provided signatures, `weight = Σ_{i∈S} weights[index_i]` where `S` indexes a set of *strictly-increasing* (hence distinct) indices, each `< numberOfVoters`. Hence `weight ≤ Σ_{j ∈ distinct indices} weights[j] ≤ Σ_{all j} weights[j]`. With **[A4]**, distinct indices ⇒ distinct signers ⇒ no signer double-counted.
 - **Assumptions:** A1, A3 (K), A5; A4 for the signer-level corollary.
-- **Tool/bound:** Halmos, K = 1..K_max. **Status:** ✅ **proved (parametric, bounded)** — `RelaySigParamFV.check_noDoubleCount_{tailDup,headDup}_param`: for ALL weights, with single-counting assumed insufficient, the duplicate index layouts `[0,1,1]` and `[0,0,1]` cannot accept (the strict-increase guard rejects the repeat before the weight add at `Relay.sol:1261` vs `:1325`). Fixed-config instance: `RelaySigFV.check_noDoubleCount_duplicateIndex_cannotAccept`. Caveat: only these duplicate layouts at NV=3 (see §6).
+- **Tool/bound:** Halmos, K = 1..K_max. **Status:** ✅ **proved (parametric, bounded)** — `RelaySigParamFV.check_noDoubleCount_{tailDup,headDup}_param`: for ALL weights, with single-counting assumed insufficient, the duplicate index layouts `[0,1,1]` and `[0,0,1]` cannot accept (the strict-increase guard rejects the repeat before the weight add at [`Relay.sol:1261`](../contracts/protocol/implementation/Relay.sol#L1261) vs `:1325`). Fixed-config instance: `RelaySigFV.check_noDoubleCount_duplicateIndex_cannotAccept`. Caveat: only these duplicate layouts at NV=3 (see §6).
 
 ### P2 — Threshold soundness
 - **Informal:** you cannot make `relay()` accept without strictly more than `threshold` of matched, distinct registered weight.
@@ -108,7 +108,7 @@ Each obligation: informal statement; formal statement; assumptions; tool/bound; 
 - **Formal:** for `msg.value ≥ fee`, after `verify()` succeeds: `feeCollection` balance += `fee`, caller net −`fee`, contract retains 0. **Tool:** Halmos. **Status:** ✅ **proved (bounded, msg.value/fee ≤ 2¹²⁸)** — `RelayFeeConservationFV.check_p7_feeConservation` (the three balance deltas mirror `Relay.sol:1590-1603`); `check_p7_reachability` confirms a reachable success. Caveats: new-relay path only (oldRelay==0 fallback has its own accounting, unit-tested separately); value cap is non-restrictive (≫ ETH supply).
 
 ### P8 — Signing-policy-hash equivalence
-- **Formal:** the assembly `calculateSigningPolicyHash` equals the reference fold (lift the harness's dynamic cross-check to symbolic input). **Tool:** Halmos. **Status:** ✅ **proved (bounded, NV∈{1,2,3})** — `RelayPolicyHashFV.check_policyHash_equiv_NV{1,2,3}` (assembly fold `Relay.sol:574-602` ≡ reference fold `Relay.t.sol:111-128` — byte-identical keccak-call sequence under A1); `check_policyHash_mismatchReachable_NV3` is the sensitivity tripwire. Caveat: NV≤3 (covers initial-word + mid-fold + zero-padded-tail cases); up to MAX_VOTERS=300 rests on loop uniformity (Phase 2).
+- **Formal:** the assembly `calculateSigningPolicyHash` equals the reference fold (lift the harness's dynamic cross-check to symbolic input). **Tool:** Halmos. **Status:** ✅ **proved (bounded, NV∈{1,2,3})** — `RelayPolicyHashFV.check_policyHash_equiv_NV{1,2,3}` (assembly fold `Relay.sol:574-602` ≡ reference fold [`Relay.t.sol:111-128`](../test-forge/unit/protocol/implementation/Relay.t.sol#L111) — byte-identical keccak-call sequence under A1); `check_policyHash_mismatchReachable_NV3` is the sensitivity tripwire. Caveat: NV≤3 (covers initial-word + mid-fold + zero-padded-tail cases); up to MAX_VOTERS=300 rests on loop uniformity (Phase 2).
 
 **PHASE 1 COMPLETE (P1–P8 all ✅, bounded).** All eight obligations proved with Halmos on the unmodified contract, each with a non-vacuity reachability control; the signature/threshold core (P1/P2) and the random binding (P4/P5) carry machine-checked (decoupled-oracle) forms. Two adversarial-audit rounds (signature core; P3–P8) returned valid-with-caveats / no false PASS. P4 follows the audit-validated decoupled-oracle pattern (not separately re-audited).
 
@@ -120,17 +120,17 @@ Each obligation: informal statement; formal statement; assumptions; tool/bound; 
 
 **Phase 0 — DONE.**
 - Halmos 0.3.3 + z3 4.12.6 installed in an isolated venv at `../.venv-halmos` (outside the repo).
-- Toolchain proven end-to-end: `test-forge/fv/HalmosSmoke.t.sol` gives one PASS (∀-proof) and one expected counterexample. Repo builds to `artifacts-forge`, so Halmos needs `--forge-build-out artifacts-forge` (persisted in `halmos.toml`).
+- Toolchain proven end-to-end: `test-forge/fv/HalmosSmoke.t.sol` gives one PASS (∀-proof) and one expected counterexample. Repo builds to `artifacts-forge`, so Halmos needs `--forge-build-out artifacts-forge` (persisted in [`halmos.toml`](../halmos.toml)).
 - This modeling contract (§1–§3) written and reviewed.
 
 **Phase 1 — first valid bounded proofs of the signature/threshold core (2026-06-15).**
-- `test-forge/fv/RelaySigFV.t.sol` runs Halmos against the REAL `relay()` (no contract changes): concrete signing policy (N=5, weight 100, threshold 260), symbolic signatures. Result with the correct config: **`check_threshold_twoVoters_cannotAccept` PASS, `check_noDoubleCount_duplicateIndex_cannotAccept` PASS, `check_reachability_threeVoters_canAccept` → counterexample** (non-vacuity confirmed). ~0.7s.
+- [`test-forge/fv/RelaySigFV.t.sol`](../test-forge/fv/RelaySigFV.t.sol) runs Halmos against the REAL `relay()` (no contract changes): concrete signing policy (N=5, weight 100, threshold 260), symbolic signatures. Result with the correct config: **`check_threshold_twoVoters_cannotAccept` PASS, `check_noDoubleCount_duplicateIndex_cannotAccept` PASS, `check_reachability_threeVoters_canAccept` → counterexample** (non-vacuity confirmed). ~0.7s.
 - The deploy under Halmos needs a fully-concrete `setUp` (no `vm.addr`/`vm.sign`/sorting) — voters are arbitrary distinct addresses (sound: ecrecover is uninterpreted, so keypairs are unnecessary).
 
 **ROOT CAUSE of the earlier "accept path unreachable" (RESOLVED): the Halmos loop bound.**
-`--loop` defaults to **2**. `relay()`'s signature loop runs once per signature, so at the default bound any test with **3+ signatures has its accepting iteration truncated** → the accept path looks unreachable and negative properties pass **vacuously**. Evidence trail: 1 sig (thr 10) accepts; 2 sigs (thr 150) accept at the bound; 3–4 sigs "can't accept" in 0.3s even with an 8-minute solver budget (i.e. fast UNSAT, not a timeout) — and **flip to a counterexample under `--loop 4`**. Fix: `halmos.toml` now sets `loop = 6`; the in-test `check_reachability_*` control is the standing tripwire against a too-small bound. (Ruled out along the way and recorded for the report: raw `staticcall(0x01)` ecrecover returns a free, fully-matchable word; 3 distinct matches from one digest are jointly SAT; the hash check passes; the `Relay.sol:976` threshold-increase does NOT apply to a same-epoch message; accept-path completion is clean; `"unknown deployed bytecode"` is cosmetic. Also confirmed: relay-only mode does NOT enforce the `setSigningPolicy` minimal-threshold rule on the constructor-set initial policy — only *relayed* policies hit `checkThresholdConsistency` at `:1109` — which is what let a sub-minimal threshold be used to bisect single- vs multi-signature behaviour.)
+`--loop` defaults to **2**. `relay()`'s signature loop runs once per signature, so at the default bound any test with **3+ signatures has its accepting iteration truncated** → the accept path looks unreachable and negative properties pass **vacuously**. Evidence trail: 1 sig (thr 10) accepts; 2 sigs (thr 150) accept at the bound; 3–4 sigs "can't accept" in 0.3s even with an 8-minute solver budget (i.e. fast UNSAT, not a timeout) — and **flip to a counterexample under `--loop 4`**. Fix: `halmos.toml` now sets `loop = 6`; the in-test `check_reachability_*` control is the standing tripwire against a too-small bound. (Ruled out along the way and recorded for the report: raw `staticcall(0x01)` ecrecover returns a free, fully-matchable word; 3 distinct matches from one digest are jointly SAT; the hash check passes; the [`Relay.sol:976`](../contracts/protocol/implementation/Relay.sol#L976) threshold-increase does NOT apply to a same-epoch message; accept-path completion is clean; `"unknown deployed bytecode"` is cosmetic. Also confirmed: relay-only mode does NOT enforce the `setSigningPolicy` minimal-threshold rule on the constructor-set initial policy — only *relayed* policies hit `checkThresholdConsistency` at `:1109` — which is what let a sub-minimal threshold be used to bisect single- vs multi-signature behaviour.)
 
-**PARAMETRIC proofs done + audited (2026-06-15).** `test-forge/fv/RelaySigParamFV.t.sol` generalizes to SYMBOLIC weights + threshold (deployed in-check; empty `setUp`): `check_threshold_{1,2,3}sig_param` PASS (tight per-prefix soundness), `check_noDoubleCount_{tailDup,headDup}_param` PASS (`[0,1,1]`/`[0,0,1]`), `check_reachability_param` → counterexample. **5 passed; 1 failed (=the by-design counterexample).** A 4-lens adversarial audit returned **valid-with-documented-caveats, zero mustFix**; the one Medium (total-sum vs accept-point) was closed by the per-prefix reformulation. Caveats recorded in §6.
+**PARAMETRIC proofs done + audited (2026-06-15).** [`test-forge/fv/RelaySigParamFV.t.sol`](../test-forge/fv/RelaySigParamFV.t.sol) generalizes to SYMBOLIC weights + threshold (deployed in-check; empty `setUp`): `check_threshold_{1,2,3}sig_param` PASS (tight per-prefix soundness), `check_noDoubleCount_{tailDup,headDup}_param` PASS (`[0,1,1]`/`[0,0,1]`), `check_reachability_param` → counterexample. **5 passed; 1 failed (=the by-design counterexample).** A 4-lens adversarial audit returned **valid-with-documented-caveats, zero mustFix**; the one Medium (total-sum vs accept-point) was closed by the per-prefix reformulation. Caveats recorded in §6.
 
 - **Next:** P3 (canonicality gating: bad v / high s / zero signer rejected before counting), P5 (isSecure normalization), P6 (35-byte return discriminator), P7 (fee conservation in `verify()`), P8 (signing-policy-hash equivalence). For unbounded signer count / cross-epoch (N) and larger duplicate layouts, use the symbolic-voter pattern (`voters[i] := f_ecrecover(...)`) and/or Kontrol (Phase 2).
 
@@ -142,7 +142,7 @@ Each obligation: informal statement; formal statement; assumptions; tool/bound; 
 
 ## 6. Audit of the P1/P2 proofs + standing caveats (2026-06-15)
 
-A 4-lens adversarial audit (vacuity, faithfulness, hidden-assumptions, modeling-fidelity) + synthesis was run over `RelaySigFV` and `RelaySigParamFV`. **Verdict: valid-with-documented-caveats — zero mustFix.** The proofs are sound for what they assert; the synthesizer re-verified the load-bearing facts against the code (accept fires mid-loop at `Relay.sol:1330`; the strict-increase guard reverts the duplicate before `weight +=` at `:1261`/`:1325`; the same-epoch arithmetic makes the `:976` increase inert; signing-policy-hash byte-layout fidelity is grounded by `test_signingPolicyHash_matchesContract`). The one Medium finding (threshold assertion used the over-approximate total-sum rather than the tight accept-point/prefix weight) was **closed** by reformulating P2 into the per-prefix contrapositive family `check_threshold_{1,2,3}sig_param`.
+A 4-lens adversarial audit (vacuity, faithfulness, hidden-assumptions, modeling-fidelity) + synthesis was run over `RelaySigFV` and `RelaySigParamFV`. **Verdict: valid-with-documented-caveats — zero mustFix.** The proofs are sound for what they assert; the synthesizer re-verified the load-bearing facts against the code (accept fires mid-loop at [`Relay.sol:1330`](../contracts/protocol/implementation/Relay.sol#L1330); the strict-increase guard reverts the duplicate before `weight +=` at `:1261`/`:1325`; the same-epoch arithmetic makes the `:976` increase inert; signing-policy-hash byte-layout fidelity is grounded by `test_signingPolicyHash_matchesContract`). The one Medium finding (threshold assertion used the over-approximate total-sum rather than the tight accept-point/prefix weight) was **closed** by reformulating P2 into the per-prefix contrapositive family `check_threshold_{1,2,3}sig_param`.
 
 **Standing caveats — each PASS means the property holds ONLY within these bounds (do not over-read as the unbounded contract guarantee):**
 1. **Bounded shape.** Threshold soundness covers K∈{1,2,3} signatures; no-double-count covers the `[0,1,1]` and `[0,0,1]` duplicate layouts at NV=3. The live contract allows up to `MAX_VOTERS=300` and arbitrary duplicate positions/run-lengths. Generality rests on loop-body uniformity (asserted, not machine-checked) — an unbounded proof is the Kontrol/Phase-2 obligation.
@@ -168,20 +168,20 @@ Per-obligation caveats are recorded inline in §4 (P3 single-sig; P6 Mode-0 not 
 
 ## 8. CI enforcement (the anti-vacuity gate)
 
-`test-forge/fv/verify_fv.py` makes §6 caveat 3 an **enforced gate** rather than a convention. It runs Halmos over `test-forge/fv` (JSON output) and requires **both** halves of every proof:
+[`test-forge/fv/verify_fv.py`](../test-forge/fv/verify_fv.py) makes §6 caveat 3 an **enforced gate** rather than a convention. It runs Halmos over [`test-forge/fv`](../test-forge/fv/README.md) (JSON output) and requires **both** halves of every proof:
 
 - every **proof** check passes (no counterexample), and
 - every **reachability / non-vacuity control** (function name contains `reach`) produces a **counterexample**.
 
 An unexpected reachability **PASS** is a hard failure — the *vacuity alarm* — because it means the accept path became unreachable (e.g. `--loop` dropped below a harness's signer count) and the guarded proofs went vacuous. Halmos's own exit code is unusable as a signal (non-zero by design, since the reachability controls produce counterexamples), so the script judges each check from the JSON.
 
-Run locally (from the repo root; `halmos.toml` supplies `loop = 6` + `forge-build-out`):
+Run locally (from the repo root; [`halmos.toml`](../halmos.toml) supplies `loop = 6` + `forge-build-out`):
 ```
 HALMOS=halmos python3 test-forge/fv/verify_fv.py
 ```
 Validated both directions: at `loop = 6` it reports **40 checks — 27 proofs hold, 13 reachability controls live**, exit 0; forced to `--loop 2` it exits 1 with vacuity alarms (the multi-iteration controls flip to PASS), proving the gate catches a real regression.
 
-Wired into GitLab CI as job **`test-fv-halmos`** (`.gitlab-ci.yml`) — **green in the pipeline**. The runner's `foundry:stable` image is non-root with no Python, so the job runs on `python:3.12` (`pip install --user halmos` + `foundryup`), depends on `build-smart-contracts` and pulls the node_modules cache (forge build needs the `@gnosis.pm` remapping), and is `rules`-scoped to changes in `Relay.sol` / its interfaces / `test-forge/fv/**` / `halmos.toml`.
+Wired into GitLab CI as job **`test-fv-halmos`** ([`.gitlab-ci.yml`](../.gitlab-ci.yml)) — **green in the pipeline**. The runner's `foundry:stable` image is non-root with no Python, so the job runs on `python:3.12` (`pip install --user halmos` + `foundryup`), depends on `build-smart-contracts` and pulls the node_modules cache (forge build needs the `@gnosis.pm` remapping), and is `rules`-scoped to changes in [`Relay.sol`](../contracts/protocol/implementation/Relay.sol) / its interfaces / `test-forge/fv/**` / `halmos.toml`.
 
 ---
 
@@ -190,7 +190,7 @@ Wired into GitLab CI as job **`test-fv-halmos`** (`.gitlab-ci.yml`) — **green 
 Phase 2 targets the properties bounded model checking can't reach by itself. They split by tool:
 
 **Done now (bounded, Halmos):** two Phase-2 caveats from §6 are closed with new harnesses, both gated by reachability controls:
-- **Cross-epoch** no-double-count + threshold soundness on the threshold-INCREASE path (`RelayCrossEpochFV`): an epoch-2 message finalized by the epoch-1 policy raises the effective threshold to `thr × 1.2` (`Relay.sol:960/976`); proofs hold there, and the threshold check also confirms the ×1.2 increase is actually applied. (Closes §6 caveat 2 for the bounded shape.)
+- **Cross-epoch** no-double-count + threshold soundness on the threshold-INCREASE path (`RelayCrossEpochFV`): an epoch-2 message finalized by the epoch-1 policy raises the effective threshold to `thr × 1.2` ([`Relay.sol:960/976`](../contracts/protocol/implementation/Relay.sol#L960)); proofs hold there, and the threshold check also confirms the ×1.2 increase is actually applied. (Closes §6 caveat 2 for the bounded shape.)
 - **Random monotonicity across a 2-call sequence** (`RelayRandomMonotonicityFV`): relaying an older round after a newer one does not regress the live pointer; the pointer advances for a newer round; both rounds stay historically retrievable. The live round is pinned via `_randomTimestamp`. (Bounded instance of the multi-transaction monotonicity obligation.)
 
 Full FV suite now: **10 contracts, 40 checks — 27 proofs + 13 reachability counterexamples**, all green under the CI gate.
