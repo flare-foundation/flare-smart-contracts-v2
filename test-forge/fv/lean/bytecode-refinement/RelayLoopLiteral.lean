@@ -378,11 +378,144 @@ theorem return_eff (fuel : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
         EvmYul.Yul.execPrimCall, EvmYul.Yul.primCall,
         EvmYul.Yul.cons', EvmYul.Yul.reverse', EvmYul.Yul.multifill', step_RETURN]
 
+/-! ## The STATICCALL / ecrecover seam (OP-1: uninterpreted recovery, per-call hypothesis)
+
+`ecrecover` (the `0x01` staticcall) is modeled as a **per-call hypothesis** on `primCall`, mirroring the
+interpreter's dispatcher-backed (`accountMap.find? = some`) branch — `perm` preserved, `returnData := ret`,
+memory written via `copySlice`. This is the sound modeling: the empty-account (`find? = none`) branch is
+NOT usable here — it leaves `perm := false` (S1, pinned by `staticcall_empty` below), which would make every
+later `SSTORE` throw `.StaticModeViolation`. `staticcall_hyp_compose` composes such a hypothesis through the
+deployed guard `iszero(staticcall(not(0),1,m,128,m+64,32))`; the `returndatasize` bridges handle both OP-1
+ABI outcomes (32-byte success ⟹ guard passes; empty ⟹ guard fails ⟹ the iteration reverts). -/
+
+set_option maxHeartbeats 4000000
+
+-- primCall-level bricks for the non-call ops used inside the guard expressions.
+private theorem primCall_ISZERO (f : Nat) (s : EvmYul.Yul.State) (v : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f + 1) s Operation.ISZERO [v] = .ok (s, [UInt256.isZero v]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+private theorem primCall_EQ (f : Nat) (s : EvmYul.Yul.State) (x y : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f + 1) s Operation.EQ [x, y] = .ok (s, [UInt256.eq x y]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+private theorem primCall_RETURNDATASIZE (f : Nat) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.primCall (f + 1) s Operation.RETURNDATASIZE []
+      = .ok (s, [UInt256.ofNat s.toMachineState.returnData.size]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+
+/-- **S1 pin (interpreter behaviour, NOT used to instantiate the seam).** The empty-account STATICCALL
+    branch returns success `[⟨1⟩]` but leaves `perm := false` and clears the caller's `returnData`/`H_return`.
+    Documented so it is never mistaken for a valid ecrecover model. -/
+theorem staticcall_empty
+    (fuel : Nat) (ss : EvmYul.SharedState .Yul) (vs : VarStore)
+    (g a io is oo os : EvmYul.UInt256)
+    (hperm : ss.executionEnv.perm = true)
+    (hdepth : ss.executionEnv.depth < 1024)
+    (hfind : ss.accountMap.find? (AccountAddress.ofUInt256 a) = none) :
+    EvmYul.Yul.primCall (fuel + 1) (.Ok ss vs) Operation.STATICCALL [g, a, io, is, oo, os]
+      = .ok (.Ok { ss with executionEnv := { ss.executionEnv with perm := false },
+                           returnData := ByteArray.empty, H_return := ByteArray.empty } vs, [⟨1⟩]) := by
+  have hd : ¬ (ss.executionEnv.depth ≥ 1024) := Nat.not_le.mpr hdepth
+  unfold EvmYul.Yul.primCall
+  simp only [EvmYul.Yul.setStatic, EvmYul.Yul.buildContractCallEmptyReturnState,
+             EvmYul.Yul.State.executionEnv, EvmYul.Yul.State.sharedState, EvmYul.Yul.State.toSharedState,
+             hperm, hfind, hd, not_true, false_and, if_false, Option.getD_none, pure_bind]
+
+/-- A per-call STATICCALL hypothesis composes through the bare `staticcall(...)` expression (fuel +14). -/
+theorem staticcall_eval
+    (f : Nat) (s₀ s₁ : EvmYul.Yul.State) (g a io is oo os : EvmYul.UInt256)
+    (hsc : EvmYul.Yul.primCall (f + 13) s₀ Operation.STATICCALL [g, a, io, is, oo, os] = .ok (s₁, [⟨1⟩])) :
+    EvmYul.Yul.eval (f + 14) (Expr.Call (Sum.inl Operation.STATICCALL)
+        [Expr.Lit g, Expr.Lit a, Expr.Lit io, Expr.Lit is, Expr.Lit oo, Expr.Lit os]) none s₀
+      = .ok (s₁, ⟨1⟩) := by
+  unfold EvmYul.Yul.eval
+  simp only [List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append]
+  simp only [EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail, EvmYul.Yul.eval, EvmYul.Yul.reverse',
+             EvmYul.Yul.cons', EvmYul.Yul.evalPrimCall, EvmYul.Yul.head',
+             List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append, hsc]
+  rfl
+
+/-- **THE seam lemma.** Given a per-iteration ecrecover hypothesis, the deployed guard
+    `iszero(staticcall(not(0),1,m,128,m+64,32))` evaluates to `⟨0⟩` (guard not taken ⟹ no revert),
+    threading the post-call state through. Fuel offset K = 3. -/
+theorem staticcall_hyp_compose
+    (f : Nat) (s₀ s₁ : EvmYul.Yul.State) (g a io is oo os : EvmYul.UInt256)
+    (hsc : EvmYul.Yul.primCall (f + 13) s₀ Operation.STATICCALL [g, a, io, is, oo, os] = .ok (s₁, [⟨1⟩])) :
+    EvmYul.Yul.eval (f + 16) (Expr.Call (Sum.inl Operation.ISZERO)
+        [Expr.Call (Sum.inl Operation.STATICCALL)
+          [Expr.Lit g, Expr.Lit a, Expr.Lit io, Expr.Lit is, Expr.Lit oo, Expr.Lit os]]) none s₀
+      = .ok (s₁, ⟨0⟩) := by
+  have h14 := staticcall_eval f s₀ s₁ g a io is oo os hsc
+  unfold EvmYul.Yul.eval
+  simp only [List.reverse_cons, List.reverse_nil, List.nil_append]
+  simp only [EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail, EvmYul.Yul.reverse', EvmYul.Yul.cons',
+             EvmYul.Yul.evalPrimCall, EvmYul.Yul.head',
+             List.reverse_cons, List.reverse_nil, List.nil_append, h14]
+  rw [show f + 15 = (f + 14) + 1 from rfl, primCall_ISZERO]; rfl
+
+/-- `eq(returndatasize(), 32)` evaluates to `eq (ofNat returnData.size) 32`, state unchanged (fuel +6). -/
+theorem returndatasize_eq32_eval (f : Nat) (s₁ : EvmYul.Yul.State) :
+    EvmYul.Yul.eval (f + 6) (Expr.Call (Sum.inl Operation.EQ)
+        [Expr.Call (Sum.inl Operation.RETURNDATASIZE) [], Expr.Lit ⟨32⟩]) none s₁
+      = .ok (s₁, UInt256.eq (.ofNat s₁.toMachineState.returnData.size) ⟨32⟩) := by
+  unfold EvmYul.Yul.eval
+  simp only [List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append]
+  simp only [EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail, EvmYul.Yul.eval, EvmYul.Yul.reverse',
+             EvmYul.Yul.cons', EvmYul.Yul.evalPrimCall, EvmYul.Yul.head',
+             List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append,
+             primCall_RETURNDATASIZE]
+  rw [show f + 5 = (f + 4) + 1 from rfl, primCall_EQ]; rfl
+
+/-- OP-1 success: 32-byte returndata ⟹ the `returndatasize()==32` guard passes (`⟨1⟩`). -/
+theorem returndatasize_eq32_bridge (f : Nat) (s₁ : EvmYul.Yul.State)
+    (h : s₁.toMachineState.returnData.size = 32) :
+    EvmYul.Yul.eval (f + 6) (Expr.Call (Sum.inl Operation.EQ)
+        [Expr.Call (Sum.inl Operation.RETURNDATASIZE) [], Expr.Lit ⟨32⟩]) none s₁ = .ok (s₁, ⟨1⟩) := by
+  rw [returndatasize_eq32_eval, h]; rfl
+
+/-- OP-1 failure (bad signature): EMPTY returndata ⟹ the guard fails (`⟨0⟩`) ⟹ the iteration reverts. -/
+theorem returndatasize_eq32_bridge_empty (f : Nat) (s₁ : EvmYul.Yul.State)
+    (h : s₁.toMachineState.returnData = ByteArray.empty) :
+    EvmYul.Yul.eval (f + 6) (Expr.Call (Sum.inl Operation.EQ)
+        [Expr.Call (Sum.inl Operation.RETURNDATASIZE) [], Expr.Lit ⟨32⟩]) none s₁ = .ok (s₁, ⟨0⟩) := by
+  rw [returndatasize_eq32_eval, h]; rfl
+
+/-- The two OP-1 recovery outcomes (uninterpreted): success (32-byte address) or failure (empty return). -/
+inductive RecOutcome where
+  | success (ret : ByteArray) (hret : ret.size = 32)
+  | failure
+
+/-- Post-state of a successful recovery: the recovered word copied to `outOffset`, `returnData := ret`. -/
+def recSuccessShared (ss : EvmYul.SharedState .Yul) (oo os : EvmYul.UInt256) (ret : ByteArray) :
+    EvmYul.SharedState .Yul :=
+  { ss with memory := ret.copySlice 0 ss.memory oo.toNat (min os.toNat ret.size),
+            returnData := ret, H_return := ByteArray.empty }
+
+/-- Post-state of a failed recovery: memory UNCHANGED, `returnData := ∅` (the stale-buffer OP-1 ABI). -/
+def recFailShared (ss : EvmYul.SharedState .Yul) : EvmYul.SharedState .Yul :=
+  { ss with returnData := ByteArray.empty, H_return := ByteArray.empty }
+
+/-- The per-iteration ecrecover hypothesis, one form per OP-1 branch (the modeling of MC-2/OP-1). -/
+def recHypothesis (f : Nat) (ss : EvmYul.SharedState .Yul) (vs : VarStore)
+    (g a io is oo os : EvmYul.UInt256) : RecOutcome → Prop
+  | .success ret _ =>
+      EvmYul.Yul.primCall f (.Ok ss vs) Operation.STATICCALL [g, a, io, is, oo, os]
+        = .ok (.Ok (recSuccessShared ss oo os ret) vs, [⟨1⟩])
+  | .failure =>
+      EvmYul.Yul.primCall f (.Ok ss vs) Operation.STATICCALL [g, a, io, is, oo, os]
+        = .ok (.Ok (recFailShared ss) vs, [⟨1⟩])
+
+/-- Failure leaves memory unchanged (definitionally) — the stale output buffer of OP-1. -/
+theorem recFailShared_memory (ss : EvmYul.SharedState .Yul) : (recFailShared ss).memory = ss.memory := rfl
+
 #print axioms threshold_sound
 #print axioms weightsOf_getD
 #print axioms step_CALLDATACOPY
 #print axioms exec_If_true
 #print axioms revert_eff
 #print axioms return_eff
+#print axioms staticcall_empty
+#print axioms staticcall_hyp_compose
+#print axioms returndatasize_eq32_bridge
+#print axioms returndatasize_eq32_bridge_empty
 
 end RelayLoopLiteral
