@@ -153,4 +153,88 @@ def voterSignerAt (cd : ByteArray) (idx : Nat) : Nat :=
 def weightsOf (cd : ByteArray) (nVot : Nat) : List Nat :=
   (List.range nVot).map (voterWeightAt cd)
 
+theorem weightsOf_length (cd : ByteArray) (nVot : Nat) : (weightsOf cd nVot).length = nVot := by
+  simp [weightsOf]
+
+/-- In-range lookup in the weight table is the calldata decode — the shape the abstract loop's
+    `w.getD idx 0` addend takes once `idx < nVot` is derived from the range guard. -/
+theorem weightsOf_getD (cd : ByteArray) (nVot idx : Nat) (h : idx < nVot) :
+    (weightsOf cd nVot).getD idx 0 = voterWeightAt cd idx := by
+  simp [weightsOf, List.getD, List.getElem?_map, List.getElem?_range, h]
+
+/-! ## The abstract accounting layer (self-contained restatement)
+
+Identical to `RelayLoopMemRead.lean` / `../RelaySigLoop.lean` — restated so this file, too, checks with a
+single `lake env lean` against EVMYulLean alone. The capstone will *derive* `ValidRun` from the guards
+(instead of assuming it) and transfer `threshold_sound`. -/
+
+/-- prefix sum of the first `k` registered weights. -/
+def sumTake : List Nat → Nat → Nat
+  | _,        0      => 0
+  | [],       _ + 1  => 0
+  | x :: xs,  k + 1  => x + sumTake xs k
+
+theorem sumTake_succ (w : List Nat) (idx : Nat) :
+    sumTake w (idx + 1) = sumTake w idx + w.getD idx 0 := by
+  induction idx generalizing w with
+  | zero => cases w with
+    | nil => rfl
+    | cons x xs => simp [sumTake, List.getD]
+  | succ n ih => cases w with
+    | nil => rfl
+    | cons x xs =>
+      have hg : (x :: xs).getD (n + 1) 0 = xs.getD n 0 := rfl
+      simp only [sumTake, ih xs, hg]; omega
+
+theorem sumTake_le_succ (w : List Nat) (k : Nat) : sumTake w k ≤ sumTake w (k + 1) := by
+  rw [sumTake_succ]; exact Nat.le_add_right _ _
+
+theorem sumTake_mono (w : List Nat) {i j : Nat} (h : i ≤ j) : sumTake w i ≤ sumTake w j := by
+  induction h with
+  | refl => exact Nat.le_refl _
+  | step _ ih => exact Nat.le_trans ih (sumTake_le_succ w _)
+
+/-- The on-chain signature-loop accounting: state `(weight, nextUnusedIndex)`, one step per signature. -/
+def sigLoop : List Nat → Nat → Nat → List Nat → (Nat × Nat)
+  | _, weight, nui, []          => (weight, nui)
+  | w, weight, nui, idx :: rest => sigLoop w (weight + w.getD idx 0) (idx + 1) rest
+
+/-- Strictly-increasing, in-range index streams — what the deployed guards enforce. The capstone derives
+    this from "the execution did not revert", rather than assuming it. -/
+inductive ValidRun (w : List Nat) : Nat → List Nat → Prop
+  | nil  {nui} : ValidRun w nui []
+  | cons {nui idx rest} :
+      nui ≤ idx → idx < w.length → ValidRun w (idx + 1) rest → ValidRun w nui (idx :: rest)
+
+theorem loop_inv (w : List Nat) :
+    ∀ (idxs : List Nat) (nui weight : Nat),
+      weight ≤ sumTake w nui → nui ≤ w.length → ValidRun w nui idxs →
+      (sigLoop w weight nui idxs).1 ≤ sumTake w (sigLoop w weight nui idxs).2 ∧
+      (sigLoop w weight nui idxs).2 ≤ w.length := by
+  intro idxs
+  induction idxs with
+  | nil => intro nui weight hw hn _; exact ⟨hw, hn⟩
+  | cons idx rest ih =>
+    intro nui weight hw hn hv
+    cases hv with
+    | cons hle hlt hrest =>
+      simp only [sigLoop]
+      apply ih (idx + 1) (weight + w.getD idx 0)
+      · have h2 : sumTake w nui ≤ sumTake w idx := sumTake_mono w hle
+        have h4 : sumTake w idx + w.getD idx 0 = sumTake w (idx + 1) := (sumTake_succ w idx).symm
+        omega
+      · omega
+      · exact hrest
+
+/-- THRESHOLD SOUNDNESS (abstract): accept ⟹ total registered weight > thr. -/
+theorem threshold_sound (w : List Nat) (idxs : List Nat) (thr : Nat)
+    (hv : ValidRun w 0 idxs) (hacc : thr < (sigLoop w 0 0 idxs).1) :
+    thr < sumTake w w.length := by
+  obtain ⟨hw, hb⟩ := loop_inv w idxs 0 0 (Nat.zero_le _) (Nat.zero_le _) hv
+  have hmono : sumTake w (sigLoop w 0 0 idxs).2 ≤ sumTake w w.length := sumTake_mono w hb
+  omega
+
+#print axioms threshold_sound
+#print axioms weightsOf_getD
+
 end RelayLoopLiteral
