@@ -234,7 +234,155 @@ theorem threshold_sound (w : List Nat) (idxs : List Nat) (thr : Nat)
   have hmono : sumTake w (sigLoop w 0 0 idxs).2 ≤ sumTake w w.length := sumTake_mono w hb
   omega
 
+/-! ## Interpreter bricks (verified against EVMYulLean's real `step`/`exec`)
+
+Opcode `step` reductions and control-flow `exec` equations for every construct the literal body uses. Each
+proves by `unfold … ; rfl` (or `conv_lhs => unfold` where the RHS also mentions `exec` at opaque fuel), so
+they are decidable per-construct facts about the actual interpreter. These are the substrate for the
+per-statement effect lemmas (in progress). `set_option maxHeartbeats 1000000` covers the large `step` match. -/
+
+-- Arithmetic / comparison / bitwise
+set_option maxHeartbeats 1000000 in
+theorem step_ADD (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.ADD none s [a, b] = .ok (s, some (EvmYul.UInt256.add a b)) := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 1000000 in
+theorem step_MUL (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.MUL none s [a, b] = .ok (s, some (EvmYul.UInt256.mul a b)) := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 1000000 in
+theorem step_LT (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.LT none s [a, b] = .ok (s, some (EvmYul.UInt256.lt a b)) := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 1000000 in
+theorem step_GT (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.GT none s [a, b] = .ok (s, some (EvmYul.UInt256.gt a b)) := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 1000000 in
+theorem step_EQ (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.EQ none s [a, b] = .ok (s, some (EvmYul.UInt256.eq a b)) := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 1000000 in
+theorem step_AND (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.AND none s [a, b] = .ok (s, some (EvmYul.UInt256.land a b)) := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 1000000 in
+theorem step_OR (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.OR none s [a, b] = .ok (s, some (EvmYul.UInt256.lor a b)) := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 1000000 in
+theorem step_ISZERO (s : EvmYul.Yul.State) (a : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.ISZERO none s [a] = .ok (s, some (EvmYul.UInt256.isZero a)) := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 1000000 in
+theorem step_NOT (s : EvmYul.Yul.State) (a : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.NOT none s [a] = .ok (s, some (EvmYul.UInt256.lnot a)) := by
+  unfold EvmYul.step; rfl
+-- SHR uses `flip shiftRight`: Yul args [shift, val] ⟹ `shiftRight val shift` (= val >>> shift).
+set_option maxHeartbeats 1000000 in
+theorem step_SHR (s : EvmYul.Yul.State) (shift val : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.SHR none s [shift, val]
+      = .ok (s, some (EvmYul.UInt256.shiftRight val shift)) := by
+  unfold EvmYul.step; rfl
+
+-- Memory
+set_option maxHeartbeats 1000000 in
+theorem step_MLOAD (s : EvmYul.Yul.State) (a : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.MLOAD none s [a]
+      = .ok (s.setMachineState (s.toSharedState.toMachineState.mload a).2,
+             some (s.toSharedState.toMachineState.mload a).1) := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 1000000 in
+theorem step_MSTORE (s : EvmYul.Yul.State) (off v : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.MSTORE none s [off, v]
+      = .ok (s.setMachineState (s.toMachineState.mstore off v), none) := by
+  unfold EvmYul.step; rfl
+
+-- Calldata / return-data
+set_option maxHeartbeats 1000000 in
+theorem step_CALLDATACOPY (s : EvmYul.Yul.State) (destOff srcOff len : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.CALLDATACOPY none s [destOff, srcOff, len]
+      = .ok (s.setSharedState (s.toSharedState.calldatacopy destOff srcOff len), none) := by
+  unfold EvmYul.step; rfl
+theorem calldatacopy_unfold (ss : EvmYul.SharedState .Yul) (mstart datastart size : EvmYul.UInt256) :
+    ss.calldatacopy mstart datastart size
+      = { ss with
+          memory := ss.executionEnv.calldata.write datastart.toNat ss.memory mstart.toNat size.toNat,
+          activeWords := EvmYul.UInt256.ofNat
+            (EvmYul.MachineState.M ss.activeWords.toNat mstart.toNat size.toNat) } := rfl
+set_option maxHeartbeats 1000000 in
+theorem step_RETURNDATASIZE (s : EvmYul.Yul.State) (args : List EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.RETURNDATASIZE none s args
+      = .ok (s, some (s.toMachineState.returndatasize)) := by
+  unfold EvmYul.step; rfl
+theorem returndatasize_unfold (m : EvmYul.MachineState) :
+    m.returndatasize = EvmYul.UInt256.ofNat m.returnData.size := rfl
+
+-- Control flow: If (bare — no mkOk/overwrite wrappers, unlike loop)
+theorem exec_If_true (fuel : Nat) (c : Expr) (body : List Stmt) (s s₁ : EvmYul.Yul.State)
+    (x : EvmYul.UInt256)
+    (h : EvmYul.Yul.eval fuel c none s = .ok (s₁, x)) (hx : x ≠ ⟨0⟩) :
+    EvmYul.Yul.exec (fuel + 1) (Stmt.If c body) none s
+      = EvmYul.Yul.exec fuel (Stmt.Block body) none s₁ := by
+  conv_lhs => unfold EvmYul.Yul.exec
+  simp only [h, if_pos hx]
+theorem exec_If_false (fuel : Nat) (c : Expr) (body : List Stmt) (s s₁ : EvmYul.Yul.State)
+    (h : EvmYul.Yul.eval fuel c none s = .ok (s₁, ⟨0⟩)) :
+    EvmYul.Yul.exec (fuel + 1) (Stmt.If c body) none s = .ok s₁ := by
+  conv_lhs => unfold EvmYul.Yul.exec
+  simp only [h]; simp
+
+-- Control flow: Block chaining
+theorem exec_Block_nil (fuel : Nat) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + 1) (Stmt.Block []) none s = .ok s := by
+  unfold EvmYul.Yul.exec; rfl
+theorem exec_Block_cons_ok (fuel : Nat) (st : Stmt) (rest : List Stmt) (s s₁ : EvmYul.Yul.State)
+    (hst : EvmYul.Yul.exec fuel st none s = .ok s₁) :
+    EvmYul.Yul.exec (fuel + 1) (Stmt.Block (st :: rest)) none s
+      = EvmYul.Yul.exec fuel (Stmt.Block rest) none s₁ := by
+  conv_lhs => unfold EvmYul.Yul.exec
+  simp only [hst]
+theorem exec_Block_cons_err (fuel : Nat) (st : Stmt) (rest : List Stmt) (s : EvmYul.Yul.State)
+    (e : EvmYul.Yul.Exception) (hst : EvmYul.Yul.exec fuel st none s = .error e) :
+    EvmYul.Yul.exec (fuel + 1) (Stmt.Block (st :: rest)) none s = .error e := by
+  conv_lhs => unfold EvmYul.Yul.exec
+  simp only [hst]
+
+-- REVERT: the deployed guards' fail path — throws `.Revert`, discarding state (return data unobservable
+-- at the Yul level). Holds for a general `s`, so every guard's revert branch is one lemma.
+set_option maxHeartbeats 1000000 in
+theorem step_REVERT (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.REVERT none s [a, b] = .error .Revert := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 4000000 in
+theorem revert_eff (fuel : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.exec (fuel + 6)
+      (Stmt.ExprStmtCall (Expr.Call (Sum.inl Operation.REVERT) [Expr.Lit a, Expr.Lit b])) none s
+    = .error .Revert := by
+  simp [EvmYul.Yul.exec, EvmYul.Yul.eval, EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail,
+        EvmYul.Yul.execPrimCall, EvmYul.Yul.primCall,
+        EvmYul.Yul.cons', EvmYul.Yul.reverse', EvmYul.Yul.multifill', step_REVERT]
+
+-- RETURN: the accept gate's early halt — `.error (.YulHalt …)` with the return-data memory read.
+set_option maxHeartbeats 1000000 in
+theorem step_RETURN (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.RETURN none s [a, b]
+      = .error (.YulHalt (s.setMachineState (s.toMachineState.evmReturn a b)) ⟨1⟩) := by
+  unfold EvmYul.step; rfl
+set_option maxHeartbeats 4000000 in
+theorem return_eff (fuel : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.exec (fuel + 6)
+      (Stmt.ExprStmtCall (Expr.Call (Sum.inl Operation.RETURN) [Expr.Lit a, Expr.Lit b])) none s
+    = .error (.YulHalt (s.setMachineState (s.toMachineState.evmReturn a b)) ⟨1⟩) := by
+  simp [EvmYul.Yul.exec, EvmYul.Yul.eval, EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail,
+        EvmYul.Yul.execPrimCall, EvmYul.Yul.primCall,
+        EvmYul.Yul.cons', EvmYul.Yul.reverse', EvmYul.Yul.multifill', step_RETURN]
+
 #print axioms threshold_sound
 #print axioms weightsOf_getD
+#print axioms step_CALLDATACOPY
+#print axioms exec_If_true
+#print axioms revert_eff
+#print axioms return_eff
 
 end RelayLoopLiteral
