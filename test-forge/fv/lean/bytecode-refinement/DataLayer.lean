@@ -22,6 +22,8 @@ These proofs add exactly two assumptions beyond Lean's standard three (`propext`
    that one upstream lemma turns this axiom into a theorem.
 
 Both become theorems with one-line upstream edits; neither is a semantic assumption about the EVM.
+**The exact upstream patches and the verified discharge proofs are archived in `AXIOM_DISCHARGE.md`**
+(this directory) — the "verified provable" claims are reproducible from there, not anecdotal.
 
 ## Status (see `docs/relay-verification/10-claims-ledger-trust-and-residual.md` §10.5)
 
@@ -42,11 +44,11 @@ Both become theorems with one-line upstream edits; neither is a semantic assumpt
 * **Data-layer capstone — DONE** (`weight_read`): a 16-bit weight written to a 32-byte slot is recovered by
   the deployed read pattern `and(mload(slot), 0xffff)` under EVMYulLean's validated `MachineState` —
   i.e. `mload(weights[i]) & 0xffff = w[i]` for one slot, the heart of BR-1.
-* **Consumed by**: the memory-reading ∀N loop and the full simulation relation `R` in
-  `RelayLoopMemRead.lean` — **now complete** (`relay_loop_sound`: the deployed loop accepts ⟹ total
-  registered weight > threshold, ∀N; `weight_read` below discharges its per-slot data-layer hypothesis).
-  This file supplies the bounded data-layer bricks that composition rests on; no fact about the *read*
-  itself remains open.
+* **Consumed by**: the memory-reading ∀N loop and the simulation relation `R` in `RelayLoopMemRead.lean` —
+  whose **accounting core is complete** (`relay_loop_sound`: the deployed loop accepts ⟹ total registered
+  weight > threshold, ∀N; `weight_read` below discharges its per-slot data-layer hypothesis; the
+  selection/validity half of `R` remains its stated hypotheses). This file supplies the bounded data-layer
+  bricks that composition rests on; no fact about the *read* itself remains open.
 
 New to this suite? See `../../README.md` §3 (how to read a Lean proof + re-check it). Orientation: this file
 reasons about EVMYulLean's *real* `ByteArray`/`MachineState` operations. Lean 4.22 has no `ByteArray` lemma

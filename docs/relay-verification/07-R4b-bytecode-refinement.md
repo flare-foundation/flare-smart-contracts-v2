@@ -3,9 +3,9 @@
 > **What you get from this level.** The top rung: lifting the abstract proof's ∀N∀K soundness onto a loop
 > executed by a **validated model of the EVM**, for all N — crossing the assembly barrier. §7.2 establishes the
 > loop *mechanism* (memory-free); §7.3 then discharges the **data layer (BR-1)** — the body becomes the
-> deployed contract's real `mload(slot) & 0xffff` read — and composes the full simulation relation
-> `relay_loop_sound` (accept ⟹ total registered weight > threshold), with the external call (`ecrecover`) as
-> the stated assumption. The overview, the results, and the honest residual. The mathematics is
+> deployed contract's real `mload(slot) & 0xffff` read — and composes the simulation-relation capstone
+> `relay_loop_sound` (accept ⟹ total registered weight > threshold): the **accounting core** of the relation
+> `R`, with the external call (`ecrecover`) and the per-iteration selection/validity as stated assumptions. The overview, the results, and the honest residual. The mathematics is
 > [L8 §C](08-the-mathematics.md); the verbatim Lean, fuel-genericity, and axiom audit are
 > [L9 §C–F](09-the-formal-detail.md).
 
@@ -89,9 +89,10 @@ These add exactly **two** documented, upstream-dischargeable axioms beyond the s
 - `loop_accM` / `bytecode_threshold_sound_mem` (and its integer form `_int`) — the `3N+15`-fuel induction:
   **∀N**, accept ⟹ the total of the masked *memory reads* exceeds the threshold.
 
-**The full simulation relation `relay_loop_sound`.** Composing the EVM accumulation with the abstract
-accounting — `bridge` identifies the masked-read sum with `RelaySigLoop.sigLoop`'s accumulated weight, and the
-abstract `threshold_sound` is restated in-file (so one `lake env lean` checks the whole chain):
+**The simulation-relation capstone `relay_loop_sound` (the accounting core of `R`).** Composing the EVM
+accumulation with the abstract accounting — `bridge` identifies the masked-read sum with
+`RelaySigLoop.sigLoop`'s accumulated weight, and the abstract `threshold_sound` is restated in-file (so one
+`lake env lean` checks the whole chain):
 
 > **∀N: if the deployed signature loop accepts (final weight > threshold), the total registered voting weight
 > exceeds the threshold — no voter double-counted — on the validated EVM.**
@@ -124,6 +125,26 @@ This is the most important part of the rung for an auditor; the full ledger is [
   of `relay_loop_sound`. A fully literal EVM model of the `staticcall` / `calldatacopy` / per-guard-revert /
   early-return plumbing would *derive* those hypotheses from a raw-calldata precondition — engineering, not
   new facts — but `ecrecover` itself stays an assumption by design, and the accounting conclusion is unchanged.
+- **Model-vs-deployed fidelity, made explicit (two BR-3 items a referee should see).**
+  1. *The address map differs.* The model places weight `j` **memory-resident at slot `j·32`**, read once per
+     iteration (`hcov`). The deployed loop instead `calldatacopy`s each voter record **from calldata into one
+     fixed scratch slot** (`memPtr+96`) and re-reads that same slot every iteration
+     ([`Relay.sol:1306-1319`](../../contracts/protocol/implementation/Relay.sol#L1306)). The masked read
+     itself (`mload` + `& 0xffff`) is faithful; the *addressing discipline* is not — the model's memory layout
+     encodes the **output** of the calldata-decode plumbing, which is exactly what `hcov`/`hcorr` assume.
+     Likewise, `weight_read` discharges the per-slot read via an `mstore`-then-`mload` round-trip, while the
+     deployed write primitive is `calldatacopy`; both reduce to the same EVMYulLean `ByteArray.write`, whose
+     round-trip is the proven `mem_roundtrip` — so the shared core is covered, but the identification of the
+     two write paths is part of BR-3, not a theorem.
+  2. *The deployed loop exits early; the model runs to completion.* On-chain, acceptance **returns inside the
+     first iteration whose running weight crosses the threshold** (`Relay.sol:1330`); the modeled loop runs
+     all `N` iterations and the theorem examines the *final* accumulator. The transport is sound — addends are
+     non-negative, so under `hnoovf` a prefix crossing implies the final total crosses; and the abstract
+     `threshold_sound` is prefix-robust (apply it to the consumed prefix, which is itself a `ValidRun`) — and
+     the per-prefix form **is** proven on the real bytecode at bounded K
+     ([`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol), the tight per-prefix contrapositive) —
+     but the ∀N statement quantifies over the run-to-completion model, and this early-exit gap is part of
+     BR-3's encoding fidelity, stated here so it is not discovered by a reader as an omission.
 - **Modular vs. integer arithmetic (BR-2) — internalized.** The bytecode refinement reasons in
   `𝕌 = Fin 2²⁵⁶` (mod 2²⁵⁶); the abstract proof in `ℕ`. `bytecode_threshold_sound_int` carries an explicit
   `Σ < 2²⁵⁶` hypothesis and proves (via `absAcc_val`) that the modular accumulator equals the integer
@@ -173,7 +194,7 @@ Halmos: the real bytecode obeys the model's prefix-sum invariant (RelayModelBrid
 Abstract proof:        the abstract algorithm is threshold-sound                              ∀N ∀K            [R4a]
 Bytecode refinement:   a validated EVM semantics runs the unbounded loop & soundness transfers ∀N              [R4b]
 Memory-reading loop:   the body is the real mload(slot)&0xffff; accept ⟹ Σ masked reads > thr  ∀N              [R4b′]
-Full relation R:       deployed loop accepts ⟹ total registered weight > thr (relay_loop_sound) ∀N             [R4b′]
+R, accounting core:    deployed loop accepts ⟹ total registered weight > thr (relay_loop_sound) ∀N             [R4b′]
 ─────────────────────────────────────────────────────────────────────────────────────────────
 proven on the validated EVM (modulo 2 upstream-dischargeable axioms): data layer (BR-1)
 remaining assumptions: crypto (MC-2), ecrecover→signer + calldata selection/validity (OP-1, hcorr/hvalid),

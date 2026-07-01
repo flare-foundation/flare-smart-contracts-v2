@@ -62,8 +62,12 @@ assumptions above: they are about *EVM/ABI behavior*, not cryptography.
 > mock that reproduces the precompile's failure ABI and proves — over ALL stale-buffer contents — that the
 > `staticcall`-success / `returndatasize()==32` / non-zero-signer guard rejects a bad signature and never
 > reads the stale buffer. Together with the real-EVM regression (`RelayEcrecoverABI.t.sol`, which pins that
-> the *actual* `0x01` exhibits this ABI), OP-1 is discharged both symbolically and concretely. Any change to
-> the `ecrecover` block must re-establish OP-1.
+> the *actual* `0x01` exhibits this ABI), OP-1 is discharged both symbolically and concretely.
+> **Scope precision:** the symbolic harness proves the guard **pattern** — a faithful *mirror* of
+> `Relay.sol:1283-1302`, re-implemented in the harness — not Relay's deployed guard bytes themselves; the
+> identification "Relay's assembly implements exactly this pattern" rests on the assembly review
+> ([`docs/relay-assembly-review.md`](../relay-assembly-review.md)) and the concrete failure-path tests. Any
+> change to the `ecrecover` block must re-establish OP-1.
 
 ### Bytecode-refinement residuals (BR) — the R4b model-to-deployment gap
 
@@ -80,7 +84,7 @@ assumptions above: they are about *EVM/ABI behavior*, not cryptography.
 | **K-1** | Kontrol base+step compose to ∀K at the *meta* level (no native loop-invariant rule in 1.0.248) | each piece machine-checked; composition by standard induction. Subsumed by the abstract Lean proof (internal induction) |
 | **K-2** | Kontrol checks a faithful Solidity *model*, not the inline-assembly bytecode | bytecode side at K≤3 via Halmos `RelaySigParamFV`; tied by `RelayModelBridgeFV`; full bridge = future bmc-depth-1 obligation ([`docs/relay-t1-bridge.md`](../relay-t1-bridge.md)) |
 | **C-1** | Certora storage invariants not cloud-dischargeable (assembly storage-havoc) | **blocked**, not a bug; per-sequence forms proven at R2; ghost/hook re-modeling possible but re-introduces faithfulness risk |
-| **A-EVM** | EVMYulLean *is* the EVM | validated against Ethereum execution-spec test suites (not provable; standard residual) |
+| **A-EVM** | EVMYulLean *is* the EVM | two parts of different strength ([L2 §2.5](02-strategy-and-the-fidelity-ladder.md)): the **opcode/memory layer** the proofs use (shared `step` dispatch, `MachineState`) sits on the path validated against the Ethereum execution-spec suites; the **Yul control-flow layer** (`Yul.exec`/`loop`, fuel) that drives the R4b proofs is Yul-specific, validated separately by Yul semantic tests (not provable; standard residual) |
 
 ---
 
@@ -128,7 +132,8 @@ For the strongest claims (rows 1/1b), every link is machine-checked or independe
 
 ```
   Lean proof correct          ← Lean kernel (small, well-scrutinized; no native_decide used)
-   on EVMYulLean (R4b)         ← validated vs Ethereum execution-spec test suites      [A-EVM]
+   on EVMYulLean (R4b)         ← opcode/memory: vs Ethereum execution-spec suites;
+                                  Yul control-flow: Yul semantic tests (weaker half)   [A-EVM]
     on Lean's axioms           ← propext, Classical.choice, Quot.sound (standard, consistent)
   + data layer / overflow / encoding                                          [BR-1, BR-2, BR-3]
   + cryptography / trusted setter / OZ / oldRelay                             [MC-1..5]
@@ -160,7 +165,7 @@ Status reflects the current tree.
 | **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
 | **OP-1** (ecrecover failure ABI) | Addressable | ✅ **done** — real-EVM regression ([`RelayEcrecoverABI.t.sol`](../../test-forge/fv/RelayEcrecoverABI.t.sol)) **and** symbolic internalization ([`RelayEcrecoverSymbolicFV.t.sol`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol): the guard proven against the empty-return/stale-buffer ABI over all stale contents) |
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | weeks |
-| **BR-1** (data layer, `mload = w[i]`) | **Proven modulo stated assumptions** | full chain in [`DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean) + [`RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean): byte-decode ✅, memory round-trip ✅ (`mem_roundtrip`), value decode ✅, `mstore`/`mload` guard ✅, `&0xffff` mask ✅, data-layer capstone ✅ (`weight_read`), memory-reading ∀N loop ✅ (`w += mload(slot)&0xffff` on the validated EVM), **and the full simulation relation** ✅ (`relay_loop_sound`: deployed loop accepts ⟹ total registered weight > thr, ∀N). Modulo two upstream-dischargeable axioms (`zeroes_data`, `toByteArray_size`) and the engagement-wide external-call assumptions (ecrecover MC-2/OP-1, encoded in `hcorr`/`hvalid`) |
+| **BR-1** (data layer, `mload = w[i]`) | **Proven modulo stated assumptions** | full chain in [`DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean) + [`RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean): byte-decode ✅, memory round-trip ✅ (`mem_roundtrip`), value decode ✅, `mstore`/`mload` guard ✅, `&0xffff` mask ✅, data-layer capstone ✅ (`weight_read`), memory-reading ∀N loop ✅ (`w += mload(slot)&0xffff` on the validated EVM), **and the accounting core of the simulation relation `R`** ✅ (`relay_loop_sound`: deployed loop accepts ⟹ total registered weight > thr, ∀N; the *selection/validity* half of `R` — ecrecover→voter, strict indices, calldata decode — remains the stated hypotheses `hcorr`/`hvalid`). Modulo two upstream-dischargeable axioms (`zeroes_data`, `toByteArray_size`) and the engagement-wide external-call assumptions (ecrecover MC-2/OP-1). Model-vs-deployed fidelity notes (address map; early exit): [L7 §7.4](07-R4b-bytecode-refinement.md) |
 | whole-`relay()` extension, **OP-3/4** | Addressable | months–years (full end-to-end R5) |
 | **C-1** (Certora all-functions storage) | Addressable but **not recommended** | re-introduces the faithfulness risk the engagement avoids; per-sequence forms already proven |
 
@@ -218,7 +223,7 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      `3N+15`-fuel induction. This is the **data-flow core of the simulation relation `R`**: the per-iteration
      addend is now a genuine `MLOAD`, not the loop index. The read-content hypothesis `hcov` is BR-1's
      data-layer invariant, discharged per-slot by `weight_read`, so `absAccMNat rdv 0 N 0 = sumTake w N`.
-   - **Full simulation relation `R` — ✅ DONE (committed).** `RelayLoopMemRead.lean:relay_loop_sound` composes
+   - **Simulation relation `R`, accounting core — ✅ DONE (committed); selection/validity assumed.** `RelayLoopMemRead.lean:relay_loop_sound` composes
      the EVM accumulation with the abstract accounting: ∀N, **if the deployed loop accepts (final weight >
      threshold), the total registered voting weight exceeds the threshold** — no voter double-counted — on the
      validated EVM semantics. The `bridge` lemma identifies the integer masked-read accumulator with the

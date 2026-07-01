@@ -89,7 +89,9 @@ and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility
   (`addr ≥ memory.size ∨ addr ≥ activeWords*32`) and composes the byte layer — the operational
   `mload∘mstore = id` for a 32-byte word. The conditional core rests on `zeroes_data` alone; the
   unconditional form adds one sibling documented axiom `toByteArray_size` (verified provable, blocked
-  downstream only by the `private` upstream bound `toBytes'_UInt256_le`).
+  downstream only by the `private` upstream bound `toBytes'_UInt256_le`). The exact upstream patches and
+  the verified discharge proofs for **both** axioms are archived in
+  [`AXIOM_DISCHARGE.md`](AXIOM_DISCHARGE.md) — reproducible, not anecdotal.
 - *Weight mask — ✅ done.* `DataLayer.lean` proves `mask16_toNat` (`and(x, 0xffff) = x mod 2¹⁶`, the
   masked weight read at `Relay.sol:1327`) and `mask16_of_lt` (the mask is the identity on a 16-bit
   registered weight), hole-free with *no* axioms beyond the standard three.
@@ -104,7 +106,8 @@ and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility
   hole-free, *no* axioms beyond the standard three. The key brick `body_effM` proves one iteration of the
   `mload`+`and` body on the real semantics (the `mload` is state-preserving once the slot is active, so it
   does not perturb `activeWords`); `loop_accM` runs the `3N+15`-fuel induction.
-- *Full simulation relation `R` — ✅ done (`RelayLoopMemRead.lean:relay_loop_sound`).* Composes the EVM
+- *Simulation relation `R`, accounting core — ✅ done (`RelayLoopMemRead.lean:relay_loop_sound`); the
+  selection/validity half of `R` is assumed (see below).* Composes the EVM
   accumulation with the abstract loop: ∀N, **if the deployed loop accepts, the total registered voting weight
   exceeds the threshold** (no voter double-counted), on the validated EVM. The `bridge` lemma identifies the
   integer masked-read accumulator with the abstract `sigLoop` accumulated weight; the abstract

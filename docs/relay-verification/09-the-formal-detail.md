@@ -591,7 +591,9 @@ What this means, and why it is the right bar:
   minimal specs for an `opaque` FFI symbol (`memset_zero`) and a `private` upstream bound respectively —
   both true, both verified, both reducible to theorems by a one-line change in EVMYulLean. They are flagged
   explicitly (and only) on the results that use the memory *write* round-trip; the accounting capstone
-  `relay_loop_sound` does not carry them. They are documented as such in the claims ledger ([L10](10-claims-ledger-trust-and-residual.md)).
+  `relay_loop_sound` does not carry them. They are documented as such in the claims ledger ([L10](10-claims-ledger-trust-and-residual.md)),
+  and the exact upstream patches + the verified discharge proofs are archived, reproducibly, in
+  [`test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md`](../../test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md).
 
 The same audit applies to the abstract proof (`#print axioms threshold_sound` → `[propext, Classical.choice,
 Quot.sound]`). "Bulletproof" in this engagement is defined as exactly this: every committed theorem

@@ -80,7 +80,9 @@ formalization of EVM/Yul, itself validated against the Ethereum execution-spec t
 A proof is trusted exactly when that list is `[propext, Classical.choice, Quot.sound]` — Lean's three standard
 axioms — with **no `sorryAx`** (no gaps) and **no `Lean.ofReduceBool`** (no `native_decide`). Two proofs add
 `zeroes_data` / `toByteArray_size`: these are *documented, upstream-dischargeable specs* (an `opaque` FFI
-symbol and a `private` bound), not semantic assumptions — the file headers explain each. To re-check:
+symbol and a `private` bound), not semantic assumptions — the file headers explain each, and the exact
+upstream patches + verified discharge proofs are archived in
+[`lean/bytecode-refinement/AXIOM_DISCHARGE.md`](lean/bytecode-refinement/AXIOM_DISCHARGE.md). To re-check:
 
 ```bash
 git clone https://github.com/NethermindEth/EVMYulLean /tmp/evmyul2

@@ -126,16 +126,28 @@ of the abstract function.
 ## 2.5 What "validated semantics" means, and the trust chain
 
 R4 needs a computable, reason-about-able description of EVM execution *inside Lean*. The engagement uses
-**EVMYulLean** (NethermindEth) — a Lean 4 formalization of EVM/Yul execution that is **executed against
-the official Ethereum execution-spec test suites**, the same conformance corpus real EVM clients pass. So
-when a the bytecode refinement proof says "the EVM model computes X", the claim *this model is the EVM* is backed by the
-cross-client test corpus, not by our say-so.
+**EVMYulLean** (NethermindEth) — a Lean 4 formalization of EVM/Yul execution whose **EVM interpreter is
+executed against the official Ethereum execution-spec test suites**, the same conformance corpus real EVM
+clients pass. So when a bytecode-refinement proof says "the EVM model computes X", the claim *this model is
+the EVM* is backed by the cross-client test corpus, not by our say-so.
+
+**One precision, so the inheritance is not overclaimed.** EVMYulLean contains two interpreters that share
+their opcode layer: the **EVM interpreter** (the one exercised by the execution-spec conformance corpus) and
+the **Yul interpreter** (`Yul.exec`/`loop`/`eval`), which is what the R4b proofs actually drive. The two
+share the per-opcode `step` dispatch and the `MachineState` memory operations — so the *opcode-level*
+semantics our proofs use (`ADD`/`LT`/`AND`/`MUL`/`MLOAD`/`MSTORE`, the memory model) sit on the
+conformance-tested path — but the Yul **control-flow** layer (`For`/`Block`/variable scoping, the fuel
+discipline) is Yul-specific and validated separately (Yul semantic tests), not by the execution-spec corpus.
+Assumption **A-EVM** in [L10](10-claims-ledger-trust-and-residual.md) therefore has two parts of different
+strength: opcode/memory semantics (inherits the conformance corpus) and Yul control flow (weaker, separate
+validation).
 
 The resulting trust chain for an R4 claim:
 
 ```
   our Lean proof is correct        ← checked by the Lean kernel (small, well-scrutinized)
-    on top of EVMYulLean           ← validated against Ethereum's official test suites
+    on top of EVMYulLean           ← opcode/memory layer: validated vs Ethereum's official test suites
+                                     Yul control-flow layer: Yul semantic tests (the weaker half of A-EVM)
       on top of Lean's axioms      ← propext, Classical.choice, Quot.sound (standard, consistent)
 ```
 
