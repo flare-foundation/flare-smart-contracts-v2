@@ -147,9 +147,10 @@ verified."
   git-committed copies from scratch (`lake env lean`, exit 0).
 
 ```bash
-# Build the validated semantics (one-time), then check the capstones. See L11 for full detail.
-cd /tmp && git clone --depth 1 https://github.com/NethermindEth/EVMYulLean evmyul2
-cd evmyul2 && lake exe cache get && lake build
+# Build the validated semantics (one-time), pinned to the checked commit. See L11 for full detail.
+cd /tmp && git clone https://github.com/NethermindEth/EVMYulLean evmyul2
+cd evmyul2 && git checkout 047f63070309f436b66c61e276ab3b6d1169265a   # 2025-09-24 (not HEAD)
+lake exe cache get && lake build
 B=<repo>/test-forge/fv/lean/bytecode-refinement
 cp $B/RelayBytecodeRefinement.lean $B/DataLayer.lean $B/RelayLoopMemRead.lean .
 lake env lean RelayBytecodeRefinement.lean   # loop mechanism (memory-free), ∀N

@@ -36,9 +36,10 @@ facts are stated assumptions, discharged by other evidence and registered in the
 ## Checking it
 
 ```bash
-# build the validated semantics once:
-git clone --depth 1 https://github.com/NethermindEth/EVMYulLean /tmp/evmyul2
-cd /tmp/evmyul2 && lake exe cache get && lake build      # Lean 4.22.0 (from lean-toolchain)
+# build the validated semantics once, PINNED to the commit these proofs were checked against:
+git clone https://github.com/NethermindEth/EVMYulLean /tmp/evmyul2
+cd /tmp/evmyul2 && git checkout 047f63070309f436b66c61e276ab3b6d1169265a   # 2025-09-24 (not HEAD)
+lake exe cache get && lake build                         # Lean 4.22.0 (from lean-toolchain)
 # check this file against it:
 cp <repo>/test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean /tmp/evmyul2/
 lake env lean RelayBytecodeRefinement.lean               # exit 0; prints the three clean axiom lists

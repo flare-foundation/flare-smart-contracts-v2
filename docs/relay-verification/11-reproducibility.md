@@ -21,7 +21,7 @@ All commands are from the repo root unless noted: `flare-smart-contracts-v2/`.
 | Certora CLI | **8.16.1** | `pip install certora-cli` (+ `CERTORAKEY` for cloud) |
 | Lean (the abstract proof) | Lean 4 core | `elan` (no mathlib needed) |
 | Lean (the bytecode refinement) | Lean **4.22.0** + mathlib 4.22.0 + FFI | `elan` + EVMYulLean (§11.7) |
-| EVMYulLean | NethermindEth/EVMYulLean @ HEAD | `git clone` (§11.7) |
+| EVMYulLean | NethermindEth/EVMYulLean **pinned @ `047f6307`** (2025-09-24) | `git clone` + `git checkout` (§11.7) |
 
 Repo build config: [`foundry.toml`](../../foundry.toml) sets `src=contracts`, `test=test-forge`, `out=artifacts-forge`,
 `evm_version=cancun`, `optimizer=true/200`, and `skip=['*.yul']` (so reference IR artifacts aren't
@@ -116,9 +116,10 @@ seconds.
 ## 11.7 R4b — the bytecode refinement (against validated EVM semantics)
 
 ```bash
-# 1. build the validated semantics (one-time):
-cd /tmp && git clone --depth 1 https://github.com/NethermindEth/EVMYulLean evmyul2
-cd evmyul2 && lake exe cache get && lake build      # elan reads lean-toolchain → Lean 4.22.0
+# 1. build the validated semantics (one-time), PINNED to the commit these proofs were checked against:
+cd /tmp && git clone https://github.com/NethermindEth/EVMYulLean evmyul2
+cd evmyul2 && git checkout 047f63070309f436b66c61e276ab3b6d1169265a   # 2025-09-24; do NOT use HEAD
+lake exe cache get && lake build                    # elan reads lean-toolchain → Lean 4.22.0
 # 2. check the capstone (use the GIT-COMMITTED copy to prove you're checking what's in version control):
 git -C <repo> show HEAD:test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean > /tmp/evmyul2/RelayBytecodeRefinement_verify.lean
 cd /tmp/evmyul2

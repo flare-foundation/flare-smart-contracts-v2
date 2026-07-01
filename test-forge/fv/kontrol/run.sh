@@ -24,7 +24,9 @@ t1=$(date +%s); echo "### forge build took $((t1-t0))s"
 echo "### [2/3] kontrol build"; kontrol build
 t2=$(date +%s); echo "### kontrol build took $((t2-t1))s"
 echo "### [3/3] kontrol prove"
-kontrol prove --no-fail-fast --force-sequential --smt-timeout 120000 --smt-retry-limit 4 --match-test 'RelaySigLoopFV\.prove_' || true
+# Prove BOTH documented harnesses (kontrol build above compiles all proofs; this filters which to run).
+# RelayRandomMonoFV is heavier — comment it out of the alternation to reproduce only the signature loop.
+kontrol prove --no-fail-fast --force-sequential --smt-timeout 120000 --smt-retry-limit 4 --match-test '(RelaySigLoopFV|RelayRandomMonoFV)\.prove_' || true
 t3=$(date +%s); echo "### kontrol prove took $((t3-t2))s"
 echo "### TIMING: forge=$((t1-t0))s kontrol_build=$((t2-t1))s kontrol_prove=$((t3-t2))s"
 echo "### RESULTS:"

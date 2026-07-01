@@ -42,10 +42,11 @@ Both become theorems with one-line upstream edits; neither is a semantic assumpt
 * **Data-layer capstone — DONE** (`weight_read`): a 16-bit weight written to a 32-byte slot is recovered by
   the deployed read pattern `and(mload(slot), 0xffff)` under EVMYulLean's validated `MachineState` —
   i.e. `mload(weights[i]) & 0xffff = w[i]` for one slot, the heart of BR-1.
-* **Remaining**: (iv) the simulation relation `R` over the ∀N loop — the multi-week integration that ties
-  the calldata/memory layout (slot arithmetic) to `RelaySigLoop.loop` and transfers `threshold_sound`. All
-  *bounded* data-layer facts are now proven; what is left is plumbing this read into the loop, not any
-  further fact about the read itself.
+* **Consumed by**: the memory-reading ∀N loop and the full simulation relation `R` in
+  `RelayLoopMemRead.lean` — **now complete** (`relay_loop_sound`: the deployed loop accepts ⟹ total
+  registered weight > threshold, ∀N; `weight_read` below discharges its per-slot data-layer hypothesis).
+  This file supplies the bounded data-layer bricks that composition rests on; no fact about the *read*
+  itself remains open.
 
 New to this suite? See `../../README.md` §3 (how to read a Lean proof + re-check it). Orientation: this file
 reasons about EVMYulLean's *real* `ByteArray`/`MachineState` operations. Lean 4.22 has no `ByteArray` lemma

@@ -83,8 +83,9 @@ axioms — with **no `sorryAx`** (no gaps) and **no `Lean.ofReduceBool`** (no `n
 symbol and a `private` bound), not semantic assumptions — the file headers explain each. To re-check:
 
 ```bash
-git clone --depth 1 https://github.com/NethermindEth/EVMYulLean /tmp/evmyul2
-cd /tmp/evmyul2 && lake exe cache get && lake build              # Lean 4.22.0
+git clone https://github.com/NethermindEth/EVMYulLean /tmp/evmyul2
+cd /tmp/evmyul2 && git checkout 047f63070309f436b66c61e276ab3b6d1169265a  # 2025-09-24 (pinned, not HEAD)
+lake exe cache get && lake build                                # Lean 4.22.0
 cp <repo>/test-forge/fv/lean/RelaySigLoop.lean . && lake env lean RelaySigLoop.lean   # exit 0
 ```
 

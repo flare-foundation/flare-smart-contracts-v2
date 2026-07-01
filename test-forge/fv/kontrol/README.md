@@ -10,7 +10,7 @@ to a fixed depth; these are ∀-over-the-iteration-count via k-induction).
 |------|------------|
 | `RelaySigLoopFV.t.sol`   | unbounded-in-K signature-loop **weight invariant** (`weight ≤ prefixSum(nextUnusedIndex)`), via k-induction over a grounded prefix sum. 5 PROVE + 2 anti-vacuity controls. |
 | `RelayRandomMonoFV.t.sol`| unbounded **random-pointer monotonicity** (a stale relay never regresses the live round). 4 PROVE + 2 controls. |
-| `run.sh`                 | the build+prove recipe (installs nix solc, writes `foundry.toml`, runs `forge build` → `kontrol build` → `kontrol prove`). |
+| `run.sh`                 | the build+prove recipe (installs nix solc, writes `foundry.toml`, runs `forge build` → `kontrol build` → `kontrol prove`). `kontrol prove` matches **both** `RelaySigLoopFV.prove_` and `RelayRandomMonoFV.prove_`; comment `RelayRandomMonoFV` out of the alternation to reproduce only the (faster) signature loop. |
 | `foundry.toml`           | minimal Foundry config. |
 | `Dockerfile`             | **fully pinned, reproducible** Kontrol 1.0.248 toolchain (see below). |
 
