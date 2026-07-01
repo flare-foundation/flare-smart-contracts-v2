@@ -155,14 +155,18 @@ CI gate output).
   signing-policy setter is trusted to supply distinct, non-zero, canonically-ordered voters with normalized
   weights (RLY-06). OZ `MerkleProof.verifyCalldata` internals are assumed correct (call-site in scope).
   `oldRelay` is a trusted prior deployment. These are enumerated in [L10](10-claims-ledger-trust-and-residual.md).
-- **Precompile modeling — the `ecrecover` ABI blind spot.** Halmos models the `0x01` precompile as a
-  *total* function returning a well-formed 32-byte address (`returndatasize()==32` always). It therefore
-  does **not** exercise the real failure ABI — on a bad signature the precompile returns *success with empty
+- **Precompile modeling — the `ecrecover` ABI, and how OP-1 is internalized.** Halmos's *built-in* `0x01` is
+  a *total* function returning a well-formed 32-byte address (`returndatasize()==32` always), so the
+  whole-`relay()` symbolic runs use the adversary-conservative uninterpreted recovery and do not, by
+  themselves, exercise the real failure ABI — on a bad signature the precompile returns *success with empty
   return data* and leaves the output buffer **unmodified**. The contract's `staticcall`-success,
-  `returndatasize()==32`, and zero-signer checks are what make reality conform to this model
-  (assumption/obligation **OP-1** in [L10](10-claims-ledger-trust-and-residual.md)); they are verified by a
-  real-EVM regression (`test-forge/fv/RelayEcrecoverABI.t.sol`) plus Foundry/Hardhat failure-path tests and
-  assembly review, not by the symbolic suite, and must never be removed.
+  `returndatasize()==32`, and zero-signer checks are what make reality conform to that model
+  (assumption/obligation **OP-1** in [L10](10-claims-ledger-trust-and-residual.md)). OP-1 is discharged two
+  ways: a real-EVM regression (`test-forge/fv/RelayEcrecoverABI.t.sol`) that pins the actual precompile's
+  empty-return/stale-buffer ABI, **and** a symbolic harness (`test-forge/fv/RelayEcrecoverSymbolicFV.t.sol`)
+  that reaches the empty-return branch via a mock reproducing that ABI and proves — over ALL stale-buffer
+  contents — the guard rejects it (plus Foundry/Hardhat failure-path tests and assembly review). The guard is
+  load-bearing and must never be removed.
 - **Bound rationale.** K≤3, N≤5 are chosen to exercise every branch and the double-count/threshold
   boundaries while staying solver-tractable; the unbounded dimensions are escalated to R3/R4.
 

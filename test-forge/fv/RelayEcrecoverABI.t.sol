@@ -11,9 +11,12 @@ pragma solidity ^0.8.13;
 // executable fact and shows the returndatasize discriminator is load-bearing.
 //
 // Why this is a `forge test`, not a Halmos `check_` harness: Halmos models the 0x01 precompile as a TOTAL
-// function returning a well-formed 32-byte address (returndatasize()==32 always), so it cannot exercise
-// this empty-return/stale-buffer failure mode (assumption OP-1 in the claims ledger). The real EVM
-// (revm, via `forge test`) does.
+// function returning a well-formed 32-byte address (returndatasize()==32 always), so its BUILT-IN model
+// cannot exercise this empty-return/stale-buffer failure mode (assumption OP-1 in the claims ledger). The
+// real EVM (revm, via `forge test`) does. The companion `RelayEcrecoverSymbolicFV.t.sol` internalizes the
+// same obligation *symbolically*: it reaches the empty-return branch via a mock that reproduces the
+// precompile's failure ABI, and proves the returndatasize/zero-signer guard rejects it over ALL stale-buffer
+// contents. Together the two discharge OP-1 both concretely (this file) and symbolically (the companion).
 //
 // RUN: forge test --match-contract RelayEcrecoverABITest -vvv
 

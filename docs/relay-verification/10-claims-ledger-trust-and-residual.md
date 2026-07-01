@@ -48,17 +48,22 @@ assumptions above: they are about *EVM/ABI behavior*, not cryptography.
 
 | ID | Boundary (site) | Operational contract | Required code-side obligation | Verified by |
 |----|-----------------|----------------------|-------------------------------|-------------|
-| **OP-1** | `ecrecover` precompile `0x01` — raw `staticcall` (`Relay.sol:1284`) | **does not revert on a bad signature**: the `staticcall` returns *success* with **empty** return data (`returndatasize()==0`) and leaves the output buffer **unmodified** (stale-read hazard); returns 32 bytes only on a valid recovery | the call site **must** check (a) `staticcall` success, (b) **`returndatasize()==32`**, and (c) recovered signer `≠ 0` — all three are present (`"ecrecover error"`, `"ecrecover returned bad data"`, `"Zero signer"`). **Load-bearing: must never be removed.** | **`test-forge/fv/RelayEcrecoverABI.t.sol`** — a real-EVM regression that pins the empty-return/stale-buffer ABI and that the `returndatasize()==32` guard rejects a bad signature — plus Foundry/Hardhat failure-path tests + assembly review (`docs/relay-assembly-review.md`). **Not** exercised by the symbolic FV — see the note below. |
+| **OP-1** | `ecrecover` precompile `0x01` — raw `staticcall` (`Relay.sol:1284`) | **does not revert on a bad signature**: the `staticcall` returns *success* with **empty** return data (`returndatasize()==0`) and leaves the output buffer **unmodified** (stale-read hazard); returns 32 bytes only on a valid recovery | the call site **must** check (a) `staticcall` success, (b) **`returndatasize()==32`**, and (c) recovered signer `≠ 0` — all three are present (`"ecrecover error"`, `"ecrecover returned bad data"`, `"Zero signer"`). **Load-bearing: must never be removed.** | **`test-forge/fv/RelayEcrecoverABI.t.sol`** — a real-EVM regression that pins the empty-return/stale-buffer ABI and that the `returndatasize()==32` guard rejects a bad signature — **and `test-forge/fv/RelayEcrecoverSymbolicFV.t.sol`**, which internalizes the same obligation *symbolically* (Halmos, over all stale-buffer contents) — plus Foundry/Hardhat failure-path tests + assembly review (`docs/relay-assembly-review.md`). |
 | **OP-2** | `keccak256` (`SHA3` opcode) | total & deterministic; cannot return malformed output or "fail" (only out-of-gas) | none beyond gas | inherent (opcode); MC-1 supplies the algebraic model |
 | **OP-3** | `oldRelay.*` external calls, incl. value-bearing `oldRelay.verify{value: oldFee}(…)` (`Relay.sol:1567`) | a real cross-contract call that **may revert** and **may re-enter** `Relay`; forwards value | revert is propagated (`require(success,…)` on the relayed path); re-entrancy is benign (re-entered paths write no fee/nonce/root state — R1/R2); fee is forwarded exactly (M-1) | code review (`docs/relay-security-review.md`) + Foundry (`RelayVerifyFeeFV`, fee/old-relay tests); MC-5 supplies return-value trust |
 | **OP-4** | self-call `address(this).call(_relayMessage)` (`Relay.sol:1730`, `_verifyCustomSignature`) | ordinary external call to self: returns `(success, returnData)`; re-enters the `relay()` path | `require(success)` + `require(returnData.length == 35)` (the RLY-07 mode-1 discriminator) | Foundry custom-signature tests + review |
 | **OP-5** | precompile **surface bound** | the **only** precompile used is `0x01`; no `sha256 (0x02)`, identity, modexp, or EC ops are called | n/a (bounds which OP-contracts are in play) | assembly review (`docs/relay-assembly-review.md`) |
 
-> **FV blind spot (stated explicitly).** The symbolic suite models `ecrecover` as a *total* function that
-> always returns a well-formed 32-byte address (`E(hash,v,r,s) → address`, `returndatasize()==32`). It
-> therefore **does not exercise the OP-1 failure mode** (empty return / stale buffer). The OP-1 obligation
-> is what makes reality conform to that model; it is discharged by **tests + assembly review**, not by the
-> symbolic proofs. Any change to the `ecrecover` block must re-establish OP-1.
+> **FV modelling note (OP-1).** Halmos's *built-in* `0x01` is a *total* function that always returns a
+> well-formed 32-byte address (`E(hash,v,r,s) → address`, `returndatasize()==32`), so the whole-`relay()`
+> symbolic runs do not, by themselves, exercise the OP-1 failure mode (empty return / stale buffer) — using
+> the adversary-conservative uninterpreted recovery for the *accounting* proofs. The failure mode is now
+> **internalized symbolically** by `RelayEcrecoverSymbolicFV.t.sol`: it reaches the empty-return branch via a
+> mock that reproduces the precompile's failure ABI and proves — over ALL stale-buffer contents — that the
+> `staticcall`-success / `returndatasize()==32` / non-zero-signer guard rejects a bad signature and never
+> reads the stale buffer. Together with the real-EVM regression (`RelayEcrecoverABI.t.sol`, which pins that
+> the *actual* `0x01` exhibits this ABI), OP-1 is discharged both symbolically and concretely. Any change to
+> the `ecrecover` block must re-establish OP-1.
 
 ### Bytecode-refinement residuals (BR) — the R4b model-to-deployment gap
 
@@ -130,7 +135,9 @@ For the strongest claims (rows 1/1b), every link is machine-checked or independe
 ```
 
 (The deployed-bytecode rows additionally rely on the operational boundary contracts [OP-1..5] — e.g. the
-`ecrecover` `returndatasize`/zero-signer checks — which the symbolic tools do not exercise; see §10.2.)
+`ecrecover` `returndatasize`/zero-signer checks; the whole-`relay()` symbolic runs use Halmos's total
+built-in `0x01`, but the OP-1 guard itself is now proven symbolically in isolation
+(`RelayEcrecoverSymbolicFV`) as well as by real-EVM regression. See §10.2.)
 
 Outside the chain are exactly the registered assumptions. The engineering value of the stack is that this
 trusted surface is **small, named, and individually attackable** — instead of "trust 930 lines of assembly
@@ -151,7 +158,7 @@ Status reflects the current tree.
 | **MC-3** (trusted setter), **MC-5** (oldRelay) | Permanent — trust boundary by design | leave; on-chain enforcement would be a *contract change*, not verification |
 | **MC-4** (OZ `MerkleProof`) | Borderline | conventionally assumed; cheaply verifiable if an audit demands zero library trust |
 | **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
-| **OP-1** (ecrecover failure ABI) | Addressable | ✅ real-EVM regression done (`RelayEcrecoverABI.t.sol`); symbolic-model internalization pending |
+| **OP-1** (ecrecover failure ABI) | Addressable | ✅ **done** — real-EVM regression (`RelayEcrecoverABI.t.sol`) **and** symbolic internalization (`RelayEcrecoverSymbolicFV.t.sol`: the guard proven against the empty-return/stale-buffer ABI over all stale contents) |
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | weeks |
 | **BR-1** (data layer, `mload = w[i]`) | **Proven modulo stated assumptions** | full chain in `DataLayer.lean` + `RelayLoopMemRead.lean`: byte-decode ✅, memory round-trip ✅ (`mem_roundtrip`), value decode ✅, `mstore`/`mload` guard ✅, `&0xffff` mask ✅, data-layer capstone ✅ (`weight_read`), memory-reading ∀N loop ✅ (`w += mload(slot)&0xffff` on the validated EVM), **and the full simulation relation** ✅ (`relay_loop_sound`: deployed loop accepts ⟹ total registered weight > thr, ∀N). Modulo two upstream-dischargeable axioms (`zeroes_data`, `toByteArray_size`) and the engagement-wide external-call assumptions (ecrecover MC-2/OP-1, encoded in `hcorr`/`hvalid`) |
 | whole-`relay()` extension, **OP-3/4** | Addressable | months–years (full end-to-end R5) |
@@ -238,11 +245,16 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      `zeroes_data` (spec/de-opaque `memset_zero`) and `toByteArray_size` (expose the `private`
      `toBytes'_UInt256_le`). Starting points + the `R` sketch:
      `test-forge/fv/lean/bytecode-refinement/README.md`.
-2. **Internalize OP-1 in the symbolic model.** The OP-1 ABI is now pinned by a real-EVM regression
-   (`test-forge/fv/RelayEcrecoverABI.t.sol`). The remaining step is to model `ecrecover` with its real
-   failure ABI (empty return / stale buffer) *inside* the symbolic suite — instead of a total
-   clean-address function — so the symbolic gate itself would flag a missing `returndatasize`/zero-signer
-   check rather than relying on the regression test.
+2. **Internalize OP-1 in the symbolic model — ✅ DONE.** The OP-1 ABI is pinned by a real-EVM regression
+   (`test-forge/fv/RelayEcrecoverABI.t.sol`) and now *also* internalized symbolically by
+   `test-forge/fv/RelayEcrecoverSymbolicFV.t.sol`. Because Halmos's built-in `0x01` is a total clean-address
+   function (`returndatasize()==32` always) and cannot produce the empty-return failure, that harness reaches
+   the branch via a **mock** reproducing the precompile's failure ABI, then proves — symbolically, over ALL
+   stale-buffer contents — that the `staticcall`-success / `returndatasize()==32` / non-zero-signer guard
+   (i) rejects an empty return, (ii) rejects a zero signer, and (iii) when it accepts, uses the fresh return
+   and never the stale buffer. The FV gate (`verify_fv.py`) auto-discovers its `check_`/`check_reach_`
+   functions, so a regression that weakened the guard would now fail the symbolic gate, not just the
+   regression test.
 3. **Tighten BR-3 / K-2.** Parse the emitted optimized Yul for the signature loop and prove the parsed AST
    refines the bytecode-refinement `For` node; and discharge the bmc-depth-1 model↔bytecode equivalence for
    Kontrol (`docs/relay-t1-bridge.md`). Removes "is this the real loop?" for both R3 and R4b.
