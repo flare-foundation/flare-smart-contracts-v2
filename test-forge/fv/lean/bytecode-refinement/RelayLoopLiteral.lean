@@ -548,6 +548,66 @@ theorem calldatacopy_eff (fuel : Nat) (s : EvmYul.Yul.State) (de qe le : Expr)
   simp [EvmYul.Yul.execPrimCall, EvmYul.Yul.primCall, step_CALLDATACOPY,
         EvmYul.Yul.multifill', multifill_nil]
 
+/-! ## Expression eval atoms (the pure-operator layer)
+
+To discharge `calldatacopy_eff`'s `hargs` and to evaluate the `Let`-RHS expressions and guard
+conditions of `bodyL`, we need each *expression*'s evaluation. `eval_lit`/`eval_var` are the leaves;
+`eval_primcall_pure` is the op-generic recursion step for a call whose arguments evaluate purely
+(no state change) — it reduces to a `primCall`, whose result is supplied as `hprim`. The `primCall_*`
+lemmas below discharge `hprim` for each pure operator the body uses (the `match prim` inside `primCall`
+forces one lemma per concrete opcode; `ISZERO`/`EQ`/`RETURNDATASIZE` already exist in the seam section).
+The two state-changing readers — `MLOAD` (bumps `activeWords`) and `STATICCALL` (the ecrecover seam) —
+are handled separately (the seam section, and the memory-window bridges). -/
+
+/-- Evaluate a literal. -/
+theorem eval_lit (fuel : Nat) (v : EvmYul.UInt256) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.eval (fuel + 1) (Expr.Lit v) none s = .ok (s, v) := by
+  conv_lhs => unfold EvmYul.Yul.eval
+
+/-- Evaluate a variable (reads the Yul store; the loop's `i`, `weight`, `nui`, `idx`, `v`). -/
+theorem eval_var (fuel : Nat) (x : EvmYul.Identifier) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.eval (fuel + 1) (Expr.Var x) none s = .ok (s, s[x]!) := by
+  conv_lhs => unfold EvmYul.Yul.eval
+
+/-- **Op-generic pure-call eval.** If the arguments evaluate purely to `vs` (state unchanged) and the
+    primitive call yields the single value `r`, the whole call evaluates to `r`. Instantiated per
+    operator by supplying the matching `primCall_*` for `hprim`. -/
+theorem eval_primcall_pure (fuel : Nat) (prim : Operation .Yul) (args : List Expr)
+    (s : EvmYul.Yul.State) (vs : List EvmYul.UInt256) (r : EvmYul.UInt256)
+    (hargs : EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs fuel args.reverse none s) = .ok (s, vs))
+    (hprim : EvmYul.Yul.primCall fuel s prim vs = .ok (s, [r])) :
+    EvmYul.Yul.eval (fuel + 1) (Expr.Call (Sum.inl prim) args) none s = .ok (s, r) := by
+  conv_lhs => unfold EvmYul.Yul.eval
+  simp only [hargs, EvmYul.Yul.evalPrimCall, hprim, EvmYul.Yul.head']; rfl
+
+private theorem primCall_ADD (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.ADD [a,b] = .ok (s, [EvmYul.UInt256.add a b]) := by
+  simp [EvmYul.Yul.primCall, step_ADD]
+private theorem primCall_MUL (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.MUL [a,b] = .ok (s, [EvmYul.UInt256.mul a b]) := by
+  simp [EvmYul.Yul.primCall, step_MUL]
+private theorem primCall_SHR (f : Nat) (s : EvmYul.Yul.State) (shift val : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.SHR [shift,val] = .ok (s, [EvmYul.UInt256.shiftRight val shift]) := by
+  simp [EvmYul.Yul.primCall, step_SHR]
+private theorem primCall_AND (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.AND [a,b] = .ok (s, [EvmYul.UInt256.land a b]) := by
+  simp [EvmYul.Yul.primCall, step_AND]
+private theorem primCall_LT (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.LT [a,b] = .ok (s, [EvmYul.UInt256.lt a b]) := by
+  simp [EvmYul.Yul.primCall, step_LT]
+private theorem primCall_GT (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.GT [a,b] = .ok (s, [EvmYul.UInt256.gt a b]) := by
+  simp [EvmYul.Yul.primCall, step_GT]
+private theorem primCall_OR (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.OR [a,b] = .ok (s, [EvmYul.UInt256.lor a b]) := by
+  simp [EvmYul.Yul.primCall, step_OR]
+private theorem primCall_NOT (f : Nat) (s : EvmYul.Yul.State) (a : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.NOT [a] = .ok (s, [EvmYul.UInt256.lnot a]) := by
+  simp [EvmYul.Yul.primCall, step_NOT]
+
+#print axioms eval_lit
+#print axioms eval_var
+#print axioms eval_primcall_pure
 #print axioms multifill_nil
 #print axioms mstore_lit_eff
 #print axioms calldatacopy_eff
