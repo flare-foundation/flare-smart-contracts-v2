@@ -563,6 +563,95 @@ theorem eval_wrongsig_cond (f mr mv : Nat) (ss : EvmYul.SharedState .Yul) (vs : 
 
 end MoreGuards
 
+/-! ## The `Let`-statement effects
+
+`bodyL`'s four `Let`s, each via `let_prim_eff` (which threads the RHS eval then `insert`s the bound
+variable). `let_nui` is pure `add`; `let_idx`/`let_vv` read one `mload` (`shr`/`and` decode); `let_ww` is
+the accounting update `weight := weight + and(mload(voter), 0xffff)` (depth-3, reusing
+`eval_and_mload_lit`). These are the advance-steps that carry the loop's `index`/`nextUnusedIndex`/`v`/
+`weight` locals through the body chain. -/
+
+section LetEffects
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral
+
+theorem primCall_ADD' (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.ADD [a,b] = .ok (s, [EvmYul.UInt256.add a b]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+theorem primCall_SHR' (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.SHR [a,b] = .ok (s, [EvmYul.UInt256.shiftRight b a]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+theorem primCall_AND' (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.AND [a,b] = .ok (s, [EvmYul.UInt256.land a b]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+
+/-- `nextUnusedIndex := add(index, 1)` (pure). -/
+theorem let_nui (f : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.exec (f + 7) (Stmt.Let [NUI] (some (bc .ADD [V IDX, litN 1]))) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok ((EvmYul.Yul.State.Ok ss vs).insert NUI (EvmYul.UInt256.add ((EvmYul.Yul.State.Ok ss vs)[IDX]!) (UInt256.ofNat 1))) := by
+  exact RelayLoopLiteral.let_prim_eff (f+6) NUI Operation.ADD [V IDX, litN 1]
+    (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+    [(EvmYul.Yul.State.Ok ss vs)[IDX]!, UInt256.ofNat 1] _
+    (RelayLoopLiteral.evalArgs_rev_pair (f+1) (V IDX) (litN 1)
+      (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+      ((EvmYul.Yul.State.Ok ss vs)[IDX]!) (UInt256.ofNat 1)
+      (RelayLoopLiteral.eval_lit (f+4) (UInt256.ofNat 1) _) (RelayLoopLiteral.eval_var (f+2) IDX _))
+    (primCall_ADD' (f+5) _ _ _)
+
+/-- `index := shr(240, mload(a))`. -/
+theorem let_idx (f a : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.exec (f + 6) (Stmt.Let [IDX] (some (bc .SHR [litN 240, bc .MLOAD [litN a]]))) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok (((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2).insert IDX
+              (EvmYul.UInt256.shiftRight ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1 (UInt256.ofNat 240))) := by
+  refine RelayLoopLiteral.let_prim_eff (f+5) IDX Operation.SHR [litN 240, bc .MLOAD [litN a]]
+    (EvmYul.Yul.State.Ok ss vs)
+    ((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2)
+    ((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2)
+    [UInt256.ofNat 240, ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1] _
+    (RelayLoopLiteral.evalArgs_rev_pair f (litN 240) (bc .MLOAD [litN a])
+      (EvmYul.Yul.State.Ok ss vs)
+      ((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2)
+      ((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2)
+      (UInt256.ofNat 240) ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1
+      (RelayLoopLiteral.eval_mload_lit f (UInt256.ofNat a) (EvmYul.Yul.State.Ok ss vs))
+      (RelayLoopLiteral.eval_lit (f+1) (UInt256.ofNat 240) _))
+    (primCall_SHR' (f+4) _ _ _)
+
+/-- `v := and(mload(a), c)`. -/
+theorem let_vv (g a : Nat) (c : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.exec (g + 8) (Stmt.Let [VV] (some (bc .AND [bc .MLOAD [litN a], Expr.Lit c]))) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok (((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2).insert VV
+              (EvmYul.UInt256.land ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1 c)) := by
+  refine RelayLoopLiteral.let_prim_eff (g+7) VV Operation.AND [bc .MLOAD [litN a], Expr.Lit c]
+    (EvmYul.Yul.State.Ok ss vs)
+    ((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2)
+    ((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2)
+    [((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1, c] _
+    (RelayLoopLiteral.evalArgs_rev_pair (g+2) (bc .MLOAD [litN a]) (Expr.Lit c)
+      (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+      ((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2)
+      ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1 c
+      (RelayLoopLiteral.eval_lit (g+5) c _) (RelayLoopLiteral.eval_mload_lit g (UInt256.ofNat a) _))
+    (primCall_AND' (g+6) _ _ _)
+
+/-- `weight := add(weight, and(mload(a), c))` — the accounting update (depth-3). -/
+theorem let_ww (G a : Nat) (c : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    let se := (EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2
+    EvmYul.Yul.exec (G + 10) (Stmt.Let [WW] (some (bc .ADD [V WW, bc .AND [bc .MLOAD [litN a], Expr.Lit c]]))) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok (se.insert WW (EvmYul.UInt256.add (se[WW]!)
+              (EvmYul.UInt256.land ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1 c))) := by
+  intro se
+  refine RelayLoopLiteral.let_prim_eff (G+9) WW Operation.ADD [V WW, bc .AND [bc .MLOAD [litN a], Expr.Lit c]]
+    (EvmYul.Yul.State.Ok ss vs) se se
+    [se[WW]!, EvmYul.UInt256.land ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1 c] _
+    (RelayLoopLiteral.evalArgs_rev_pair (G+4) (V WW) (bc .AND [bc .MLOAD [litN a], Expr.Lit c])
+      (EvmYul.Yul.State.Ok ss vs) se se
+      (se[WW]!) (EvmYul.UInt256.land ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1 c)
+      (eval_and_mload_lit G (UInt256.ofNat a) c (EvmYul.Yul.State.Ok ss vs))
+      (RelayLoopLiteral.eval_var (G+5) WW se))
+    (primCall_ADD' (G+8) _ _ _)
+
+end LetEffects
+
 /-! ## The body chaining (`exec_Block_cons_ok` assembly)
 
 The final assembly: peel `bodyL`'s statements one at a time with `exec_Block_cons_ok`, threading the
@@ -605,6 +694,10 @@ theorem body_prefix2 (fuel m sigStart : Nat) (ss : EvmYul.SharedState .Yul) (vs 
         rw [show (fuel+7)+31 = (fuel+37)+1 from by omega]
         exact RelayLoopLiteral.exec_Block_nil (fuel+37) _
 
+#print axioms RelayBodyEff.let_nui
+#print axioms RelayBodyEff.let_idx
+#print axioms RelayBodyEff.let_vv
+#print axioms RelayBodyEff.let_ww
 #print axioms body_prefix2
 
 end RelayBodyEff
