@@ -100,9 +100,43 @@ theorem mload_shr_voter (self : EvmYul.MachineState) (src mem : ByteArray) (d : 
       RelayWindows.ofNat_toNat' d hd]
   exact voter_signer_pure src mem d hsrc hsize
 
+/-! ## Memory state after the voter clear→copy (discharging `hmem`)
+
+The `hmem` hypothesis of `mload_masked_voter`/`mload_shr_voter` — that the interpreter memory *is* the
+window write-pattern — is not an assumption: it is exactly the memory produced by the two voter
+statements. `voter_mem_pattern` threads the interpreter state through `mstore(m+96, 0)` (which sets
+`memory := (ofNat 0).toByteArray.write 0 mem (m+96) 32`, turned into the `⟨replicate 32 0⟩` write by
+`mstore_zero_source`) then `calldatacopy(m+106, q, 22)` (which sets `memory := calldata.write q mem'
+(m+106) 22`, turned into the offset-0 `extract` form by `write_from_offset`), landing exactly on the
+`read_zero_then_write_suffix` pattern at `d = m+96` with `src = calldata.extract q (q+22)`. So the voter
+weight/signer reads are fully derived once the (small) offset and range side-conditions are met. -/
+
+open EvmYul.Yul in
+/-- **`hmem` discharge.** The memory after `mstore(m+96,0); calldatacopy(m+106, q, 22)` is the voter
+    window write-pattern (`clear 32 at m+96`, then the 22-byte record at `m+106 = (m+96)+10`). -/
+theorem voter_mem_pattern (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) (m : Nat)
+    (q : EvmYul.UInt256)
+    (hq : q.toNat + 22 ≤ ss.executionEnv.calldata.size)
+    (hdest : (m+106) + 22 ≤ (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 ss.toMachineState.memory (m+96) 32).size)
+    (hm : m + 96 < EvmYul.UInt256.size) (hm2 : m + 106 < EvmYul.UInt256.size) :
+    ((State.Ok ss vs).setMachineState ((State.Ok ss vs).toMachineState.mstore (UInt256.ofNat (m+96)) (UInt256.ofNat 0))
+      |> fun s13 => (s13.setSharedState (s13.toSharedState.calldatacopy (UInt256.ofNat (m+106)) q (UInt256.ofNat 22))).toMachineState.memory)
+    = ByteArray.write (ss.executionEnv.calldata.extract q.toNat (q.toNat+22)) 0
+        (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 ss.toMachineState.memory (m+96) 32) (m+106) 22 := by
+  have hmst : (ss.toMachineState.mstore (UInt256.ofNat (m+96)) (UInt256.ofNat 0)).memory
+      = ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 ss.toMachineState.memory (m+96) 32 := by
+    unfold EvmYul.MachineState.mstore EvmYul.MachineState.writeWord EvmYul.writeBytes
+    simp only [RelayDataLayer.mstore_zero_source, RelayWindows.ofNat_toNat' _ hm]
+  simp only [State.setMachineState, State.toMachineState, State.setSharedState, State.toSharedState,
+             EvmYul.SharedState.calldatacopy, hmst,
+             RelayWindows.ofNat_toNat' _ hm2,
+             RelayWindows.ofNat_toNat' 22 (show (22:Nat) < EvmYul.UInt256.size by unfold EvmYul.UInt256.size; omega)]
+  rw [RelayWindows.write_from_offset ss.executionEnv.calldata _ q.toNat (m+106) 22 (by omega) hq hdest]
+
 end RelayBodyEff
 
 #print axioms RelayBodyEff.voter_weight_pure
 #print axioms RelayBodyEff.voter_signer_pure
 #print axioms RelayBodyEff.mload_masked_voter
 #print axioms RelayBodyEff.mload_shr_voter
+#print axioms RelayBodyEff.voter_mem_pattern
