@@ -667,10 +667,45 @@ theorem let_prim_eff (fuel : Nat) (x : EvmYul.Identifier) (prim : Operation .Yul
   conv_lhs => unfold EvmYul.Yul.exec
   simp only [hargs, EvmYul.Yul.execPrimCall, hprim, EvmYul.Yul.multifill', multifill_single]
 
+/-! ## Nested (two-argument) evaluation and a first composed expression
+
+The body's non-leaf expressions are binary calls (`add`, `mul`, `shr`, `and`, `gt`, `eq`, `or`, `lt`).
+`evalArgs_rev_pair` threads the state through both arguments in the interpreter's right-to-left order:
+for a source call `f(ae, be)` the argument list is evaluated reversed (`be` first, then `ae`), so `be`
+runs in the incoming state and `ae` in the post-`be` state. The fuel is asymmetric by construction
+(`evalArgs (f+5) ⟹ be` at `f+4`, `ae` at `f+2`), which composes fine since `eval_lit`/`eval_var` hold at
+every `·+1` fuel and `eval_mload_lit` at every `·+4`.
+
+`eval_add_var_lit` is the first fully composed expression — `add(x, c)` — assembled from
+`evalArgs_rev_pair` + `eval_primcall` + `primCall_ADD` + `eval_var`/`eval_lit`. It is exactly the
+`nextUnusedIndex := add(index, 1)` RHS (and the `add(index, 1)` inside the range guard), and it
+demonstrates the whole eval layer composes end-to-end and hole-free. -/
+
+/-- Evaluate the two arguments of a binary call (right-to-left), returning the forward-order values. -/
+theorem evalArgs_rev_pair (f : Nat) (ae be : Expr) (s s1 s2 : EvmYul.Yul.State)
+    (va vb : EvmYul.UInt256)
+    (hb : EvmYul.Yul.eval (f + 4) be none s = .ok (s1, vb))
+    (ha : EvmYul.Yul.eval (f + 2) ae none s1 = .ok (s2, va)) :
+    EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs (f + 5) [be, ae] none s) = .ok (s2, [va, vb]) := by
+  simp only [EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail, hb, EvmYul.Yul.cons', ha,
+             EvmYul.Yul.reverse', List.reverse_cons, List.reverse_nil, List.nil_append,
+             List.cons_append, List.singleton_append]
+
+/-- **`add(x, c)` eval** (variable + literal) — the `add(index, 1)` of `bodyL`. -/
+theorem eval_add_var_lit (f : Nat) (x : EvmYul.Identifier) (c : EvmYul.UInt256) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.eval (f + 6) (Expr.Call (Sum.inl Operation.ADD) [Expr.Var x, Expr.Lit c]) none s
+      = .ok (s, EvmYul.UInt256.add s[x]! c) := by
+  exact eval_primcall (f+5) Operation.ADD [Expr.Var x, Expr.Lit c] s s s [s[x]!, c] _
+    (evalArgs_rev_pair f (Expr.Var x) (Expr.Lit c) s s s s[x]! c
+      (eval_lit (f+3) c s) (eval_var (f+1) x s))
+    (primCall_ADD (f+4) s s[x]! c)
+
 #print axioms eval_primcall
 #print axioms eval_mload_lit
 #print axioms multifill_single
 #print axioms let_prim_eff
+#print axioms evalArgs_rev_pair
+#print axioms eval_add_var_lit
 #print axioms eval_lit
 #print axioms eval_var
 #print axioms eval_primcall_pure
