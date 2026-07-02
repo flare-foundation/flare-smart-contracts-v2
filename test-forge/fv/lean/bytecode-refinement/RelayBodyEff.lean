@@ -384,6 +384,40 @@ theorem eval_iszero (f : Nat) (e : Expr) (s s' : EvmYul.Yul.State) (v : EvmYul.U
   exact RelayLoopLiteral.eval_primcall (f+3) Operation.ISZERO [e] s s' s' [v] _
     (evalArgs_rev_single f e s s' v he) (primCall_ISZERO' (f+2) s' v)
 
+/-! ## Guard-condition evaluations (the comparison guards)
+
+The revert-guards of `bodyL` are `If cond {revert}` for `cond` a comparison. A guard is *not taken*
+(the iteration advances) exactly when `cond` evaluates to `⟨0⟩`. Here we evaluate the conditions to
+their `UInt256` comparison values; `exec_If_false` then turns "`cond = ⟨0⟩`" into a no-op. `eval_range_cond`
+is the range guard `gt(add(index,1), nVot)` (a depth-3 compose of `eval_add_var_lit` under `gt`); the
+order/`eq` guards follow the same recipe. `primCall_GT'` (like `primCall_ISZERO'`) is the public re-proof
+of the private `GT` primcall. -/
+
+open EvmYul.Yul EvmYul.Yul.Ast in
+/-- `GT` primitive call (public re-proof). -/
+theorem primCall_GT' (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.GT [a,b] = .ok (s, [EvmYul.UInt256.gt a b]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral in
+/-- **Range guard condition.** `gt(add(index, 1), nVot)` evaluates to the comparison value (state
+    unchanged); the guard `if gt(add(index,1), nVot) {revert}` is not taken iff `add(index,1) ≤ nVot`. -/
+theorem eval_range_cond (f : Nat) (nVot : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.eval (f + 10)
+      (bc .GT [bc .ADD [V IDX, litN 1], litU nVot]) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok (EvmYul.Yul.State.Ok ss vs,
+             EvmYul.UInt256.gt (EvmYul.UInt256.add ((EvmYul.Yul.State.Ok ss vs)[IDX]!) (UInt256.ofNat 1)) nVot) := by
+  refine RelayLoopLiteral.eval_primcall (f+9) Operation.GT
+    [bc .ADD [V IDX, litN 1], litU nVot] (EvmYul.Yul.State.Ok ss vs)
+    (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+    [EvmYul.UInt256.add ((EvmYul.Yul.State.Ok ss vs)[IDX]!) (UInt256.ofNat 1), nVot] _
+    (RelayLoopLiteral.evalArgs_rev_pair (f+4) (bc .ADD [V IDX, litN 1]) (litU nVot)
+      (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+      (EvmYul.UInt256.add ((EvmYul.Yul.State.Ok ss vs)[IDX]!) (UInt256.ofNat 1)) nVot
+      (RelayLoopLiteral.eval_lit (f+7) nVot _)
+      (RelayLoopLiteral.eval_add_var_lit f IDX (UInt256.ofNat 1) (EvmYul.Yul.State.Ok ss vs)))
+    (primCall_GT' (f+8) _ _ _)
+
 end RelayBodyEff
 
 #print axioms RelayBodyEff.voter_weight_pure
@@ -402,3 +436,4 @@ end RelayBodyEff
 #print axioms RelayBodyEff.mload_shr_index
 #print axioms RelayBodyEff.mload_recovered
 #print axioms RelayBodyEff.eval_iszero
+#print axioms RelayBodyEff.eval_range_cond
