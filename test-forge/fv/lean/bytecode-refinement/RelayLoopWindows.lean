@@ -164,6 +164,118 @@ theorem read_inside_write (src mem : ByteArray) (w len a : Nat)
   exact array_window (mem.data.extract 0 w) src.data (mem.data.extract (w + len) mem.data.size)
     w len a (by simp only [Array.size_extract]; omega) hsd hwa ha
 
+/-! ## Source-offset bridge (`calldatacopy`)
+
+The interpreter's `calldatacopy` (see `RelayLoopLiteral.calldatacopy_unfold`) produces
+`ByteArray.write cd srcOff mem destOff len` where the **source** offset is the *calldata* offset
+(e.g. the byte position of a signature's `r`/`s` word, or a voter record). But `read_inside_write`
+above — and every window lemma below — is stated for source offset `0`. This section closes that
+gap once and for all with `write_from_offset`, then packages the directly usable
+`read_inside_write_off`. It is the bridge that lets the deployed loop's `calldatacopy(scratch, pos, 32)`
+be decoded by the `write · 0 ·` machinery.
+
+The whole section is elementary `Array`/`ByteArray` surgery: `write` (with room) is a `copySlice`,
+`copySlice` on `.data` is a three-way `extract` append, and `extract`-of-`extract` composes
+(`Array.extract_extract`). No new assumption beyond `zeroes_data` (already used above). -/
+
+/-- Generalized `extract` on `.data` for any window `a ≤ b` (the public generalization of the
+    32-byte `extract_data_inst`). -/
+theorem extract_data_gen (X : ByteArray) (a b : Nat) (hab : a ≤ b) :
+    (X.extract a b).data = X.data.extract a b := by
+  have he : ByteArray.empty.data.size = 0 := by rfl
+  have hb : a + (b - a) = b := by omega
+  unfold ByteArray.extract ByteArray.copySlice; simp [he, hb]
+
+/-- General source-offset `copySlice`, on `.data`: prefix ++ source-window ++ suffix
+    (generalizes `copySlice_data_gen`'s `srcOff = 0`). -/
+theorem copySlice_data_off (src mem : ByteArray) (so d len : Nat)
+    (hso : so + len ≤ src.size) (hd : d + len ≤ mem.size) :
+    (src.copySlice so mem d len).data
+      = mem.data.extract 0 d ++ src.data.extract so (so + len)
+        ++ mem.data.extract (d + len) mem.data.size := by
+  have hsod : so + len ≤ src.data.size := hso
+  have hdd : d + len ≤ mem.data.size := hd
+  have hmin : min len (src.data.size - so) = len := by omega
+  unfold ByteArray.copySlice
+  simp only [hmin]
+
+/-- The padding `ffi.ByteArray.zeroes ⟨0⟩` (used by `ByteArray.write` when there is room) carries
+    no data, so appending it is invisible on `.data`. -/
+theorem append_zeroes0 (a : ByteArray) : (a ++ ffi.ByteArray.zeroes ⟨0⟩).data = a.data := by
+  rw [append_data, zeroes_data]; simp
+
+/-- ... and invisible on `.size`. -/
+theorem size_zeroes0 (a : ByteArray) : (a ++ ffi.ByteArray.zeroes ⟨0⟩).size = a.size := by
+  rw [size_append]; show a.size + (ffi.ByteArray.zeroes ⟨0⟩).data.size = a.size
+  rw [zeroes_data]; simp
+
+/-- A general source-offset `write` (with room) reduces to a `copySlice` on empty-padded buffers.
+    This is where the `let`-heavy `ByteArray.write` definition (both branches) is discharged:
+    with room, `practicalLen = len`, both paddings have length `0`. -/
+theorem write_reduced (src mem : ByteArray) (so d len : Nat)
+    (hlen : 0 < len) (hso : so + len ≤ src.size) (hd : d + len ≤ mem.size) :
+    ByteArray.write src so mem d len
+      = (src ++ ffi.ByteArray.zeroes ⟨0⟩).copySlice so (mem ++ ffi.ByteArray.zeroes ⟨0⟩) d len := by
+  have hne : ¬ (len = 0) := by omega
+  have hscd : ¬ so ≥ src.size := by omega
+  have e1 : min len (src.size - so) = len := by omega
+  have e2 : min mem.size (d + len) = d + len := by omega
+  have e3 : d - mem.size = 0 := by omega
+  have e4 : d + len - (d + len) = 0 := by omega
+  unfold ByteArray.write
+  simp only [hne, hscd, if_false, e1, e2, e3, e4, Nat.add_zero]
+  norm_cast
+
+/-- **BRIDGE (calldatacopy source-offset reduction).** Writing `len` bytes from calldata offset
+    `srcOff` into memory offset `destOff` equals writing the *extracted* calldata window from offset
+    `0`. This is the single fact that reconciles `calldatacopy_unfold` with the `write · 0 ·` window
+    lemmas. Proof: reduce both `write`s to `copySlice` (`write_reduced`), expand both on `.data`
+    (`copySlice_data_off`), drop the empty padding (`append_zeroes0`/`size_zeroes0`), and observe the
+    source windows coincide (`(cd.extract srcOff (srcOff+len)).data.extract 0 len = cd.data.extract srcOff (srcOff+len)`). -/
+theorem write_from_offset (cd mem : ByteArray) (srcOff destOff len : Nat)
+    (hlen : 0 < len) (hsrc : srcOff + len ≤ cd.size) (hdest : destOff + len ≤ mem.size) :
+    ByteArray.write cd srcOff mem destOff len
+      = ByteArray.write (cd.extract srcOff (srcOff + len)) 0 mem destOff len := by
+  have hcd : cd.data.size = cd.size := rfl
+  have hmm : mem.data.size = mem.size := rfl
+  have hexsz : (cd.extract srcOff (srcOff + len)).size = len := by
+    show (cd.extract srcOff (srcOff + len)).data.size = len
+    rw [extract_data_gen cd srcOff (srcOff + len) (by omega)]
+    simp only [Array.size_extract]; omega
+  apply ByteArray.ext
+  rw [write_reduced cd mem srcOff destOff len hlen hsrc hdest,
+      write_reduced (cd.extract srcOff (srcOff + len)) mem 0 destOff len hlen (by omega) hdest,
+      copySlice_data_off _ _ srcOff destOff len (by rw [size_zeroes0]; omega) (by rw [size_zeroes0]; omega),
+      copySlice_data_off _ _ 0 destOff len (by rw [size_zeroes0, hexsz]; omega) (by rw [size_zeroes0]; omega),
+      append_zeroes0, append_zeroes0, append_zeroes0,
+      extract_data_gen cd srcOff (srcOff + len) (by omega)]
+  congr 1
+  rw [Nat.zero_add,
+      show (cd.data.extract srcOff (srcOff + len)).extract 0 len = cd.data.extract srcOff (srcOff + len) from
+        Array.extract_eq_self_iff.mpr (Or.inr ⟨rfl, by simp only [Array.size_extract]; omega⟩)]
+
+/-- **(G1′) Read inside a source-offset write** — the integration-ready form of `read_inside_write`.
+    A 32-byte read of a window inside a `calldatacopy(destOff, srcOff, len)` returns the corresponding
+    32-byte slice of the *calldata* (`extract`-of-`extract` composed via `Array.extract_extract`). This
+    is exactly the shape the deployed loop's `mload(scratch)` after `calldatacopy(scratch, pos, 32)` needs. -/
+theorem read_inside_write_off (cd mem : ByteArray) (so w len a : Nat)
+    (hlen : 0 < len) (hso : so + len ≤ cd.size) (hw : w + len ≤ mem.size)
+    (hwa : w ≤ a) (ha : a + 32 ≤ w + len) :
+    ByteArray.readWithPadding (ByteArray.write cd so mem w len) a 32
+      = cd.extract (so + (a - w)) (so + (a - w) + 32) := by
+  have hcd : cd.data.size = cd.size := rfl
+  have hexsz : (cd.extract so (so + len)).size = len := by
+    show (cd.extract so (so + len)).data.size = len
+    rw [extract_data_gen cd so (so + len) (by omega)]; simp only [Array.size_extract]; omega
+  rw [write_from_offset cd mem so w len hlen hso hw,
+      read_inside_write (cd.extract so (so + len)) mem w len a hexsz hw hwa ha]
+  apply ByteArray.ext
+  rw [extract_data_gen (cd.extract so (so + len)) (a - w) (a - w + 32) (by omega),
+      extract_data_gen cd so (so + len) (by omega),
+      Array.extract_extract,
+      extract_data_gen cd (so + (a - w)) (so + (a - w) + 32) (by omega),
+      show min (so + (a - w + 32)) (so + len) = so + (a - w) + 32 from by omega]
+
 /-! ## `getElem!` toolkit (no `getElem!` lemma layer for these shapes on Lean 4.22) -/
 
 private theorem getElem!_append_left' (A B : Array UInt8) (i : Nat) (h : i < A.size) :
