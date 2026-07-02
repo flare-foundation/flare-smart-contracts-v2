@@ -800,6 +800,76 @@ theorem ge_ne (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) (k j : E
     (EvmYul.Yul.State.Ok ss (vs.insert k v))[j]! = (EvmYul.Yul.State.Ok ss vs)[j]! := by
   rw [getElem_Ok, getElem_Ok]; simp [EvmYul.Yul.State.lookup!, Finmap.lookup_insert_of_ne _ h]
 
+/-! ## The two `calldatacopy` statement effects
+
+Assembling `calldatacopy_eff` (brick 8) with the pure argument evaluations gives each memory-copy
+statement's concrete effect on the shared state. `bodyL` has two: the signature blob copy
+`calldatacopy(m+63, add(add(sigStart, mul(i,67)), 2), 67)` and the voter-record copy
+`calldatacopy(m+106, add(47, mul(index,22)), 22)`. Each rewrites memory to
+`calldata.write q mem d len`, which `RelayLoopWindows.write_from_offset` then turns into the offset-0
+window shape the decode lemmas consume. The result offsets are `sigRecBase`/`voterRecBase` at the
+`.toNat` level (modulo the small-value non-overflow facts). -/
+
+/-- Argument evaluation for the signature-blob `calldatacopy` (all three args pure). -/
+theorem hargs_cdc1 (fuel m sigStart : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs (fuel + 30)
+      [litN 67, bc .ADD [bc .ADD [litN sigStart, bc .MUL [V II, litN 67]], litN 2], litN (m+63)] none
+      (EvmYul.Yul.State.Ok ss vs))
+      = .ok (EvmYul.Yul.State.Ok ss vs,
+             [UInt256.ofNat (m+63),
+              EvmYul.UInt256.add (EvmYul.UInt256.add (UInt256.ofNat sigStart)
+                (EvmYul.UInt256.mul ((EvmYul.Yul.State.Ok ss vs)[II]!) (UInt256.ofNat 67))) (UInt256.ofNat 2),
+              UInt256.ofNat 67]) := by
+  simp [bc, litN, V, EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail, EvmYul.Yul.eval,
+        EvmYul.Yul.evalPrimCall, EvmYul.Yul.primCall, EvmYul.Yul.head', EvmYul.Yul.cons',
+        EvmYul.Yul.reverse', step_ADD, step_MUL]
+
+/-- **Signature-blob `calldatacopy` effect** — `bodyL`'s `calldatacopy(m+63, sigStart+i*67+2, 67)`. -/
+theorem calldatacopy1_eff (fuel m sigStart : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.exec (fuel + 31)
+      (Stmt.ExprStmtCall (bc .CALLDATACOPY [litN (m+63),
+        bc .ADD [bc .ADD [litN sigStart, bc .MUL [V II, litN 67]], litN 2], litN 67])) none
+      (EvmYul.Yul.State.Ok ss vs)
+      = .ok ((EvmYul.Yul.State.Ok ss vs).setSharedState
+          ((EvmYul.Yul.State.Ok ss vs).toSharedState.calldatacopy (UInt256.ofNat (m+63))
+            (EvmYul.UInt256.add (EvmYul.UInt256.add (UInt256.ofNat sigStart)
+              (EvmYul.UInt256.mul ((EvmYul.Yul.State.Ok ss vs)[II]!) (UInt256.ofNat 67))) (UInt256.ofNat 2))
+            (UInt256.ofNat 67))) := by
+  exact calldatacopy_eff (fuel+29) (EvmYul.Yul.State.Ok ss vs) (litN (m+63))
+    (bc .ADD [bc .ADD [litN sigStart, bc .MUL [V II, litN 67]], litN 2]) (litN 67) _ _ _
+    (hargs_cdc1 fuel m sigStart ss vs)
+
+/-- Argument evaluation for the voter-record `calldatacopy` (all three args pure). -/
+theorem hargs_cdc2 (fuel m : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs (fuel + 30)
+      [litN 22, bc .ADD [litN 47, bc .MUL [V IDX, litN 22]], litN (m+106)] none
+      (EvmYul.Yul.State.Ok ss vs))
+      = .ok (EvmYul.Yul.State.Ok ss vs,
+             [UInt256.ofNat (m+106),
+              EvmYul.UInt256.add (UInt256.ofNat 47)
+                (EvmYul.UInt256.mul ((EvmYul.Yul.State.Ok ss vs)[IDX]!) (UInt256.ofNat 22)),
+              UInt256.ofNat 22]) := by
+  simp [bc, litN, V, EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail, EvmYul.Yul.eval,
+        EvmYul.Yul.evalPrimCall, EvmYul.Yul.primCall, EvmYul.Yul.head', EvmYul.Yul.cons',
+        EvmYul.Yul.reverse', step_ADD, step_MUL]
+
+/-- **Voter-record `calldatacopy` effect** — `bodyL`'s `calldatacopy(m+106, 47+index*22, 22)`. -/
+theorem calldatacopy2_eff (fuel m : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.exec (fuel + 31)
+      (Stmt.ExprStmtCall (bc .CALLDATACOPY [litN (m+106),
+        bc .ADD [litN 47, bc .MUL [V IDX, litN 22]], litN 22])) none
+      (EvmYul.Yul.State.Ok ss vs)
+      = .ok ((EvmYul.Yul.State.Ok ss vs).setSharedState
+          ((EvmYul.Yul.State.Ok ss vs).toSharedState.calldatacopy (UInt256.ofNat (m+106))
+            (EvmYul.UInt256.add (UInt256.ofNat 47)
+              (EvmYul.UInt256.mul ((EvmYul.Yul.State.Ok ss vs)[IDX]!) (UInt256.ofNat 22)))
+            (UInt256.ofNat 22))) := by
+  exact calldatacopy_eff (fuel+29) (EvmYul.Yul.State.Ok ss vs) (litN (m+106))
+    (bc .ADD [litN 47, bc .MUL [V IDX, litN 22]]) (litN 22) _ _ _
+    (hargs_cdc2 fuel m ss vs)
+
+#print axioms calldatacopy1_eff
+#print axioms calldatacopy2_eff
 #print axioms eval_sig_offset
 #print axioms getElem_Ok
 #print axioms ge_self
