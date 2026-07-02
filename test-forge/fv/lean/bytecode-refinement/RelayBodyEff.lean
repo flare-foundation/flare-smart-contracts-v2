@@ -1141,8 +1141,109 @@ theorem loop_accL (NN : Nat) (hN : NN < UInt256.size)
       (by omega) hic hwc
     exact ⟨ss', vs', hexec, hWW⟩
 
+
+-- ===================== THE LITERAL CAPSTONE (brick 38) =====================
+-- Accumulator bridge (accNat = sigLoop weight) + relay_loop_sound_literal: the literal analog of
+-- RelayLoopMemRead.relay_loop_sound, composed from loop_accL (real 17-statement body) + threshold_sound.
+/-- Selected voter indices: signature `k` (of `nSig`) selects voter `sigIdxAt cd sigStart k`. -/
+def idxSel (cd : ByteArray) (sigStart nSig : Nat) : List Nat :=
+  (List.range nSig).map (sigIdxAt cd sigStart)
+
+/-- ℕ partial accumulator: sum of the first `k` selected voters' registered weights. -/
+def accNat (cd : ByteArray) (sigStart nVot : Nat) : Nat → Nat
+  | 0     => 0
+  | k + 1 => accNat cd sigStart nVot k + (weightsOf cd nVot).getD (sigIdxAt cd sigStart k) 0
+
+theorem idxSel_length (cd : ByteArray) (sigStart nSig : Nat) : (idxSel cd sigStart nSig).length = nSig := by
+  simp [idxSel]
+
+/-- `sigLoop` over an append threads its state through the first list, then the second. -/
+theorem sigLoop_append (w : List Nat) (l1 l2 : List Nat) : ∀ (wt nui : Nat),
+    sigLoop w wt nui (l1 ++ l2)
+      = sigLoop w (sigLoop w wt nui l1).1 (sigLoop w wt nui l1).2 l2 := by
+  induction l1 with
+  | nil => intro wt nui; rfl
+  | cons x xs ih => intro wt nui; simp only [List.cons_append, sigLoop]; exact ih _ _
+
+/-- **Accumulator bridge.** The ℕ partial accumulator equals the abstract `sigLoop` accumulated weight
+    over the selected-index list. -/
+theorem accNat_eq_sigLoop (cd : ByteArray) (sigStart nVot NN : Nat) :
+    accNat cd sigStart nVot NN
+      = (sigLoop (weightsOf cd nVot) 0 0 (idxSel cd sigStart NN)).1 := by
+  induction NN with
+  | zero => rfl
+  | succ n ih =>
+    have hrange : idxSel cd sigStart (n + 1)
+        = idxSel cd sigStart n ++ [sigIdxAt cd sigStart n] := by
+      simp [idxSel, List.range_succ, List.map_append]
+    rw [accNat, ih, hrange, sigLoop_append]
+    simp [sigLoop]
+
+theorem val_ofNat_of_lt (n : Nat) (h : n < UInt256.size) : (UInt256.ofNat n).val = n := by
+  show (UInt256.ofNat n).val = n
+  unfold UInt256.ofNat; simp only [Id.run]
+  show n % UInt256.size = n
+  exact Nat.mod_eq_of_lt h
+
+-- ===================== THE LITERAL CAPSTONE =====================
+set_option maxHeartbeats 4000000 in
+/-- **Relay signature loop soundness, on the validated EVM, with the LITERAL 17-statement body.**
+    If the deployed loop — modeled with its *actual* transliterated body `bodyL` executed by EVMYulLean's
+    validated Yul `exec`, iterated by `loop_accL` — completes with a final tally exceeding the threshold,
+    then the TOTAL registered voting weight exceeds the threshold. No voter is double-counted.
+
+    Mirrors `RelayLoopMemRead.relay_loop_sound` but with the genuine loop body (`body_effL`) rather than the
+    abstract masked-read body. The external call remains an **assumption** (OP-1): `hstep` packages, per
+    iteration, exactly what `body_effL` delivers — one turn of `bodyL` preserves the counter and adds the
+    selected voter's registered weight — which is provable from `body_effL` once ecrecover's outcome
+    (`recHypothesis`) and the guard passes (`hvalid`) are supplied. `hvalid` (`ValidRun`) is the
+    strictly-increasing-in-range index discipline (guards passed, no double-count); `hnoovf` is BR-2. -/
+theorem relay_loop_sound_literal
+    (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
+    (hN : NN < UInt256.size)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
+    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
+    (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
+        ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
+          (∀ fuel, EvmYul.Yul.exec (fuel + 130) (Stmt.Block (bodyL m sigStart nVot thr)) none
+              (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (k + 1)))
+    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart NN))
+    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size)
+    (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore)
+    (hexec : EvmYul.Yul.exec (3 * NN + 140)
+        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
+          (EvmYul.Yul.State.Ok ss vs)
+        = .ok (EvmYul.Yul.State.Ok ss' vs'))
+    (haccept : thr < (EvmYul.Yul.State.Ok ss' vs')[WW]!) :
+    thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+  -- 1. run the literal loop induction
+  obtain ⟨ss2, vs2, hexec2, hWW2⟩ :=
+    RelayBodyEff.loop_accL NN hN m sigStart nVot thr
+      (fun k => UInt256.ofNat (accNat cd sigStart nVotN k)) hstep NN 0 ss vs (by omega) hi hw
+  -- 2. reconcile with the accept hypothesis's final state
+  have heq : EvmYul.Yul.State.Ok ss' vs' = EvmYul.Yul.State.Ok ss2 vs2 := by
+    rw [hexec] at hexec2; exact Except.ok.inj hexec2
+  rw [heq, hWW2] at haccept
+  -- 3. accept: thr.val < accNat NN   (UInt256 `<` is `.val <`; ofNat is identity under no-overflow)
+  have h1 : thr.val < (UInt256.ofNat (accNat cd sigStart nVotN NN)).val := haccept
+  have h2 : (UInt256.ofNat (accNat cd sigStart nVotN NN)).val = accNat cd sigStart nVotN NN :=
+    val_ofNat_of_lt _ hnoovf
+  have h3 : thr.val < accNat cd sigStart nVotN NN := by omega
+  -- 4. accNat NN = abstract sigLoop accumulated weight
+  rw [accNat_eq_sigLoop] at h3
+  -- 5. transfer the abstract threshold soundness (no double-count via ValidRun)
+  exact RelayLoopLiteral.threshold_sound (weightsOf cd nVotN) (idxSel cd sigStart NN) thr.val hvalid h3
+
 end LoopLayer
 
+#print axioms relay_loop_sound_literal
+#print axioms accNat_eq_sigLoop
 #print axioms loop_accL
 #print axioms cond_effL
 #print axioms post_effL
