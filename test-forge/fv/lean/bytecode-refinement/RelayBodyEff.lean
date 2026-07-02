@@ -652,6 +652,54 @@ theorem let_ww (G a : Nat) (c : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (
 
 end LetEffects
 
+/-! ## The staticcall/ecrecover seam guard
+
+`if iszero(staticcall(not(0), 1, m, 128, m+64, 32)) { revert }` — the ecrecover call. Its gas argument
+`not(0)` is *not* a literal, so `staticcall_hyp_compose` (which assumes literal args) doesn't apply
+directly; `hargs_staticcall` first evaluates all six arguments (`not(0)` via `step_NOT`, the rest
+literals). `seam_guard_eval` then composes the per-call ecrecover hypothesis `hsc` (from
+`RelayLoopLiteral.recHypothesis .success` — the OP-1/MC-2 modeling) through `eval_primcall` and
+`eval_iszero`: the guard evaluates to `⟨0⟩` (not taken) and threads the state to the post-staticcall
+`s1` (the recovered signer written to `m+64`). This is the seam integrated as a guard peel. -/
+
+section SeamGuard
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral
+
+/-- Argument evaluation for the ecrecover `staticcall` (`not(0)` gas + five literals). -/
+theorem hargs_staticcall (fuel m : Nat) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs (fuel + 30)
+      [litN 32, litN (m+64), litN 128, litN m, litN 1, bc .NOT [litN 0]] none s)
+      = .ok (s, [EvmYul.UInt256.lnot (UInt256.ofNat 0), UInt256.ofNat 1, UInt256.ofNat m,
+                 UInt256.ofNat 128, UInt256.ofNat (m+64), UInt256.ofNat 32]) := by
+  simp [bc, litN, EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail, EvmYul.Yul.eval,
+        EvmYul.Yul.evalPrimCall, EvmYul.Yul.primCall, EvmYul.Yul.head', EvmYul.Yul.cons',
+        EvmYul.Yul.reverse', step_NOT]
+
+/-- **Seam guard.** Given the per-iteration ecrecover hypothesis `hsc` (`staticcall` returns success,
+    copying the recovered word to `m+64`), the guard `iszero(staticcall(...))` evaluates to `⟨0⟩` (not
+    taken), threading the post-call state `s1`. -/
+theorem seam_guard_eval (fuel m : Nat) (s s1 : EvmYul.Yul.State)
+    (hsc : EvmYul.Yul.primCall (fuel+30) s Operation.STATICCALL
+             [EvmYul.UInt256.lnot (UInt256.ofNat 0), UInt256.ofNat 1, UInt256.ofNat m,
+              UInt256.ofNat 128, UInt256.ofNat (m+64), UInt256.ofNat 32] = .ok (s1, [⟨1⟩])) :
+    EvmYul.Yul.eval (fuel + 33)
+      (bc .ISZERO [bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]]) none s
+      = .ok (s1, ⟨0⟩) := by
+  have hstc : EvmYul.Yul.eval (fuel+31)
+      (bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]) none s
+      = .ok (s1, ⟨1⟩) :=
+    RelayLoopLiteral.eval_primcall (fuel+30) Operation.STATICCALL
+      [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32] s s s1
+      [EvmYul.UInt256.lnot (UInt256.ofNat 0), UInt256.ofNat 1, UInt256.ofNat m,
+       UInt256.ofNat 128, UInt256.ofNat (m+64), UInt256.ofNat 32] ⟨1⟩
+      (hargs_staticcall fuel m s) hsc
+  have h := eval_iszero (fuel+29)
+      (bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]) s s1 ⟨1⟩ hstc
+  rw [show EvmYul.UInt256.isZero (⟨1⟩ : EvmYul.UInt256) = ⟨0⟩ from by decide] at h
+  exact h
+
+end SeamGuard
+
 /-! ## The body chaining (`exec_Block_cons_ok` assembly)
 
 The final assembly: peel `bodyL`'s statements one at a time with `exec_Block_cons_ok`, threading the
@@ -777,6 +825,7 @@ theorem body_prefix5 (fuel m sigStart : Nat) (nVot : EvmYul.UInt256) (ss : EvmYu
         rw [show (fuel+38)+1 = ((fuel+37)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ [] _ s3 h5
     _ = _ := RelayLoopLiteral.exec_Block_nil (fuel+37) _
 
+#print axioms RelayBodyEff.seam_guard_eval
 #print axioms body_prefix5
 #print axioms body_prefix3
 #print axioms RelayBodyEff.let_nui
