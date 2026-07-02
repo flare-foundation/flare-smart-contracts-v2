@@ -216,6 +216,25 @@ theorem mload_v_byte (self : EvmYul.MachineState) (src mem : ByteArray) (d : Nat
       RelayWindows.ofNat_toNat' d hd]
   exact vbyte_pure src mem d hsrc hsize
 
+/-! ## The s-value read (the bad-`s` guard)
+
+`if gt(mload(m+96), SECP_HALF) { revert }` reads the signature's `s` word — bytes 33..65 of the blob,
+at `m+96 = (m+32)+64` — as a full 32-bit-word value, and rejects high-`s` malleable signatures. Unlike
+the weight/signer/v reads this needs no mask/shift: it is the raw big-endian value of the `s` window
+(`read_sig_window_s`), which the guard compares against `SECP_HALF`. -/
+
+/-- Interpreter `s`-value read: `mload(m+96)` on the v-slot blob = the big-endian value of the `s` word. -/
+theorem mload_s_value (self : EvmYul.MachineState) (src mem : ByteArray) (d : Nat)
+    (hsrc : src.size = 67)
+    (hmem : self.memory = ByteArray.write src 0 (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 mem d 32) (d+31) 67)
+    (hsize : d + 98 ≤ mem.size) (hd64 : d + 64 < EvmYul.UInt256.size)
+    (h1 : (UInt256.ofNat (d+64)).toNat < self.memory.size)
+    (h2 : ¬ ((UInt256.ofNat (d+64)) ≥ self.activeWords * ⟨32⟩)) :
+    (self.mload (UInt256.ofNat (d+64))).1
+      = UInt256.ofNat (fromByteArrayBigEndian (src.extract 33 65)) := by
+  rw [RelayLoopLiteral.mload_in_range self (UInt256.ofNat (d+64)) h1 h2, hmem,
+      RelayWindows.ofNat_toNat' (d+64) hd64, RelayWindows.read_sig_window_s src mem d hsrc hsize]
+
 end RelayBodyEff
 
 #print axioms RelayBodyEff.voter_weight_pure
@@ -228,3 +247,4 @@ end RelayBodyEff
 #print axioms RelayBodyEff.mload_range_h2
 #print axioms RelayBodyEff.vbyte_pure
 #print axioms RelayBodyEff.mload_v_byte
+#print axioms RelayBodyEff.mload_s_value
