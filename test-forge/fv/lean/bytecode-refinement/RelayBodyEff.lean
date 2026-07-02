@@ -133,6 +133,89 @@ theorem voter_mem_pattern (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarSto
              RelayWindows.ofNat_toNat' 22 (show (22:Nat) < EvmYul.UInt256.size by unfold EvmYul.UInt256.size; omega)]
   rw [RelayWindows.write_from_offset ss.executionEnv.calldata _ q.toNat (m+106) 22 (by omega) hq hdest]
 
+/-! ## Range discharge (the `mload_in_range` side-conditions `h1`/`h2`)
+
+`mload_masked_voter` etc. take the two `lookupMemory` guards as hypotheses. They are not assumptions:
+`h1` (address `< memory.size`) follows from the scratch region being allocated large enough — a genuine
+precondition the contract establishes — and `h2` (address `< activeWords * 32`) follows from the
+memory-expansion accounting `M`: any `mstore`/`calldatacopy` writing `[f, f+l)` advances `activeWords`
+to at least `⌈(f+l)/32⌉`, so every address below `f+l` is covered. `M_lb_gen` is the general lower
+bound; `mload_range_h1`/`h2` package the two discharges (reusing `DataLayer`'s `le_toNat`/`mul32_toNat`
+and the no-overflow bound `hM32`, exactly as `mstore_lookupMemory` does). -/
+
+/-- Memory-expansion lower bound (any positive write length): a write of `[f, f+l)` leaves every
+    address below `f+l` inside `M s f l * 32`. -/
+theorem M_lb_gen (s f l a : Nat) (hl : 0 < l) (ha : a < f + l) :
+    a < EvmYul.MachineState.M s f l * 32 := by
+  have hM : EvmYul.MachineState.M s f l = max s ((f + l + 31) / 32) := by
+    obtain ⟨l', rfl⟩ := Nat.exists_eq_succ_of_ne_zero (Nat.pos_iff_ne_zero.mp hl)
+    rfl
+  rw [hM]; omega
+
+/-- Size guard `h1` from the scratch-region size precondition. -/
+theorem mload_range_h1 (self : EvmYul.MachineState) (a : Nat)
+    (ha256 : a < EvmYul.UInt256.size) (hmem : a < self.memory.size) :
+    (UInt256.ofNat a).toNat < self.memory.size := by
+  rw [RelayWindows.ofNat_toNat' a ha256]; exact hmem
+
+/-- ActiveWords guard `h2` from the memory-expansion bump (`activeWords = ofNat (M s f l)`, no overflow,
+    address below the written region's end). -/
+theorem mload_range_h2 (self : EvmYul.MachineState) (s f l a : Nat) (hl : 0 < l) (ha : a < f + l)
+    (haw : self.activeWords = UInt256.ofNat (EvmYul.MachineState.M s f l))
+    (hM32 : EvmYul.MachineState.M s f l * 32 < EvmYul.UInt256.size)
+    (ha256 : a < EvmYul.UInt256.size) :
+    ¬ ((UInt256.ofNat a) ≥ self.activeWords * (⟨32⟩ : UInt256)) := by
+  rw [ge_iff_le, RelayDataLayer.le_toNat, haw, RelayDataLayer.mul32_toNat _ hM32,
+      RelayWindows.ofNat_toNat' a ha256]
+  exact Nat.not_le.mpr (M_lb_gen s f l a hl ha)
+
+/-! ## The v-byte window (interpreter-level)
+
+The `let v := and(mload(m+32), 0xff)` read of the deployed body. The `v`-slot at `m+32` is cleared,
+then the 67-byte signature blob is copied at `m+63 = (m+32)+31`; the read at `m+32` masked with `0xff`
+is the blob's first byte (`v`). Same recipe as the voter reads (window read ∘ decode ∘ `mload_in_range`);
+proved by the parallel worker against `read_zero_then_write_at31` + a 1-byte `mask8` decode. -/
+
+/-- Pure v-byte read: `and(read, 0xff)` of the cleared→blob-written window = the blob's first byte. -/
+theorem vbyte_pure (src mem : ByteArray) (d : Nat) (hsrc : src.size = 67) (hmem : d + 98 ≤ mem.size) :
+    (UInt256.land (UInt256.ofNat (fromByteArrayBigEndian (ByteArray.readWithPadding
+        (ByteArray.write src 0 (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 mem d 32) (d+31) 67) d 32)))
+      (⟨0xff⟩ : UInt256)).toNat
+      = fromBytesBigEndian ((src.extract 0 1).data.toList) := by
+  rw [RelayWindows.read_zero_then_write_at31 src mem d hsrc hmem]
+  have window_val31 : fromByteArrayBigEndian ((⟨Array.replicate 31 0⟩ : ByteArray) ++ src.extract 0 1)
+      = fromBytesBigEndian ((src.extract 0 1).data.toList) := by
+    unfold fromByteArrayBigEndian
+    rw [RelayWindows.toList_data, RelayWindows.append_data,
+        show ((⟨Array.replicate 31 0⟩ : ByteArray)).data = Array.replicate 31 (0 : UInt8) from rfl,
+        Array.toList_append,
+        show (Array.replicate 31 (0 : UInt8)).toList = List.replicate 31 0 from rfl,
+        RelayWindows.fromBytesBigEndian_replicate_append]
+  have hx1 : (src.extract 0 1).size = 1 := RelayWindows.extract_size' src 0 1 (by omega) (by omega)
+  have hlen : ((src.extract 0 1).data.toList).length = 1 := by
+    rw [Array.length_toList]; exact hx1
+  have hval : fromBytesBigEndian ((src.extract 0 1).data.toList) < 2 ^ 8 := by
+    have h := RelayWindows.fromBytesBigEndian_lt ((src.extract 0 1).data.toList)
+    rw [hlen, show 8 * 1 = 8 from by norm_num] at h
+    exact h
+  have hlt : fromBytesBigEndian ((src.extract 0 1).data.toList) < UInt256.size :=
+    lt_trans hval (by unfold UInt256.size; norm_num)
+  rw [window_val31, RelayWindows.mask8_toNat, RelayWindows.ofNat_toNat' _ hlt]
+  exact Nat.mod_eq_of_lt hval
+
+/-- Interpreter v-byte read: `and(mload(m+32), 0xff)` = the blob's first byte. -/
+theorem mload_v_byte (self : EvmYul.MachineState) (src mem : ByteArray) (d : Nat)
+    (hsrc : src.size = 67)
+    (hmem : self.memory = ByteArray.write src 0 (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 mem d 32) (d+31) 67)
+    (hsize : d + 98 ≤ mem.size) (hd : d < UInt256.size)
+    (h1 : (UInt256.ofNat d).toNat < self.memory.size)
+    (h2 : ¬ ((UInt256.ofNat d) ≥ self.activeWords * ⟨32⟩)) :
+    (UInt256.land (self.mload (UInt256.ofNat d)).1 (⟨0xff⟩ : UInt256)).toNat
+      = fromBytesBigEndian ((src.extract 0 1).data.toList) := by
+  rw [RelayLoopLiteral.mload_in_range self (UInt256.ofNat d) h1 h2, hmem,
+      RelayWindows.ofNat_toNat' d hd]
+  exact vbyte_pure src mem d hsrc hsize
+
 end RelayBodyEff
 
 #print axioms RelayBodyEff.voter_weight_pure
@@ -140,3 +223,8 @@ end RelayBodyEff
 #print axioms RelayBodyEff.mload_masked_voter
 #print axioms RelayBodyEff.mload_shr_voter
 #print axioms RelayBodyEff.voter_mem_pattern
+#print axioms RelayBodyEff.M_lb_gen
+#print axioms RelayBodyEff.mload_range_h1
+#print axioms RelayBodyEff.mload_range_h2
+#print axioms RelayBodyEff.vbyte_pure
+#print axioms RelayBodyEff.mload_v_byte
