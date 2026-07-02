@@ -1185,6 +1185,63 @@ theorem val_ofNat_of_lt (n : Nat) (h : n < UInt256.size) : (UInt256.ofNat n).val
   show n % UInt256.size = n
   exact Nat.mod_eq_of_lt h
 
+-- ===================== accounting extraction (brick 39) =====================
+-- The accounting half of the per-iteration `hstep`: body_effL's output state s16 carries exactly the
+-- advanced accumulator (weight += selected voter's registered weight, via mload_masked_voter = hcorr)
+-- and preserves the loop counter i. Machine-checks that the literal body computes the right tally.
+theorem ofNat_add (x y : Nat) :
+    UInt256.add (UInt256.ofNat x) (UInt256.ofNat y) = UInt256.ofNat (x + y) := by
+  unfold UInt256.add UInt256.ofNat; simp only [Id.run]; congr 1; apply Fin.ext
+  simp [Fin.val_add, Fin.val_ofNat, Nat.add_mod]
+
+-- Extraction helpers: read a just-inserted / an untouched key through a `setMachineState` wrapper.
+-- Stated with an ABSTRACT machine-state `M` so applying them never forces `whnf` on the (large) mload term.
+theorem ins_setMS_self (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (M : EvmYul.MachineState) (k : EvmYul.Identifier) (v : EvmYul.UInt256) :
+    (((EvmYul.Yul.State.Ok ss vs).setMachineState M).insert k v)[k]! = v :=
+  RelayLoopLiteral.ge_self _ _ k v
+
+theorem ins_setMS_ne (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (M : EvmYul.MachineState) (k j : EvmYul.Identifier) (v : EvmYul.UInt256) (h : j ≠ k) :
+    (((EvmYul.Yul.State.Ok ss vs).setMachineState M).insert k v)[j]! = (EvmYul.Yul.State.Ok ss vs)[j]! := by
+  have h1 : (((EvmYul.Yul.State.Ok ss vs).setMachineState M).insert k v)[j]!
+              = ((EvmYul.Yul.State.Ok ss vs).setMachineState M)[j]! :=
+    RelayLoopLiteral.ge_ne _ _ k j v h
+  rw [h1]; rfl
+
+set_option maxHeartbeats 4000000 in
+/-- **Accounting extraction (WW).** `body_effL`'s output state `s16` carries exactly the advanced
+    accumulator: given (a) the accumulator entering the WW-update is `accNat k` (WW untouched by the body
+    until statement 16 — the ecrecover call and guards do not write `weight`), and (b) the masked weight
+    read is the selected voter's registered weight (`mload_masked_voter` = hcorr, DERIVED), then
+    `s16[weight]! = accNat (k+1)`. This is the machine-checked "the body adds the right weight" — the
+    accounting half of the per-iteration `hstep` the capstone assumes. -/
+theorem s16_ww_advance (m : Nat) (ss15 : EvmYul.SharedState .Yul) (vs15 : EvmYul.Yul.VarStore)
+    (cd : ByteArray) (sigStart nVotN k : Nat)
+    (hWW : (EvmYul.Yul.State.Ok ss15 vs15)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k))
+    (hcorr : EvmYul.UInt256.land ((EvmYul.Yul.State.Ok ss15 vs15).toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535)
+               = UInt256.ofNat (voterWeightAt cd (sigIdxAt cd sigStart k)))
+    (hidxlt : sigIdxAt cd sigStart k < nVotN) :
+    (((EvmYul.Yul.State.Ok ss15 vs15).setMachineState ((EvmYul.Yul.State.Ok ss15 vs15).toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2).insert WW
+        (EvmYul.UInt256.add ((EvmYul.Yul.State.Ok ss15 vs15)[WW]!)
+          (EvmYul.UInt256.land ((EvmYul.Yul.State.Ok ss15 vs15).toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535))))[WW]!
+      = UInt256.ofNat (accNat cd sigStart nVotN (k + 1)) := by
+  have hacc : accNat cd sigStart nVotN (k + 1)
+                = accNat cd sigStart nVotN k + voterWeightAt cd (sigIdxAt cd sigStart k) := by
+    rw [accNat, RelayLoopLiteral.weightsOf_getD cd nVotN (sigIdxAt cd sigStart k) hidxlt]
+  rw [ins_setMS_self, hWW, hcorr, ofNat_add, hacc]
+
+set_option maxHeartbeats 4000000 in
+/-- **Counter preserved (II).** `body_effL`'s output `s16` keeps the loop counter `i` (the body writes
+    only `index`/`nextUnusedIndex`/`v`/`weight`, never `i`). -/
+theorem s16_ii_preserved (m : Nat) (ss15 : EvmYul.SharedState .Yul) (vs15 : EvmYul.Yul.VarStore) (k : Nat)
+    (hII : (EvmYul.Yul.State.Ok ss15 vs15)[II]! = UInt256.ofNat k) :
+    (((EvmYul.Yul.State.Ok ss15 vs15).setMachineState ((EvmYul.Yul.State.Ok ss15 vs15).toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2).insert WW
+        (EvmYul.UInt256.add ((EvmYul.Yul.State.Ok ss15 vs15)[WW]!)
+          (EvmYul.UInt256.land ((EvmYul.Yul.State.Ok ss15 vs15).toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535))))[II]!
+      = UInt256.ofNat k := by
+  rw [ins_setMS_ne _ _ _ WW II _ (by decide), hII]
+
 -- ===================== THE LITERAL CAPSTONE =====================
 set_option maxHeartbeats 4000000 in
 /-- **Relay signature loop soundness, on the validated EVM, with the LITERAL 17-statement body.**
@@ -1243,6 +1300,8 @@ theorem relay_loop_sound_literal
 end LoopLayer
 
 #print axioms relay_loop_sound_literal
+#print axioms s16_ww_advance
+#print axioms s16_ii_preserved
 #print axioms accNat_eq_sigLoop
 #print axioms loop_accL
 #print axioms cond_effL
