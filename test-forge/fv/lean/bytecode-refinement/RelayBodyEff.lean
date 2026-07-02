@@ -299,6 +299,34 @@ theorem mload_shr_index (self : EvmYul.MachineState) (src mem : ByteArray) (d : 
       RelayWindows.ofNat_toNat' (d+96) hd96]
   exact index_pure src mem d hsrc hsize
 
+/-! ## The recovered-signer read (ecrecover output — the seam)
+
+`ecrecover` runs via `staticcall(not(0), 1, m, 128, m+64, 32)`, whose *output* the seam
+(`RelayLoopLiteral.recSuccessShared`) models as a `copySlice` of the recovered 32-byte word `ret` into
+memory at `m+64`. The subsequent guards read it back: `iszero(mload(m+64))` (zero-signer reject) and
+`eq(mload(m+64), shr16(mload(m+96)))` (recovered vs. registered signer). `mload_recovered` decodes that
+read: the `copySlice` output is a `write` (`write_eq_copySlice_gen`), so the read returns `ret`
+(`read_inside_write`), i.e. the recovered address `ofNat (fromByteArrayBigEndian ret)`. This is the only
+read whose source is `staticcall` output rather than `calldatacopy`. -/
+
+/-- Interpreter recovered-signer read: `mload(m+64)` after a successful ecrecover (memory = `ret` copied
+    at `d`) = the recovered address value. -/
+theorem mload_recovered (self : EvmYul.MachineState) (ret mem : ByteArray) (d : Nat)
+    (hret : ret.size = 32)
+    (hmem : self.memory = ret.copySlice 0 mem d 32)
+    (hsize : d + 32 ≤ mem.size) (hd : d < EvmYul.UInt256.size)
+    (h1 : (UInt256.ofNat d).toNat < self.memory.size)
+    (h2 : ¬ ((UInt256.ofNat d) ≥ self.activeWords * ⟨32⟩)) :
+    (self.mload (UInt256.ofNat d)).1 = UInt256.ofNat (fromByteArrayBigEndian ret) := by
+  rw [RelayLoopLiteral.mload_in_range self (UInt256.ofNat d) h1 h2, hmem,
+      RelayWindows.ofNat_toNat' d hd,
+      ← RelayWindows.write_eq_copySlice_gen ret mem d 32 (by norm_num) hret hsize,
+      RelayWindows.read_inside_write ret mem d 32 d hret hsize (le_refl d) (by omega),
+      Nat.sub_self, Nat.zero_add,
+      show ret.extract 0 32 = ret from by
+        apply ByteArray.ext; rw [RelayWindows.extract_data_gen ret 0 32 (by omega)]
+        exact Array.extract_eq_self_iff.mpr (Or.inr ⟨rfl, by rw [show ret.data.size = 32 from hret]⟩)]
+
 end RelayBodyEff
 
 #print axioms RelayBodyEff.voter_weight_pure
@@ -314,3 +342,4 @@ end RelayBodyEff
 #print axioms RelayBodyEff.mload_s_value
 #print axioms RelayBodyEff.index_pure
 #print axioms RelayBodyEff.mload_shr_index
+#print axioms RelayBodyEff.mload_recovered
