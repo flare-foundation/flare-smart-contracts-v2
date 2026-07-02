@@ -745,6 +745,43 @@ theorem eval_and_mload_lit (g : Nat) (a c : EvmYul.UInt256) (s : EvmYul.Yul.Stat
       (eval_lit (g+5) c s) (eval_mload_lit g a s))
     (primCall_AND (g+6) _ _ _)
 
+/-! ## Variable-store access (reading the Yul locals after `Let` bindings)
+
+`bodyL` reads its locals with `V x` (= `eval_var` = `s[x]!`), and each `Let`/`post` step rebinds one
+with `State.insert`. These lemmas — the interpreter-independent facts about the `Finmap` var-store,
+shared with `RelayLoopMemRead` — let the body composition track each local across the bindings:
+`getElem_Ok` bridges `getElem!` to `lookup!`, `ge_self`/`ge_ne` read a just-inserted / an untouched key.
+(`setMachineState_self` is the no-op `setMachineState` used to fold the `mload` state back after a read
+whose activeWords bump is separately accounted.) -/
+
+/-- Restoring the current machine state is a no-op. -/
+theorem setMachineState_self (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    (EvmYul.Yul.State.Ok ss vs).setMachineState ss.toMachineState = EvmYul.Yul.State.Ok ss vs := by
+  unfold EvmYul.Yul.State.setMachineState; rfl
+
+/-- `getElem!` on an `Ok` state is `lookup!`. -/
+theorem getElem_Ok (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) (id : EvmYul.Identifier) :
+    (EvmYul.Yul.State.Ok ss vs)[id]! = EvmYul.Yul.State.lookup! id (EvmYul.Yul.State.Ok ss vs) := by
+  simp only [getElem!, decidableGetElem?, EvmYul.Yul.State.store]
+  by_cases h : id ∈ vs
+  · simp only [dif_pos h]; rfl
+  · simp only [dif_neg h, EvmYul.Yul.State.lookup!, Finmap.lookup_eq_none.mpr h]; rfl
+
+/-- Reading a just-bound variable. -/
+theorem ge_self (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) (k : EvmYul.Identifier)
+    (v : EvmYul.UInt256) :
+    (EvmYul.Yul.State.Ok ss (vs.insert k v))[k]! = v := by
+  rw [getElem_Ok]; simp [EvmYul.Yul.State.lookup!, Finmap.lookup_insert]
+
+/-- Reading a variable untouched by the last binding. -/
+theorem ge_ne (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) (k j : EvmYul.Identifier)
+    (v : EvmYul.UInt256) (h : j ≠ k) :
+    (EvmYul.Yul.State.Ok ss (vs.insert k v))[j]! = (EvmYul.Yul.State.Ok ss vs)[j]! := by
+  rw [getElem_Ok, getElem_Ok]; simp [EvmYul.Yul.State.lookup!, Finmap.lookup_insert_of_ne _ h]
+
+#print axioms getElem_Ok
+#print axioms ge_self
+#print axioms ge_ne
 #print axioms eval_shr_lit_mload
 #print axioms eval_and_mload_lit
 #print axioms eval_primcall
