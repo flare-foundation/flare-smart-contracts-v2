@@ -327,6 +327,40 @@ theorem mload_recovered (self : EvmYul.MachineState) (ret mem : ByteArray) (d : 
         apply ByteArray.ext; rw [RelayWindows.extract_data_gen ret 0 32 (by omega)]
         exact Array.extract_eq_self_iff.mpr (Or.inr ⟨rfl, by rw [show ret.data.size = 32 from hret]⟩)]
 
+/-! ## Guard-condition evaluation (`iszero` wrapping)
+
+Five of `bodyL`'s guards are `iszero(…)` (bad-v, ecrecover error, bad returndatasize, zero-signer,
+wrong-signature). `eval_iszero` lifts the evaluation of the inner expression `e` (which may change the
+state — the `mload`/`staticcall` guards do) through the `iszero` primitive: `iszero(e)` evaluates to
+`isZero v` in the post-`e` state. A guard *passes* (does not revert) exactly when this is `⟨0⟩`, i.e. the
+inner value is nonzero — which `exec_If_false` then turns into a no-op advance. `primCall_ISZERO'`
+re-proves the (file-private in `RelayLoopLiteral`) `ISZERO` primcall via the public `step` layer;
+`evalArgs_rev_single` is the general single-argument `evalArgs`. -/
+
+open EvmYul.Yul EvmYul.Yul.Ast in
+/-- `ISZERO` primitive call (public re-proof of `RelayLoopLiteral`'s private one). -/
+theorem primCall_ISZERO' (f : Nat) (s : EvmYul.Yul.State) (v : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.ISZERO [v] = .ok (s, [EvmYul.UInt256.isZero v]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+
+open EvmYul.Yul EvmYul.Yul.Ast in
+/-- Evaluate a single argument (possibly state-changing). -/
+theorem evalArgs_rev_single (f : Nat) (e : Expr) (s s' : EvmYul.Yul.State) (v : EvmYul.UInt256)
+    (he : EvmYul.Yul.eval (f + 2) e none s = .ok (s', v)) :
+    EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs (f + 3) [e] none s) = .ok (s', [v]) := by
+  simp only [EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail, he, EvmYul.Yul.cons', EvmYul.Yul.reverse',
+             List.reverse_cons, List.reverse_nil, List.nil_append]
+
+open EvmYul.Yul EvmYul.Yul.Ast in
+/-- **`iszero(e)` eval.** If `e` evaluates to `v` (state `→ s'`), then `iszero(e)` evaluates to
+    `isZero v` in `s'`. A guard `if iszero(e) {revert}` is thus not taken iff `v ≠ 0`. -/
+theorem eval_iszero (f : Nat) (e : Expr) (s s' : EvmYul.Yul.State) (v : EvmYul.UInt256)
+    (he : EvmYul.Yul.eval (f + 2) e none s = .ok (s', v)) :
+    EvmYul.Yul.eval (f + 4) (Expr.Call (Sum.inl Operation.ISZERO) [e]) none s
+      = .ok (s', EvmYul.UInt256.isZero v) := by
+  exact RelayLoopLiteral.eval_primcall (f+3) Operation.ISZERO [e] s s' s' [v] _
+    (evalArgs_rev_single f e s s' v he) (primCall_ISZERO' (f+2) s' v)
+
 end RelayBodyEff
 
 #print axioms RelayBodyEff.voter_weight_pure
@@ -343,3 +377,4 @@ end RelayBodyEff
 #print axioms RelayBodyEff.index_pure
 #print axioms RelayBodyEff.mload_shr_index
 #print axioms RelayBodyEff.mload_recovered
+#print axioms RelayBodyEff.eval_iszero
