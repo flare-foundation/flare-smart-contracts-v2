@@ -418,6 +418,123 @@ theorem eval_range_cond (f : Nat) (nVot : EvmYul.UInt256) (ss : EvmYul.SharedSta
       (RelayLoopLiteral.eval_add_var_lit f IDX (UInt256.ofNat 1) (EvmYul.Yul.State.Ok ss vs)))
     (primCall_GT' (f+8) _ _ _)
 
+/-! ## The remaining guard conditions
+
+Every other revert-guard of `bodyL`, evaluated to its decision value by the same recipe. `primCall_LT'`/
+`_EQ'`/`_OR'` are public re-proofs (the `RelayLoopLiteral` ones are file-private). The order guard is a
+pure two-variable compare; the bad-s guard is `gt` of a state-changing `mload`; the returndatasize and
+zero-signer guards are `iszero` of the seam readback; the bad-v guard is the depth-4
+`iszero(or(eq,eq))`. The wrong-signature guard (15) and the staticcall guard (10, via
+`staticcall_hyp_compose`) are the two remaining, tied to the seam. -/
+
+section MoreGuards
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral
+
+/-- `LT` primitive call (public re-proof). -/
+theorem primCall_LT' (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.LT [a,b] = .ok (s, [EvmYul.UInt256.lt a b]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+/-- `EQ` primitive call (public re-proof). -/
+theorem primCall_EQ' (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.EQ [a,b] = .ok (s, [EvmYul.UInt256.eq a b]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+/-- `OR` primitive call (public re-proof). -/
+theorem primCall_OR' (f : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.OR [a,b] = .ok (s, [EvmYul.UInt256.lor a b]) := by
+  unfold EvmYul.Yul.primCall; rw [if_neg (fun h => absurd h.2 (by decide))]; rfl
+
+/-- **Order guard.** `lt(index, nextUnusedIndex)` → the comparison value (state unchanged);
+    not taken iff `index ≥ nextUnusedIndex` (the strict-increase discipline). -/
+theorem eval_order_cond (f : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.eval (f + 6) (bc .LT [V IDX, V NUI]) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok (EvmYul.Yul.State.Ok ss vs,
+             EvmYul.UInt256.lt ((EvmYul.Yul.State.Ok ss vs)[IDX]!) ((EvmYul.Yul.State.Ok ss vs)[NUI]!)) := by
+  refine RelayLoopLiteral.eval_primcall (f+5) Operation.LT [V IDX, V NUI]
+    (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+    [(EvmYul.Yul.State.Ok ss vs)[IDX]!, (EvmYul.Yul.State.Ok ss vs)[NUI]!] _
+    (RelayLoopLiteral.evalArgs_rev_pair f (V IDX) (V NUI)
+      (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+      ((EvmYul.Yul.State.Ok ss vs)[IDX]!) ((EvmYul.Yul.State.Ok ss vs)[NUI]!)
+      (RelayLoopLiteral.eval_var (f+3) NUI (EvmYul.Yul.State.Ok ss vs))
+      (RelayLoopLiteral.eval_var (f+1) IDX (EvmYul.Yul.State.Ok ss vs)))
+    (primCall_LT' (f+4) _ _ _)
+
+/-- **Bad-s guard** (generic `gt(mload(a), c)`). `gt` of a state-changing `mload` and a literal;
+    for `a = m+96`, `c = SECP_HALF` this is the low-`s` malleability check. -/
+theorem eval_gt_mload_lit (g : Nat) (a c : EvmYul.UInt256) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.eval (g + 8) (bc .GT [bc .MLOAD [Expr.Lit a], Expr.Lit c]) none s
+      = .ok (s.setMachineState (s.toSharedState.toMachineState.mload a).2,
+             EvmYul.UInt256.gt (s.toSharedState.toMachineState.mload a).1 c) := by
+  refine RelayLoopLiteral.eval_primcall (g+7) Operation.GT
+    [bc .MLOAD [Expr.Lit a], Expr.Lit c] s
+    (s.setMachineState (s.toSharedState.toMachineState.mload a).2)
+    (s.setMachineState (s.toSharedState.toMachineState.mload a).2)
+    [(s.toSharedState.toMachineState.mload a).1, c] _
+    (RelayLoopLiteral.evalArgs_rev_pair (g+2) (bc .MLOAD [Expr.Lit a]) (Expr.Lit c)
+      s s (s.setMachineState (s.toSharedState.toMachineState.mload a).2)
+      (s.toSharedState.toMachineState.mload a).1 c
+      (RelayLoopLiteral.eval_lit (g+5) c s) (RelayLoopLiteral.eval_mload_lit g a s))
+    (primCall_GT' (g+6) _ _ _)
+
+/-- **Returndatasize guard.** `iszero(eq(returndatasize(), 32))` — passes iff the ecrecover call
+    returned exactly 32 bytes. -/
+theorem eval_g11 (f : Nat) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.eval (f + 8) (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) none s
+      = .ok (s, EvmYul.UInt256.isZero (EvmYul.UInt256.eq (.ofNat s.toMachineState.returnData.size) ⟨32⟩)) := by
+  exact eval_iszero (f+4) (bc .EQ [bc .RETURNDATASIZE [], litN 32]) s s
+    (EvmYul.UInt256.eq (.ofNat s.toMachineState.returnData.size) ⟨32⟩)
+    (RelayLoopLiteral.returndatasize_eq32_eval f s)
+
+/-- **Zero-signer guard.** `iszero(mload(m+64))` — passes iff the recovered signer word is nonzero. -/
+theorem eval_g12 (f a : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.eval (f + 6) (bc .ISZERO [bc .MLOAD [litN a]]) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok ((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2,
+             EvmYul.UInt256.isZero ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1) := by
+  exact eval_iszero (f+2) (bc .MLOAD [litN a]) (EvmYul.Yul.State.Ok ss vs)
+    ((EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).2)
+    ((EvmYul.Yul.State.Ok ss vs).toSharedState.toMachineState.mload (UInt256.ofNat a)).1
+    (RelayLoopLiteral.eval_mload_lit f (UInt256.ofNat a) (EvmYul.Yul.State.Ok ss vs))
+
+/-- `eq(V x, c)`, pure (a leaf for the bad-v guard). -/
+theorem eval_eq_var_lit (f : Nat) (x : EvmYul.Identifier) (c : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.eval (f + 6) (bc .EQ [V x, Expr.Lit c]) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok (EvmYul.Yul.State.Ok ss vs, EvmYul.UInt256.eq ((EvmYul.Yul.State.Ok ss vs)[x]!) c) := by
+  exact RelayLoopLiteral.eval_primcall (f+5) Operation.EQ [V x, Expr.Lit c]
+    (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+    [(EvmYul.Yul.State.Ok ss vs)[x]!, c] _
+    (RelayLoopLiteral.evalArgs_rev_pair f (V x) (Expr.Lit c)
+      (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+      ((EvmYul.Yul.State.Ok ss vs)[x]!) c
+      (RelayLoopLiteral.eval_lit (f+3) c _) (RelayLoopLiteral.eval_var (f+1) x _))
+    (primCall_EQ' (f+4) _ _ _)
+
+/-- `or(eq(V x,c1), eq(V x,c2))`, pure. -/
+theorem eval_or_two_eq (f : Nat) (x : EvmYul.Identifier) (c1 c2 : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.eval (f + 10) (bc .OR [bc .EQ [V x, Expr.Lit c1], bc .EQ [V x, Expr.Lit c2]]) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok (EvmYul.Yul.State.Ok ss vs,
+             EvmYul.UInt256.lor (EvmYul.UInt256.eq ((EvmYul.Yul.State.Ok ss vs)[x]!) c1)
+                                (EvmYul.UInt256.eq ((EvmYul.Yul.State.Ok ss vs)[x]!) c2)) := by
+  exact RelayLoopLiteral.eval_primcall (f+9) Operation.OR
+    [bc .EQ [V x, Expr.Lit c1], bc .EQ [V x, Expr.Lit c2]]
+    (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+    [EvmYul.UInt256.eq ((EvmYul.Yul.State.Ok ss vs)[x]!) c1, EvmYul.UInt256.eq ((EvmYul.Yul.State.Ok ss vs)[x]!) c2] _
+    (RelayLoopLiteral.evalArgs_rev_pair (f+4) (bc .EQ [V x, Expr.Lit c1]) (bc .EQ [V x, Expr.Lit c2])
+      (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+      (EvmYul.UInt256.eq ((EvmYul.Yul.State.Ok ss vs)[x]!) c1) (EvmYul.UInt256.eq ((EvmYul.Yul.State.Ok ss vs)[x]!) c2)
+      (eval_eq_var_lit (f+2) x c2 ss vs) (eval_eq_var_lit f x c1 ss vs))
+    (primCall_OR' (f+8) _ _ _)
+
+/-- **Bad-v guard.** `iszero(or(eq(v,27), eq(v,28)))` — passes iff `v ∈ {27, 28}` (a valid recovery id). -/
+theorem eval_badv_cond (f : Nat) (x : EvmYul.Identifier) (c1 c2 : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.eval (f + 12) (bc .ISZERO [bc .OR [bc .EQ [V x, Expr.Lit c1], bc .EQ [V x, Expr.Lit c2]]]) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok (EvmYul.Yul.State.Ok ss vs,
+             EvmYul.UInt256.isZero (EvmYul.UInt256.lor (EvmYul.UInt256.eq ((EvmYul.Yul.State.Ok ss vs)[x]!) c1)
+                                (EvmYul.UInt256.eq ((EvmYul.Yul.State.Ok ss vs)[x]!) c2))) := by
+  exact eval_iszero (f+8) (bc .OR [bc .EQ [V x, Expr.Lit c1], bc .EQ [V x, Expr.Lit c2]])
+    (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) _ (eval_or_two_eq f x c1 c2 ss vs)
+
+end MoreGuards
+
 end RelayBodyEff
 
 #print axioms RelayBodyEff.voter_weight_pure
@@ -437,3 +554,8 @@ end RelayBodyEff
 #print axioms RelayBodyEff.mload_recovered
 #print axioms RelayBodyEff.eval_iszero
 #print axioms RelayBodyEff.eval_range_cond
+#print axioms RelayBodyEff.eval_order_cond
+#print axioms RelayBodyEff.eval_gt_mload_lit
+#print axioms RelayBodyEff.eval_g11
+#print axioms RelayBodyEff.eval_g12
+#print axioms RelayBodyEff.eval_badv_cond
