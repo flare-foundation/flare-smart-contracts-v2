@@ -868,6 +868,27 @@ theorem calldatacopy2_eff (fuel m : Nat) (ss : EvmYul.SharedState .Yul) (vs : Ev
     (bc .ADD [litN 47, bc .MUL [V IDX, litN 22]]) (litN 22) _ _ _
     (hargs_cdc2 fuel m ss vs)
 
+/-! ## Interpreter `mload` in range → `readWithPadding` (the activeWords/size gate)
+
+The final interpreter-semantics bridge: `MachineState.mload` returns `⟨0⟩` when the address is past the
+memory size *or* past `activeWords * 32` (the EVM memory-expansion frontier), and otherwise reads
+`readWithPadding addr 32` and decodes it big-endian. In `bodyL` every `mload` slot is covered — each
+scratch slot lies within the region grown by the preceding `mstore`/`calldatacopy` (whose `M` update
+advances `activeWords`) and below `memory.size` — so the read always takes the decode branch. This lemma
+packages that branch; the two range side-conditions are discharged from the `activeWords` bookkeeping at
+the call sites. It is the join point between the interpreter's memory model and the pure
+`readWithPadding` window lemmas of `RelayLoopWindows`. -/
+
+/-- In-range interpreter `mload`: value = big-endian decode of the 32-byte `readWithPadding`. -/
+theorem mload_in_range (self : EvmYul.MachineState) (addr : EvmYul.UInt256)
+    (h1 : addr.toNat < self.memory.size) (h2 : ¬ (addr ≥ self.activeWords * ⟨32⟩)) :
+    (self.mload addr).1
+      = UInt256.ofNat (fromByteArrayBigEndian (self.memory.readWithPadding addr.toNat 32)) := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  simp only [ge_iff_le, Nat.not_le] at *
+  rw [if_neg (by push_neg; exact ⟨h1, h2⟩)]
+
+#print axioms mload_in_range
 #print axioms calldatacopy1_eff
 #print axioms calldatacopy2_eff
 #print axioms eval_sig_offset
