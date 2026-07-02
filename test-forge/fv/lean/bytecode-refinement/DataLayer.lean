@@ -381,6 +381,59 @@ theorem weight_read (ms : MachineState) (slot w : UInt256)
     UInt256.land ((ms.mstore slot w).mload slot).1 (⟨0xffff⟩ : UInt256) = w := by
   rw [mstore_mload ms slot w hmem hM32]; exact mask16_of_lt w hw
 
+/-! ## The `mstore(slot, 0)` zero-init source (for the literal loop-body model)
+
+The deployed loop precedes each scratch-slot `calldatacopy` with `mstore(slot, 0)` to clear the word,
+so that `and(mload(slot), 0xffff)` (weight) and `shr(16, mload(slot))` (signer) see zeros in the
+high, uncopied bytes rather than stale data from a previous iteration. The window lemmas in
+`RelayLoopWindows` (`read_zero_then_write_*`, `signer_of_window`) model that clear as a write of the
+literal source `⟨Array.replicate 32 0⟩`. The interpreter, however, writes `(UInt256.ofNat 0).toByteArray`
+(what `MachineState.mstore` stores for the Yul literal `0`). `mstore_zero_source` reconciles the two. -/
+
+/-- **Base-256 uniqueness at zero.** A little-endian byte list decodes to `0` iff it is all zeros
+    (each digit of a base-`2^8` expansion of `0` must vanish). -/
+theorem fromBytes'_eq_zero (l : List UInt8) (h : fromBytes' l = 0) :
+    l = List.replicate l.length 0 := by
+  induction l with
+  | nil => rfl
+  | cons b bs ih =>
+    unfold fromBytes' at h
+    have hconv : b.toFin.val = b.toNat := rfl
+    have hbs : fromBytes' bs = 0 := by omega
+    have hbn : b.toNat = 0 := by omega
+    have hb0 : b = 0 := UInt8.toNat.inj (by rw [hbn]; rfl)
+    simp only [List.length_cons, List.replicate_succ]
+    rw [hb0]
+    exact congrArg (0 :: ·) (ih hbs)
+
+/-- **mstore-zero bridge.** The Yul literal `0` (`UInt256.ofNat 0`) stored by `mstore(slot, 0)` has
+    the 32-byte all-zero encoding — exactly the `⟨Array.replicate 32 0⟩` source the window lemmas in
+    `RelayLoopWindows` (`read_zero_then_write_*`, `signer_of_window`) assume. Derived with **no new
+    assumption**: `toByteArray_size` (size 32) + the `fromByteArray_toByteArray` roundtrip (decodes to
+    `0`) + base-256 uniqueness (`fromBytes'_eq_zero`) force every byte to `0`. -/
+theorem mstore_zero_source :
+    (UInt256.ofNat 0).toByteArray = (⟨Array.replicate 32 0⟩ : ByteArray) := by
+  have hsz : (UInt256.ofNat 0).toByteArray.size = 32 := toByteArray_size _
+  have hszl : (UInt256.ofNat 0).toByteArray.data.toList.length = 32 := by
+    rw [Array.length_toList]; exact hsz
+  have hval0 : (UInt256.ofNat 0).toNat = 0 := by decide
+  have hval : fromBytes' ((UInt256.ofNat 0).toByteArray.data.toList.reverse) = 0 := by
+    have hr := fromByteArray_toByteArray (UInt256.ofNat 0)
+    rw [hval0] at hr
+    unfold fromByteArrayBigEndian fromBytesBigEndian at hr
+    rw [toList_data] at hr
+    simpa [Function.comp] using hr
+  have hrev : (UInt256.ofNat 0).toByteArray.data.toList.reverse = List.replicate 32 0 := by
+    have hlen : ((UInt256.ofNat 0).toByteArray.data.toList.reverse).length = 32 := by
+      rw [List.length_reverse]; exact hszl
+    rw [fromBytes'_eq_zero _ hval, hlen]
+  have htl : (UInt256.ofNat 0).toByteArray.data.toList = List.replicate 32 0 := by
+    have hcr := congrArg List.reverse hrev
+    rwa [List.reverse_reverse, List.reverse_replicate] at hcr
+  apply ByteArray.ext
+  apply Array.toList_inj.mp
+  rw [htl, Array.toList_replicate]
+
 #print axioms fromBytesBigEndian_toBytesBigEndian
 #print axioms keystone
 #print axioms mem_roundtrip
@@ -390,4 +443,6 @@ theorem weight_read (ms : MachineState) (slot w : UInt256)
 #print axioms mask16_toNat
 #print axioms mask16_of_lt
 #print axioms weight_read
+#print axioms fromBytes'_eq_zero
+#print axioms mstore_zero_source
 end RelayDataLayer
