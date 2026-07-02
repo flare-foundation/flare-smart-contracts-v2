@@ -892,6 +892,93 @@ theorem body_prefix9 (fuel m sigStart : Nat) (nVot sHalf : EvmYul.UInt256) (ss :
         rw [show (fuel+51)+1 = ((fuel+50)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ [] _ s9 h9
     _ = _ := RelayLoopLiteral.exec_Block_nil (fuel+50) _
 
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral in
+set_option maxHeartbeats 4000000 in
+/-- **Full literal loop-body effect (brick 36).** Chains all seventeen statements of the
+    deployed signature-verification loop body `bodyL` (transliterated from
+    `relay_ir_optimized.yul:1563-1610`) through the EVMYulLean interpreter's real
+    `exec`/`eval` semantics, threading genuine `mstore`/`mload`/`calldatacopy` state
+    changes. Given the nine guard-condition pass hypotheses (`hg4..hg17`, one per `if`
+    that must NOT revert on the advance path) and the two staticcall-produced states
+    (`ss10/vs10` after the ecrecover call, `ss15/vs15` after the recovered-address
+    check), the block executes to the accumulator-advanced state `s16`, where
+    `s16[WW]! = s15[WW]! + (mload(m+96) & 0xffff)` — the running signing-weight sum plus
+    this voter's weight. This is the literal counterpart of `RelayLoopMemRead.body_effM`;
+    unlike that model it does not ASSUME memory reads are state-preserving but derives the
+    full state evolution. Fuel `fuel+130` = 17 peels + interpreter overhead. -/
+theorem body_effL (fuel m sigStart : Nat) (nVot thr : EvmYul.UInt256)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (ss10 : EvmYul.SharedState .Yul) (vs10 : EvmYul.Yul.VarStore) (ss15 : EvmYul.SharedState .Yul) (vs15 : EvmYul.Yul.VarStore) :
+    let s1 := (EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toMachineState.mstore (UInt256.ofNat (m+32)) (UInt256.ofNat 0))
+    let s2 := s1.setSharedState (s1.toSharedState.calldatacopy (UInt256.ofNat (m+63))
+                (EvmYul.UInt256.add (EvmYul.UInt256.add (UInt256.ofNat sigStart)
+                  (EvmYul.UInt256.mul (s1[II]!) (UInt256.ofNat 67))) (UInt256.ofNat 2)) (UInt256.ofNat 67))
+    let s3 := (s2.setMachineState (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).2).insert IDX
+                (EvmYul.UInt256.shiftRight (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).1 (UInt256.ofNat 240))
+    let s6 := s3.insert NUI (EvmYul.UInt256.add (s3[IDX]!) (UInt256.ofNat 1))
+    let s7 := (s6.setMachineState (s6.toSharedState.toMachineState.mload (UInt256.ofNat (m+32))).2).insert VV
+                (EvmYul.UInt256.land (s6.toSharedState.toMachineState.mload (UInt256.ofNat (m+32))).1 (UInt256.ofNat 0xff))
+    let s9 := s7.setMachineState (s7.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2
+    let s10 := EvmYul.Yul.State.Ok ss10 vs10
+    let s15 := EvmYul.Yul.State.Ok ss15 vs15
+    let s12 := s10.setMachineState (s10.toSharedState.toMachineState.mload (UInt256.ofNat (m+64))).2
+    let s13 := s12.setMachineState (s12.toMachineState.mstore (UInt256.ofNat (m+96)) (UInt256.ofNat 0))
+    let s14 := s13.setSharedState (s13.toSharedState.calldatacopy (UInt256.ofNat (m+106))
+                 (EvmYul.UInt256.add (UInt256.ofNat 47) (EvmYul.UInt256.mul (s13[IDX]!) (UInt256.ofNat 22))) (UInt256.ofNat 22))
+    let s16 := (s15.setMachineState (s15.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2).insert WW
+                 (EvmYul.UInt256.add (s15[WW]!) (EvmYul.UInt256.land (s15.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535)))
+    EvmYul.Yul.eval (fuel+125) (bc .GT [bc .ADD [V IDX, litN 1], litU nVot]) none s3 = .ok (s3, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+124) (bc .LT [V IDX, V NUI]) none s3 = .ok (s3, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+121) (bc .ISZERO [bc .OR [bc .EQ [V VV, litN 27], bc .EQ [V VV, litN 28]]]) none s7 = .ok (s7, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+120) (bc .GT [bc .MLOAD [litN (m+96)], litU SECP_HALF]) none s7 = .ok (s9, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+119) (bc .ISZERO [bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]]) none s9 = .ok (s10, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+118) (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) none s10 = .ok (s10, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+117) (bc .ISZERO [bc .MLOAD [litN (m+64)]]) none s10 = .ok (s12, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+114) (bc .ISZERO [bc .EQ [bc .MLOAD [litN (m+64)], bc .SHR [litN 16, bc .MLOAD [litN (m+96)]]]]) none s14 = .ok (s15, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+112) (bc .GT [V WW, litU thr]) none s16 = .ok (s16, ⟨0⟩) →
+    EvmYul.Yul.exec (fuel + 130) (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ss vs)
+    = .ok s16 := by
+  intro s1 s2 s3 s6 s7 s9 s10 s15 s12 s13 s14 s16 hg4 hg5 hg8 hg9 hg10 hg11 hg12 hg15 hg17
+  unfold RelayLoopLiteral.bodyL
+  have h1 := RelayLoopLiteral.mstore_lit_eff (fuel+123) (EvmYul.Yul.State.Ok ss vs) (UInt256.ofNat (m+32)) (UInt256.ofNat 0)
+  have h2 := RelayLoopLiteral.calldatacopy1_eff (fuel+97) m sigStart
+              {ss with toMachineState := (EvmYul.Yul.State.Ok ss vs).toMachineState.mstore (UInt256.ofNat (m+32)) (UInt256.ofNat 0)} vs
+  have h3 := RelayBodyEff.let_idx (fuel+121) (m+128) s2.toSharedState vs
+  have h4 := RelayLoopLiteral.exec_If_false (fuel+125) (bc .GT [bc .ADD [V IDX, litN 1], litU nVot]) [revert00] s3 s3 hg4
+  have h5 := RelayLoopLiteral.exec_If_false (fuel+124) (bc .LT [V IDX, V NUI]) [revert00] s3 s3 hg5
+  have h6 := RelayBodyEff.let_nui (fuel+117) s3.toSharedState s3.store
+  have h7 := RelayBodyEff.let_vv (fuel+115) (m+32) (UInt256.ofNat 0xff) s6.toSharedState s6.store
+  have h8 := RelayLoopLiteral.exec_If_false (fuel+121) (bc .ISZERO [bc .OR [bc .EQ [V VV, litN 27], bc .EQ [V VV, litN 28]]]) [revert00] s7 s7 hg8
+  have h9 := RelayLoopLiteral.exec_If_false (fuel+120) (bc .GT [bc .MLOAD [litN (m+96)], litU SECP_HALF]) [revert00] s7 s9 hg9
+  have h10 := RelayLoopLiteral.exec_If_false (fuel+119) (bc .ISZERO [bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]]) [revert00] s9 s10 hg10
+  have h11 := RelayLoopLiteral.exec_If_false (fuel+118) (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) [revert00] s10 s10 hg11
+  have h12 := RelayLoopLiteral.exec_If_false (fuel+117) (bc .ISZERO [bc .MLOAD [litN (m+64)]]) [revert00] s10 s12 hg12
+  have h13 := RelayLoopLiteral.mstore_lit_eff (fuel+111) s12 (UInt256.ofNat (m+96)) (UInt256.ofNat 0)
+  have h14 := RelayLoopLiteral.calldatacopy2_eff (fuel+85) m s13.toSharedState s13.store
+  have h15 := RelayLoopLiteral.exec_If_false (fuel+114) (bc .ISZERO [bc .EQ [bc .MLOAD [litN (m+64)], bc .SHR [litN 16, bc .MLOAD [litN (m+96)]]]]) [revert00] s14 s15 hg15
+  have h16 := RelayBodyEff.let_ww (fuel+104) (m+96) (UInt256.ofNat 65535) s15.toSharedState s15.store
+  have h17 := RelayLoopLiteral.exec_If_false (fuel+112) (bc .GT [V WW, litU thr]) [Stmt.ExprStmtCall (bc .RETURN [litN 0, litN 0])] s16 s16 hg17
+  calc EvmYul.Yul.exec (fuel + 130) (Stmt.Block [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]) none (EvmYul.Yul.State.Ok ss vs)
+      = EvmYul.Yul.exec ((fuel+123)+6) (Stmt.Block _) none s1 := by rw [show fuel + 130 = ((fuel+123)+6)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s1 h1
+    _ = EvmYul.Yul.exec ((fuel+97)+31) (Stmt.Block _) none s2 := by rw [show (fuel+123)+6 = ((fuel+97)+31)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s2 h2
+    _ = EvmYul.Yul.exec ((fuel+121)+6) (Stmt.Block _) none s3 := by rw [show (fuel+97)+31 = ((fuel+121)+6)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s3 h3
+    _ = EvmYul.Yul.exec ((fuel+125)+1) (Stmt.Block _) none s3 := by rw [show (fuel+121)+6 = ((fuel+125)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s3 h4
+    _ = EvmYul.Yul.exec ((fuel+124)+1) (Stmt.Block _) none s3 := by rw [show (fuel+125)+1 = ((fuel+124)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s3 h5
+    _ = EvmYul.Yul.exec ((fuel+117)+7) (Stmt.Block _) none s6 := by rw [show (fuel+124)+1 = ((fuel+117)+7)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s6 h6
+    _ = EvmYul.Yul.exec ((fuel+115)+8) (Stmt.Block _) none s7 := by rw [show (fuel+117)+7 = ((fuel+115)+8)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s7 h7
+    _ = EvmYul.Yul.exec ((fuel+121)+1) (Stmt.Block _) none s7 := by rw [show (fuel+115)+8 = ((fuel+121)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s7 h8
+    _ = EvmYul.Yul.exec ((fuel+120)+1) (Stmt.Block _) none s9 := by rw [show (fuel+121)+1 = ((fuel+120)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s9 h9
+    _ = EvmYul.Yul.exec ((fuel+119)+1) (Stmt.Block _) none s10 := by rw [show (fuel+120)+1 = ((fuel+119)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s10 h10
+    _ = EvmYul.Yul.exec ((fuel+118)+1) (Stmt.Block _) none s10 := by rw [show (fuel+119)+1 = ((fuel+118)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s10 h11
+    _ = EvmYul.Yul.exec ((fuel+117)+1) (Stmt.Block _) none s12 := by rw [show (fuel+118)+1 = ((fuel+117)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s12 h12
+    _ = EvmYul.Yul.exec ((fuel+111)+6) (Stmt.Block _) none s13 := by rw [show (fuel+117)+1 = ((fuel+111)+6)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s13 h13
+    _ = EvmYul.Yul.exec ((fuel+85)+31) (Stmt.Block _) none s14 := by rw [show (fuel+111)+6 = ((fuel+85)+31)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s14 h14
+    _ = EvmYul.Yul.exec ((fuel+114)+1) (Stmt.Block _) none s15 := by rw [show (fuel+85)+31 = ((fuel+114)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s15 h15
+    _ = EvmYul.Yul.exec ((fuel+104)+10) (Stmt.Block _) none s16 := by rw [show (fuel+114)+1 = ((fuel+104)+10)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s16 h16
+    _ = EvmYul.Yul.exec ((fuel+112)+1) (Stmt.Block []) none s16 := by rw [show (fuel+104)+10 = ((fuel+112)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ [] _ s16 h17
+    _ = _ := RelayLoopLiteral.exec_Block_nil (fuel+112) _
+
+#print axioms body_effL
 #print axioms body_prefix9
 #print axioms RelayBodyEff.seam_guard_eval
 #print axioms body_prefix5
