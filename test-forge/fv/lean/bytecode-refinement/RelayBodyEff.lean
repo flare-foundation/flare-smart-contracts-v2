@@ -62,7 +62,47 @@ theorem voter_signer_pure (src mem : ByteArray) (d : Nat) (hsrc : src.size = 22)
   rw [RelayWindows.read_zero_then_write_suffix src mem d hsrc hmem]
   exact RelayWindows.signer_of_window src hsrc
 
+/-! ## Interpreter-level voter reads (through `mload_in_range`)
+
+Lifting the pure window reads to the actual interpreter `mload`: the memory at the read is the
+clear→copy write pattern (`hmem`, discharged in `body_effL` from `mstore_lit_eff` + `mstore_zero_source`
+and `calldatacopy2_eff` + `write_from_offset`), the address is a small literal (`hd`), and the slot is in
+range (`h1`/`h2`, from the `activeWords` bump). `mload_masked_voter` is the accounting-critical `hcorr`;
+`mload_shr_voter` is the registered-signer read used by the "wrong signature" guard. -/
+
+/-- **Interpreter voter weight (`hcorr`).** `and(mload(slot), 0xffff)` at the voter slot = the record's
+    registered 2-byte weight. (`mload_in_range` ∘ `voter_weight_pure`.) -/
+theorem mload_masked_voter (self : EvmYul.MachineState) (src mem : ByteArray) (d : Nat)
+    (hsrc : src.size = 22)
+    (hmem : self.memory = ByteArray.write src 0 (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 mem d 32) (d+10) 22)
+    (hsize : d + 32 ≤ mem.size)
+    (hd : d < UInt256.size)
+    (h1 : (UInt256.ofNat d).toNat < self.memory.size)
+    (h2 : ¬ ((UInt256.ofNat d) ≥ self.activeWords * ⟨32⟩)) :
+    (UInt256.land (self.mload (UInt256.ofNat d)).1 (⟨0xffff⟩ : UInt256)).toNat
+      = fromBytesBigEndian (src.data.toList.drop 20) := by
+  rw [RelayLoopLiteral.mload_in_range self (UInt256.ofNat d) h1 h2, hmem,
+      RelayWindows.ofNat_toNat' d hd]
+  exact voter_weight_pure src mem d hsrc hsize
+
+/-- **Interpreter voter signer.** `shr(16, mload(slot))` at the voter slot = the record's registered
+    20-byte signer address. (`mload_in_range` ∘ `voter_signer_pure`.) -/
+theorem mload_shr_voter (self : EvmYul.MachineState) (src mem : ByteArray) (d : Nat)
+    (hsrc : src.size = 22)
+    (hmem : self.memory = ByteArray.write src 0 (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 mem d 32) (d+10) 22)
+    (hsize : d + 32 ≤ mem.size)
+    (hd : d < UInt256.size)
+    (h1 : (UInt256.ofNat d).toNat < self.memory.size)
+    (h2 : ¬ ((UInt256.ofNat d) ≥ self.activeWords * ⟨32⟩)) :
+    (UInt256.shiftRight (self.mload (UInt256.ofNat d)).1 (⟨16⟩ : UInt256)).toNat
+      = fromBytesBigEndian (src.data.toList.take 20) := by
+  rw [RelayLoopLiteral.mload_in_range self (UInt256.ofNat d) h1 h2, hmem,
+      RelayWindows.ofNat_toNat' d hd]
+  exact voter_signer_pure src mem d hsrc hsize
+
 end RelayBodyEff
 
 #print axioms RelayBodyEff.voter_weight_pure
 #print axioms RelayBodyEff.voter_signer_pure
+#print axioms RelayBodyEff.mload_masked_voter
+#print axioms RelayBodyEff.mload_shr_voter
