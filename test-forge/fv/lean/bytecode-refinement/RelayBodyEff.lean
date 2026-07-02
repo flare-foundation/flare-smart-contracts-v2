@@ -133,6 +133,29 @@ theorem voter_mem_pattern (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarSto
              RelayWindows.ofNat_toNat' 22 (show (22:Nat) < EvmYul.UInt256.size by unfold EvmYul.UInt256.size; omega)]
   rw [RelayWindows.write_from_offset ss.executionEnv.calldata _ q.toNat (m+106) 22 (by omega) hq hdest]
 
+open EvmYul.Yul in
+/-- **General `hmem` discharge** (both scratch slots). The memory after `mstore(dclear, 0)` then
+    `calldatacopy(dwrite, q, len)` is the clear→copy write-pattern — clearing 32 bytes at `dclear`,
+    then the `len`-byte calldata window at `dwrite`. `voter_mem_pattern` is the `(m+96, m+106, 22)`
+    instance; the v-slot reads (index / v-byte / s-value) use the `(m+32, m+63, 67)` instance. -/
+theorem mstore_cdc_mem (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (dclear dwrite len : Nat) (q : EvmYul.UInt256) (hlen : 0 < len)
+    (hq : q.toNat + len ≤ ss.executionEnv.calldata.size)
+    (hdest : dwrite + len ≤ (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 ss.toMachineState.memory dclear 32).size)
+    (hdc : dclear < EvmYul.UInt256.size) (hdw : dwrite < EvmYul.UInt256.size) (hlensz : len < EvmYul.UInt256.size) :
+    ((State.Ok ss vs).setMachineState ((State.Ok ss vs).toMachineState.mstore (UInt256.ofNat dclear) (UInt256.ofNat 0))
+      |> fun s' => (s'.setSharedState (s'.toSharedState.calldatacopy (UInt256.ofNat dwrite) q (UInt256.ofNat len))).toMachineState.memory)
+    = ByteArray.write (ss.executionEnv.calldata.extract q.toNat (q.toNat+len)) 0
+        (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 ss.toMachineState.memory dclear 32) dwrite len := by
+  have hmst : (ss.toMachineState.mstore (UInt256.ofNat dclear) (UInt256.ofNat 0)).memory
+      = ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 ss.toMachineState.memory dclear 32 := by
+    unfold EvmYul.MachineState.mstore EvmYul.MachineState.writeWord EvmYul.writeBytes
+    simp only [RelayDataLayer.mstore_zero_source, RelayWindows.ofNat_toNat' _ hdc]
+  simp only [State.setMachineState, State.toMachineState, State.setSharedState, State.toSharedState,
+             EvmYul.SharedState.calldatacopy, hmst,
+             RelayWindows.ofNat_toNat' _ hdw, RelayWindows.ofNat_toNat' len hlensz]
+  rw [RelayWindows.write_from_offset ss.executionEnv.calldata _ q.toNat dwrite len hlen hq hdest]
+
 /-! ## Range discharge (the `mload_in_range` side-conditions `h1`/`h2`)
 
 `mload_masked_voter` etc. take the two `lookupMemory` guards as hypotheses. They are not assumptions:
@@ -368,6 +391,7 @@ end RelayBodyEff
 #print axioms RelayBodyEff.mload_masked_voter
 #print axioms RelayBodyEff.mload_shr_voter
 #print axioms RelayBodyEff.voter_mem_pattern
+#print axioms RelayBodyEff.mstore_cdc_mem
 #print axioms RelayBodyEff.M_lb_gen
 #print axioms RelayBodyEff.mload_range_h1
 #print axioms RelayBodyEff.mload_range_h2
