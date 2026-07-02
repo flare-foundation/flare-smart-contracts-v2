@@ -533,6 +533,34 @@ theorem eval_badv_cond (f : Nat) (x : EvmYul.Identifier) (c1 c2 : EvmYul.UInt256
   exact eval_iszero (f+8) (bc .OR [bc .EQ [V x, Expr.Lit c1], bc .EQ [V x, Expr.Lit c2]])
     (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) _ (eval_or_two_eq f x c1 c2 ss vs)
 
+/-- **Wrong-signature guard.** `iszero(eq(mload(mr), shr(16, mload(mv))))` — the deepest guard, with
+    two *state-changing* `mload`s: `shr(16, mload(mv))` (the registered signer, at the voter slot `mv`)
+    evaluated first, then `mload(mr)` (the recovered signer, at `mr`). The guard is not taken iff the two
+    coincide, i.e. `ecrecover` returned the registered signer (assumption MC-2). Both `mload`s thread
+    their `activeWords` bump: `s → s1 → s2`. -/
+theorem eval_wrongsig_cond (f mr mv : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    let s  := EvmYul.Yul.State.Ok ss vs
+    let s1 := s.setMachineState (s.toSharedState.toMachineState.mload (UInt256.ofNat mv)).2
+    let s2 := s1.setMachineState (s1.toSharedState.toMachineState.mload (UInt256.ofNat mr)).2
+    EvmYul.Yul.eval (f + 12)
+      (bc .ISZERO [bc .EQ [bc .MLOAD [litN mr], bc .SHR [litN 16, bc .MLOAD [litN mv]]]]) none s
+      = .ok (s2, EvmYul.UInt256.isZero
+          (EvmYul.UInt256.eq (s1.toSharedState.toMachineState.mload (UInt256.ofNat mr)).1
+            (EvmYul.UInt256.shiftRight (s.toSharedState.toMachineState.mload (UInt256.ofNat mv)).1 (UInt256.ofNat 16)))) := by
+  intro s s1 s2
+  refine eval_iszero (f+8) (bc .EQ [bc .MLOAD [litN mr], bc .SHR [litN 16, bc .MLOAD [litN mv]]]) s s2 _ ?_
+  refine RelayLoopLiteral.eval_primcall (f+9) Operation.EQ
+    [bc .MLOAD [litN mr], bc .SHR [litN 16, bc .MLOAD [litN mv]]] s s2 s2
+    [(s1.toSharedState.toMachineState.mload (UInt256.ofNat mr)).1,
+     EvmYul.UInt256.shiftRight (s.toSharedState.toMachineState.mload (UInt256.ofNat mv)).1 (UInt256.ofNat 16)] _
+    (RelayLoopLiteral.evalArgs_rev_pair (f+4) (bc .MLOAD [litN mr]) (bc .SHR [litN 16, bc .MLOAD [litN mv]])
+      s s1 s2
+      (s1.toSharedState.toMachineState.mload (UInt256.ofNat mr)).1
+      (EvmYul.UInt256.shiftRight (s.toSharedState.toMachineState.mload (UInt256.ofNat mv)).1 (UInt256.ofNat 16))
+      (RelayLoopLiteral.eval_shr_lit_mload (f+2) (UInt256.ofNat 16) (UInt256.ofNat mv) s)
+      (RelayLoopLiteral.eval_mload_lit (f+2) (UInt256.ofNat mr) s1))
+    (primCall_EQ' (f+8) _ _ _)
+
 end MoreGuards
 
 end RelayBodyEff
@@ -559,3 +587,4 @@ end RelayBodyEff
 #print axioms RelayBodyEff.eval_g11
 #print axioms RelayBodyEff.eval_g12
 #print axioms RelayBodyEff.eval_badv_cond
+#print axioms RelayBodyEff.eval_wrongsig_cond
