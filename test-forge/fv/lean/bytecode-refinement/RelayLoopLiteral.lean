@@ -507,6 +507,50 @@ def recHypothesis (f : Nat) (ss : EvmYul.SharedState .Yul) (vs : VarStore)
 /-- Failure leaves memory unchanged (definitionally) — the stale output buffer of OP-1. -/
 theorem recFailShared_memory (ss : EvmYul.SharedState .Yul) : (recFailShared ss).memory = ss.memory := rfl
 
+/-! ## Statement effect atoms (lifting the step bricks through `exec`)
+
+The step bricks above describe a single opcode's `step`. To compose the body we need each *statement*'s
+effect through the full `exec → execPrimCall → primCall → step` (and `multifill'`) plumbing. These are
+the `ExprStmtCall` state-ops — `mstore` and `calldatacopy` — the two memory-writing statements of the
+loop body. Both route through `execPrimCall prim [] (reverse' (evalArgs …))`; with no return variables
+the trailing `multifill' []` is the identity (`multifill_nil`). `mstore`'s arguments are literals (so
+`evalArgs` computes outright); `calldatacopy`'s middle argument is the compound offset
+`add(add(sigStart, mul(i,67)), 2)`, so its evaluation is abstracted into the `hargs` hypothesis
+(discharged later by the expression-eval layer). -/
+
+/-- With no bind variables, the post-call `multifill'` is the identity. -/
+theorem multifill_nil (s : EvmYul.Yul.State) : EvmYul.Yul.State.multifill [] [] s = s := by
+  cases s <;> rfl
+
+/-- **`mstore(off, val)` effect** (literal arguments): writes the word, no variable binding.
+    Both `mstore(m+32, 0)` and `mstore(m+96, 0)` in `bodyL` have this shape. -/
+theorem mstore_lit_eff (fuel : Nat) (s : EvmYul.Yul.State) (off val : EvmYul.UInt256) :
+    EvmYul.Yul.exec (fuel + 6)
+      (Stmt.ExprStmtCall (Expr.Call (Sum.inl Operation.MSTORE) [Expr.Lit off, Expr.Lit val])) none s
+    = .ok (s.setMachineState (s.toMachineState.mstore off val)) := by
+  simp [EvmYul.Yul.exec, EvmYul.Yul.eval, EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail,
+        EvmYul.Yul.execPrimCall, EvmYul.Yul.primCall,
+        EvmYul.Yul.cons', EvmYul.Yul.reverse', EvmYul.Yul.multifill', step_MSTORE, multifill_nil]
+
+/-- **`calldatacopy(d, q, len)` effect**, parameterized by the (pure) evaluation of its three argument
+    expressions to `[d, q, len]` (`hargs`). Applies to both `calldatacopy`s in `bodyL`; the compound
+    source offset is left to `hargs`. Result: memory gets `calldata.write q mem d len` (bridged to the
+    window lemmas by `RelayLoopWindows.write_from_offset`). -/
+theorem calldatacopy_eff (fuel : Nat) (s : EvmYul.Yul.State) (de qe le : Expr)
+    (d q len : EvmYul.UInt256)
+    (hargs : EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs (fuel + 1) [le, qe, de] none s)
+      = .ok (s, [d, q, len])) :
+    EvmYul.Yul.exec (fuel + 2)
+      (Stmt.ExprStmtCall (Expr.Call (Sum.inl Operation.CALLDATACOPY) [de, qe, le])) none s
+      = .ok (s.setSharedState (s.toSharedState.calldatacopy d q len)) := by
+  conv_lhs => unfold EvmYul.Yul.exec
+  simp only [List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append, hargs]
+  simp [EvmYul.Yul.execPrimCall, EvmYul.Yul.primCall, step_CALLDATACOPY,
+        EvmYul.Yul.multifill', multifill_nil]
+
+#print axioms multifill_nil
+#print axioms mstore_lit_eff
+#print axioms calldatacopy_eff
 #print axioms threshold_sound
 #print axioms weightsOf_getD
 #print axioms step_CALLDATACOPY
