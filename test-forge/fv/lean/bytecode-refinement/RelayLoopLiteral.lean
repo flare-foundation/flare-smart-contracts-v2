@@ -745,6 +745,27 @@ theorem eval_and_mload_lit (g : Nat) (a c : EvmYul.UInt256) (s : EvmYul.Yul.Stat
       (eval_lit (g+5) c s) (eval_mload_lit g a s))
     (primCall_AND (g+6) _ _ _)
 
+/-! ## The compound `calldatacopy` source offset
+
+`bodyL`'s first `calldatacopy` reads from `add(add(sigStart, mul(i, 67)), 2)` — the byte position of
+signature `i`'s `(v,r,s,index)` blob. It is a *pure* depth-3 arithmetic expression (only `i`, literals),
+so unlike the memory readers it needs no state threading and evaluates in one `simp` over the plumbing
+plus `step_ADD`/`step_MUL`. Its `.toNat` (`= sigStart + i*67 + 2 = sigRecBase sigStart i`, modulo the
+small-value non-overflow facts) is what feeds `write_from_offset` when the copied window is decoded. -/
+
+/-- Evaluate the first `calldatacopy`'s source offset `add(add(sigStart, mul(i, 67)), 2)` (pure). -/
+theorem eval_sig_offset (fuel sigStart : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.eval (fuel + 20)
+      (bc .ADD [bc .ADD [litN sigStart, bc .MUL [V II, litN 67]], litN 2]) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok (EvmYul.Yul.State.Ok ss vs,
+             EvmYul.UInt256.add
+               (EvmYul.UInt256.add (UInt256.ofNat sigStart)
+                 (EvmYul.UInt256.mul ((EvmYul.Yul.State.Ok ss vs)[II]!) (UInt256.ofNat 67)))
+               (UInt256.ofNat 2)) := by
+  simp [bc, litN, V, EvmYul.Yul.eval, EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail,
+        EvmYul.Yul.evalPrimCall, EvmYul.Yul.primCall, EvmYul.Yul.head', EvmYul.Yul.cons',
+        EvmYul.Yul.reverse', step_ADD, step_MUL]
+
 /-! ## Variable-store access (reading the Yul locals after `Let` bindings)
 
 `bodyL` reads its locals with `V x` (= `eval_var` = `s[x]!`), and each `Let`/`post` step rebinds one
@@ -779,6 +800,7 @@ theorem ge_ne (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) (k j : E
     (EvmYul.Yul.State.Ok ss (vs.insert k v))[j]! = (EvmYul.Yul.State.Ok ss vs)[j]! := by
   rw [getElem_Ok, getElem_Ok]; simp [EvmYul.Yul.State.lookup!, Finmap.lookup_insert_of_ne _ h]
 
+#print axioms eval_sig_offset
 #print axioms getElem_Ok
 #print axioms ge_self
 #print axioms ge_ne
