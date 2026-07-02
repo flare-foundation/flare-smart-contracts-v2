@@ -1362,8 +1362,87 @@ theorem relay_loop_sound_literal
   -- 5. transfer the abstract threshold soundness (no double-count via ValidRun)
   exact RelayLoopLiteral.threshold_sound (weightsOf cd nVotN) (idxSel cd sigStart NN) thr.val hvalid h3
 
+
+-- ===================== hstep DISCHARGED: full derived soundness (brick 41) =====================
+/-- Per-iteration OP-1 premise: entering the body at index `k` with state `(ssk, vsk)`, there exist
+    ecrecover-output states such that the nine guards pass (execution does not revert) and the accounting
+    inputs hold (weight/counter preserved into the update; the masked read is the selected voter's weight).
+    This is the literal, eval-level statement of `relay_loop_sound`'s `hvalid` + the (now derived) `hcorr`. -/
+def IterPremise (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray) (nVotN k : Nat)
+    (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore) : Prop :=
+  ∃ (ss10 : EvmYul.SharedState .Yul) (vs10 : EvmYul.Yul.VarStore)
+    (ss15 : EvmYul.SharedState .Yul) (vs15 : EvmYul.Yul.VarStore),
+    let s1 := (EvmYul.Yul.State.Ok ssk vsk).setMachineState ((EvmYul.Yul.State.Ok ssk vsk).toMachineState.mstore (UInt256.ofNat (m+32)) (UInt256.ofNat 0))
+    let s2 := s1.setSharedState (s1.toSharedState.calldatacopy (UInt256.ofNat (m+63))
+                (EvmYul.UInt256.add (EvmYul.UInt256.add (UInt256.ofNat sigStart)
+                  (EvmYul.UInt256.mul (s1[II]!) (UInt256.ofNat 67))) (UInt256.ofNat 2)) (UInt256.ofNat 67))
+    let s3 := (s2.setMachineState (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).2).insert IDX
+                (EvmYul.UInt256.shiftRight (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).1 (UInt256.ofNat 240))
+    let s6 := s3.insert NUI (EvmYul.UInt256.add (s3[IDX]!) (UInt256.ofNat 1))
+    let s7 := (s6.setMachineState (s6.toSharedState.toMachineState.mload (UInt256.ofNat (m+32))).2).insert VV
+                (EvmYul.UInt256.land (s6.toSharedState.toMachineState.mload (UInt256.ofNat (m+32))).1 (UInt256.ofNat 0xff))
+    let s9 := s7.setMachineState (s7.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2
+    let s10 := EvmYul.Yul.State.Ok ss10 vs10
+    let s15 := EvmYul.Yul.State.Ok ss15 vs15
+    let s12 := s10.setMachineState (s10.toSharedState.toMachineState.mload (UInt256.ofNat (m+64))).2
+    let s13 := s12.setMachineState (s12.toMachineState.mstore (UInt256.ofNat (m+96)) (UInt256.ofNat 0))
+    let s14 := s13.setSharedState (s13.toSharedState.calldatacopy (UInt256.ofNat (m+106))
+                 (EvmYul.UInt256.add (UInt256.ofNat 47) (EvmYul.UInt256.mul (s13[IDX]!) (UInt256.ofNat 22))) (UInt256.ofNat 22))
+    let s16 := (s15.setMachineState (s15.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2).insert WW
+                 (EvmYul.UInt256.add (s15[WW]!) (EvmYul.UInt256.land (s15.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535)))
+    (∀ fuel, EvmYul.Yul.eval (fuel+125) (bc .GT [bc .ADD [V IDX, litN 1], litU nVot]) none s3 = .ok (s3, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+124) (bc .LT [V IDX, V NUI]) none s3 = .ok (s3, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+121) (bc .ISZERO [bc .OR [bc .EQ [V VV, litN 27], bc .EQ [V VV, litN 28]]]) none s7 = .ok (s7, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+120) (bc .GT [bc .MLOAD [litN (m+96)], litU SECP_HALF]) none s7 = .ok (s9, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+119) (bc .ISZERO [bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]]) none s9 = .ok (s10, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+118) (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) none s10 = .ok (s10, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+117) (bc .ISZERO [bc .MLOAD [litN (m+64)]]) none s10 = .ok (s12, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+114) (bc .ISZERO [bc .EQ [bc .MLOAD [litN (m+64)], bc .SHR [litN 16, bc .MLOAD [litN (m+96)]]]]) none s14 = .ok (s15, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+112) (bc .GT [V WW, litU thr]) none s16 = .ok (s16, ⟨0⟩)) ∧
+    (EvmYul.Yul.State.Ok ss15 vs15)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) ∧
+    (EvmYul.Yul.State.Ok ss15 vs15)[II]! = UInt256.ofNat k ∧
+    EvmYul.UInt256.land ((EvmYul.Yul.State.Ok ss15 vs15).toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535)
+      = UInt256.ofNat (voterWeightAt cd (sigIdxAt cd sigStart k)) ∧
+    sigIdxAt cd sigStart k < nVotN
+
+set_option maxHeartbeats 4000000 in
+/-- **Relay signature loop soundness with `hstep` DERIVED.** The literal capstone
+    `relay_loop_sound_literal` assumed a per-iteration advance `hstep`; here it is discharged by
+    `iter_advance`, so the only remaining hypotheses are the per-iteration OP-1 facts (`hiters`, i.e.
+    `IterPremise` at each valid entering state) plus `hvalid`/`hnoovf`/the accept. If the deployed loop —
+    its ACTUAL transliterated body executed by validated Yul `exec` — completes with a final tally
+    exceeding the threshold, the total registered voting weight exceeds it; no voter is double-counted. -/
+theorem relay_loop_sound_literal_derived
+    (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
+    (hN : NN < UInt256.size)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
+    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
+    (hiters : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
+        IterPremise m sigStart nVot thr cd nVotN k ssk vsk)
+    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart NN))
+    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size)
+    (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore)
+    (hexec : EvmYul.Yul.exec (3 * NN + 140)
+        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
+          (EvmYul.Yul.State.Ok ss vs)
+        = .ok (EvmYul.Yul.State.Ok ss' vs'))
+    (haccept : thr < (EvmYul.Yul.State.Ok ss' vs')[WW]!) :
+    thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+  refine relay_loop_sound_literal m sigStart cd nVot thr nVotN NN hN ss vs hi hw ?_ hvalid hnoovf ss' vs' hexec haccept
+  intro k ssk vsk hk hII hWW
+  obtain ⟨ss10, vs10, ss15, vs15, hg4, hg5, hg8, hg9, hg10, hg11, hg12, hg15, hg17, hWW15, hII15, hcorr, hidxlt⟩ :=
+    hiters k ssk vsk hk hII hWW
+  exact iter_advance m sigStart nVot thr cd nVotN k ssk vsk ss10 vs10 ss15 vs15
+    hg4 hg5 hg8 hg9 hg10 hg11 hg12 hg15 hg17 hWW15 hII15 hcorr hidxlt
+
+
 end LoopLayer
 
+#print axioms relay_loop_sound_literal_derived
 #print axioms relay_loop_sound_literal
 #print axioms iter_advance
 #print axioms s16_ww_advance
