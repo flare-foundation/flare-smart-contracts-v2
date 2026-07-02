@@ -1242,6 +1242,71 @@ theorem s16_ii_preserved (m : Nat) (ss15 : EvmYul.SharedState .Yul) (vs15 : EvmY
       = UInt256.ofNat k := by
   rw [ins_setMS_ne _ _ _ WW II _ (by decide), hII]
 
+-- ===================== hstep DERIVED: iter_advance (brick 40) =====================
+set_option maxHeartbeats 4000000 in
+/-- **Per-iteration advance (`iter_advance`).** Assembles `body_effL` (the executed 17-statement body) with
+    the accounting extraction (`s16_ww_advance`/`s16_ii_preserved`) into exactly the per-iteration `hstep`
+    that `loop_accL`/`relay_loop_sound_literal` consume: one turn of `bodyL` executes to some `Ok`-state
+    that preserves the loop counter `i = k` and advances the accumulator `weight` to `accNat (k+1)`.
+
+    The nine guard-pass hypotheses (`hg4..hg17`, one per `if` that must not revert on the advance path) and
+    the two ecrecover-output states (`ss10/vs10`, `ss15/vs15`) are the **OP-1 boundary** — ecrecover is
+    uninterpreted by design, so "the recovered signer matches the registered voter / v,s are valid /
+    returndatasize is 32 / the index is in range and strictly increasing" enter as hypotheses (exactly the
+    literal, eval-level form of `relay_loop_sound`'s `hvalid`). The accounting inputs `hWW`/`hII` (weight and
+    counter entering the update — untouched by the ecrecover call and the guards) and `hcorr` (the masked
+    read is the selected voter's registered weight, = `mload_masked_voter`) with `hidxlt` (index in range)
+    are what make the tally provably correct. Everything else — the execution and the accounting — is
+    derived from the proven `body_effL` + extraction. -/
+theorem iter_advance (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray) (nVotN k : Nat)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (ss10 : EvmYul.SharedState .Yul) (vs10 : EvmYul.Yul.VarStore)
+    (ss15 : EvmYul.SharedState .Yul) (vs15 : EvmYul.Yul.VarStore) :
+    let s1 := (EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toMachineState.mstore (UInt256.ofNat (m+32)) (UInt256.ofNat 0))
+    let s2 := s1.setSharedState (s1.toSharedState.calldatacopy (UInt256.ofNat (m+63))
+                (EvmYul.UInt256.add (EvmYul.UInt256.add (UInt256.ofNat sigStart)
+                  (EvmYul.UInt256.mul (s1[II]!) (UInt256.ofNat 67))) (UInt256.ofNat 2)) (UInt256.ofNat 67))
+    let s3 := (s2.setMachineState (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).2).insert IDX
+                (EvmYul.UInt256.shiftRight (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).1 (UInt256.ofNat 240))
+    let s6 := s3.insert NUI (EvmYul.UInt256.add (s3[IDX]!) (UInt256.ofNat 1))
+    let s7 := (s6.setMachineState (s6.toSharedState.toMachineState.mload (UInt256.ofNat (m+32))).2).insert VV
+                (EvmYul.UInt256.land (s6.toSharedState.toMachineState.mload (UInt256.ofNat (m+32))).1 (UInt256.ofNat 0xff))
+    let s9 := s7.setMachineState (s7.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2
+    let s10 := EvmYul.Yul.State.Ok ss10 vs10
+    let s15 := EvmYul.Yul.State.Ok ss15 vs15
+    let s12 := s10.setMachineState (s10.toSharedState.toMachineState.mload (UInt256.ofNat (m+64))).2
+    let s13 := s12.setMachineState (s12.toMachineState.mstore (UInt256.ofNat (m+96)) (UInt256.ofNat 0))
+    let s14 := s13.setSharedState (s13.toSharedState.calldatacopy (UInt256.ofNat (m+106))
+                 (EvmYul.UInt256.add (UInt256.ofNat 47) (EvmYul.UInt256.mul (s13[IDX]!) (UInt256.ofNat 22))) (UInt256.ofNat 22))
+    let s16 := (s15.setMachineState (s15.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2).insert WW
+                 (EvmYul.UInt256.add (s15[WW]!) (EvmYul.UInt256.land (s15.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535)))
+    (∀ fuel, EvmYul.Yul.eval (fuel+125) (bc .GT [bc .ADD [V IDX, litN 1], litU nVot]) none s3 = .ok (s3, ⟨0⟩)) →
+    (∀ fuel, EvmYul.Yul.eval (fuel+124) (bc .LT [V IDX, V NUI]) none s3 = .ok (s3, ⟨0⟩)) →
+    (∀ fuel, EvmYul.Yul.eval (fuel+121) (bc .ISZERO [bc .OR [bc .EQ [V VV, litN 27], bc .EQ [V VV, litN 28]]]) none s7 = .ok (s7, ⟨0⟩)) →
+    (∀ fuel, EvmYul.Yul.eval (fuel+120) (bc .GT [bc .MLOAD [litN (m+96)], litU SECP_HALF]) none s7 = .ok (s9, ⟨0⟩)) →
+    (∀ fuel, EvmYul.Yul.eval (fuel+119) (bc .ISZERO [bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]]) none s9 = .ok (s10, ⟨0⟩)) →
+    (∀ fuel, EvmYul.Yul.eval (fuel+118) (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) none s10 = .ok (s10, ⟨0⟩)) →
+    (∀ fuel, EvmYul.Yul.eval (fuel+117) (bc .ISZERO [bc .MLOAD [litN (m+64)]]) none s10 = .ok (s12, ⟨0⟩)) →
+    (∀ fuel, EvmYul.Yul.eval (fuel+114) (bc .ISZERO [bc .EQ [bc .MLOAD [litN (m+64)], bc .SHR [litN 16, bc .MLOAD [litN (m+96)]]]]) none s14 = .ok (s15, ⟨0⟩)) →
+    (∀ fuel, EvmYul.Yul.eval (fuel+112) (bc .GT [V WW, litU thr]) none s16 = .ok (s16, ⟨0⟩)) →
+    (EvmYul.Yul.State.Ok ss15 vs15)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
+    (EvmYul.Yul.State.Ok ss15 vs15)[II]! = UInt256.ofNat k →
+    EvmYul.UInt256.land ((EvmYul.Yul.State.Ok ss15 vs15).toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535)
+      = UInt256.ofNat (voterWeightAt cd (sigIdxAt cd sigStart k)) →
+    sigIdxAt cd sigStart k < nVotN →
+    ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
+      (∀ fuel, EvmYul.Yul.exec (fuel+130) (Stmt.Block (bodyL m sigStart nVot thr)) none
+          (EvmYul.Yul.State.Ok ss vs) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
+      (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
+      (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (k + 1)) := by
+  intro s1 s2 s3 s6 s7 s9 s10 s15 s12 s13 s14 s16 hg4 hg5 hg8 hg9 hg10 hg11 hg12 hg15 hg17 hWW hII hcorr hidxlt
+  refine ⟨_, _,
+    fun fuel => body_effL fuel m sigStart nVot thr ss vs ss10 vs10 ss15 vs15
+      (hg4 fuel) (hg5 fuel) (hg8 fuel) (hg9 fuel) (hg10 fuel) (hg11 fuel) (hg12 fuel) (hg15 fuel) (hg17 fuel),
+    ?_, ?_⟩
+  · exact s16_ii_preserved m ss15 vs15 k hII
+  · exact s16_ww_advance m ss15 vs15 cd sigStart nVotN k hWW hcorr hidxlt
+
 -- ===================== THE LITERAL CAPSTONE =====================
 set_option maxHeartbeats 4000000 in
 /-- **Relay signature loop soundness, on the validated EVM, with the LITERAL 17-statement body.**
@@ -1300,6 +1365,7 @@ theorem relay_loop_sound_literal
 end LoopLayer
 
 #print axioms relay_loop_sound_literal
+#print axioms iter_advance
 #print axioms s16_ww_advance
 #print axioms s16_ii_preserved
 #print axioms accNat_eq_sigLoop
