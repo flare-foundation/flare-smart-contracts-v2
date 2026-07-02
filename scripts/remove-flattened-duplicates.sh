@@ -17,5 +17,5 @@ fi
 
 # remove duplicates
 cd artifacts/flare-sc
-rm -f $duplicates
+rm -f "$duplicates"
 cd - > /dev/null

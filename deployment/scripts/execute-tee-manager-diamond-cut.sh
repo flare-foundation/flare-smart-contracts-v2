@@ -19,6 +19,7 @@ RPC_ENV_VAR="${NETWORK_UPPER}_RPC"
 # Load env
 if [[ -f .env ]]; then
   set -a
+  # shellcheck source=/dev/null
   source .env
   set +a
 fi
