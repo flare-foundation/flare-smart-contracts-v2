@@ -732,6 +732,52 @@ theorem body_prefix3 (fuel m sigStart : Nat) (ss : EvmYul.SharedState .Yul) (vs 
         exact RelayLoopLiteral.exec_Block_cons_ok ((fuel+32)+6) _ [] _ s3 h3
     _ = _ := by rw [show (fuel+32)+6 = (fuel+37)+1 from by omega]; exact RelayLoopLiteral.exec_Block_nil _ _
 
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral in
+/-- **Setup + first read + first two guards.** Extending `body_prefix3` by the range and order guards
+    (statements 4–5), this chains five statements *including guards*. Each guard `if cond {revert}` is
+    peeled with `exec_If_false` under a "guard passes" hypothesis (`eval cond s3 = (s3, ⟨0⟩)`, discharged
+    separately by `eval_range_cond`/`eval_order_cond` + the ValidRun conditions). This proves the last
+    chaining pattern — guards in the block — composes; the full `body_effL` extends this same `calc`
+    through the remaining statements (Lets, the mload-guards, the seam, the accept). -/
+theorem body_prefix5 (fuel m sigStart : Nat) (nVot : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    let s1 := (EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toMachineState.mstore (UInt256.ofNat (m+32)) (UInt256.ofNat 0))
+    let s2 := s1.setSharedState (s1.toSharedState.calldatacopy (UInt256.ofNat (m+63))
+                (EvmYul.UInt256.add (EvmYul.UInt256.add (UInt256.ofNat sigStart)
+                  (EvmYul.UInt256.mul (s1[II]!) (UInt256.ofNat 67))) (UInt256.ofNat 2)) (UInt256.ofNat 67))
+    let s3 := (s2.setMachineState (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).2).insert IDX
+                (EvmYul.UInt256.shiftRight (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).1 (UInt256.ofNat 240))
+    EvmYul.Yul.eval (fuel+38) (bc .GT [bc .ADD [V IDX, litN 1], litU nVot]) none s3 = .ok (s3, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+37) (bc .LT [V IDX, V NUI]) none s3 = .ok (s3, ⟨0⟩) →
+    EvmYul.Yul.exec (fuel + 43) (Stmt.Block
+      [ Stmt.ExprStmtCall (bc .MSTORE [litN (m+32), litN 0]),
+        Stmt.ExprStmtCall (bc .CALLDATACOPY [litN (m+63),
+          bc .ADD [bc .ADD [litN sigStart, bc .MUL [V II, litN 67]], litN 2], litN 67]),
+        Stmt.Let [IDX] (some (bc .SHR [litN 240, bc .MLOAD [litN (m+128)]])),
+        guard' (bc .GT [bc .ADD [V IDX, litN 1], litU nVot]),
+        guard' (bc .LT [V IDX, V NUI]) ]) none
+      (EvmYul.Yul.State.Ok ss vs)
+    = .ok s3 := by
+  intro s1 s2 s3 hg4 hg5
+  have h1 := RelayLoopLiteral.mstore_lit_eff (fuel+36) (EvmYul.Yul.State.Ok ss vs) (UInt256.ofNat (m+32)) (UInt256.ofNat 0)
+  have h2 := RelayLoopLiteral.calldatacopy1_eff (fuel+10) m sigStart
+              {ss with toMachineState := (EvmYul.Yul.State.Ok ss vs).toMachineState.mstore (UInt256.ofNat (m+32)) (UInt256.ofNat 0)} vs
+  have h3 := RelayBodyEff.let_idx (fuel+34) (m+128) s2.toSharedState vs
+  have h4 := RelayLoopLiteral.exec_If_false (fuel+38) (bc .GT [bc .ADD [V IDX, litN 1], litU nVot]) [revert00] s3 s3 hg4
+  have h5 := RelayLoopLiteral.exec_If_false (fuel+37) (bc .LT [V IDX, V NUI]) [revert00] s3 s3 hg5
+  calc EvmYul.Yul.exec (fuel + 43) (Stmt.Block [_, _, _, _, _]) none (EvmYul.Yul.State.Ok ss vs)
+      = EvmYul.Yul.exec ((fuel+36)+6) (Stmt.Block [_, _, _, _]) none s1 := by
+        rw [show fuel + 43 = ((fuel+36)+6)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s1 h1
+    _ = EvmYul.Yul.exec ((fuel+10)+31) (Stmt.Block [_, _, _]) none s2 := by
+        rw [show (fuel+36)+6 = ((fuel+10)+31)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s2 h2
+    _ = EvmYul.Yul.exec ((fuel+34)+6) (Stmt.Block [_, _]) none s3 := by
+        rw [show (fuel+10)+31 = ((fuel+34)+6)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s3 h3
+    _ = EvmYul.Yul.exec ((fuel+38)+1) (Stmt.Block [_]) none s3 := by
+        rw [show (fuel+34)+6 = ((fuel+38)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s3 h4
+    _ = EvmYul.Yul.exec ((fuel+37)+1) (Stmt.Block []) none s3 := by
+        rw [show (fuel+38)+1 = ((fuel+37)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ [] _ s3 h5
+    _ = _ := RelayLoopLiteral.exec_Block_nil (fuel+37) _
+
+#print axioms body_prefix5
 #print axioms body_prefix3
 #print axioms RelayBodyEff.let_nui
 #print axioms RelayBodyEff.let_idx
