@@ -644,8 +644,33 @@ theorem eval_mload_lit (f : Nat) (a : EvmYul.UInt256) (s : EvmYul.Yul.State) :
   exact eval_primcall (f+3) Operation.MLOAD [Expr.Lit a] s s _ [a] _
     (evalArgs_rev_single_lit f a s) (primCall_MLOAD (f+2) s a)
 
+/-! ## `Let` binding effect atom
+
+`Let [x] := prim(args)` routes through the same `execPrimCall prim [x] …` as an `ExprStmtCall`, but
+with a single bind variable rather than none — so the closing `multifill'` inserts `x ↦ r` into the Yul
+store (`multifill_single`). This is the atom for the four `Let`s of `bodyL` (`idx`, `nui`, `v`, `weight`).
+Guards (`If cond [revert]`) reuse the existing `exec_If_true`/`exec_If_false` + `revert_eff`. -/
+
+/-- Binding a single value: `multifill [x] [r] s = s.insert x r` (for every state constructor). -/
+theorem multifill_single (x : EvmYul.Identifier) (r : EvmYul.UInt256) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.State.multifill [x] [r] s = s.insert x r := by
+  cases s <;> rfl
+
+/-- **`let x := prim(args)` effect**: evaluate the arguments (`→ se, vs`), call the primitive
+    (`→ s', [r]`), and bind `x ↦ r` in the store. -/
+theorem let_prim_eff (fuel : Nat) (x : EvmYul.Identifier) (prim : Operation .Yul) (args : List Expr)
+    (s se s' : EvmYul.Yul.State) (vs : List EvmYul.UInt256) (r : EvmYul.UInt256)
+    (hargs : EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs fuel args.reverse none s) = .ok (se, vs))
+    (hprim : EvmYul.Yul.primCall fuel se prim vs = .ok (s', [r])) :
+    EvmYul.Yul.exec (fuel + 1) (Stmt.Let [x] (some (Expr.Call (Sum.inl prim) args))) none s
+      = .ok (s'.insert x r) := by
+  conv_lhs => unfold EvmYul.Yul.exec
+  simp only [hargs, EvmYul.Yul.execPrimCall, hprim, EvmYul.Yul.multifill', multifill_single]
+
 #print axioms eval_primcall
 #print axioms eval_mload_lit
+#print axioms multifill_single
+#print axioms let_prim_eff
 #print axioms eval_lit
 #print axioms eval_var
 #print axioms eval_primcall_pure
