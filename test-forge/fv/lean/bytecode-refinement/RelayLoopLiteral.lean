@@ -700,6 +700,53 @@ theorem eval_add_var_lit (f : Nat) (x : EvmYul.Identifier) (c : EvmYul.UInt256) 
       (eval_lit (f+3) c s) (eval_var (f+1) x s))
     (primCall_ADD (f+4) s s[x]! c)
 
+/-! ## Composed expressions that read memory (`mload` inside a binary op)
+
+The two `Let`-RHS shapes of `bodyL` that decode a scratch slot. In both the `mload`'s `activeWords`
+bump threads out as the result state `s'`; the difference is only *which* argument the `mload` is (and
+hence its fuel slot). `eval_shr_lit_mload` is `let index := shr(240, mload(m+128))` (mload is the
+high-fuel first argument); `eval_and_mload_lit` is `let v := and(mload(m+32), 0xff)` and the weight
+read `and(mload(m+96), 65535)` (mload is the low-fuel second argument). Their result values feed the
+byte-window decode lemmas of `RelayLoopWindows` (`signer_of_window`, `weight_of_window`). -/
+
+/-- **`shr(c, mload(a))` eval** — `bodyL`'s `let index := shr(240, mload(m+128))`. -/
+theorem eval_shr_lit_mload (f : Nat) (c a : EvmYul.UInt256) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.eval (f + 6)
+      (Expr.Call (Sum.inl Operation.SHR) [Expr.Lit c, Expr.Call (Sum.inl Operation.MLOAD) [Expr.Lit a]]) none s
+      = .ok (s.setMachineState (s.toSharedState.toMachineState.mload a).2,
+             EvmYul.UInt256.shiftRight (s.toSharedState.toMachineState.mload a).1 c) := by
+  refine eval_primcall (f+5) Operation.SHR
+    [Expr.Lit c, Expr.Call (Sum.inl Operation.MLOAD) [Expr.Lit a]] s
+    (s.setMachineState (s.toSharedState.toMachineState.mload a).2)
+    (s.setMachineState (s.toSharedState.toMachineState.mload a).2)
+    [c, (s.toSharedState.toMachineState.mload a).1] _
+    (evalArgs_rev_pair f (Expr.Lit c) (Expr.Call (Sum.inl Operation.MLOAD) [Expr.Lit a])
+      s (s.setMachineState (s.toSharedState.toMachineState.mload a).2)
+      (s.setMachineState (s.toSharedState.toMachineState.mload a).2)
+      c (s.toSharedState.toMachineState.mload a).1
+      (eval_mload_lit f a s) (eval_lit (f+1) c (s.setMachineState (s.toSharedState.toMachineState.mload a).2)))
+    (primCall_SHR (f+4) _ _ _)
+
+/-- **`and(mload(a), c)` eval** — `bodyL`'s `let v := and(mload(m+32), 0xff)` and the weight read
+    `and(mload(m+96), 65535)`. -/
+theorem eval_and_mload_lit (g : Nat) (a c : EvmYul.UInt256) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.eval (g + 8)
+      (Expr.Call (Sum.inl Operation.AND) [Expr.Call (Sum.inl Operation.MLOAD) [Expr.Lit a], Expr.Lit c]) none s
+      = .ok (s.setMachineState (s.toSharedState.toMachineState.mload a).2,
+             EvmYul.UInt256.land (s.toSharedState.toMachineState.mload a).1 c) := by
+  refine eval_primcall (g+7) Operation.AND
+    [Expr.Call (Sum.inl Operation.MLOAD) [Expr.Lit a], Expr.Lit c] s
+    (s.setMachineState (s.toSharedState.toMachineState.mload a).2)
+    (s.setMachineState (s.toSharedState.toMachineState.mload a).2)
+    [(s.toSharedState.toMachineState.mload a).1, c] _
+    (evalArgs_rev_pair (g+2) (Expr.Call (Sum.inl Operation.MLOAD) [Expr.Lit a]) (Expr.Lit c)
+      s s (s.setMachineState (s.toSharedState.toMachineState.mload a).2)
+      (s.toSharedState.toMachineState.mload a).1 c
+      (eval_lit (g+5) c s) (eval_mload_lit g a s))
+    (primCall_AND (g+6) _ _ _)
+
+#print axioms eval_shr_lit_mload
+#print axioms eval_and_mload_lit
 #print axioms eval_primcall
 #print axioms eval_mload_lit
 #print axioms multifill_single
