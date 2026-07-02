@@ -605,6 +605,47 @@ private theorem primCall_NOT (f : Nat) (s : EvmYul.Yul.State) (a : EvmYul.UInt25
     EvmYul.Yul.primCall (f+1) s Operation.NOT [a] = .ok (s, [EvmYul.UInt256.lnot a]) := by
   simp [EvmYul.Yul.primCall, step_NOT]
 
+/-! ## The `mload` reader (the one state-changing pure-looking op)
+
+`mload` is special among the body's readers: `MachineState.mload` returns the value *and* bumps
+`activeWords` (the EVM's `M` memory-expansion accounting). So its eval is **not** state-preserving —
+`eval_primcall_pure` does not apply. `eval_primcall` is the state-threading generalization (arguments
+evaluate to some `se`, then `primCall se` yields `s'`); `eval_mload_lit` instantiates it for a literal
+address (every `mload` in `bodyL` — `mload(m+128)`, `mload(m+32)`, `mload(m+96)`, `mload(m+64)` — has a
+literal address). The returned state carries the `activeWords` bump, which the subsequent guards'
+`M · · 32 * 32 < UInt256.size` side-conditions (cf. `DataLayer.weight_read`) then discharge. -/
+
+/-- **Op-generic state-threading call eval** (generalizes `eval_primcall_pure`): the arguments may
+    change the state to `se`, and the primitive call from `se` yields `s'` with value `r`. -/
+theorem eval_primcall (fuel : Nat) (prim : Operation .Yul) (args : List Expr)
+    (s se s' : EvmYul.Yul.State) (vs : List EvmYul.UInt256) (r : EvmYul.UInt256)
+    (hargs : EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs fuel args.reverse none s) = .ok (se, vs))
+    (hprim : EvmYul.Yul.primCall fuel se prim vs = .ok (s', [r])) :
+    EvmYul.Yul.eval (fuel + 1) (Expr.Call (Sum.inl prim) args) none s = .ok (s', r) := by
+  conv_lhs => unfold EvmYul.Yul.eval
+  simp only [hargs, EvmYul.Yul.evalPrimCall, hprim, EvmYul.Yul.head']; rfl
+
+private theorem primCall_MLOAD (f : Nat) (s : EvmYul.Yul.State) (a : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (f+1) s Operation.MLOAD [a]
+      = .ok (s.setMachineState (s.toSharedState.toMachineState.mload a).2,
+             [(s.toSharedState.toMachineState.mload a).1]) := by
+  simp [EvmYul.Yul.primCall, step_MLOAD]
+
+/-- `evalArgs` of a single literal argument (with the outer `reverse'`): pure, yields `[a]`. -/
+theorem evalArgs_rev_single_lit (f : Nat) (a : EvmYul.UInt256) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs (f + 3) [Expr.Lit a] none s) = .ok (s, [a]) := by
+  simp [EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail, EvmYul.Yul.cons', EvmYul.Yul.reverse', eval_lit]
+
+/-- **`mload(a)` eval** for a literal address: returns the loaded word and the `activeWords`-bumped state. -/
+theorem eval_mload_lit (f : Nat) (a : EvmYul.UInt256) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.eval (f + 4) (Expr.Call (Sum.inl Operation.MLOAD) [Expr.Lit a]) none s
+      = .ok (s.setMachineState (s.toSharedState.toMachineState.mload a).2,
+             (s.toSharedState.toMachineState.mload a).1) := by
+  exact eval_primcall (f+3) Operation.MLOAD [Expr.Lit a] s s _ [a] _
+    (evalArgs_rev_single_lit f a s) (primCall_MLOAD (f+2) s a)
+
+#print axioms eval_primcall
+#print axioms eval_mload_lit
 #print axioms eval_lit
 #print axioms eval_var
 #print axioms eval_primcall_pure
