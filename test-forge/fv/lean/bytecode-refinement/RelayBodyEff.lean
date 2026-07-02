@@ -978,6 +978,174 @@ theorem body_effL (fuel m sigStart : Nat) (nVot thr : EvmYul.UInt256)
     _ = EvmYul.Yul.exec ((fuel+112)+1) (Stmt.Block []) none s16 := by rw [show (fuel+104)+10 = ((fuel+112)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ [] _ s16 h17
     _ = _ := RelayLoopLiteral.exec_Block_nil (fuel+112) _
 
+/-! ## The literal signature loop — induction over `body_effL` (bricks 37)
+
+Generic `For`/`loop` control-flow bricks (ported from `RelayLoopMemRead`), the loop-condition and
+post-statement effects for the *literal* loop (`condL`/`postL`), and the induction `loop_accL` that
+drives the deployed `For (condL nSig) postL bodyL` through all iterations, threading the evolving
+shared state (memory) that the literal body mutates — carrying a clean per-iteration body-advance
+`hstep` (the contract `body_effL` fulfils). Unlike `RelayLoopMemRead.loop_accM` (constant memory,
+abstract 2-statement body) this threads the real 17-statement body's state evolution. -/
+section LoopLayer
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral
+
+-- ===================== ported generic bricks =====================
+theorem exec_For (fuel : Nat) (c : Expr) (po bo : List Stmt) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + 1) (Stmt.For c po bo) none s = EvmYul.Yul.loop fuel c po bo none s := by
+  unfold EvmYul.Yul.exec; rfl
+
+theorem loop_base (fuel : Nat) (c : Expr) (po bo : List Stmt) (s s₁ : EvmYul.Yul.State)
+    (hc : EvmYul.Yul.eval fuel c none (EvmYul.Yul.State.mkOk s) = .ok (s₁, ⟨0⟩)) :
+    EvmYul.Yul.loop (fuel + 1 + 1) c po bo none s = .ok (EvmYul.Yul.State.overwrite? s₁ s) := by
+  unfold EvmYul.Yul.loop; simp only [hc]; rfl
+
+theorem loop_step (fuel : Nat) (c : Expr) (po bo : List Stmt)
+    (sa : EvmYul.SharedState .Yul) (va : EvmYul.Yul.VarStore) (s₃ : EvmYul.Yul.State)
+    (sb : EvmYul.SharedState .Yul) (vb : EvmYul.Yul.VarStore) (x : EvmYul.UInt256)
+    (hc : EvmYul.Yul.eval fuel c none (EvmYul.Yul.State.Ok sa va) = .ok (EvmYul.Yul.State.Ok sa va, x))
+    (hx : x ≠ ⟨0⟩)
+    (hb : EvmYul.Yul.exec fuel (Stmt.Block bo) none (EvmYul.Yul.State.Ok sa va) = .ok (EvmYul.Yul.State.Ok sb vb))
+    (hp : EvmYul.Yul.exec fuel (Stmt.Block po) none (EvmYul.Yul.State.Ok sb vb) = .ok s₃) :
+    EvmYul.Yul.loop (fuel + 1 + 1) c po bo none (EvmYul.Yul.State.Ok sa va)
+      = EvmYul.Yul.exec fuel (Stmt.For c po bo) none s₃ := by
+  unfold EvmYul.Yul.loop
+  simp only [EvmYul.Yul.State.mkOk, hc, if_neg hx, hb, EvmYul.Yul.State.reviveJump, hp,
+             EvmYul.Yul.State.overwrite?]
+  cases EvmYul.Yul.exec fuel (Stmt.For c po bo) none s₃ <;> rfl
+
+theorem ofNat_succ (a : Nat) : UInt256.ofNat (a + 1) = UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1) := by
+  unfold UInt256.ofNat UInt256.add; simp only [Id.run]; congr 1; apply Fin.ext
+  show (a + 1) % UInt256.size = ((a % UInt256.size) + (1 % UInt256.size)) % UInt256.size
+  rw [Nat.add_mod]
+
+theorem lt_eq_zero_iff (a b : UInt256) : UInt256.lt a b = ⟨0⟩ ↔ ¬ (a < b) := by
+  by_cases h : a < b <;>
+    simp only [UInt256.lt, UInt256.fromBool, Bool.toUInt256, h, decide_true, decide_false,
+               if_true, if_false] <;>
+    first | (intro hc; exact absurd rfl (by decide)) |
+            (constructor <;> intro <;> first | rfl | exact absurd h ‹_›) | decide | simp [h]
+
+theorem lt_self (x : UInt256) : UInt256.lt x x = ⟨0⟩ := by
+  have hnn : ¬ (x < x) := by show ¬ (x.val < x.val); exact lt_irrefl _
+  have key : UInt256.lt x x = UInt256.ofNat 0 := by
+    simp [UInt256.lt, UInt256.fromBool, Bool.toUInt256, decide_eq_false hnn]
+  rw [key]; decide
+
+theorem ofNat_lt {a n : Nat} (ha : a < UInt256.size) (hn : n < UInt256.size) :
+    (UInt256.ofNat a < UInt256.ofNat n) ↔ a < n := by
+  show (UInt256.ofNat a).val < (UInt256.ofNat n).val ↔ a < n
+  unfold UInt256.ofNat; simp only [Id.run]
+  show (a % UInt256.size) < (n % UInt256.size) ↔ a < n
+  rw [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hn]
+
+theorem IW : II ≠ WW := by decide
+
+set_option maxHeartbeats 4000000 in
+theorem cond_effL (f : Nat) (n : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.eval (f + 6) (condL n) none (EvmYul.Yul.State.Ok ss vs)
+    = .ok (EvmYul.Yul.State.Ok ss vs, EvmYul.UInt256.lt ((EvmYul.Yul.State.Ok ss vs)[II]!) n) := by
+  simp [condL, bc, V, litU, EvmYul.Yul.eval, EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail,
+        EvmYul.Yul.evalPrimCall, EvmYul.Yul.primCall, EvmYul.Yul.head', EvmYul.Yul.cons',
+        EvmYul.Yul.reverse', RelayLoopLiteral.step_LT]
+
+set_option maxHeartbeats 4000000 in
+theorem post_effL (f : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.exec (f + 8) (Stmt.Block postL) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok ((EvmYul.Yul.State.Ok ss vs).insert II
+              (EvmYul.UInt256.add ((EvmYul.Yul.State.Ok ss vs)[II]!) (UInt256.ofNat 1))) := by
+  have hlet : EvmYul.Yul.exec (f + 7) (Stmt.Let [II] (some (bc .ADD [V II, litN 1]))) none (EvmYul.Yul.State.Ok ss vs)
+      = .ok ((EvmYul.Yul.State.Ok ss vs).insert II
+              (EvmYul.UInt256.add ((EvmYul.Yul.State.Ok ss vs)[II]!) (UInt256.ofNat 1))) :=
+    RelayLoopLiteral.let_prim_eff (f+6) II Operation.ADD [V II, litN 1]
+      (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+      [(EvmYul.Yul.State.Ok ss vs)[II]!, UInt256.ofNat 1] _
+      (RelayLoopLiteral.evalArgs_rev_pair (f+1) (V II) (litN 1)
+        (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs)
+        ((EvmYul.Yul.State.Ok ss vs)[II]!) (UInt256.ofNat 1)
+        (RelayLoopLiteral.eval_lit (f+4) (UInt256.ofNat 1) _) (RelayLoopLiteral.eval_var (f+2) II _))
+      (RelayBodyEff.primCall_ADD' (f+5) _ _ _)
+  calc EvmYul.Yul.exec (f + 8) (Stmt.Block postL) none (EvmYul.Yul.State.Ok ss vs)
+      = EvmYul.Yul.exec (f+7) (Stmt.Block []) none _ := by
+        rw [show f + 8 = (f+7)+1 from by omega]
+        exact RelayLoopLiteral.exec_Block_cons_ok (f+7) _ [] _ _ hlet
+    _ = _ := by rw [show f+7 = (f+6)+1 from by omega]; exact RelayLoopLiteral.exec_Block_nil (f+6) _
+
+-- ===================== THE LITERAL LOOP INDUCTION =====================
+set_option maxHeartbeats 4000000 in
+/-- **Literal loop accumulation.** Drives the deployed signature loop `For (condL nSig) postL bodyL`
+    through `NN` iterations, given a per-iteration body-advance `hstep` (exactly the shape
+    `RelayBodyEff.body_effL` delivers once the guard/ecrecover context is supplied): one turn of
+    `bodyL` preserves the counter `i` and advances the accumulator `weight` from `acc k` to `acc (k+1)`.
+    Concludes the loop lands in some `Ok`-state whose `weight` is `acc NN`. Fuel `3·j + 140`: 3 per
+    iteration for the `For`/`loop`/dispatch plumbing, base ≥ 130 so `body_effL` fits. -/
+theorem loop_accL (NN : Nat) (hN : NN < UInt256.size)
+    (m sigStart : Nat) (nVot thr : EvmYul.UInt256)
+    (acc : Nat → EvmYul.UInt256)
+    (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = acc k →
+        ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130) (Stmt.Block (bodyL m sigStart nVot thr)) none
+              (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = acc (k+1)) :
+    ∀ (j a : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore),
+      a + j = NN →
+      (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat a →
+      (EvmYul.Yul.State.Ok ss vs)[WW]! = acc a →
+      ∃ (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore),
+        EvmYul.Yul.exec (3 * j + 140) (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
+            (EvmYul.Yul.State.Ok ss vs)
+          = .ok (EvmYul.Yul.State.Ok ss' vs') ∧
+        (EvmYul.Yul.State.Ok ss' vs')[WW]! = acc NN := by
+  intro j
+  induction j with
+  | zero =>
+    intro a ss vs hsum hi hw
+    have ha : a = NN := by omega
+    refine ⟨ss, vs, ?_, by rw [hw, ha]⟩
+    have hc : EvmYul.Yul.eval 137 (condL (UInt256.ofNat NN)) none (EvmYul.Yul.State.mkOk (EvmYul.Yul.State.Ok ss vs))
+                = .ok (EvmYul.Yul.State.Ok ss vs, ⟨0⟩) := by
+      have := cond_effL 131 (UInt256.ofNat NN) ss vs
+      simp only [EvmYul.Yul.State.mkOk]
+      rw [show (137 : Nat) = 131 + 6 from rfl, this, hi, ha, lt_self]
+    rw [show (3 * 0 + 140) = 137 + 1 + 1 + 1 from rfl, exec_For, loop_base (fuel := 137) (hc := hc)]
+    simp [EvmYul.Yul.State.overwrite?]
+  | succ j ih =>
+    intro a ss vs hsum hi hw
+    have haN : a < NN := by omega
+    have ha_sz : a < UInt256.size := by omega
+    have hc : EvmYul.Yul.eval (3 * j + 140) (condL (UInt256.ofNat NN)) none (EvmYul.Yul.State.Ok ss vs)
+                = .ok (EvmYul.Yul.State.Ok ss vs, UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN)) := by
+      have := cond_effL (3 * j + 134) (UInt256.ofNat NN) ss vs
+      rw [show (3 * j + 140) = (3 * j + 134) + 6 from by ring, this, hi]
+    have hx : UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN) ≠ ⟨0⟩ := by
+      rw [ne_eq, lt_eq_zero_iff, not_not]; exact (ofNat_lt ha_sz hN).mpr haN
+    obtain ⟨ssb, vsb, hbody_all, hib, hwb⟩ := hstep a ss vs haN hi hw
+    have hb : EvmYul.Yul.exec (3 * j + 140) (Stmt.Block (bodyL m sigStart nVot thr)) none
+                (EvmYul.Yul.State.Ok ss vs) = .ok (EvmYul.Yul.State.Ok ssb vsb) := by
+      have := hbody_all (3 * j + 10); rwa [show (3 * j + 10) + 130 = 3 * j + 140 from by ring] at this
+    have hp := post_effL (3 * j + 132) ssb vsb
+    rw [show (3 * j + 132) + 8 = 3 * j + 140 from by ring, hib] at hp
+    have hstep' := loop_step (fuel := 3 * j + 140) (c := condL (UInt256.ofNat NN)) (po := postL)
+                    (bo := bodyL m sigStart nVot thr)
+                    (sa := ss) (va := vs) (sb := ssb) (vb := vsb)
+                    (hc := hc) (hx := hx) (hb := hb) (hp := hp)
+    rw [show (3 * (j + 1) + 140) = (3 * j + 140) + 1 + 1 + 1 from by ring, exec_For, hstep']
+    have hic : (EvmYul.Yul.State.Ok ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1))))[II]!
+                 = UInt256.ofNat (a + 1) := by rw [ge_self]; exact (ofNat_succ a).symm
+    have hwc : (EvmYul.Yul.State.Ok ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1))))[WW]!
+                 = acc (a + 1) := by rw [ge_ne ssb vsb II WW _ (Ne.symm IW), hwb]
+    obtain ⟨ss', vs', hexec, hWW⟩ := ih (a + 1) ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1)))
+      (by omega) hic hwc
+    exact ⟨ss', vs', hexec, hWW⟩
+
+end LoopLayer
+
+#print axioms loop_accL
+#print axioms cond_effL
+#print axioms post_effL
 #print axioms body_effL
 #print axioms body_prefix9
 #print axioms RelayBodyEff.seam_guard_eval
