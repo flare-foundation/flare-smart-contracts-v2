@@ -235,6 +235,70 @@ theorem mload_s_value (self : EvmYul.MachineState) (src mem : ByteArray) (d : Na
   rw [RelayLoopLiteral.mload_in_range self (UInt256.ofNat (d+64)) h1 h2, hmem,
       RelayWindows.ofNat_toNat' (d+64) hd64, RelayWindows.read_sig_window_s src mem d hsrc hsize]
 
+/-! ## The index window (interpreter-level)
+
+`let index := shr(240, mload(m+128))` — the signature's 2-byte voter index, at the *end* of the blob
+(bytes 65,66, read at `m+128 = (m+32)+96`). Only the top two bytes survive the `shr(240)`, so unlike the
+other windows this uses `read_index_window_head` (which pins just `read.extract 0 2 = src.extract 65 67`)
+composed with `shr240_toNat` and `fromBytesBigEndian_div_pow` (division by `2^240` keeps the top 2 bytes),
+bridged `extract 0 2 → take 2 → toList`. Built by the parallel worker. -/
+
+/-- Pure index read: `shr(240, read)` of the v-slot blob window = the big-endian value of the blob's
+    last two bytes (the voter index). -/
+theorem index_pure (src mem : ByteArray) (d : Nat) (hsrc : src.size = 67) (hmem : d + 128 ≤ mem.size) :
+    (UInt256.shiftRight (UInt256.ofNat (fromByteArrayBigEndian (ByteArray.readWithPadding
+        (ByteArray.write src 0 (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 mem d 32) (d+31) 67) (d+96) 32)))
+      (⟨240⟩ : UInt256)).toNat
+      = fromBytesBigEndian ((src.extract 65 67).data.toList) := by
+  have hZ : ((⟨Array.replicate 32 0⟩ : ByteArray)).size = 32 := by
+    show (Array.replicate 32 (0 : UInt8)).size = 32
+    simp only [Array.size_replicate]
+  have h1s : (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 mem d 32).size = mem.size :=
+    RelayWindows.write_size_gen _ mem d 32 (by omega) hZ (by omega)
+  have h2s : (ByteArray.write src 0
+      (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 mem d 32) (d + 31) 67).size
+      = mem.size := by
+    rw [RelayWindows.write_size_gen src _ (d + 31) 67 (by omega) hsrc (by omega)]; exact h1s
+  set R := ByteArray.readWithPadding
+      (ByteArray.write src 0
+        (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 mem d 32) (d + 31) 67)
+      (d + 96) 32 with hRdef
+  have hRsize : R.size = 32 := by
+    rw [hRdef]; exact RelayWindows.read32_size _ (d + 96) (by omega)
+  have hRlen : R.data.toList.length = 32 := by
+    rw [Array.length_toList]; exact hRsize
+  have hlt : fromByteArrayBigEndian R < UInt256.size := by
+    unfold fromByteArrayBigEndian
+    rw [RelayWindows.toList_data]
+    have h := RelayWindows.fromBytesBigEndian_lt (R.data.toList)
+    rw [hRlen] at h
+    exact lt_of_lt_of_le h (by unfold UInt256.size; norm_num)
+  rw [RelayWindows.shr240_toNat]
+  rw [RelayWindows.ofNat_toNat' _ hlt]
+  rw [show fromByteArrayBigEndian R = fromBytesBigEndian (R.data.toList) from by
+        unfold fromByteArrayBigEndian; rw [RelayWindows.toList_data]]
+  rw [show (240 : Nat) = 8 * (R.data.toList.length - 2) from by rw [hRlen],
+      RelayWindows.fromBytesBigEndian_div_pow (R.data.toList) 2]
+  have hwin : R.extract 0 2 = src.extract 65 67 := by
+    rw [hRdef]; exact RelayWindows.read_index_window_head src mem d hsrc hmem
+  have hbridge : R.data.toList.take 2 = (src.extract 65 67).data.toList := by
+    rw [← hwin, RelayWindows.extract_data_gen _ 0 2 (by omega), Array.toList_extract,
+        List.extract_eq_drop_take, List.drop_zero, Nat.sub_zero]
+  rw [hbridge]
+
+/-- Interpreter index read: `shr(240, mload(m+128))` = the blob's last-2-byte voter index. -/
+theorem mload_shr_index (self : EvmYul.MachineState) (src mem : ByteArray) (d : Nat)
+    (hsrc : src.size = 67)
+    (hmem : self.memory = ByteArray.write src 0 (ByteArray.write (⟨Array.replicate 32 0⟩ : ByteArray) 0 mem d 32) (d+31) 67)
+    (hsize : d + 128 ≤ mem.size) (hd96 : d + 96 < EvmYul.UInt256.size)
+    (h1 : (UInt256.ofNat (d+96)).toNat < self.memory.size)
+    (h2 : ¬ ((UInt256.ofNat (d+96)) ≥ self.activeWords * ⟨32⟩)) :
+    (UInt256.shiftRight (self.mload (UInt256.ofNat (d+96))).1 (⟨240⟩ : UInt256)).toNat
+      = fromBytesBigEndian ((src.extract 65 67).data.toList) := by
+  rw [RelayLoopLiteral.mload_in_range self (UInt256.ofNat (d+96)) h1 h2, hmem,
+      RelayWindows.ofNat_toNat' (d+96) hd96]
+  exact index_pure src mem d hsrc hsize
+
 end RelayBodyEff
 
 #print axioms RelayBodyEff.voter_weight_pure
@@ -248,3 +312,5 @@ end RelayBodyEff
 #print axioms RelayBodyEff.vbyte_pure
 #print axioms RelayBodyEff.mload_v_byte
 #print axioms RelayBodyEff.mload_s_value
+#print axioms RelayBodyEff.index_pure
+#print axioms RelayBodyEff.mload_shr_index
