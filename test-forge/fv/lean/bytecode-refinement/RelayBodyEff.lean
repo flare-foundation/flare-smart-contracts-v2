@@ -1537,8 +1537,86 @@ theorem relay_loop_sound_literal_derived
     hg4 hg5 hg8 hg9 hg10 hg11 hg12 hg15 hg17 hWW15 hII15 hcorr hidxlt
 
 
+
+-- ===================== tightened top theorem: hstep derived + structural guards discharged (brick 43) =====================
+/-- Per-iteration premise with the STRUCTURAL guards already discharged: only the cryptographic guards
+    (v/s/ecrecover/signer-match/accept) + the calldata index decode + the ValidRun numeric conditions
+    remain. This is the tightened OP-1 boundary. -/
+def IterPremiseT (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray) (nVotN k : Nat)
+    (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore) : Prop :=
+  ∃ (ss10 : EvmYul.SharedState .Yul) (vs10 : EvmYul.Yul.VarStore)
+    (ss15 : EvmYul.SharedState .Yul) (vs15 : EvmYul.Yul.VarStore) (nui : Nat),
+    let s1 := (EvmYul.Yul.State.Ok ssk vsk).setMachineState ((EvmYul.Yul.State.Ok ssk vsk).toMachineState.mstore (UInt256.ofNat (m+32)) (UInt256.ofNat 0))
+    let s2 := s1.setSharedState (s1.toSharedState.calldatacopy (UInt256.ofNat (m+63))
+                (EvmYul.UInt256.add (EvmYul.UInt256.add (UInt256.ofNat sigStart)
+                  (EvmYul.UInt256.mul (s1[II]!) (UInt256.ofNat 67))) (UInt256.ofNat 2)) (UInt256.ofNat 67))
+    let s3 := (s2.setMachineState (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).2).insert IDX
+                (EvmYul.UInt256.shiftRight (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).1 (UInt256.ofNat 240))
+    let s6 := s3.insert NUI (EvmYul.UInt256.add (s3[IDX]!) (UInt256.ofNat 1))
+    let s7 := (s6.setMachineState (s6.toSharedState.toMachineState.mload (UInt256.ofNat (m+32))).2).insert VV
+                (EvmYul.UInt256.land (s6.toSharedState.toMachineState.mload (UInt256.ofNat (m+32))).1 (UInt256.ofNat 0xff))
+    let s9 := s7.setMachineState (s7.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2
+    let s10 := EvmYul.Yul.State.Ok ss10 vs10
+    let s15 := EvmYul.Yul.State.Ok ss15 vs15
+    let s12 := s10.setMachineState (s10.toSharedState.toMachineState.mload (UInt256.ofNat (m+64))).2
+    let s13 := s12.setMachineState (s12.toMachineState.mstore (UInt256.ofNat (m+96)) (UInt256.ofNat 0))
+    let s14 := s13.setSharedState (s13.toSharedState.calldatacopy (UInt256.ofNat (m+106))
+                 (EvmYul.UInt256.add (UInt256.ofNat 47) (EvmYul.UInt256.mul (s13[IDX]!) (UInt256.ofNat 22))) (UInt256.ofNat 22))
+    let s16 := (s15.setMachineState (s15.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2).insert WW
+                 (EvmYul.UInt256.add (s15[WW]!) (EvmYul.UInt256.land (s15.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535)))
+    s3[IDX]! = UInt256.ofNat (sigIdxAt cd sigStart k) ∧
+    s3[NUI]! = UInt256.ofNat nui ∧
+    nVot = UInt256.ofNat nVotN ∧
+    nui ≤ sigIdxAt cd sigStart k ∧
+    nVotN < UInt256.size ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+121) (bc .ISZERO [bc .OR [bc .EQ [V VV, litN 27], bc .EQ [V VV, litN 28]]]) none s7 = .ok (s7, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+120) (bc .GT [bc .MLOAD [litN (m+96)], litU SECP_HALF]) none s7 = .ok (s9, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+119) (bc .ISZERO [bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]]) none s9 = .ok (s10, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+118) (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) none s10 = .ok (s10, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+117) (bc .ISZERO [bc .MLOAD [litN (m+64)]]) none s10 = .ok (s12, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+114) (bc .ISZERO [bc .EQ [bc .MLOAD [litN (m+64)], bc .SHR [litN 16, bc .MLOAD [litN (m+96)]]]]) none s14 = .ok (s15, ⟨0⟩)) ∧
+    (∀ fuel, EvmYul.Yul.eval (fuel+112) (bc .GT [V WW, litU thr]) none s16 = .ok (s16, ⟨0⟩)) ∧
+    (EvmYul.Yul.State.Ok ss15 vs15)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) ∧
+    (EvmYul.Yul.State.Ok ss15 vs15)[II]! = UInt256.ofNat k ∧
+    EvmYul.UInt256.land ((EvmYul.Yul.State.Ok ss15 vs15).toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535)
+      = UInt256.ofNat (voterWeightAt cd (sigIdxAt cd sigStart k)) ∧
+    sigIdxAt cd sigStart k < nVotN
+
+set_option maxHeartbeats 4000000 in
+/-- **Relay signature loop soundness with hstep DERIVED and the structural guards DISCHARGED.** The
+    tightened end-form: the only assumed per-iteration content (`IterPremiseT`) is the cryptographic
+    ecrecover facts + the calldata index decode + the ValidRun numeric discipline. -/
+theorem relay_loop_sound_literal_derived_tight
+    (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
+    (hN : NN < UInt256.size)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
+    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
+    (hiters : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
+        IterPremiseT m sigStart nVot thr cd nVotN k ssk vsk)
+    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart NN))
+    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size)
+    (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore)
+    (hexec : EvmYul.Yul.exec (3 * NN + 140)
+        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
+          (EvmYul.Yul.State.Ok ss vs)
+        = .ok (EvmYul.Yul.State.Ok ss' vs'))
+    (haccept : thr < (EvmYul.Yul.State.Ok ss' vs')[WW]!) :
+    thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+  refine relay_loop_sound_literal m sigStart cd nVot thr nVotN NN hN ss vs hi hw ?_ hvalid hnoovf ss' vs' hexec haccept
+  intro k ssk vsk hk hII hWW
+  obtain ⟨ss10, vs10, ss15, vs15, nui, hidx, hnui, hnv, horder, hsz,
+    hg8, hg9, hg10, hg11, hg12, hg15, hg17, hWW15, hII15, hcorr, hidxlt⟩ := hiters k ssk vsk hk hII hWW
+  exact iter_advance_tight m sigStart nVot thr cd nVotN k nui ssk vsk ss10 vs10 ss15 vs15
+    hidx hnui hnv horder hsz hg8 hg9 hg10 hg11 hg12 hg15 hg17 hWW15 hII15 hcorr hidxlt
+
+
 end LoopLayer
 
+#print axioms relay_loop_sound_literal_derived_tight
 #print axioms relay_loop_sound_literal_derived
 #print axioms relay_loop_sound_literal
 #print axioms iter_advance_tight
