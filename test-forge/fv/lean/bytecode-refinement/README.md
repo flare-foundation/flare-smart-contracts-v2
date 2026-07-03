@@ -178,24 +178,26 @@ and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility
   accept gate. Same accounting conclusion as `relay_loop_sound`; strictly smaller assumption surface. See
   L7 §7.3–7.4 and L10 §10.5.
 
-## R5 (whole-`relay()`) build plan — in progress
+## R5 (whole-`relay()`) build plan
 
 The signature loop (the security-critical core) is done at R4b. R5 extends the literal model to the rest of
-`relay()`, decomposed into checkpointed steps:
+`relay()`, in checkpointed steps — the storage/dispatch/write layer is now built:
 
-- **R5.1 — storage layer** (gating; in progress): `sstore_sload` round-trip `(sstore k v).sload k = v` on
-  EVMYulLean's real `State` (mirrors `DataLayer.mem_roundtrip` for memory). Reduces to `Account.updateStorage`∘
-  `lookupStorage` + `accountMap` insert/find (both `Batteries.RBMap`). **Obstacle (pinned):** the RBMap
-  insert lemma needs `Std.TransCmp compare`, which does not synthesize for UInt256's *derived* `Ord`
-  (nor `AccountAddress`'s custom `Ord`); the generated `compare` is not defeq to `Fin`'s. Dischargeable —
-  `Nat`/`Fin` have `TransCmp` — by building the instances via transfer, then deriving `find?_erase`. Real
-  order-theory plumbing (the storage analog of the memory-layer ByteArray grind).
-- **R5.2 — mode dispatch**: model `relay()`'s protocolId branching (0 = signing policy, 1 = custom sig,
-  >1 = Merkle publish) and prove faithful routing. Independent of R5.1 (control flow only).
-- **R5.3 — per-mode accept-writes**: on accept, the mode-appropriate storage write (signing-policy hash /
-  Merkle root / random). Depends on R5.1.
-- **R5.4 — fees**: `verify()` fee conservation (already covered at bounded scope by the Halmos
-  `RelayVerifyFeeFV` harness; the Lean-level version needs value/balance ops).
+- **R5.1 — storage layer — ✅ done** (`RelayStorageLayer.lean`): `sstore_sload` round-trip
+  `(sstore k v).sload k = v` on EVMYulLean's real `State` (the storage analog of `DataLayer.mem_roundtrip`).
+  The pinned obstacle is discharged: `TransCmp` for the key comparators is transferred from `Fin`/`Nat`
+  (the derived `Ord` collapses `(compare a.val b.val).then .eq` to `Fin`'s comparator), and `find?_erase`
+  (absent in Batteries) is derived bottom-up on `RBNode`. Hole-free.
+- **R5.2 — mode dispatch — ✅ done** (`RelayBodyEff.lean`, `DispatchLayer`): `dispatch_routes_verify` proves
+  `relay()`'s protocolId branching (Relay.sol:894/916) routes faithfully — the modes don't cross-contaminate.
+- **R5.3 — accept-write reads back — ✅ done** (`RelayStorageLayer.lean`): `sstore_eff` (exec-level `SSTORE`
+  with the `perm=true` static-mode guard) + `sstore_reads_back` — executing the accept-branch write
+  `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)` (Relay.sol:1394) stores a value that
+  reads back, via `sstore_sload`.
+- **R5.4 — fees** (remaining): `verify()` fee conservation — already covered at bounded scope by the Halmos
+  `RelayVerifyFeeFV` harness; the Lean-level version needs the value-transfer / `call` layer. Orthogonal to
+  the core `relay()` accounting.
 
+All landed steps are hole-free (`{propext, Classical.choice, Quot.sound}`) and gated by `../verify_lean.py`.
 The accounting-soundness property is already covered by the loop; R5 adds breadth (mode-specific effects),
 not a new soundness fact. `ecrecover` stays MC-2 throughout.
