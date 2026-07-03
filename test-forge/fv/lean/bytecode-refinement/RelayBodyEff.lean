@@ -1919,6 +1919,123 @@ theorem dispatch_routes_verify (fuel : Nat) (ss : EvmYul.SharedState .Yul) (vs :
 
 end DispatchLayer
 
+-- ===================== end-to-end composition (brick 48 / R5 capstone) =====================
+/-! ## Composing dispatch → signature loop → accept
+
+The three R5 pieces (`dispatch_routes_verify`, the signature-loop capstone, the accept-write) are proven
+independently. This section stitches the first two into a single **top-level `relay()` accept** statement:
+from the mode dispatch, `protocolId ≠ 1` routes into the verify branch, whose signature loop — given a valid
+signer set that crosses the threshold — halts with the accept `return(0,0)` **and** the total registered
+weight exceeds the threshold. The composition is exact in fuel (dispatch adds a fixed overhead over the
+loop), so no fuel-monotonicity is assumed.
+
+**Modeling boundary (stated honestly, not papered over).** Between the verify-branch entry and the loop,
+relay() runs ~hundreds of assembly lines of setup (calldata decode, message-hash reconstruction). Two tiers:
+
+* `dispatch_then_loop_accept` / `relay_dispatch_loop_accept` (Tier A) take the verify body to *be* the loop
+  (`verifyBranch = [loopStmt]`) — the setup is elided.
+* `dispatch_setup_loop_accept` (Tier B) takes `verifyBranch = [setupStmt, loopStmt]` and carries the setup's
+  net state transition (`Ok ss vs → Ok ss' vs'`) as an explicit hypothesis `hsetup`. Since a `Stmt.Block` of
+  the real setup statements *is* a single `Stmt`, `setupStmt := Stmt.Block realSetup` makes this faithful:
+  the only thing assumed is the setup's aggregate effect, which is exactly the unmodeled boundary.
+
+The accept-*write* (R5.3, `RelayStorageLayer.sstore_reads_back`) is deliberately NOT folded in here: the loop
+model's D3 deviation returns `return(0,0)` on accept (rather than `break`-then-write), so the write is a
+separate, independently-verified piece. Reconciling D3 (re-model accept as break→write→return) is the
+remaining end-to-end boundary — see docs/relay-verification/10. -/
+section CompositionLayer
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral
+
+/-- **Tier A combinator.** Dispatch (protocolId ≠ 1) prepended to a single-statement verify body preserves
+    an accept-halt of that statement, at a fixed `+4` fuel overhead. Fully general in `loopStmt`/`hs`. -/
+theorem dispatch_then_loop_accept (fuel : Nat) (customBranch : List Stmt) (loopStmt : Stmt)
+    (pid : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (hpid : (EvmYul.Yul.State.Ok ss vs)[PID]! = pid) (hne : pid ≠ UInt256.ofNat 1)
+    {hs : EvmYul.Yul.State}
+    (hloop : EvmYul.Yul.exec (fuel + 9) loopStmt none (EvmYul.Yul.State.Ok ss vs)
+              = .error (.YulHalt hs ⟨1⟩)) :
+    EvmYul.Yul.exec (fuel + 13) (Stmt.Block (dispatchL customBranch [loopStmt])) none
+        (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩) := by
+  rw [dispatch_routes_verify fuel ss vs customBranch [loopStmt] pid hpid hne,
+      show fuel + 10 = (fuel + 8) + 1 + 1 from by omega,
+      exec_Block_single (fuel + 8) loopStmt (EvmYul.Yul.State.Ok ss vs),
+      show fuel + 8 + 1 = fuel + 9 from by omega]
+  exact hloop
+
+/-- **Tier B combinator.** Dispatch (protocolId ≠ 1) into a verify body of `[setupStmt, loopStmt]`: run the
+    (opaque, deterministic) setup to the loop-entry state `Ok ss' vs'`, then the loop halts-accept. The setup's
+    aggregate effect is the sole hypothesis (`hsetup`) — the honest modeling boundary for relay()'s decode. -/
+theorem dispatch_setup_loop_accept (fuel : Nat) (setupStmt loopStmt : Stmt) (customBranch : List Stmt)
+    (pid : EvmYul.UInt256) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore)
+    (hpid : (EvmYul.Yul.State.Ok ss vs)[PID]! = pid) (hne : pid ≠ UInt256.ofNat 1)
+    {hs : EvmYul.Yul.State}
+    (hsetup : EvmYul.Yul.exec (fuel + 9) setupStmt none (EvmYul.Yul.State.Ok ss vs)
+                = .ok (EvmYul.Yul.State.Ok ss' vs'))
+    (hloop : EvmYul.Yul.exec (fuel + 8) loopStmt none (EvmYul.Yul.State.Ok ss' vs')
+              = .error (.YulHalt hs ⟨1⟩)) :
+    EvmYul.Yul.exec (fuel + 13) (Stmt.Block (dispatchL customBranch [setupStmt, loopStmt])) none
+        (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩) := by
+  rw [dispatch_routes_verify fuel ss vs customBranch [setupStmt, loopStmt] pid hpid hne,
+      show fuel + 10 = (fuel + 9) + 1 from by omega,
+      exec_Block_cons_ok (fuel + 9) setupStmt [loopStmt] (EvmYul.Yul.State.Ok ss vs)
+        (EvmYul.Yul.State.Ok ss' vs') hsetup,
+      show fuel + 9 = (fuel + 7) + 1 + 1 from by omega,
+      exec_Block_single (fuel + 7) loopStmt (EvmYul.Yul.State.Ok ss' vs')]
+  exact hloop
+
+set_option maxHeartbeats 4000000 in
+/-- **R5 capstone — dispatch to accept, fully closed.** From the top-level mode dispatch, `protocolId ≠ 1`
+    routes into the verify branch (taken to be the signature loop), and — under the loop's iteration premises
+    (`hstep`/`haccept`, the ecrecover boundary; `hi`/`hw`, the accumulator init) plus a valid signer prefix
+    crossing the threshold at step `t` — relay() halts with the accept `return(0,0)` AND the total registered
+    weight strictly exceeds the threshold. Composes `dispatch_routes_verify` with
+    `relay_loop_sound_literal_early`; the only remaining assumptions are the per-iteration ecrecover premises. -/
+theorem relay_dispatch_loop_accept
+    (m sigStart : Nat) (cd : ByteArray) (nVot thr pid : EvmYul.UInt256) (nVotN NN t : Nat)
+    (hN : NN < UInt256.size)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) (customBranch : List Stmt)
+    (hpid : (EvmYul.Yul.State.Ok ss vs)[PID]! = pid) (hne : pid ≠ UInt256.ofNat 1)
+    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
+    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
+    (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
+        ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130) (Stmt.Block (bodyL m sigStart nVot thr)) none
+              (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (k+1)))
+    (haccept : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
+        ∃ (hs : EvmYul.Yul.State), ∀ fuel, EvmYul.Yul.exec (fuel+130)
+          (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ssk vsk)
+            = .error (.YulHalt hs ⟨1⟩))
+    (htNN : t < NN)
+    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart (t + 1)))
+    (hacc_thr : thr.val < accNat cd sigStart nVotN (t + 1)) :
+    (∃ (hs : EvmYul.Yul.State), EvmYul.Yul.exec (3 * t + 145)
+        (Stmt.Block (dispatchL customBranch
+            [Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)])) none
+          (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩))
+      ∧ thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+  obtain ⟨⟨hs, hloop⟩, hthr⟩ :=
+    relay_loop_sound_literal_early m sigStart cd nVot thr nVotN NN t hN ss vs hi hw
+      hstep haccept htNN hvalid hacc_thr
+  refine ⟨⟨hs, ?_⟩, hthr⟩
+  have hd := dispatch_then_loop_accept (3 * t + 132) customBranch
+    (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) pid ss vs hpid hne
+    (hs := hs) (by rw [show 3 * t + 132 + 9 = 3 * t + 141 from by omega]; exact hloop)
+  rw [show 3 * t + 145 = 3 * t + 132 + 13 from by omega]; exact hd
+
+end CompositionLayer
+
+#print axioms relay_dispatch_loop_accept
+#print axioms dispatch_then_loop_accept
+#print axioms dispatch_setup_loop_accept
 #print axioms dispatch_routes_verify
 #print axioms exec_Block_single
 #print axioms relay_loop_sound_literal_early
