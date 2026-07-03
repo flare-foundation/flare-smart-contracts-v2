@@ -75,6 +75,18 @@ for f in DataLayer RelayLoopWindows RelayLoopLiteral; do lake env lean -o $LIB/$
 lake env lean RelayBodyEff.lean                          # literal model + relay_loop_sound_literal_derived_tight
 ```
 
+**Automated, and CI-gated.** [`../verify_lean.py`](../verify_lean.py) runs all of the above and enforces
+hole-freeness — it fails on any `lake` error, any `sorry`/`sorryAx`/`native_decide`, or any `#print axioms`
+line listing an axiom outside `{propext, Classical.choice, Quot.sound, zeroes_data, toByteArray_size}` (so a
+proof that still *builds* but acquired a `sorry` fails the gate, independently of Lake's own reporting). CI
+runs it in the `test-fv-lean` job (`.gitlab-ci.yml`, gated on changes under this directory), the Lean
+counterpart of `test-fv-halmos`:
+
+```bash
+# after building the pinned EVMYulLean at $EVMYUL_DIR (as above):
+EVMYUL_DIR=/tmp/evmyul2 python3 test-forge/fv/lean/verify_lean.py   # exit 0 = all hole-free
+```
+
 Full narrative, the fuel-genericity technique, and the verbatim walk-through:
 `../../../../docs/relay-verification/` (levels 07–09).
 

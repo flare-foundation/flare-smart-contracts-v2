@@ -221,6 +221,41 @@ test-fv-halmos:
   - export PATH="$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
   - HALMOS=halmos python3 test-forge/fv/verify_fv.py
 
+# Gate for the Lean bytecode-refinement proofs (test-forge/fv/lean/bytecode-refinement). Type-checks every
+# file against the PINNED NethermindEth EVMYulLean semantics and enforces that the results stay HOLE-FREE:
+# `lake env lean` must exit 0 (no error), and every `#print axioms` must list only allowed axioms — no
+# `sorryAx`, no `native_decide`, nothing beyond Lean's three foundational axioms plus the two documented,
+# upstream-dischargeable data-layer specs (zeroes_data, toByteArray_size). Complements test-fv-halmos: the
+# Halmos harnesses and the Lean refinement are the two FV strands, and this keeps the Lean side — the
+# strongest results (∀N soundness on validated EVM semantics, incl. the literal loop-body model) — from
+# silently regressing. verify_lean.py fails independently of Lake's own success reporting: a proof that
+# still builds but acquired a `sorry` passes `lake` yet fails this gate. See docs/relay-verification/ L7/L11.
+test-fv-lean:
+  needs: []
+  timeout: 60 minutes
+  tags: [ flarenetwork-md ]
+  # python:3.12 bundles git + curl; elan (Lean's toolchain manager) is installed under $CI_PROJECT_DIR, and
+  # the pinned Lean toolchain is auto-provisioned from EVMYulLean's lean-toolchain on first `lake` call.
+  image: python:3.12
+  variables:
+    EVMYUL_COMMIT: "047f63070309f436b66c61e276ab3b6d1169265a"   # 2025-09-24 — the checked commit (NOT HEAD)
+    ELAN_HOME: "$CI_PROJECT_DIR/.elan"
+  rules:
+  - changes:
+    - test-forge/fv/lean/bytecode-refinement/**/*
+    - test-forge/fv/lean/verify_lean.py
+  before_script:
+  - python3 --version; git --version; curl --version | head -1   # env diagnostics
+  - curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+  - export PATH="$ELAN_HOME/bin:$PATH"
+  # build the validated semantics once, pinned; cache get pulls prebuilt Mathlib+deps oleans, then build EvmYul
+  - git clone https://github.com/NethermindEth/EVMYulLean /tmp/evmyul
+  - git -C /tmp/evmyul checkout "$EVMYUL_COMMIT"
+  - (cd /tmp/evmyul && lake exe cache get && lake build)
+  script:
+  - export PATH="$ELAN_HOME/bin:$PATH"
+  - EVMYUL_DIR=/tmp/evmyul python3 test-forge/fv/lean/verify_lean.py
+
 ##
 ## COVERAGE
 ##
