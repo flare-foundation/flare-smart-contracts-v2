@@ -5,6 +5,20 @@
 operational semantics, for all N. It is self-contained — every supporting lemma is proved locally, so one
 `lake env lean` checks the whole development.
 
+The module has since grown to a full **data layer** and a **literal deployed-body model**:
+
+| File | Role |
+|------|------|
+| `RelayBytecodeRefinement.lean` | loop *mechanism*, memory-free body, ∀N |
+| `DataLayer.lean` | the byte/memory/value/mask data layer (`weight_read`) against EVMYulLean's real `ByteArray`/`MachineState` |
+| `RelayLoopMemRead.lean` | abstract memory-reading loop + `relay_loop_sound` (accept ⟹ total registered weight > thr, ∀N; assumes `hcov`/`hcorr`) |
+| `RelayLoopLiteral.lean` | the deployed body transliterated statement-for-statement from `relay_ir_optimized.yul:1563-1610`, + reusable interpreter atoms and the abstract accounting (`sigLoop`/`ValidRun`/`threshold_sound`) |
+| `RelayLoopWindows.lean` | the calldata byte-window decode layer |
+| `RelayBodyEff.lean` | the **literal** model: composes the above into `relay_loop_sound_literal_derived_tight` — the full 17-statement body on the validated EVM, with `hcov`/`hcorr` and the index guards **derived** (only `ecrecover`/OP-1 remains) |
+
+`RelayBodyEff.lean` is the one file that `import`s its siblings; checking it needs them compiled into the
+package lib first (see *Checking it*). The rest are each self-contained (`lake env lean <file>`).
+
 ## What is proved (all hole-free)
 
 `#print axioms` for each is exactly `[propext, Classical.choice, Quot.sound]` (no `sorry`/`sorryAx`, no
@@ -22,16 +36,20 @@ operational semantics, for all N. It is self-contained — every supporting lemm
 
 ## Scope and assumptions
 
-The encoded loop is **memory-free**: its body adds the loop index, not a value loaded from memory. This
-establishes the loop *mechanism* — that the validated semantics iterates ∀N and faithfully folds a
-per-step quantity, and that threshold soundness transfers — on the real-machine semantics. The remaining
-facts are stated assumptions, discharged by other evidence and registered in the claims ledger
+The `RelayBytecodeRefinement.lean` loop is **memory-free**: its body adds the loop index, not a value
+loaded from memory. This establishes the loop *mechanism* — that the validated semantics iterates ∀N and
+faithfully folds a per-step quantity, and that threshold soundness transfers — on the real-machine
+semantics. For that file alone the remaining facts below are stated assumptions; **all but EVMYulLean-is-the-EVM
+are now discharged by the sibling files in this module** (`DataLayer.lean`, `RelayLoopMemRead.lean`,
+`RelayBodyEff.lean`), and are registered in the claims ledger
 (`../../../../docs/relay-verification/10-claims-ledger-trust-and-residual.md`):
 
-- the **data layer** — each addend is the registered weight `mload(weights[i])`;
-- the **overflow bound** — sums stay below 2²⁵⁶ (so the `𝕌` result equals the integer result);
-- **encoding fidelity** — the `for` node mirrors the deployed loop's iterate-and-accumulate skeleton;
-- **EVMYulLean is the EVM** — validated against the Ethereum execution-spec test suites.
+- the **data layer** — each addend is the registered weight `mload(weights[i])` — **discharged**
+  (`DataLayer.weight_read`; derived end-to-end in the literal model, `mload_masked_voter`);
+- the **overflow bound** — sums stay below 2²⁵⁶ — **discharged under `hnoovf`** (`bytecode_threshold_sound_int`);
+- **encoding fidelity** — does the modeled loop match the deployed one? — **largely closed** (the literal
+  `RelayBodyEff.bodyL` is the deployed body transliterated; early-return the one residual idealization);
+- **EVMYulLean is the EVM** — validated against the Ethereum execution-spec test suites (permanent A-EVM).
 
 ## Checking it
 
@@ -40,19 +58,33 @@ facts are stated assumptions, discharged by other evidence and registered in the
 git clone https://github.com/NethermindEth/EVMYulLean /tmp/evmyul2
 cd /tmp/evmyul2 && git checkout 047f63070309f436b66c61e276ab3b6d1169265a   # 2025-09-24 (not HEAD)
 lake exe cache get && lake build                         # Lean 4.22.0 (from lean-toolchain)
-# check this file against it:
-cp <repo>/test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean /tmp/evmyul2/
-lake env lean RelayBytecodeRefinement.lean               # exit 0; prints the three clean axiom lists
+# check the files against it:
+B=<repo>/test-forge/fv/lean/bytecode-refinement
+cp $B/RelayBytecodeRefinement.lean $B/DataLayer.lean $B/RelayLoopMemRead.lean \
+   $B/RelayLoopWindows.lean $B/RelayLoopLiteral.lean $B/RelayBodyEff.lean /tmp/evmyul2/
+cd /tmp/evmyul2
+lake env lean RelayBytecodeRefinement.lean               # exit 0; prints the clean axiom lists
+lake env lean DataLayer.lean
+lake env lean RelayLoopMemRead.lean
+lake env lean RelayLoopWindows.lean
+lake env lean RelayLoopLiteral.lean
+# RelayBodyEff.lean imports the three siblings, so compile them into the package lib first
+# (a plain LEAN_PATH prepend does NOT work — Lean won't fall through to it):
+LIB=.lake/build/lib/lean
+for f in DataLayer RelayLoopWindows RelayLoopLiteral; do lake env lean -o $LIB/$f.olean $f.lean; done
+lake env lean RelayBodyEff.lean                          # literal model + relay_loop_sound_literal_derived_tight
 ```
 
 Full narrative, the fuel-genericity technique, and the verbatim walk-through:
 `../../../../docs/relay-verification/` (levels 07–09).
 
-## Future work: discharging the data-layer assumption (BR-1)
+## Discharging the data-layer assumption (BR-1) — done
 
-The proof above is memory-free (its body adds the loop index). Replacing the index with the real memory
-read and proving `mload(weights[i]) = w[i]` would discharge **BR-1** (and most of **BR-3**, encoding
-fidelity). Two concrete starting points:
+The `RelayBytecodeRefinement.lean` proof is memory-free (its body adds the loop index). Replacing the index
+with the real memory read and proving `mload(weights[i]) = w[i]` discharges **BR-1** (and most of **BR-3**,
+encoding fidelity). This is **now complete** — the bounded data-layer foundation *and* the literal
+end-to-end body model (final bullet). The trail below records how it was built; two concrete starting points
+opened it:
 
 **1. Locate the real loop in the compiled Yul (BR-3).** `forge inspect Relay irOptimized` emits the
 optimized IR (~3700 lines, with `@src` source-maps back to `Relay.sol`). The signature loop is a
@@ -118,7 +150,18 @@ and transfer `RelaySigLoop.threshold_sound` through it. **Progress + feasibility
   stated hypotheses `hcov` / `hcorr` / `hvalid` / `hnoovf` (MC-2 / OP-1 / BR-1 / BR-2). `hcorr` is discharged
   per-slot by `DataLayer.weight_read`. Everything else — the loop mechanism, the `mload`, the mask, the
   accumulation, the accept gate, and the accounting soundness — is *proven* against the validated semantics.
-- *Remaining (engineering, not new facts):* a fully literal end-to-end EVM model of the *rest* of the body
-  (the `staticcall` plumbing, calldatacopy, the per-guard reverts, the early-return) would let `hcov`/`hcorr`/
-  `hvalid` be *derived* from a raw-calldata precondition rather than assumed — but ecrecover itself stays an
-  assumption (MC-2), and the accounting result above does not change. See L10 §10.5.
+- *Literal end-to-end body model — ✅ done (`RelayBodyEff.lean`, with `RelayLoopLiteral.lean` +
+  `RelayLoopWindows.lean`; 2026-07-02/03).* The "remaining, optional" item above is built. It executes the
+  **full 17-statement deployed body** `bodyL` — transliterated statement-for-statement from
+  `relay_ir_optimized.yul:1563-1610` — through the validated Yul `exec`, threading the real
+  `mstore`/`calldatacopy`/`mload` state (no `hcov` state-preservation assumption). The chain, all hole-free:
+  `body_effL` (one iteration) → `s16_ww_advance`/`s16_ii_preserved` (the body adds exactly the selected
+  voter's registered weight, preserves the counter) → `iter_advance` (the per-iteration advance `hstep`,
+  **derived**) → `range_guard_pass`/`order_guard_pass`/`iter_advance_tight` (the structural index guards
+  **derived** from `ValidRun`) → `loop_accL` (the ∀N induction) → `relay_loop_sound_literal` →
+  `relay_loop_sound_literal_derived` → **`relay_loop_sound_literal_derived_tight`**. The masked read = the
+  selected voter's registered weight is **derived** (`mload_masked_voter`), so `hcov`/`hcorr` are no longer
+  assumed; the structural half of `hvalid` is **derived** from `ValidRun`. The only surviving per-iteration
+  hypothesis (`IterPremiseT`) is the cryptographic `ecrecover` facts (MC-2, uninterpreted by design) + the
+  accept gate. Same accounting conclusion as `relay_loop_sound`; strictly smaller assumption surface. See
+  L7 §7.3–7.4 and L10 §10.5.

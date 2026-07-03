@@ -139,18 +139,24 @@ The residual — explicitly *assumed*, validated separately — is small and nam
 scope by design), the operational ABI of each boundary call, a trusted signing-policy setter, and the
 per-iteration *selection/validity* the external calls determine (which voter each signature recovers to, and
 that indices are strictly increasing). The **data layer** — that each iteration reads the intended weight from
-memory — is no longer assumed: it is machine-checked on the validated EVM (the memory-reading loop and
-`relay_loop_sound`, L7 §7.3). L10 fences the residual precisely.
+memory — is no longer assumed: the loop now runs the deployed contract's *actual* 17-statement signature-verification
+body on the validated EVM, so the memory reads are executed and their correctness is *derived*, not assumed (the
+hole-free literal chain, capstone `relay_loop_sound_literal_derived_tight`, in
+[`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean); the simpler masked-read
+`relay_loop_sound` corroborates — L7 §7.3). L10 fences the residual precisely.
 
 > ⚠ **Caveat (discharged in L7/L10 — the most important one).** The loop run inside the validated EVM
-> model at R4b is a *counting accumulation loop*; its body is now the deployed contract's real masked memory
-> read `mload(slot) & 0xffff` (L7 §7.3), so the **loop mechanism *and* the data layer** are captured — the
-> two things Enemy 2 attacks. What is still abstracted is the *cryptography* (`ecrecover`) and the
-> calldata/`staticcall` plumbing that selects which voter each signature contributes: that selection and the
-> no-double-count discipline are the stated hypotheses of `relay_loop_sound`, and the signature-specific
-> accounting is what **the abstract proof** handles in full generality. The result therefore establishes
-> *accept ⟹ enough genuine voter weight, on a validated model of the real machine, for all N* — not "the
-> entire deployed contract is proven equivalent down to the cryptography."
+> model at R4b is a *counting accumulation loop*; its body is now the deployed contract's **actual 17-statement
+> signature-verification body**, executed statement-for-statement — real `mstore`/`calldatacopy`/`mload`, the
+> masked weight read, the tally and the accept gate — so the **loop mechanism, the data layer, and the body's
+> memory plumbing** are all captured (the literal chain `relay_loop_sound_literal_derived_tight`; the earlier
+> masked-read `relay_loop_sound` remains as the simpler corroborating statement — L7 §7.3). What is still
+> abstracted is only the *cryptography*: the `ecrecover` precompile (invoked via `staticcall`) is uninterpreted
+> by design, so the ecrecover facts (a valid signature recovers to the registered voter) plus the no-double-count
+> discipline are the stated per-iteration hypothesis (`IterPremiseT`), and the signature-specific accounting is
+> what **the abstract proof** handles in full generality. The result therefore establishes *accept ⟹ enough
+> genuine voter weight, on a validated model of the real machine, for all N* — not "the entire deployed contract
+> is proven equivalent down to the cryptography."
 
 ---
 
@@ -170,8 +176,8 @@ surface:
   genuinely runs the unbounded loop, so the ∀N guarantee is not stranded at the abstract level.
 
 Stacked, they reduce the trusted, unverified surface to a single small, independently-checkable claim
-about memory contents and crypto — instead of trusting 930 lines of assembly by eye. That shrinkage is
-the deliverable, and L10 measures exactly how small the residual is.
+about the cryptography (the `ecrecover` boundary) — instead of trusting 930 lines of assembly by eye. That
+shrinkage is the deliverable, and L10 measures exactly how small the residual is.
 
 **Next:** [L2 — Strategy & the fidelity ladder](02-strategy-and-the-fidelity-ladder.md), where the ladder
 becomes precise, the tool-choices are justified, and an executive results table summarizes every rung.

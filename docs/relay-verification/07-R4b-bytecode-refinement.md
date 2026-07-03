@@ -5,7 +5,9 @@
 > loop *mechanism* (memory-free); §7.3 then discharges the **data layer (BR-1)** — the body becomes the
 > deployed contract's real `mload(slot) & 0xffff` read — and composes the simulation-relation capstone
 > `relay_loop_sound` (accept ⟹ total registered weight > threshold): the **accounting core** of the relation
-> `R`, with the external call (`ecrecover`) and the per-iteration selection/validity as stated assumptions. The overview, the results, and the honest residual. The mathematics is
+> `R`. §7.3 further builds the **literal** model (`RelayBodyEff`, the full 17-statement deployed body executed
+> by the validated `exec`), which *derives* `hcov`/`hcorr` and the index-range/strict-increase guards —
+> leaving only the cryptographic `ecrecover` facts assumed (`relay_loop_sound_literal_derived_tight`). The overview, the results, and the honest residual. The mathematics is
 > [L8 §C](08-the-mathematics.md); the verbatim Lean, fuel-genericity, and axiom audit are
 > [L9 §C–F](09-the-formal-detail.md).
 
@@ -112,6 +114,34 @@ discipline are the *stated hypotheses* of `relay_loop_sound`:
 Everything *else* — the loop mechanism, the `mload`, the mask, the accumulation, the accept gate, and the
 accounting soundness — is *proven* against the validated semantics.
 
+**The literal loop-body model — `hcov`/`hcorr` derived (2026-07-02/03).** The memory-reading loop above uses
+an *abstract* 2-statement body (`body_effM`) that *assumes* the read is state-preserving and returns the
+selected weight (`hcov`/`hcorr`). A companion model now removes those assumptions:
+[`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean) — with
+[`RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean) (the deployed
+body transliterated statement-for-statement from `relay_ir_optimized.yul:1563-1610`) and
+[`RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean) (the calldata
+byte-window decode) — executes the **full 17-statement deployed body** `bodyL` through the validated Yul
+`exec`, threading the *real* `mstore`/`calldatacopy`/`mload` state. The chain, all hole-free
+(`[propext, Classical.choice, Quot.sound]`; the accounting-extraction lemmas need only `[propext, Quot.sound]`):
+
+> `body_effL` (one iteration executed) → `s16_ww_advance` / `s16_ii_preserved` (the body adds exactly the
+> selected voter's registered weight and preserves the counter) → `iter_advance` (the per-iteration advance
+> `hstep`, **derived** from `body_effL` + the extraction) → `range_guard_pass` / `order_guard_pass` /
+> `iter_advance_tight` (the two **structural** index guards — range `idx<nVot`, strict-increase `nui≤idx` —
+> **derived** from `ValidRun`) → `loop_accL` (the ∀N induction over the literal body, threading the evolving
+> memory) → `relay_loop_sound_literal` → `relay_loop_sound_literal_derived` (`hstep` discharged) →
+> **`relay_loop_sound_literal_derived_tight`** (tightened top theorem).
+
+The masked read = the selected voter's registered weight is *derived* (`mload_masked_voter`) from a
+raw-calldata memory precondition, so `hcov`/`hcorr` are **no longer assumed**; the structural half of `hvalid`
+(index in range, strictly increasing) is *derived* from `ValidRun`. The only per-iteration hypothesis that
+survives (`IterPremiseT`) is exactly the **cryptographic ecrecover facts** (`v ∈ {27,28}`, low-`s`,
+`staticcall` success, `returndatasize()==32`, signer ≠ 0, recovered signer = registered voter) plus the
+accept gate — i.e. `ecrecover` itself (MC-2, uninterpreted by design), stated explicitly. The accounting
+conclusion is identical to `relay_loop_sound`; the assumption surface is strictly smaller — down to the
+ecrecover boundary.
+
 ---
 
 ## 7.4 The honest residual (what is proven vs. assumed)
@@ -120,22 +150,25 @@ This is the most important part of the rung for an auditor; the full ledger is [
 
 - **The data layer (BR-1) is now proven, not assumed** (§7.3). With the memory-reading loop in place, the
   per-step quantity is a genuine `mload(...) & 0xffff` against the validated `MachineState`, not the loop
-  index. The residual at this rung is the **external-call boundary**: `ecrecover` is uninterpreted (MC-2 /
-  OP-1) and the per-iteration *selection + validity* is supplied as the stated hypotheses `hcorr` / `hvalid`
-  of `relay_loop_sound`. A fully literal EVM model of the `staticcall` / `calldatacopy` / per-guard-revert /
-  early-return plumbing would *derive* those hypotheses from a raw-calldata precondition — engineering, not
-  new facts — but `ecrecover` itself stays an assumption by design, and the accounting conclusion is unchanged.
-- **Model-vs-deployed fidelity, made explicit (two BR-3 items a referee should see).**
-  1. *The address map differs.* The model places weight `j` **memory-resident at slot `j·32`**, read once per
-     iteration (`hcov`). The deployed loop instead `calldatacopy`s each voter record **from calldata into one
-     fixed scratch slot** (`memPtr+96`) and re-reads that same slot every iteration
-     ([`Relay.sol:1306-1319`](../../contracts/protocol/implementation/Relay.sol#L1306)). The masked read
-     itself (`mload` + `& 0xffff`) is faithful; the *addressing discipline* is not — the model's memory layout
-     encodes the **output** of the calldata-decode plumbing, which is exactly what `hcov`/`hcorr` assume.
-     Likewise, `weight_read` discharges the per-slot read via an `mstore`-then-`mload` round-trip, while the
-     deployed write primitive is `calldatacopy`; both reduce to the same EVMYulLean `ByteArray.write`, whose
-     round-trip is the proven `mem_roundtrip` — so the shared core is covered, but the identification of the
-     two write paths is part of BR-3, not a theorem.
+  index. And the "fully literal EVM model … would *derive* `hcov`/`hcorr`/`hvalid`" that this bullet used to
+  file under *future engineering* is now **built** (§7.3, `RelayBodyEff.lean`): the literal 17-statement body
+  is executed by the validated `exec`, `hcov`/`hcorr` are derived (`mload_masked_voter`), and the structural
+  index guards are derived from `ValidRun`. The residual at this rung is therefore *only* the **external-call
+  boundary**: `ecrecover` is uninterpreted (MC-2 / OP-1), supplied as the explicit per-iteration premise
+  `IterPremiseT` (the cryptographic guards). The accounting conclusion is unchanged;
+  `ecrecover` itself stays an assumption by design.
+- **Model-vs-deployed fidelity, made explicit (two BR-3 items a referee should see — the first now closed by the literal model).**
+  1. *The address map — matched in the literal model.* The **abstract** model (§7.3) places weight `j`
+     memory-resident at slot `j·32`, read once per iteration (`hcov`). The deployed loop instead
+     `calldatacopy`s each voter record **from calldata into one fixed scratch slot** (`memPtr+96`) and re-reads
+     that same slot every iteration
+     ([`Relay.sol:1306-1319`](../../contracts/protocol/implementation/Relay.sol#L1306)). The **literal** model
+     (`RelayBodyEff.bodyL`) uses exactly this deployed addressing: `body_effL` threads the real `calldatacopy`
+     into the scratch slot and the `mload` back out, and `mload_masked_voter` derives the read *without* the
+     `hcov`/`hcorr` assumption — so the addressing-discipline gap this item flagged for the abstract model is
+     closed. (In the abstract model, `weight_read` discharges the read via an `mstore`-then-`mload` round-trip
+     while the deployed primitive is `calldatacopy`; both reduce to the same EVMYulLean `ByteArray.write` /
+     `mem_roundtrip`, and the literal model takes the `calldatacopy` path directly.)
   2. *The deployed loop exits early; the model runs to completion.* On-chain, acceptance **returns inside the
      first iteration whose running weight crosses the threshold** (`Relay.sol:1330`); the modeled loop runs
      all `N` iterations and the theorem examines the *final* accumulator. The transport is sound — addends are
@@ -144,7 +177,10 @@ This is the most important part of the rung for an auditor; the full ledger is [
      the per-prefix form **is** proven on the real bytecode at bounded K
      ([`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol), the tight per-prefix contrapositive) —
      but the ∀N statement quantifies over the run-to-completion model, and this early-exit gap is part of
-     BR-3's encoding fidelity, stated here so it is not discovered by a reader as an omission.
+     BR-3's encoding fidelity, stated here so it is not discovered by a reader as an omission. **The literal
+     model shares this idealization** — `relay_loop_sound_literal` also runs the loop to completion with the
+     final tally; the transport argument is identical — so early-return remains the one residual model-vs-
+     deployed deviation after the address-map item is closed.
 - **Modular vs. integer arithmetic (BR-2) — internalized.** The bytecode refinement reasons in
   `𝕌 = Fin 2²⁵⁶` (mod 2²⁵⁶); the abstract proof in `ℕ`. `bytecode_threshold_sound_int` carries an explicit
   `Σ < 2²⁵⁶` hypothesis and proves (via `absAcc_val`) that the modular accumulator equals the integer
@@ -173,13 +209,20 @@ cd /tmp && git clone https://github.com/NethermindEth/EVMYulLean evmyul2
 cd evmyul2 && git checkout 047f63070309f436b66c61e276ab3b6d1169265a   # 2025-09-24 (not HEAD)
 lake exe cache get && lake build
 B=<repo>/test-forge/fv/lean/bytecode-refinement
-cp $B/RelayBytecodeRefinement.lean $B/DataLayer.lean $B/RelayLoopMemRead.lean .
+cp $B/RelayBytecodeRefinement.lean $B/DataLayer.lean $B/RelayLoopMemRead.lean \
+   $B/RelayLoopWindows.lean $B/RelayLoopLiteral.lean $B/RelayBodyEff.lean .
 lake env lean RelayBytecodeRefinement.lean   # loop mechanism (memory-free), ∀N
 lake env lean DataLayer.lean                 # the data layer (byte/memory/value/mask/weight_read)
-lake env lean RelayLoopMemRead.lean          # memory-reading loop + relay_loop_sound, ∀N
-# expect exit 0; the loop-mechanism / accounting theorems print
+lake env lean RelayLoopMemRead.lean          # abstract memory-reading loop + relay_loop_sound, ∀N
+lake env lean RelayLoopWindows.lean          # calldata byte-window decode
+lake env lean RelayLoopLiteral.lean          # deployed body transliterated + interpreter atoms
+# RelayBodyEff.lean imports the three siblings, so compile them into the package lib first:
+LIB=.lake/build/lib/lean
+for f in DataLayer RelayLoopWindows RelayLoopLiteral; do lake env lean -o $LIB/$f.olean $f.lean; done
+lake env lean RelayBodyEff.lean              # LITERAL body + relay_loop_sound_literal_derived_tight, ∀N
+# expect exit 0; the loop-mechanism / accounting / literal theorems print
 #   depends on axioms: [propext, Classical.choice, Quot.sound]
-# and the data-layer / mstore theorems additionally list zeroes_data (and toByteArray_size).
+# and the data-layer / mstore / window theorems additionally list zeroes_data (and toByteArray_size).
 ```
 
 ---
@@ -195,15 +238,19 @@ Abstract proof:        the abstract algorithm is threshold-sound                
 Bytecode refinement:   a validated EVM semantics runs the unbounded loop & soundness transfers ∀N              [R4b]
 Memory-reading loop:   the body is the real mload(slot)&0xffff; accept ⟹ Σ masked reads > thr  ∀N              [R4b′]
 R, accounting core:    deployed loop accepts ⟹ total registered weight > thr (relay_loop_sound) ∀N             [R4b′]
+Literal body model:    the full 17-statement deployed body; hcov/hcorr & index guards DERIVED  ∀N              [R4b″]
+                       (relay_loop_sound_literal_derived_tight)
 ─────────────────────────────────────────────────────────────────────────────────────────────
-proven on the validated EVM (modulo 2 upstream-dischargeable axioms): data layer (BR-1)
-remaining assumptions: crypto (MC-2), ecrecover→signer + calldata selection/validity (OP-1, hcorr/hvalid),
+proven on the validated EVM (modulo 2 upstream-dischargeable axioms): data layer (BR-1),
+                       incl. the literal memory reads (hcov/hcorr) and index-range/strict-increase guards
+remaining assumptions: crypto (MC-2) = ecrecover, as the per-iteration premise IterPremiseT (OP-1);
                        overflow bound (BR-2, discharged under hnoovf)
 ```
 
-Everything from loop control flow through the real memory read, the mask, accumulation, and threshold
-soundness is machine-checked against the validated semantics; the residual is the external-call (ecrecover)
-boundary, named and bounded.
+Everything from loop control flow through the real memory read, the mask, accumulation, threshold
+soundness, and — in the literal model — the memory-read content and the index-discipline guards is
+machine-checked against the validated semantics; the residual is the external-call (`ecrecover`)
+boundary, named and bounded (`IterPremiseT`).
 
 **Next:** the deep dives — [L8 — the mathematics](08-the-mathematics.md) and
 [L9 — the formal detail](09-the-formal-detail.md); or the audit core,

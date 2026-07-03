@@ -301,7 +301,49 @@ in-file so one `lake env lean` checks the whole chain). Composing:
 *selection* (`hcorr`: which voter each signature recovers to) and *validity* (`hvalid` = `ValidRun`:
 strictly-increasing in-range indices = the guards passed) are stated hypotheses; the per-slot memory invariant
 `hcov` is the data layer, discharged by `DataLayer.weight_read`. The data layer (Caveat C2) and the overflow
-bound (Caveat A) are discharged.
+bound (Caveat A) are discharged. (§C.6 goes further still: the literal loop-body model executes the deployed
+contract's *actual* body on the validated EVM, so `hcov` and the mechanical half of `hcorr` are *derived* rather
+than assumed, and the index guards follow from `ValidRun`.)
+
+### C.6 The literal loop-body model: eliminating the memory-read assumptions
+
+§C.5's `relay_loop_sound` still *assumes* the per-slot memory invariant `hcov` and the masked-read
+correspondence `hcorr`. A third development removes both by transliterating the deployed signature-verification
+loop body **statement for statement** and executing it on the validated EVM. It spans three files:
+[`RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean) (the 17-statement
+body `bodyL`, the interpreter atoms, and the calldata decode `sigIdxAt`/`voterWeightAt`/`weightsOf`),
+[`RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean) (the byte-window
+read/decode lemmas), and the integration file
+[`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean).
+
+**The body executed in full.** `body_effL` runs the whole 17-statement `bodyL` through EVMYulLean's real
+`exec`/`eval`, threading the genuine `mstore`/`calldatacopy`/`mload` state changes (contrast `body_effM`, which
+*assumed* the read was state-preserving). Because the memory is now threaded, there is no `hcov` to posit; and
+`mload_masked_voter` *derives* the masked read — clear a scratch slot, `calldatacopy` the voter record, `mload`,
+mask ⟹ the record's registered weight — so the mechanical half of `hcorr` becomes a theorem.
+
+**The chain.** `s16_ww_advance`/`s16_ii_preserved` extract the accounting from `body_effL`'s output state (weight
+advanced by the selected voter's weight; loop counter preserved); `iter_advance` assembles these into the
+per-iteration advance `hstep` the induction consumes; `range_guard_pass`/`order_guard_pass` *derive* the two
+structural index guards (range `idx < nVot`, order `nui ≤ idx`) from the `ValidRun` numeric discipline;
+`loop_accL` runs the induction (§C.3's template, now threading the evolving memory); and the capstones are
+
+> **Theorem (`relay_loop_sound_literal`, `…_derived`, `…_derived_tight`, ∀N).** If the deployed loop — its
+> *actual* transliterated body executed by the validated Yul `exec` — completes with a final tally exceeding the
+> threshold, then `thr < sumTake(w, |w|)`: the total registered voting weight exceeds the threshold, with no
+> voter double-counted. `…_derived` discharges the per-iteration `hstep` via `iter_advance`; `…_derived_tight`
+> discharges the structural guards too, leaving one per-iteration hypothesis `IterPremiseT`.
+
+The accounting conclusion is identical to `relay_loop_sound`; what shrinks is the assumption surface.
+`IterPremiseT` bundles exactly the **ecrecover boundary** (MC-2/OP-1): the cryptographic guards (`v ∈ {27,28}`,
+low-`s`, `staticcall` success, `returndatasize = 32`, signer ≠ 0, recovered signer matches the registered voter)
+and the accept gate, together with the calldata index decode and the `ValidRun` numeric discipline. Everything
+mechanical — execution, the memory reads, the mask, the tally, the accumulation, the accept gate, and the
+index-range/strict-increase guards — is proved against the validated EVM. The `RelayLoopMemRead.relay_loop_sound`
+statement of §C.5 remains as the simpler corroborating result; the literal chain is the stronger one. All
+literal-chain theorems are hole-free (`[propext, Classical.choice, Quot.sound]`; the two accounting-extraction
+lemmas need only `[propext, Quot.sound]`), inheriting the same two upstream-dischargeable data-layer specs
+(`zeroes_data`, `toByteArray_size`) only where the memory *write* round-trip is used.
 
 ### Summary of §C
 
@@ -316,6 +358,9 @@ bound (Caveat A) are discharged.
 | `body_effM`, `loop_accM` | the **memory-reading** body `w += mload(i·32)&0xffff` and its induction, all N | R4b′ (§C.5) |
 | `bytecode_threshold_sound_mem(_int)` | accept ⟹ Σ masked reads > thr (modular; integer under no overflow), all N | R4b′ |
 | `bridge`, `relay_loop_sound` | masked-read sum = abstract loop weight; **accept ⟹ total registered weight > thr**, all N | R4b′ |
+| `body_effL`, `iter_advance` | the **literal** 17-statement deployed body executed in full; per-iteration advance derived | R4b″ (§C.6) |
+| `range_guard_pass`, `order_guard_pass`, `iter_advance_tight` | structural index guards derived from `ValidRun`; tightened advance | R4b″ |
+| `relay_loop_sound_literal_derived_tight` | **accept ⟹ total registered weight > thr**, `hcov`/`hcorr` derived; residual = ecrecover (`IterPremiseT`), all N | R4b″ |
 
 **Next:** [L9 — The formal detail](09-the-formal-detail.md): the verbatim Lean, every tactic, the
 EVMYulLean API, the gotchas, and the axiom audit.

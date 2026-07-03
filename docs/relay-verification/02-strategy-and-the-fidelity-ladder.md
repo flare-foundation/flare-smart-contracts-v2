@@ -116,10 +116,12 @@ it has one job. The refinement itself is by *simulation*: each concrete loop ite
 of the abstract function.
 
 > ⚠ **Caveat (discharged in L7/L10):** in this engagement the refinement is established for the **loop
-> mechanism** (a counting accumulation loop), not a verbatim transcription of the whole signature routine.
-> The abstract proof is *more general* than the bytecode refinement's concrete loop (it ranges over arbitrary signature
-> streams with a no-double-count discipline). The two meet at "an unbounded accumulating loop runs
-> faithfully and threshold-soundness transfers."
+> mechanism** — now with the deployed contract's *actual* 17-statement signature-verification body transliterated
+> statement-for-statement and executed on the validated EVM (the literal model,
+> [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)) — but still not a verbatim
+> end-to-end transcription down to the cryptography (`ecrecover` stays uninterpreted, MC-2). The abstract proof is
+> *more general* than the concrete loop (it ranges over arbitrary signature streams with a no-double-count
+> discipline). The two meet at "an unbounded accumulating loop runs faithfully and threshold-soundness transfers."
 
 ---
 
@@ -153,8 +155,12 @@ The resulting trust chain for an R4 claim:
 
 Every link is machine-checked or independently validated. The data layer (BR-1) and the overflow bound (BR-2)
 have since been brought *inside* the chain (the memory-reading loop and `relay_loop_sound`, L7 §7.3; BR-2 via
-`bytecode_threshold_sound_mem_int` under an explicit no-overflow hypothesis). What now lies *outside* is the
-cryptography (`ecrecover`, MC-2) and the per-iteration selection/validity it determines — the residual (L10).
+`bytecode_threshold_sound_mem_int` under an explicit no-overflow hypothesis), and the **literal loop-body model**
+([`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)) goes further still — it runs
+the deployed 17-statement body on the validated EVM, so the memory-read facts (`hcov`/`hcorr`) are *derived* rather
+than assumed and the index guards follow from the accounting discipline (`relay_loop_sound_literal_derived_tight`).
+What now lies *outside* is only the cryptography (`ecrecover`, MC-2) and the per-iteration selection/validity it
+determines — the residual, stated per-iteration as `IterPremiseT` (L10).
 
 ---
 
@@ -170,7 +176,7 @@ names are in the per-rung docs and the claims ledger ([L10](10-claims-ledger-tru
 | R3 | Kontrol | sig-loop weight invariant; random monotonicity — **∀K** (k-induction) | Solidity **model** | ∀K, N∈{3,5} | ✅ proven (Docker-pinned); full symbolic-N intractable (documented) |
 | R3 | Certora | 5 all-functions storage invariants (nonce/epoch monotonic, setter-immutable, hash/root write-once) | model | ∀ functions & sequences | ⚠ specified + locally typechecked; **not cloud-dischargeable** (assembly storage-havoc wall) |
 | R4a | Lean (the abstract proof) | sig-loop **threshold soundness** | abstract algorithm | **∀N ∀K** | ✅ hole-free (`[propext, Quot.sound]`) |
-| R4b | Lean + EVMYulLean (the bytecode refinement) | threshold soundness lifted onto **validated EVM semantics** (loop mechanism) | validated EVM model | **∀N** | ✅ hole-free (`[propext, Classical.choice, Quot.sound]`) |
+| R4b | Lean + EVMYulLean (the bytecode refinement) | threshold soundness on **validated EVM semantics** — deployed 17-statement loop body run literally (`relay_loop_sound_literal_derived_tight`; memory reads derived), abstract masked-read `relay_loop_sound` corroborating | validated EVM model | **∀N** | ✅ hole-free (`[propext, Classical.choice, Quot.sound]`) |
 
 The two ⚠ rows are the honest results, not omissions: Kontrol's symbolic-N intractability and Certora's
 storage-havoc wall are the **convergent assembly-barrier finding** of §2.7.

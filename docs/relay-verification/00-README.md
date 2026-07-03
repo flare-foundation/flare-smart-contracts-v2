@@ -32,12 +32,16 @@ NethermindEth's **validated EVMYulLean** semantics, for all N — closing the ab
 for the loop mechanism. Two unbounded approaches — Kontrol at full symbolic-N and **Certora** at
 all-functions storage invariants — hit the *same* wall: Relay's ~90% hand-written inline-assembly storage
 defeats automated storage analysis. That convergent failure is itself a finding, and it is exactly the gap
-the R4 (Lean) rungs step over. The bytecode-refinement **data layer (BR-1) is itself now machine-checked** on
-the validated EVM — the loop body is the deployed contract's real `mload(slot) & 0xffff`, and
-`relay_loop_sound` carries *accept ⟹ total registered weight > threshold* for all N (L7 §7.3). The residual
-trusted surface is small and named: cryptography (`ecrecover`/`keccak`), the operational ABI of each boundary
-call, a trusted signing-policy setter, and the per-iteration *selection/validity* those external calls
-determine (which voter each signature recovers to, strictly-increasing). Everything else is machine-checked.
+the R4 (Lean) rungs step over. The bytecode refinement now runs the deployed contract's **actual 17-statement
+loop body** on the validated EVM (the hole-free [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean) chain):
+`relay_loop_sound_literal_derived_tight` carries *accept ⟹ total registered weight > threshold* for all N with
+the memory-read facts (`hcov`/`hcorr`) **derived, not assumed** and the structural index guards discharged from
+the accounting discipline — the abstract masked-read statement `relay_loop_sound` (`mload(slot) & 0xffff`, **data
+layer BR-1** machine-checked) remains as the simpler corroborating result (L7 §7.3). The residual trusted surface
+is small and named — exactly the ecrecover boundary (MC-2/OP-1), stated per-iteration as `IterPremiseT`:
+cryptography (`ecrecover`/`keccak`), the operational ABI of each boundary call, a trusted signing-policy setter,
+and the per-iteration *selection/validity* those external calls determine (which voter each signature recovers to,
+strictly-increasing). Everything else is machine-checked.
 
 ---
 
@@ -78,10 +82,13 @@ L10 §residual). Engineer reproducing: L11, with each rung doc alongside. Newcom
   setter (RLY-06), OZ `MerkleProof` correctness, and `oldRelay` trusted.
 - **Scope** is always stated: input coverage (a few / random / bounded-all / unbounded-all) **and** object
   fidelity (real bytecode / a model / a validated EVM semantics / an abstract algorithm).
-- **The two Lean developments.** R4 is two Lean files: **the abstract proof** — the ∀N ∀K
+- **The two Lean developments.** R4 has two strands: **the abstract proof** — the ∀N ∀K
   threshold-soundness theorem ([`test-forge/fv/lean/RelaySigLoop.lean`](../../test-forge/fv/lean/RelaySigLoop.lean)); and **the bytecode refinement** —
   the step lifting it onto validated EVM semantics
-  ([`test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean)).
+  ([`test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean)), since extended with a **literal
+  loop-body model** that executes the deployed 17-statement signature-verification body statement-for-statement
+  on the validated EVM ([`test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)), deriving the
+  memory-read facts the masked-read statement assumed.
 
 ---
 

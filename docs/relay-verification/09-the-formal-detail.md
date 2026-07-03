@@ -3,12 +3,13 @@
 > **What you get from this level.** The verbatim Lean 4 development, walked end to end, at the precision
 > a referee needs to reconstruct or attack it. **§A** the abstract proof; **§B** the EVMYulLean API as we actually
 > use it; **§C** the bytecode-refinement bricks and capstone; **§D** *fuel-genericity* in full; **§E** the non-obvious
-> pitfalls and their fixes; **§F** the data layer and the memory-reading loop (the full simulation relation);
+> pitfalls and their fixes; **§F** the data layer, the memory-reading loop, and the literal loop-body model;
 > **§G** the axiom audit. File paths are relative to the repo root.
 >
 > Every code block below is copied from the committed sources
 > ([`test-forge/fv/lean/RelaySigLoop.lean`](../../test-forge/fv/lean/RelaySigLoop.lean), [`test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean),
-> [`…/DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean), [`…/RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean));
+> [`…/DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean), [`…/RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean),
+> [`…/RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean), [`…/RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean), [`…/RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean));
 > cited line numbers are relative to those files.
 
 ---
@@ -450,10 +451,11 @@ definitional interpreter.
 
 ---
 
-## §F. The data layer and the memory-reading loop — [`DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean), [`RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean)
+## §F. The data layer, the memory-reading loop, and the literal loop-body model — [`DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean), [`RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean), [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)
 
-§C proved the loop *mechanism* with a memory-free body. Two further files discharge the data layer
-(Caveat C2 / BR-1) and lift the result onto the deployed contract's real masked memory read, ∀N.
+§C proved the loop *mechanism* with a memory-free body. Further files discharge the data layer
+(Caveat C2 / BR-1), lift the result onto the deployed contract's real masked memory read (§G.2–G.3), and
+finally execute the deployed contract's *actual* 17-statement body statement-for-statement (§G.4), ∀N.
 
 ### G.1 The data layer — `bytecode-refinement/DataLayer.lean`
 
@@ -536,6 +538,52 @@ double-counted. The external call is the assumption boundary: `ecrecover` is not
 per-iteration selection (`hcorr`) and validity (`hvalid`) — and the memory invariant `hcov`, discharged
 per-slot by `weight_read` — are the stated hypotheses.
 
+### G.4 The literal loop-body model — [`RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean), [`RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean), [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)
+
+§G.3's `relay_loop_sound` still takes the per-slot memory invariant `hcov` and the masked-read correspondence
+`hcorr` as hypotheses. The literal model removes them by transliterating the deployed signature-verification loop
+body — all 17 statements of `relay_ir_optimized.yul:1563–1610` — into the Yul AST (`bodyL`) and executing it
+through EVMYulLean's real `exec`/`eval`. `RelayLoopLiteral` supplies `bodyL`, the interpreter atoms, and the
+calldata decode (`sigIdxAt`/`voterWeightAt`/`voterSignerAt`/`weightsOf`); `RelayLoopWindows` the byte-window
+decode lemmas; `RelayBodyEff` composes them. Four registered deviations (D1–D4: folded addressing, revert payloads
+→ `revert(0,0)`, accept interior → `return(0,0)`, loop-invariant scalars as parameters) are the only departures
+from the deployed text.
+
+The engine is `body_effL`: the full 17-statement body run through the validated interpreter, threading genuine
+`mstore`/`calldatacopy`/`mload` state changes to the accumulator-advanced state `s16` (contrast §G.2's `body_effM`,
+which *assumed* the read was state-preserving). Its nine guard-pass hypotheses (one per `if` that must not revert
+on the advance path) and two ecrecover-output states are the boundary; everything else — the memory writes/reads,
+the mask, the tally — is derived. `mload_masked_voter` derives the masked-read correspondence directly from the
+clear→`calldatacopy`→`mload`→mask pattern, so `hcorr`'s mechanical half is a theorem and there is no `hcov` to
+posit (the memory is threaded, not assumed).
+
+From there: `s16_ww_advance`/`s16_ii_preserved` extract the accounting (weight += the selected voter's weight;
+counter preserved); `iter_advance` assembles `body_effL` + the extraction into the per-iteration `hstep`;
+`range_guard_pass`/`order_guard_pass` discharge the two structural index guards from the `ValidRun` numeric
+conditions; `iter_advance_tight` folds those in; `loop_accL` runs the induction (§C's template, now threading the
+evolving memory); and the capstone transfers threshold soundness exactly as §C.8 did:
+
+```lean
+theorem relay_loop_sound_literal_derived_tight
+    (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
+    (hN : NN < UInt256.size) (ss : SharedState .Yul) (vs : VarStore)
+    (hi : ...) (hw : ...)
+    (hiters : ∀ k ssk vsk, k < NN → ... → IterPremiseT m sigStart nVot thr cd nVotN k ssk vsk)
+    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart NN))
+    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size)
+    (ss' vs') (hexec : ...) (haccept : thr < (State.Ok ss' vs')[WW]!) :
+    thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length
+```
+
+`relay_loop_sound_literal` is this capstone with the per-iteration advance still an `hstep` hypothesis;
+`relay_loop_sound_literal_derived` discharges it via `iter_advance` (residual `IterPremise`);
+`relay_loop_sound_literal_derived_tight` additionally discharges the structural guards (residual `IterPremiseT`).
+`IterPremiseT` is the tightened per-iteration boundary: the cryptographic ecrecover guards (`v ∈ {27,28}`, low-`s`,
+`staticcall` success, `returndatasize = 32`, signer ≠ 0, recovered signer = registered voter) and the accept gate,
+plus the calldata index decode and the `ValidRun` numeric conditions — exactly the ecrecover contract (MC-2/OP-1)
+that is uninterpreted by design. The conclusion is identical to `relay_loop_sound`; the abstract masked-read
+statement remains the simpler corroborating result.
+
 ---
 
 ## §G. The axiom audit
@@ -594,6 +642,29 @@ What this means, and why it is the right bar:
   `relay_loop_sound` does not carry them. They are documented as such in the claims ledger ([L10](10-claims-ledger-trust-and-residual.md)),
   and the exact upstream patches + the verified discharge proofs are archived, reproducibly, in
   [`test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md`](../../test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md).
+
+For the literal loop-body model (§G.4), the accounting/control chain prints the standard three, and the two
+accounting-extraction lemmas the tighter list:
+
+```
+'RelayBodyEff.relay_loop_sound_literal_derived_tight' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.relay_loop_sound_literal_derived'       depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.relay_loop_sound_literal'               depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.iter_advance_tight'                     depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.iter_advance'                           depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.range_guard_pass'                       depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.order_guard_pass'                       depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.loop_accL'                              depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.body_effL'                              depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.s16_ww_advance'                         depends on axioms: [propext, Quot.sound]
+'RelayBodyEff.s16_ii_preserved'                       depends on axioms: [propext, Quot.sound]
+```
+
+Exactly as with `relay_loop_sound`, the capstone `relay_loop_sound_literal_derived_tight` rests only on the
+standard three — it takes the ecrecover facts as `IterPremiseT` rather than discharging the memory *write*
+round-trip — while the byte-window decode lemmas that *do* use that round-trip (`mload_masked_voter`,
+`voter_weight_pure`, …) additionally list the two documented specs `zeroes_data`/`toByteArray_size`, as
+`weight_read` does in §G.2. No new axiom is introduced.
 
 The same audit applies to the abstract proof (`#print axioms threshold_sound` → `[propext, Classical.choice,
 Quot.sound]`). "Bulletproof" in this engagement is defined as exactly this: every committed theorem
