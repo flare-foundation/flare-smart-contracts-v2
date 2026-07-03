@@ -1838,6 +1838,89 @@ theorem relay_loop_sound_literal_early
 
 end LoopLayer
 
+-- ===================== mode dispatch (brick 45 / R5.2) =====================
+section DispatchLayer
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral
+
+
+/-- The protocolId loop-local (whatever var relay() decodes it into). -/
+def PID : EvmYul.Identifier := "protocolId"
+
+/-- The deployed mode dispatch: `if eq(protocolId,1) {custom}; if iszero(eq(protocolId,1)) {verify}` — the
+    two mutually-exclusive top-level branches of relay() (custom-signature vs the verify/signature-loop path;
+    protocolId==0 is a sub-branch inside verify). Mirrors Relay.sol:894 / 916. -/
+def dispatchL (customBranch verifyBranch : List Stmt) : List Stmt :=
+  [ Stmt.If (bc .EQ [V PID, litN 1]) customBranch,
+    Stmt.If (bc .ISZERO [bc .EQ [V PID, litN 1]]) verifyBranch ]
+
+-- ---- small value lemmas ----
+theorem eqv_self (a : EvmYul.UInt256) : EvmYul.UInt256.eq a a = ⟨1⟩ := by
+  have hh : EvmYul.UInt256.eq a a = UInt256.ofNat 1 := by simp [EvmYul.UInt256.eq]
+  rw [hh]; decide
+
+theorem eqv_ne {a b : EvmYul.UInt256} (h : a ≠ b) : EvmYul.UInt256.eq a b = ⟨0⟩ := by
+  have hh : EvmYul.UInt256.eq a b = UInt256.ofNat 0 := by simp [EvmYul.UInt256.eq, h]
+  rw [hh]; decide
+
+theorem iszero_of_zero : EvmYul.UInt256.isZero ⟨0⟩ = ⟨1⟩ := by decide
+
+-- single-element block = the statement (modulo the block-nil fuel), whether it succeeds or halts
+theorem exec_Block_single (fuel : Nat) (st : Stmt) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + 1 + 1) (Stmt.Block [st]) none s = EvmYul.Yul.exec (fuel + 1) st none s := by
+  cases h : EvmYul.Yul.exec (fuel + 1) st none s with
+  | error e => exact RelayLoopLiteral.exec_Block_cons_err (fuel + 1) st [] s e h
+  | ok s₁ =>
+    rw [RelayLoopLiteral.exec_Block_cons_ok (fuel + 1) st [] s s₁ h]
+    exact RelayLoopLiteral.exec_Block_nil fuel s₁
+
+set_option maxHeartbeats 4000000 in
+/-- **Mode dispatch routes to the verify path when protocolId ≠ 1.** The custom-signature guard is false
+    (skipped, a no-op), and the verify guard — being its negation — is true, so execution continues into the
+    verify branch. This is where the signature loop lives; it proves the modes don't cross-contaminate. -/
+theorem dispatch_routes_verify (fuel : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (customBranch verifyBranch : List Stmt) (pid : EvmYul.UInt256)
+    (hpid : (EvmYul.Yul.State.Ok ss vs)[PID]! = pid) (hne : pid ≠ UInt256.ofNat 1) :
+    EvmYul.Yul.exec (fuel + 13) (Stmt.Block (dispatchL customBranch verifyBranch)) none (EvmYul.Yul.State.Ok ss vs)
+      = EvmYul.Yul.exec (fuel + 10) (Stmt.Block verifyBranch) none (EvmYul.Yul.State.Ok ss vs) := by
+  -- guard1 (eq(PID,1)) evaluates to ⟨0⟩ at PID = pid ≠ 1
+  have hg1 : EvmYul.Yul.eval (fuel + 11) (bc .EQ [V PID, litN 1]) none (EvmYul.Yul.State.Ok ss vs)
+              = .ok (EvmYul.Yul.State.Ok ss vs, ⟨0⟩) := by
+    rw [show fuel + 11 = (fuel + 5) + 6 from by omega]
+    have e := eval_eq_var_lit (fuel + 5) PID (UInt256.ofNat 1) ss vs
+    rw [hpid, eqv_ne hne] at e; exact e
+  -- guard2 (iszero(eq(PID,1))) evaluates to ⟨1⟩ (the negation)
+  have hg2 : EvmYul.Yul.eval (fuel + 10) (bc .ISZERO [bc .EQ [V PID, litN 1]]) none (EvmYul.Yul.State.Ok ss vs)
+              = .ok (EvmYul.Yul.State.Ok ss vs, ⟨1⟩) := by
+    have hinner : EvmYul.Yul.eval (fuel + 8) (bc .EQ [V PID, litN 1]) none (EvmYul.Yul.State.Ok ss vs)
+                    = .ok (EvmYul.Yul.State.Ok ss vs, ⟨0⟩) := by
+      rw [show fuel + 8 = (fuel + 2) + 6 from by omega]
+      have e := eval_eq_var_lit (fuel + 2) PID (UInt256.ofNat 1) ss vs
+      rw [hpid, eqv_ne hne] at e; exact e
+    show EvmYul.Yul.eval (fuel + 10) (Expr.Call (Sum.inl Operation.ISZERO) [bc .EQ [V PID, litN 1]]) none
+          (EvmYul.Yul.State.Ok ss vs) = _
+    rw [show fuel + 10 = (fuel + 6) + 4 from by omega,
+        eval_iszero (fuel + 6) (bc .EQ [V PID, litN 1]) (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) ⟨0⟩
+          (by rw [show fuel + 6 + 2 = fuel + 8 from by omega]; exact hinner),
+        iszero_of_zero]
+  -- peel: If g1 custom is a no-op (guard false), then If g2 verify fires (guard true → runs verify)
+  have h1 := RelayLoopLiteral.exec_If_false (fuel + 11) (bc .EQ [V PID, litN 1]) customBranch
+              (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) hg1
+  have h2 := RelayLoopLiteral.exec_If_true (fuel + 10) (bc .ISZERO [bc .EQ [V PID, litN 1]]) verifyBranch
+              (EvmYul.Yul.State.Ok ss vs) (EvmYul.Yul.State.Ok ss vs) ⟨1⟩ hg2 (by decide)
+  calc EvmYul.Yul.exec (fuel + 13) (Stmt.Block [_, _]) none (EvmYul.Yul.State.Ok ss vs)
+      = EvmYul.Yul.exec (fuel + 12) (Stmt.Block [_]) none (EvmYul.Yul.State.Ok ss vs) := by
+        rw [show fuel + 13 = (fuel + 12) + 1 from by omega]
+        exact RelayLoopLiteral.exec_Block_cons_ok (fuel + 12) _ [_] _ (EvmYul.Yul.State.Ok ss vs)
+          (by rw [show fuel + 12 = (fuel + 11) + 1 from by omega]; exact h1)
+    _ = EvmYul.Yul.exec (fuel + 11) (Stmt.If (bc .ISZERO [bc .EQ [V PID, litN 1]]) verifyBranch) none (EvmYul.Yul.State.Ok ss vs) := by
+        rw [show fuel + 12 = (fuel + 10) + 1 + 1 from by omega]; exact exec_Block_single (fuel + 10) _ _
+    _ = _ := by rw [show fuel + 11 = (fuel + 10) + 1 from by omega, h2]
+
+
+end DispatchLayer
+
+#print axioms dispatch_routes_verify
+#print axioms exec_Block_single
 #print axioms relay_loop_sound_literal_early
 #print axioms loop_accL_early
 #print axioms loop_step_accept
