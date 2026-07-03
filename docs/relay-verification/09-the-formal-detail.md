@@ -3,13 +3,15 @@
 > **What you get from this level.** The verbatim Lean 4 development, walked end to end, at the precision
 > a referee needs to reconstruct or attack it. **§A** the abstract proof; **§B** the EVMYulLean API as we actually
 > use it; **§C** the bytecode-refinement bricks and capstone; **§D** *fuel-genericity* in full; **§E** the non-obvious
-> pitfalls and their fixes; **§F** the data layer, the memory-reading loop, and the literal loop-body model;
+> pitfalls and their fixes; **§F** the data layer, the memory-reading loop, the literal loop-body model, and the
+> whole-`relay()` extension (§G.5: storage, mode dispatch, accept-write, composition, fees);
 > **§G** the axiom audit. File paths are relative to the repo root.
 >
 > Every code block below is copied from the committed sources
 > ([`test-forge/fv/lean/RelaySigLoop.lean`](../../test-forge/fv/lean/RelaySigLoop.lean), [`test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBytecodeRefinement.lean),
 > [`…/DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean), [`…/RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean),
-> [`…/RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean), [`…/RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean), [`…/RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean));
+> [`…/RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean), [`…/RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean), [`…/RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean),
+> [`…/RelayStorageLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean), [`…/RelayFeeLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayFeeLayer.lean));
 > cited line numbers are relative to those files.
 
 ---
@@ -584,6 +586,55 @@ plus the calldata index decode and the `ValidRun` numeric conditions — exactly
 that is uninterpreted by design. The conclusion is identical to `relay_loop_sound`; the abstract masked-read
 statement remains the simpler corroborating result.
 
+Faithful early return closes the last idealization: `relay_loop_sound_literal_early` (via `loop_accL_early` /
+`loop_step_accept`) runs the body's accept branch as the deployed `return(0,0)` — the loop halts with
+`.error (YulHalt …)` at the first threshold crossing, and the theorem still concludes
+`thr.val < sumTake (weightsOf …) …` (total registered weight exceeds the threshold). The model no longer runs all
+`N` iterations past acceptance; it stops exactly where the bytecode does.
+
+### G.5 The whole-`relay()` extension (R5) — [`RelayStorageLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean), [`RelayFeeLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayFeeLayer.lean), [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)
+
+§G.4 proves the security-critical signature loop. R5 extends the same literal, hole-free method to the *rest* of
+`relay()` — the mode dispatch, the per-mode state writes, the fee forwarding, and the composition that stitches
+them together. R5 adds **breadth** (the mode-specific effects), not a new soundness fact: the accounting soundness
+is already the loop's.
+
+- **Storage round-trip** (`RelayStorageLayer.sstore_sload`): `((State.sstore self k v).sload k).2 = v` on
+  EVMYulLean's real `State`, the storage analog of `DataLayer.mem_roundtrip`. The obstacle was RBMap key ordering:
+  `TransCmp` for the derived `Ord` does not synthesize, so it is transferred from `Fin`/`Nat` (the derived
+  `compare a b` collapses to `(compare a.val b.val).then .eq = compare a.val b.val`), and `find?_erase` (absent in
+  Batteries) is derived bottom-up on `RBNode`.
+- **Mode dispatch** (`RelayBodyEff.dispatch_routes_verify`): `relay()`'s protocolId branching
+  (`if eq(protocolId,1) {custom}; if iszero(eq(protocolId,1)) {verify}`, Relay.sol:894/916) routes faithfully —
+  when `protocolId ≠ 1` the custom guard is skipped and the verify guard fires, so the modes do not
+  cross-contaminate.
+- **Accept-branch write** (`RelayStorageLayer.sstore_eff` + `sstore_reads_back`): the exec-level `SSTORE` (with the
+  `perm = true` static-mode guard discharged) for the deployed
+  `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)` (Relay.sol:1394) stores a value that reads
+  back, via `sstore_sload`.
+- **End-to-end composition** (`RelayBodyEff.CompositionLayer`): `relay_dispatch_loop_accept` composes
+  `dispatch_routes_verify` with `relay_loop_sound_literal_early` into one top-level statement — *from the mode
+  dispatch, `protocolId ≠ 1` routes into the verify branch, and under the loop's ecrecover premises plus a valid
+  signer prefix crossing the threshold at step `t`, `relay()` halts with the accept `return(0,0)` and total
+  registered weight strictly exceeds the threshold.* Two combinators expose the modeling boundary honestly:
+  `dispatch_then_loop_accept` (verify body = the loop) and `dispatch_setup_loop_accept` (verify body =
+  `[setupStmt, loopStmt]`, with the setup's aggregate state transition `Ok ss vs → Ok ss' vs'` carried as an
+  explicit hypothesis — faithful because `setupStmt := Stmt.Block realSetup` is itself one `Stmt`, so the only
+  thing assumed is the setup's net effect, not that the loop is the whole verify body).
+- **Fee conservation** (`RelayFeeLayer.lean`): `fee_conservation` / `fee_conservation_toNat` prove
+  `fee + (msg.value − fee) = msg.value` at word and integer level with no under/overflow (under
+  `require(msg.value ≥ fee)`); `transfer_conservation` proves the value-conserving `transferBalance` primitive that
+  the Yul `.CALL` performs (`Interpreter.lean:78`) — the balance analog of `sstore_sload`; and
+  `two_transfer_caller_net_zero` proves the caller is value-neutral across the two forwards (fee to the collector,
+  refund to the sender).
+
+Two boundaries are documented rather than papered over, and neither touches the core accounting soundness:
+(a) the **exec-level `.CALL` wiring** through `primCall`/`callDispatcher` (the fuel-carrying analog of `sstore_eff`,
+but for `.CALL`; the `transferBalance`-level facts are the core it would reduce to — value conservation is also
+Halmos-covered at bounded scope by `RelayVerifyFeeFV`); and (b) reconciling the loop model's **D3 deviation**
+(accept → `return` vs. the deployed break→write→return) so the accept-*write* folds into the composition rather
+than standing as a separately-verified piece.
+
 ---
 
 ## §G. The axiom audit
@@ -656,15 +707,35 @@ accounting-extraction lemmas the tighter list:
 'RelayBodyEff.order_guard_pass'                       depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayBodyEff.loop_accL'                              depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayBodyEff.body_effL'                              depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.relay_loop_sound_literal_early'         depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.loop_accL_early'                        depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.relay_dispatch_loop_accept'            depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.dispatch_then_loop_accept'             depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.dispatch_setup_loop_accept'            depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.dispatch_routes_verify'                depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayBodyEff.s16_ww_advance'                         depends on axioms: [propext, Quot.sound]
 'RelayBodyEff.s16_ii_preserved'                       depends on axioms: [propext, Quot.sound]
+```
+
+and the R5 storage- and fee-layer files (§G.5) print, likewise, only the standard three:
+
+```
+'RelayStorageLayer.sstore_sload'        depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayStorageLayer.sstore_eff'          depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayStorageLayer.sstore_reads_back'   depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayFeeLayer.fee_conservation'        depends on axioms: [propext, Quot.sound]
+'RelayFeeLayer.transfer_conservation'   depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayFeeLayer.two_transfer_caller_net_zero' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 
 Exactly as with `relay_loop_sound`, the capstone `relay_loop_sound_literal_derived_tight` rests only on the
 standard three — it takes the ecrecover facts as `IterPremiseT` rather than discharging the memory *write*
 round-trip — while the byte-window decode lemmas that *do* use that round-trip (`mload_masked_voter`,
 `voter_weight_pure`, …) additionally list the two documented specs `zeroes_data`/`toByteArray_size`, as
-`weight_read` does in §G.2. No new axiom is introduced.
+`weight_read` does in §G.2. The R5 extension (early return, dispatch, storage/accept-write, composition, fees)
+introduces **no new axiom** — every result is one of the standard three (`fee_conservation` even drops
+`Classical.choice`), and `RelayStorageLayer`/`RelayFeeLayer` do not touch the memory-write specs at all. All eight
+files are enforced hole-free in CI by [`verify_lean.py`](../../test-forge/fv/lean/verify_lean.py).
 
 The same audit applies to the abstract proof (`#print axioms threshold_sound` → `[propext, Classical.choice,
 Quot.sound]`). "Bulletproof" in this engagement is defined as exactly this: every committed theorem
