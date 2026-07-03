@@ -49,6 +49,7 @@ STANDALONE = [
     "RelayLoopWindows.lean",
     "RelayLoopLiteral.lean",
     "RelayStorageLayer.lean",
+    "RelayFeeLayer.lean",
 ]
 # The one integration file: imports the three siblings, so they must be compiled into the package lib first
 # (a plain LEAN_PATH prepend does NOT work — Lean will not fall through to it).
