@@ -978,6 +978,91 @@ theorem body_effL (fuel m sigStart : Nat) (nVot thr : EvmYul.UInt256)
     _ = EvmYul.Yul.exec ((fuel+112)+1) (Stmt.Block []) none s16 := by rw [show (fuel+104)+10 = ((fuel+112)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ [] _ s16 h17
     _ = _ := RelayLoopLiteral.exec_Block_nil (fuel+112) _
 
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral in
+set_option maxHeartbeats 4000000 in
+/-- **Accept (early-return) variant of `body_effL`.** Identical through statements 1–16, but statement
+    17's accept guard `gt(weight, thr)` is TRUE (`hg17acc`), so the body executes `return(0,0)` and halts
+    with `.error (YulHalt _ ⟨1⟩)` instead of advancing. This is the deployed loop's early-return branch. -/
+theorem body_effL_accept (fuel m sigStart : Nat) (nVot thr : EvmYul.UInt256)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (ss10 : EvmYul.SharedState .Yul) (vs10 : EvmYul.Yul.VarStore) (ss15 : EvmYul.SharedState .Yul) (vs15 : EvmYul.Yul.VarStore) :
+    let s1 := (EvmYul.Yul.State.Ok ss vs).setMachineState ((EvmYul.Yul.State.Ok ss vs).toMachineState.mstore (UInt256.ofNat (m+32)) (UInt256.ofNat 0))
+    let s2 := s1.setSharedState (s1.toSharedState.calldatacopy (UInt256.ofNat (m+63))
+                (EvmYul.UInt256.add (EvmYul.UInt256.add (UInt256.ofNat sigStart)
+                  (EvmYul.UInt256.mul (s1[II]!) (UInt256.ofNat 67))) (UInt256.ofNat 2)) (UInt256.ofNat 67))
+    let s3 := (s2.setMachineState (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).2).insert IDX
+                (EvmYul.UInt256.shiftRight (s2.toSharedState.toMachineState.mload (UInt256.ofNat (m+128))).1 (UInt256.ofNat 240))
+    let s6 := s3.insert NUI (EvmYul.UInt256.add (s3[IDX]!) (UInt256.ofNat 1))
+    let s7 := (s6.setMachineState (s6.toSharedState.toMachineState.mload (UInt256.ofNat (m+32))).2).insert VV
+                (EvmYul.UInt256.land (s6.toSharedState.toMachineState.mload (UInt256.ofNat (m+32))).1 (UInt256.ofNat 0xff))
+    let s9 := s7.setMachineState (s7.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2
+    let s10 := EvmYul.Yul.State.Ok ss10 vs10
+    let s15 := EvmYul.Yul.State.Ok ss15 vs15
+    let s12 := s10.setMachineState (s10.toSharedState.toMachineState.mload (UInt256.ofNat (m+64))).2
+    let s13 := s12.setMachineState (s12.toMachineState.mstore (UInt256.ofNat (m+96)) (UInt256.ofNat 0))
+    let s14 := s13.setSharedState (s13.toSharedState.calldatacopy (UInt256.ofNat (m+106))
+                 (EvmYul.UInt256.add (UInt256.ofNat 47) (EvmYul.UInt256.mul (s13[IDX]!) (UInt256.ofNat 22))) (UInt256.ofNat 22))
+    let s16 := (s15.setMachineState (s15.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).2).insert WW
+                 (EvmYul.UInt256.add (s15[WW]!) (EvmYul.UInt256.land (s15.toSharedState.toMachineState.mload (UInt256.ofNat (m+96))).1 (UInt256.ofNat 65535)))
+    EvmYul.Yul.eval (fuel+125) (bc .GT [bc .ADD [V IDX, litN 1], litU nVot]) none s3 = .ok (s3, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+124) (bc .LT [V IDX, V NUI]) none s3 = .ok (s3, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+121) (bc .ISZERO [bc .OR [bc .EQ [V VV, litN 27], bc .EQ [V VV, litN 28]]]) none s7 = .ok (s7, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+120) (bc .GT [bc .MLOAD [litN (m+96)], litU SECP_HALF]) none s7 = .ok (s9, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+119) (bc .ISZERO [bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]]) none s9 = .ok (s10, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+118) (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) none s10 = .ok (s10, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+117) (bc .ISZERO [bc .MLOAD [litN (m+64)]]) none s10 = .ok (s12, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+114) (bc .ISZERO [bc .EQ [bc .MLOAD [litN (m+64)], bc .SHR [litN 16, bc .MLOAD [litN (m+96)]]]]) none s14 = .ok (s15, ⟨0⟩) →
+    EvmYul.Yul.eval (fuel+112) (bc .GT [V WW, litU thr]) none s16 = .ok (s16, ⟨1⟩) →
+    EvmYul.Yul.exec (fuel + 130) (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ss vs)
+    = .error (.YulHalt (s16.setMachineState (s16.toMachineState.evmReturn (UInt256.ofNat 0) (UInt256.ofNat 0))) ⟨1⟩) := by
+  intro s1 s2 s3 s6 s7 s9 s10 s15 s12 s13 s14 s16 hg4 hg5 hg8 hg9 hg10 hg11 hg12 hg15 hg17acc
+  unfold RelayLoopLiteral.bodyL
+  have h1 := RelayLoopLiteral.mstore_lit_eff (fuel+123) (EvmYul.Yul.State.Ok ss vs) (UInt256.ofNat (m+32)) (UInt256.ofNat 0)
+  have h2 := RelayLoopLiteral.calldatacopy1_eff (fuel+97) m sigStart
+              {ss with toMachineState := (EvmYul.Yul.State.Ok ss vs).toMachineState.mstore (UInt256.ofNat (m+32)) (UInt256.ofNat 0)} vs
+  have h3 := RelayBodyEff.let_idx (fuel+121) (m+128) s2.toSharedState vs
+  have h4 := RelayLoopLiteral.exec_If_false (fuel+125) (bc .GT [bc .ADD [V IDX, litN 1], litU nVot]) [revert00] s3 s3 hg4
+  have h5 := RelayLoopLiteral.exec_If_false (fuel+124) (bc .LT [V IDX, V NUI]) [revert00] s3 s3 hg5
+  have h6 := RelayBodyEff.let_nui (fuel+117) s3.toSharedState s3.store
+  have h7 := RelayBodyEff.let_vv (fuel+115) (m+32) (UInt256.ofNat 0xff) s6.toSharedState s6.store
+  have h8 := RelayLoopLiteral.exec_If_false (fuel+121) (bc .ISZERO [bc .OR [bc .EQ [V VV, litN 27], bc .EQ [V VV, litN 28]]]) [revert00] s7 s7 hg8
+  have h9 := RelayLoopLiteral.exec_If_false (fuel+120) (bc .GT [bc .MLOAD [litN (m+96)], litU SECP_HALF]) [revert00] s7 s9 hg9
+  have h10 := RelayLoopLiteral.exec_If_false (fuel+119) (bc .ISZERO [bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]]) [revert00] s9 s10 hg10
+  have h11 := RelayLoopLiteral.exec_If_false (fuel+118) (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) [revert00] s10 s10 hg11
+  have h12 := RelayLoopLiteral.exec_If_false (fuel+117) (bc .ISZERO [bc .MLOAD [litN (m+64)]]) [revert00] s10 s12 hg12
+  have h13 := RelayLoopLiteral.mstore_lit_eff (fuel+111) s12 (UInt256.ofNat (m+96)) (UInt256.ofNat 0)
+  have h14 := RelayLoopLiteral.calldatacopy2_eff (fuel+85) m s13.toSharedState s13.store
+  have h15 := RelayLoopLiteral.exec_If_false (fuel+114) (bc .ISZERO [bc .EQ [bc .MLOAD [litN (m+64)], bc .SHR [litN 16, bc .MLOAD [litN (m+96)]]]]) [revert00] s14 s15 hg15
+  have h16 := RelayBodyEff.let_ww (fuel+104) (m+96) (UInt256.ofNat 65535) s15.toSharedState s15.store
+  calc EvmYul.Yul.exec (fuel + 130) (Stmt.Block [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_]) none (EvmYul.Yul.State.Ok ss vs)
+      = EvmYul.Yul.exec ((fuel+123)+6) (Stmt.Block _) none s1 := by rw [show fuel + 130 = ((fuel+123)+6)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s1 h1
+    _ = EvmYul.Yul.exec ((fuel+97)+31) (Stmt.Block _) none s2 := by rw [show (fuel+123)+6 = ((fuel+97)+31)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s2 h2
+    _ = EvmYul.Yul.exec ((fuel+121)+6) (Stmt.Block _) none s3 := by rw [show (fuel+97)+31 = ((fuel+121)+6)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s3 h3
+    _ = EvmYul.Yul.exec ((fuel+125)+1) (Stmt.Block _) none s3 := by rw [show (fuel+121)+6 = ((fuel+125)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s3 h4
+    _ = EvmYul.Yul.exec ((fuel+124)+1) (Stmt.Block _) none s3 := by rw [show (fuel+125)+1 = ((fuel+124)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s3 h5
+    _ = EvmYul.Yul.exec ((fuel+117)+7) (Stmt.Block _) none s6 := by rw [show (fuel+124)+1 = ((fuel+117)+7)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s6 h6
+    _ = EvmYul.Yul.exec ((fuel+115)+8) (Stmt.Block _) none s7 := by rw [show (fuel+117)+7 = ((fuel+115)+8)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s7 h7
+    _ = EvmYul.Yul.exec ((fuel+121)+1) (Stmt.Block _) none s7 := by rw [show (fuel+115)+8 = ((fuel+121)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s7 h8
+    _ = EvmYul.Yul.exec ((fuel+120)+1) (Stmt.Block _) none s9 := by rw [show (fuel+121)+1 = ((fuel+120)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s9 h9
+    _ = EvmYul.Yul.exec ((fuel+119)+1) (Stmt.Block _) none s10 := by rw [show (fuel+120)+1 = ((fuel+119)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s10 h10
+    _ = EvmYul.Yul.exec ((fuel+118)+1) (Stmt.Block _) none s10 := by rw [show (fuel+119)+1 = ((fuel+118)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s10 h11
+    _ = EvmYul.Yul.exec ((fuel+117)+1) (Stmt.Block _) none s12 := by rw [show (fuel+118)+1 = ((fuel+117)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s12 h12
+    _ = EvmYul.Yul.exec ((fuel+111)+6) (Stmt.Block _) none s13 := by rw [show (fuel+117)+1 = ((fuel+111)+6)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s13 h13
+    _ = EvmYul.Yul.exec ((fuel+85)+31) (Stmt.Block _) none s14 := by rw [show (fuel+111)+6 = ((fuel+85)+31)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s14 h14
+    _ = EvmYul.Yul.exec ((fuel+114)+1) (Stmt.Block _) none s15 := by rw [show (fuel+85)+31 = ((fuel+114)+1)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s15 h15
+    _ = EvmYul.Yul.exec ((fuel+104)+10) (Stmt.Block _) none s16 := by rw [show (fuel+114)+1 = ((fuel+104)+10)+1 from by omega]; exact RelayLoopLiteral.exec_Block_cons_ok _ _ _ _ s16 h16
+    _ = .error (.YulHalt (s16.setMachineState (s16.toMachineState.evmReturn (UInt256.ofNat 0) (UInt256.ofNat 0))) ⟨1⟩) := by
+        rw [show (fuel+104)+10 = (fuel+113)+1 from by omega]
+        refine RelayLoopLiteral.exec_Block_cons_err (fuel+113) _ [] s16 _ ?_
+        rw [show (fuel+113) = (fuel+112)+1 from by omega,
+            RelayLoopLiteral.exec_If_true (fuel+112) (bc .GT [V WW, litU thr])
+              [Stmt.ExprStmtCall (bc .RETURN [litN 0, litN 0])] s16 s16 ⟨1⟩ hg17acc (by decide)]
+        rw [show (fuel+112) = (fuel+111)+1 from by omega]
+        refine RelayLoopLiteral.exec_Block_cons_err (fuel+111) _ [] s16 _ ?_
+        rw [show (fuel+111) = (fuel+105)+6 from by omega]
+        exact RelayLoopLiteral.return_eff (fuel+105) s16 (UInt256.ofNat 0) (UInt256.ofNat 0)
+
+
 /-! ## The literal signature loop — induction over `body_effL` (bricks 37)
 
 Generic `For`/`loop` control-flow bricks (ported from `RelayLoopMemRead`), the loop-condition and
@@ -1614,8 +1699,149 @@ theorem relay_loop_sound_literal_derived_tight
     hidx hnui hnv horder hsz hg8 hg9 hg10 hg11 hg12 hg15 hg17 hWW15 hII15 hcorr hidxlt
 
 
+
+-- ===================== faithful early-return model (brick 44 / C.1) =====================
+-- loop propagates a body that HALTS with an error (e.g. a `return`): the accept/early-return step.
+theorem loop_step_accept (fuel : Nat) (c : Expr) (po bo : List Stmt)
+    (sa : EvmYul.SharedState .Yul) (va : EvmYul.Yul.VarStore) (x : EvmYul.UInt256) (e : EvmYul.Yul.Exception)
+    (hc : EvmYul.Yul.eval fuel c none (EvmYul.Yul.State.Ok sa va) = .ok (EvmYul.Yul.State.Ok sa va, x))
+    (hx : x ≠ ⟨0⟩)
+    (hb : EvmYul.Yul.exec fuel (Stmt.Block bo) none (EvmYul.Yul.State.Ok sa va) = .error e) :
+    EvmYul.Yul.loop (fuel + 1 + 1) c po bo none (EvmYul.Yul.State.Ok sa va) = .error e := by
+  unfold EvmYul.Yul.loop
+  simp only [EvmYul.Yul.State.mkOk, hc, if_neg hx, hb]
+
+set_option maxHeartbeats 4000000 in
+/-- **Literal loop with early-return (faithful accept path).** The deployed loop returns at the first
+    iteration whose running weight crosses the threshold; this models exactly that. Given `d` advancing
+    iterations (each supplied by `hstep`, the `body_effL` advance) followed by an accepting iteration
+    (supplied by `haccept`, the `body_effL_accept` halt-with-return), the `For` loop halts with a Yul
+    `return` — `.error (YulHalt _ ⟨1⟩)` — rather than running to completion. -/
+theorem loop_accL_early (NN : Nat) (hN : NN < UInt256.size)
+    (m sigStart : Nat) (nVot thr : EvmYul.UInt256)
+    (acc : Nat → EvmYul.UInt256)
+    (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = acc k →
+        ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130) (Stmt.Block (bodyL m sigStart nVot thr)) none
+              (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = acc (k+1))
+    (haccept : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = acc k →
+        ∃ (hs : EvmYul.Yul.State), ∀ fuel, EvmYul.Yul.exec (fuel+130)
+          (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ssk vsk)
+            = .error (.YulHalt hs ⟨1⟩)) :
+    ∀ (d a : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore),
+      a + d < NN →
+      (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat a →
+      (EvmYul.Yul.State.Ok ss vs)[WW]! = acc a →
+      ∃ (hs : EvmYul.Yul.State), EvmYul.Yul.exec (3 * d + 141)
+        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
+          (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩) := by
+  intro d
+  induction d with
+  | zero =>
+    intro a ss vs hsum hi hw
+    have haN : a < NN := by omega
+    have ha_sz : a < UInt256.size := by omega
+    have hc : EvmYul.Yul.eval (138) (condL (UInt256.ofNat NN)) none (EvmYul.Yul.State.Ok ss vs)
+                = .ok (EvmYul.Yul.State.Ok ss vs, UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN)) := by
+      have := cond_effL (132) (UInt256.ofNat NN) ss vs
+      rw [show (138 : Nat) = 132 + 6 from rfl, this, hi]
+    have hx : UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN) ≠ ⟨0⟩ := by
+      rw [ne_eq, lt_eq_zero_iff, not_not]; exact (ofNat_lt ha_sz hN).mpr haN
+    obtain ⟨hs, hbody_all⟩ := haccept a ss vs haN hi hw
+    have hb : EvmYul.Yul.exec 138 (Stmt.Block (bodyL m sigStart nVot thr)) none
+                (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩) := by
+      have := hbody_all 8; rwa [show (8:Nat)+130 = 138 from rfl] at this
+    refine ⟨hs, ?_⟩
+    rw [show (3 * 0 + 141) = 138 + 1 + 1 + 1 from rfl, exec_For]
+    exact loop_step_accept 138 (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr) ss vs _ _ hc hx hb
+  | succ d ih =>
+    intro a ss vs hsum hi hw
+    have haN : a < NN := by omega
+    have ha_sz : a < UInt256.size := by omega
+    have hc : EvmYul.Yul.eval (3 * d + 141) (condL (UInt256.ofNat NN)) none (EvmYul.Yul.State.Ok ss vs)
+                = .ok (EvmYul.Yul.State.Ok ss vs, UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN)) := by
+      have := cond_effL (3 * d + 135) (UInt256.ofNat NN) ss vs
+      rw [show (3 * d + 141) = (3 * d + 135) + 6 from by ring, this, hi]
+    have hx : UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN) ≠ ⟨0⟩ := by
+      rw [ne_eq, lt_eq_zero_iff, not_not]; exact (ofNat_lt ha_sz hN).mpr haN
+    obtain ⟨ssb, vsb, hbody_all, hib, hwb⟩ := hstep a ss vs haN hi hw
+    have hb : EvmYul.Yul.exec (3 * d + 141) (Stmt.Block (bodyL m sigStart nVot thr)) none
+                (EvmYul.Yul.State.Ok ss vs) = .ok (EvmYul.Yul.State.Ok ssb vsb) := by
+      have := hbody_all (3 * d + 11); rwa [show (3 * d + 11) + 130 = 3 * d + 141 from by ring] at this
+    have hp := post_effL (3 * d + 133) ssb vsb
+    rw [show (3 * d + 133) + 8 = 3 * d + 141 from by ring, hib] at hp
+    have hstep' := loop_step (fuel := 3 * d + 141) (c := condL (UInt256.ofNat NN)) (po := postL)
+                    (bo := bodyL m sigStart nVot thr)
+                    (sa := ss) (va := vs) (sb := ssb) (vb := vsb)
+                    (hc := hc) (hx := hx) (hb := hb) (hp := hp)
+    have hic : (EvmYul.Yul.State.Ok ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1))))[II]!
+                 = UInt256.ofNat (a + 1) := by rw [ge_self]; exact (ofNat_succ a).symm
+    have hwc : (EvmYul.Yul.State.Ok ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1))))[WW]!
+                 = acc (a + 1) := by rw [ge_ne ssb vsb II WW _ (Ne.symm IW), hwb]
+    obtain ⟨hs, hexec⟩ := ih (a + 1) ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1)))
+      (by omega) hic hwc
+    refine ⟨hs, ?_⟩
+    rw [show (3 * (d + 1) + 141) = (3 * d + 141) + 1 + 1 + 1 from by ring, exec_For, hstep']
+    exact hexec
+
+
+set_option maxHeartbeats 4000000 in
+/-- **Relay signature-loop soundness on the FAITHFUL early-return path.** Removes the run-to-completion
+    idealization of `relay_loop_sound_literal`: here the deployed loop is modeled as it actually runs — it
+    advances for `t` iterations and then, at iteration `t`, the running weight crosses the threshold and the
+    body `return`s, so the `For` loop halts with `.error (YulHalt _ ⟨1⟩)` (early exit). The accepted prefix
+    of `t+1` signatures is a `ValidRun`, and its accumulated weight exceeds `thr`, so — with no monotonicity
+    hand-wave — the total registered voting weight exceeds `thr`. Both facts are concluded together:
+    the loop genuinely early-returns, AND the accounting is sound. -/
+theorem relay_loop_sound_literal_early
+    (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN t : Nat)
+    (hN : NN < UInt256.size)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
+    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
+    (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
+        ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130) (Stmt.Block (bodyL m sigStart nVot thr)) none
+              (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (k+1)))
+    (haccept : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
+        ∃ (hs : EvmYul.Yul.State), ∀ fuel, EvmYul.Yul.exec (fuel+130)
+          (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ssk vsk)
+            = .error (.YulHalt hs ⟨1⟩))
+    (htNN : t < NN)
+    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart (t + 1)))
+    (hacc_thr : thr.val < accNat cd sigStart nVotN (t + 1)) :
+    (∃ (hs : EvmYul.Yul.State), EvmYul.Yul.exec (3 * t + 141)
+        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
+          (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩))
+      ∧ thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+  refine ⟨?_, ?_⟩
+  · exact loop_accL_early NN hN m sigStart nVot thr (fun k => UInt256.ofNat (accNat cd sigStart nVotN k))
+      hstep haccept t 0 ss vs (by omega) hi hw
+  · rw [accNat_eq_sigLoop] at hacc_thr
+    exact RelayLoopLiteral.threshold_sound (weightsOf cd nVotN) (idxSel cd sigStart (t + 1)) thr.val hvalid hacc_thr
+
 end LoopLayer
 
+#print axioms relay_loop_sound_literal_early
+#print axioms loop_accL_early
+#print axioms loop_step_accept
+#print axioms body_effL_accept
 #print axioms relay_loop_sound_literal_derived_tight
 #print axioms relay_loop_sound_literal_derived
 #print axioms relay_loop_sound_literal
