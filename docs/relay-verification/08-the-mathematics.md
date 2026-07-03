@@ -361,6 +361,16 @@ lemmas need only `[propext, Quot.sound]`), inheriting the same two upstream-disc
 | `body_effL`, `iter_advance` | the **literal** 17-statement deployed body executed in full; per-iteration advance derived | R4b″ (§C.6) |
 | `range_guard_pass`, `order_guard_pass`, `iter_advance_tight` | structural index guards derived from `ValidRun`; tightened advance | R4b″ |
 | `relay_loop_sound_literal_derived_tight` | **accept ⟹ total registered weight > thr**, `hcov`/`hcorr` derived; residual = ecrecover (`IterPremiseT`), all N | R4b″ |
+| `relay_loop_sound_literal_early` | the same, with the accept branch as the deployed `return(0,0)` — the loop halts at the first threshold crossing (early return, faithful) | R4b″ |
+| `sstore_sload`, `sstore_reads_back` | storage round-trip; accept-write `merkleRootsPrivate[·][·]` (Relay.sol:1394) reads back | R5 |
+| `dispatch_routes_verify` | mode dispatch routes faithfully (`protocolId ≠ 1` → verify); modes don't cross-contaminate | R5 |
+| `relay_dispatch_loop_accept` | **end-to-end composition** — dispatch → loop → accept ⟹ registered weight > thr, all N | R5 |
+| `fee_conservation`, `transfer_conservation`, `two_transfer_caller_net_zero` | `fee + (msg.value − fee) = msg.value` (no wrap); `transferBalance` conserves value; caller net-zero | R5 |
+
+The last four rows are the **R5** breadth extension — the same literal, validated-EVM method applied beyond the
+signature loop to the rest of `relay()` (mode dispatch, storage/accept-write, the dispatch → loop → accept
+composition, and fee conservation). All hole-free; R5 adds coverage, not a new soundness fact. Full walk:
+[L9 §G.5](09-the-formal-detail.md).
 
 **Next:** [L9 — The formal detail](09-the-formal-detail.md): the verbatim Lean, every tactic, the
 EVMYulLean API, the gotchas, and the axiom audit.

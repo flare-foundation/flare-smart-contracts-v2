@@ -39,6 +39,12 @@ it; this core is the spine.
 > cryptography (`ecrecover`). We verify the *accounting*, not the cryptography. "A valid signature
 > identifies its signer" is a standing assumption, as in the whole engagement.
 
+> **The other half of the engagement.** Alongside verification, `Relay.sol` was **hardened** against the
+> audit findings (the RLY-* issues) — those fixes, issue-by-issue with tests, are in
+> [`docs/relay-fixes.md`](../relay-fixes.md), and the post-fix review in
+> [`docs/relay-security-review.md`](../relay-security-review.md). This ladder is the verification half; the
+> two efforts meet where a fix becomes a proof's boundary contract (L10, OP-1/3/4).
+
 ---
 
 ## 1.2 What "verification" means, by analogy

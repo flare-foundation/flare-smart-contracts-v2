@@ -198,7 +198,26 @@ verified."
 
 ---
 
-## 7.5 Status and reproduce
+## 7.5 Beyond the loop — the whole-`relay()` extension (R5)
+
+R4b proves the security-critical signature loop. **R5** extends the *same* literal, validated-EVM, hole-free
+method to the rest of `relay()` — **breadth**, not a new soundness fact (the accounting soundness is the loop's).
+All results are hole-free and CI-gated with the loop proofs by `verify_lean.py` (§7.6):
+
+- **R5.1 storage round-trip** ([`RelayStorageLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean) `sstore_sload`): `(sstore k v).sload k = v` on EVMYulLean's real `State` — the storage analog of `DataLayer.mem_roundtrip` (needed transferring `TransCmp` for the RBMap key comparators from `Fin`/`Nat` and deriving `find?_erase` on `RBNode`).
+- **R5.2 mode dispatch** ([`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean) `dispatch_routes_verify`): `relay()`'s protocolId branching (Relay.sol:894/916) routes faithfully — the modes don't cross-contaminate.
+- **R5.3 accept-write** (`RelayStorageLayer.lean` `sstore_eff` + `sstore_reads_back`): the deployed `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)` (Relay.sol:1394) stores a value that reads back, under the `perm = true` static-mode guard.
+- **brick 48 — end-to-end composition** (`RelayBodyEff.lean` `CompositionLayer` `relay_dispatch_loop_accept`): from the mode dispatch, `protocolId ≠ 1` routes into the verify branch and — under the loop's ecrecover premises plus a valid signer prefix crossing the threshold — `relay()` halts with the accept `return(0,0)` **and** total registered weight > threshold. Combinators `dispatch_then_loop_accept` (verify = the loop) and `dispatch_setup_loop_accept` (verify = `[setupStmt, loopStmt]`, the setup's aggregate state transition carried as an explicit hypothesis — faithful since `setupStmt := Stmt.Block realSetup`).
+- **R5.4 fee conservation** ([`RelayFeeLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayFeeLayer.lean)): `fee_conservation` / `fee_conservation_toNat` (`fee + (msg.value − fee) = msg.value`, no under/overflow), `transfer_conservation` (the value-conserving `transferBalance` primitive the Yul `.CALL` performs — the balance analog of `sstore_sload`), `two_transfer_caller_net_zero` (the caller is value-neutral across the two forwards).
+
+Two boundaries are documented, neither touching the core accounting soundness: the exec-level `.CALL` wiring
+(`primCall`/`callDispatcher`, the fuel-carrying analog of `sstore_eff`; value conservation is also Halmos-covered
+at bounded scope by `RelayVerifyFeeFV`), and reconciling the loop model's D3 deviation (accept → `return` vs. the
+deployed break→write→return) so the accept-write folds into the composition. Full walk: [L9 §G.5](09-the-formal-detail.md).
+
+---
+
+## 7.6 Status and reproduce
 
 - **Hole-free**, axioms `[propext, Classical.choice, Quot.sound]` (the data-layer / memory-reading files add
   the two documented upstream-dischargeable axioms `zeroes_data`, `toByteArray_size`), re-verified from the
@@ -211,24 +230,30 @@ cd evmyul2 && git checkout 047f63070309f436b66c61e276ab3b6d1169265a   # 2025-09-
 lake exe cache get && lake build
 B=<repo>/test-forge/fv/lean/bytecode-refinement
 cp $B/RelayBytecodeRefinement.lean $B/DataLayer.lean $B/RelayLoopMemRead.lean \
-   $B/RelayLoopWindows.lean $B/RelayLoopLiteral.lean $B/RelayBodyEff.lean .
+   $B/RelayLoopWindows.lean $B/RelayLoopLiteral.lean $B/RelayStorageLayer.lean \
+   $B/RelayFeeLayer.lean $B/RelayBodyEff.lean .
 lake env lean RelayBytecodeRefinement.lean   # loop mechanism (memory-free), ∀N
 lake env lean DataLayer.lean                 # the data layer (byte/memory/value/mask/weight_read)
 lake env lean RelayLoopMemRead.lean          # abstract memory-reading loop + relay_loop_sound, ∀N
 lake env lean RelayLoopWindows.lean          # calldata byte-window decode
 lake env lean RelayLoopLiteral.lean          # deployed body transliterated + interpreter atoms
-# RelayBodyEff.lean imports the three siblings, so compile them into the package lib first:
+lake env lean RelayStorageLayer.lean         # R5.1/5.3 storage round-trip + accept-write reads back
+lake env lean RelayFeeLayer.lean             # R5.4 fee conservation + transferBalance
+# RelayBodyEff.lean imports three siblings, so compile them into the package lib first:
 LIB=.lake/build/lib/lean
 for f in DataLayer RelayLoopWindows RelayLoopLiteral; do lake env lean -o $LIB/$f.olean $f.lean; done
-lake env lean RelayBodyEff.lean              # LITERAL body + relay_loop_sound_literal_derived_tight, ∀N
-# expect exit 0; the loop-mechanism / accounting / literal theorems print
+lake env lean RelayBodyEff.lean              # LITERAL body + literal capstone + R5 composition, ∀N
+# expect exit 0; the loop-mechanism / accounting / literal / R5 theorems print
 #   depends on axioms: [propext, Classical.choice, Quot.sound]
 # and the data-layer / mstore / window theorems additionally list zeroes_data (and toByteArray_size).
+
+# ...or run all 8 files + the hole-freeness audit in one shot (the CI test-fv-lean job):
+EVMYUL_DIR=/tmp/evmyul2 python3 <repo>/test-forge/fv/lean/verify_lean.py   # exit 0 = all 8 hole-free
 ```
 
 ---
 
-## 7.6 Where this leaves the stack
+## 7.7 Where this leaves the stack
 
 With the bytecode refinement and the memory-reading loop in place, the chain is complete end-to-end at the
 loop-accounting level:
@@ -241,6 +266,9 @@ Memory-reading loop:   the body is the real mload(slot)&0xffff; accept ⟹ Σ ma
 R, accounting core:    deployed loop accepts ⟹ total registered weight > thr (relay_loop_sound) ∀N             [R4b′]
 Literal body model:    the full 17-statement deployed body; hcov/hcorr & index guards DERIVED  ∀N              [R4b″]
                        (relay_loop_sound_literal_derived_tight)
+Whole-relay() (R5):    dispatch → loop → accept ⟹ registered weight > thr (relay_dispatch_loop_accept) ∀N      [R5]
+                       + storage round-trip / accept-write (sstore_sload, sstore_reads_back, Relay.sol:1394),
+                         mode dispatch (dispatch_routes_verify), fee conservation (fee_conservation, …)
 ─────────────────────────────────────────────────────────────────────────────────────────────
 proven on the validated EVM (modulo 2 upstream-dischargeable axioms): data layer (BR-1),
                        incl. the literal memory reads (hcov/hcorr) and index-range/strict-increase guards

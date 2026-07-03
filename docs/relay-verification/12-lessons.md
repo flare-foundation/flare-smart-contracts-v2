@@ -39,9 +39,10 @@ single most important structural decision. ([L2 §2.4](02-strategy-and-the-fidel
 
 ### 5. Choose a *defensible boundary* and fence the residual explicitly
 
-Full R5 (literal bytes, memory, crypto) is intractable. Rather than fail, pick a boundary — here, loop
-mechanism *and* data layer proven (the body is the real `mload(slot)&0xffff`), cryptography assumed — and
-make it *legible*: every assumption named, located, and individually
+Byte-perfect end-to-end verification *including the cryptography* (the ladder's ceiling above R5) is
+intractable. Rather than fail, pick a boundary — here, loop mechanism *and* data layer proven (the body is the
+real `mload(slot)&0xffff`), the whole-`relay()` breadth (dispatch, storage, composition, fees) added at R5,
+cryptography assumed — and make it *legible*: every assumption named, located, and individually
 attackable (the register in [L10 §10.2](10-claims-ledger-trust-and-residual.md)). A proof with a small,
 explicit trusted surface is far more useful than an all-or-nothing attempt that never closes. The
 discipline: *never hide an assumption inside a proof; promote it to a named hypothesis.*

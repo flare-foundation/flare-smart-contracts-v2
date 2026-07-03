@@ -15,6 +15,14 @@ theorem proving against a validated model of the EVM. It is written to serve **t
 These three are not in tension: an audit that cannot be reproduced is hearsay, and a tutorial that is not
 precise teaches the wrong thing. The same precision serves all three.
 
+> **The engagement had two goals.** (1) **Verify** `Relay.sol`'s accounting — this ladder. (2) **Harden**
+> `Relay.sol` against the audit findings — the RLY-* robustness fixes, documented in
+> [`docs/relay-fixes.md`](../relay-fixes.md) (issue-by-issue changes + tests) and
+> [`docs/relay-security-review.md`](../relay-security-review.md) (the post-fix review). This ladder is the
+> verification half; those two docs are the hardening half. They meet in the claims ledger
+> ([L10](10-claims-ledger-trust-and-residual.md)), where several fixes appear as the operational-boundary
+> contracts (OP-1/3/4) and trust assumptions (RLY-06/07) the proofs rely on.
+
 ---
 
 ## The result in one paragraph
@@ -37,7 +45,12 @@ loop body** on the validated EVM (the hole-free [`RelayBodyEff.lean`](../../test
 `relay_loop_sound_literal_derived_tight` carries *accept ⟹ total registered weight > threshold* for all N with
 the memory-read facts (`hcov`/`hcorr`) **derived, not assumed** and the structural index guards discharged from
 the accounting discipline — the abstract masked-read statement `relay_loop_sound` (`mload(slot) & 0xffff`, **data
-layer BR-1** machine-checked) remains as the simpler corroborating result (L7 §7.3). The residual trusted surface
+layer BR-1** machine-checked) remains as the simpler corroborating result (L7 §7.3). The same literal method
+then extends in **breadth** to the rest of `relay()` (**R5**, all hole-free): the mode dispatch
+(`dispatch_routes_verify`), the storage round-trip and accept-write (`sstore_sload` / `sstore_reads_back`), the
+end-to-end **dispatch → loop → accept** composition (`relay_dispatch_loop_accept`), and fee conservation
+(`fee_conservation` / `transfer_conservation`) — coverage over the core loop soundness, not a new soundness fact
+(L7 §7.5, L9 §G.5). The residual trusted surface
 is small and named — exactly the ecrecover boundary (MC-2/OP-1), stated per-iteration as `IterPremiseT`:
 cryptography (`ecrecover`/`keccak`), the operational ABI of each boundary call, a trusted signing-policy setter,
 and the per-iteration *selection/validity* those external calls determine (which voter each signature recovers to,
@@ -98,3 +111,6 @@ This set is the authoritative, consolidated audit + tutorial + reproducibility v
 tool-specific references live alongside it: [`certora/README.md`](../../certora/README.md), [`test-forge/fv/kontrol/README.md`](../../test-forge/fv/kontrol/README.md),
 [`test-forge/fv/lean/bytecode-refinement/README.md`](../../test-forge/fv/lean/bytecode-refinement/README.md), [`docs/relay-assembly-review.md`](../../docs/relay-assembly-review.md),
 [`docs/relay-phase3-documented-items.md`](../../docs/relay-phase3-documented-items.md), and [`docs/relay-t1-bridge.md`](../../docs/relay-t1-bridge.md).
+The **hardening half** of the engagement (goal 2) is documented in [`docs/relay-fixes.md`](../relay-fixes.md)
+(the RLY-* robustness fixes, issue-by-issue, with tests) and [`docs/relay-security-review.md`](../relay-security-review.md)
+(the post-fix security review).

@@ -56,7 +56,8 @@ Every claim in the engagement is classified by **two axes at once**: *what objec
 | **R2** | the deployed bytecode | **all** inputs up to a fixed bound | **Halmos** (bounded symbolic) |
 | **R3** | a *model* of the contract | **all** inputs, unbounded (induction) | **Kontrol/KEVM**, **Certora** |
 | **R4** | a **validated model of the EVM** running the contract's loop | **all** inputs, unbounded | **Lean + EVMYulLean** |
-| **R5** | the literal deployed bytes, end-to-end incl. cryptography & exact memory | all inputs | *the honest aspiration — not attained* |
+| **R5** | the **whole `relay()` body** on the validated EVM — beyond the signature loop: mode dispatch, storage/accept-write, end-to-end composition, fees | **all** inputs, unbounded | **Lean + EVMYulLean** — *largely attained* |
+| *(ceiling)* | the literal deployed bytes, end-to-end **incl. cryptography & exact memory** | all inputs | *permanently out of reach — crypto is MC-2; the residual fenced in [L10]* |
 
 Two barriers separate the rungs:
 
@@ -65,9 +66,13 @@ Two barriers separate the rungs:
 - **The assembly barrier (R3 → R4).** A model reconstructed from high-level structure can silently diverge
   from hand-written assembly; reasoning against a *validated EVM semantics* does not. This is Enemy 2.
 
-The destination is **R4**, reached for the loop mechanism. **R5** — the literal bytes including
-cryptography and the exact memory layout — is named honestly as out of reach (for essentially anyone, on a
-contract like this); the gap between R4 and R5 is the residual fenced in [L10](10-claims-ledger-trust-and-residual.md).
+The destination is **R4**, reached for the loop mechanism; **R5 then extends the same literal, validated-EVM
+method to the rest of `relay()`** — mode dispatch, storage/accept-write, the end-to-end composition
+(dispatch → loop → accept), and fee conservation, all hole-free (§2.6; [L7 §7.5](07-R4b-bytecode-refinement.md),
+[L9 §G.5](09-the-formal-detail.md)). R5 adds **breadth**, not a new soundness fact — the accounting soundness
+is already the loop's (R4). What remains permanently out of reach is *byte-perfect end-to-end verification
+including the cryptography (MC-2, irreducible) and the exact memory layout* — the ceiling, fenced as the
+residual in [L10](10-claims-ledger-trust-and-residual.md).
 
 ---
 
@@ -177,6 +182,7 @@ names are in the per-rung docs and the claims ledger ([L10](10-claims-ledger-tru
 | R3 | Certora | 5 all-functions storage invariants (nonce/epoch monotonic, setter-immutable, hash/root write-once) | model | ∀ functions & sequences | ⚠ specified + locally typechecked; **not cloud-dischargeable** (assembly storage-havoc wall) |
 | R4a | Lean (the abstract proof) | sig-loop **threshold soundness** | abstract algorithm | **∀N ∀K** | ✅ hole-free (`[propext, Quot.sound]`) |
 | R4b | Lean + EVMYulLean (the bytecode refinement) | threshold soundness on **validated EVM semantics** — deployed 17-statement loop body run literally (`relay_loop_sound_literal_derived_tight`; memory reads derived), abstract masked-read `relay_loop_sound` corroborating | validated EVM model | **∀N** | ✅ hole-free (`[propext, Classical.choice, Quot.sound]`) |
+| R5 | Lean + EVMYulLean (whole-`relay()`) | **breadth beyond the loop:** end-to-end composition — `protocolId ≠ 1` routes dispatch → signature loop → accept ⟹ registered weight > threshold (`relay_dispatch_loop_accept`); mode dispatch (`dispatch_routes_verify`); storage round-trip + accept-write (`sstore_sload` / `sstore_reads_back`, Relay.sol:1394); fee conservation (`fee_conservation` / `transfer_conservation` / `two_transfer_caller_net_zero`) | validated EVM model | **∀N** (breadth) | ✅ hole-free; residual: exec-level `.CALL` wiring + D3 accept-write reconciliation |
 
 The two ⚠ rows are the honest results, not omissions: Kontrol's symbolic-N intractability and Certora's
 storage-havoc wall are the **convergent assembly-barrier finding** of §2.7.

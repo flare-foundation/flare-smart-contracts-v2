@@ -142,6 +142,31 @@ No `error:`, no `sorry`/`sorryAx`. The file is self-contained; its scope and ass
 > `#eval`/`native_decide` on standalone files cannot link the extern lib — which is why the bytecode-refinement proofs
 > are symbolic and avoid `native_decide` entirely (this also keeps the axiom list clean).
 
+### The whole Lean gate (all 8 files) — the `test-fv-lean` CI job
+
+The check above verifies one file in isolation. The full R4b + R5 Lean development — **8 files**, hole-freeness
+enforced — is checked in one command, exactly as CI does it:
+
+```bash
+# after the one-time EVMYulLean build above:
+EVMYUL_DIR=/tmp/evmyul2 python3 test-forge/fv/lean/verify_lean.py   # exit 0 = all 8 files hole-free
+```
+
+`verify_lean.py` type-checks every file under `test-forge/fv/lean/bytecode-refinement/` against the pinned
+semantics and asserts each `#print axioms` line stays within the allowed set (rejecting any `sorryAx` /
+`native_decide`):
+
+- **STANDALONE** (import `EvmYul` only): `RelayBytecodeRefinement`, `DataLayer`, `RelayLoopMemRead`,
+  `RelayLoopWindows`, `RelayLoopLiteral`, `RelayStorageLayer` (R5.1/5.3 storage + accept-write),
+  `RelayFeeLayer` (R5.4 fees).
+- **INTEGRATION** (imports three siblings — compiled into the package lib first): `RelayBodyEff` (the literal
+  loop-body model, the mode dispatch, and the end-to-end composition).
+
+Allowed axioms: `⊆ {propext, Classical.choice, Quot.sound}` + the two documented data-layer specs
+`zeroes_data`, `toByteArray_size` (see §11.8 and [`AXIOM_DISCHARGE.md`](../../test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md)).
+The same job is wired into `.gitlab-ci.yml` as **`test-fv-lean`** (clones + builds EVMYulLean pinned, then runs
+`verify_lean.py`), gated on changes under `test-forge/fv/lean/**`.
+
 ---
 
 ## 11.8 The axiom audit (how to certify "hole-free")
@@ -149,11 +174,15 @@ No `error:`, no `sorry`/`sorryAx`. The file is self-contained; its scope and ass
 For any Lean theorem, the certificate is its `#print axioms` output. The bar (the engagement's definition
 of "done"):
 
-- **allowed:** `propext`, `Classical.choice`, `Quot.sound` (standard, consistent, domain-neutral);
+- **allowed:** `propext`, `Classical.choice`, `Quot.sound` (standard, consistent, domain-neutral) — plus the
+  two documented, upstream-dischargeable data-layer specs `zeroes_data` / `toByteArray_size`, flagged only on
+  the memory-*write* results (§L9 §G; [`AXIOM_DISCHARGE.md`](../../test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md));
 - **forbidden:** `sorryAx` (any hole/incomplete proof in the dependency tree) and `Lean.ofReduceBool`
   (would appear if `native_decide` were used — enlarges the trusted base; deliberately avoided).
 
-Grep the build output for `sorryAx`/`error:` to mechanize the check in CI.
+Grepping the build output for `sorryAx`/`error:` and auditing every `#print axioms` line is exactly what
+[`test-forge/fv/lean/verify_lean.py`](../../test-forge/fv/lean/verify_lean.py) mechanizes — the `test-fv-lean`
+CI gate (§11.7).
 
 ---
 
@@ -165,11 +194,13 @@ Grep the build output for `sorryAx`/`error:` to mechanize the check in CI.
 | `coverage-forge` (+ `-reports`) | R0/R1 | `forge build` + coverage | ✅ |
 | `test-fv-halmos` | R2 | `python3 test-forge/fv/verify_fv.py` | ✅ |
 | `build-smart-contracts`, `test-linter`, `test-linter-forge` | build/lint | `forge build` / solhint | ✅ |
+| `test-fv-lean` | R4b/R5 | `python3 test-forge/fv/lean/verify_lean.py` (pinned EVMYulLean, all 8 files hole-free) | ✅ |
 | (Kontrol) | R3 | Docker image; run offline (heavy) | manual/offline |
 | (Certora) | R3 | `certoraRun` (needs key) | manual/offline |
-| (Lean the abstract proof / the bytecode refinement) | R4 | `lean` / `lake env lean` | manual/offline |
+| (Lean the abstract proof) | R4a | `lake env lean RelaySigLoop.lean` | manual/offline |
 
-R0–R2 run on every relevant push (the green pipeline). R3/R4 are heavyweight or key/toolchain-gated and are
-reproduced offline per the sections above; their artifacts are committed so the results are re-checkable.
+R0–R2 **and R4b/R5** run on every relevant push (the green pipeline — the latter via `test-fv-lean`, gated on
+`test-forge/fv/lean/**`). R3 and R4a are heavyweight or key/toolchain-gated and are reproduced offline per the
+sections above; their artifacts are committed so the results are re-checkable.
 
 **Next:** [L12 — Lessons](12-lessons.md): the transferable method distilled from all of this.
