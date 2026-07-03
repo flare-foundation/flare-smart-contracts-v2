@@ -974,6 +974,10 @@ contract Relay is IIRelay {
                         }
                     }
                     if eq(lastInitializedRewardEpoch, rewardEpochId) {
+                        // RLY-05 (deferred, Low, no exploit): truncating integer `div` — the scaled
+                        // threshold can be up to 1 weight-unit below the exact value, a sub-unit bias
+                        // toward an attacker. Immaterial against the aggregate threshold; a ceil-div
+                        // fix is deferred by decision. See docs/relay-fixes.md.
                         threshold := div(
                             mul(
                                 threshold,
@@ -1135,6 +1139,12 @@ contract Relay is IIRelay {
                     )
                 )
 
+                // RLY-08 (deferred, Note, no exploit): the two signing-policy storage writes below
+                // (startingVotingRoundIds and toSigningPolicyHashPrivate) precede the signature-aggregate
+                // threshold check (the accept gate later in the loop). This is atomicity-safe — if the
+                // threshold is not met the whole transaction reverts and unwinds them (see the IMPORTANT
+                // note a few lines down). A structural write-after-verify reorder is deferred by decision
+                // (risky inline-assembly change for a no-exploit note). See docs/relay-fixes.md.
                 // startingVotingRoundId[newSigningPolicyRewardEpochId] = newMetadata.startingVotingRoundId
                 mstore(mload(0x40), newSigningPolicyRewardEpochId)
                 mstore(add(mload(0x40), M_1), startingVotingRoundIds.slot)
@@ -1731,8 +1741,10 @@ contract Relay is IIRelay {
         /* solhint-enable avoid-low-level-calls */
         require(success, "Verification failed");
         // 32 bytes hash + 3 bytes reward epoch id.
-        // RLY-07: the 35-byte length is the unique discriminator of relay()'s protocolId==1 path
-        // (all other paths return 0 bytes or revert). Preserve this invariant if relay() returns change.
+        // RLY-07 (deferred, Note, no exploit): the 35-byte length is the unique discriminator of relay()'s
+        // protocolId==1 path (all other paths return 0 bytes or revert). Preserve this invariant if relay()'s
+        // returns change. A robust typed protocol discriminator would need an assembly return-format change
+        // (higher risk for a no-exploit note), so it is deferred by decision. See docs/relay-fixes.md.
         require(returnData.length == 35, "Wrong verification data");
         bytes32 returnHash;
         uint256 returnRewardEpochId;

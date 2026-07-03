@@ -33,6 +33,10 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
      * @inheritdoc IPriceSubmitter
      */
     function getCurrentRandom() external view returns (uint256 _currentRandom) {
+        // RLY-12 (deferred, Low, no exploit): this legacy V1 getter drops the relay's `isSecureRandom`
+        // quality flag (the IPriceSubmitter V1 interface has no field for it). Callers that need the flag
+        // should use `getCurrentRandomWithQuality()` below (or the V2 Relay getters). Deferred by decision
+        // (out of Relay.sol scope). See docs/relay-fixes.md.
         (_currentRandom, , ) = relay.getRandomNumber();
     }
 
@@ -40,6 +44,8 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
      * @inheritdoc IPriceSubmitter
      */
     function getRandom(uint256 _votingRoundId) external view returns (uint256 _randomNumber) {
+        // RLY-12 (deferred, Low, no exploit): drops the relay's `isSecureRandom` quality flag (V1 interface
+        // has no field for it). See the note on getCurrentRandom() above; deferred by decision.
         (_randomNumber, ,) = relay.getRandomNumberHistorical(_votingRoundId);
     }
 
