@@ -199,7 +199,85 @@ theorem sstore_sload {τ} (self : EvmYul.State τ) (k v : EvmYul.UInt256)
   show (acc.updateStorage k v).lookupStorage k = v
   exact updateStorage_lookupStorage acc k v
 
-/-! ## 7. Hole-freeness checks -/
+/-! ## 7. The exec-level SSTORE effect and the storage-write-reads-back composition
+
+We now lift the `State`-level round trip to NethermindEth's real Yul interpreter
+(`EvmYul.Yul.exec`/`execPrimCall`/`primCall`/`step`), modelling Relay.sol's accept-branch
+storage write `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)`
+(`Relay.sol:1394`). The nested-mapping slot is the deterministic key `K`; we prove that
+executing `sstore(K, v)` then loading `K` back yields `v`.
+
+Two subtleties versus the pure `State`-level facts above:
+
+* **`step` shape.** SSTORE is a state-transformer op with no stack output, so
+  `step .Yul SSTORE none s [key, val]` dispatches (via `dispatchBinaryStateOp .Yul State.sstore`,
+  `Semantics.lean:372`) through `Yul.binaryStateOp`, which applies `State.sstore` to `s.toState`
+  and writes the result back with `Yul.State.setState`. Hence the post-state is
+  `s.setState (State.sstore s.toState key val)` and the returned literal is `none`.
+
+* **The static-mode permission guard.** `primCall` (`Yul/Interpreter.lean:70`) throws
+  `.StaticModeViolation` when `¬s.executionEnv.perm ∧ prim ∈ [.SSTORE, …]`. A normal
+  (non-`staticcall`) `relay()` call has `perm = true`, so we take `hperm : s.executionEnv.perm = true`
+  (the `perm` flag reached through `EvmYul.Yul.State.executionEnv`). Rewriting with `hperm` collapses
+  the guard's condition to `False`, so the `if` takes the else branch and no exception is thrown. -/
+
+/-- With no bind variables the post-call `multifill'` is the identity (all three `State` shapes). -/
+theorem multifill_nil (s : EvmYul.Yul.State) : EvmYul.Yul.State.multifill [] [] s = s := by
+  cases s <;> rfl
+
+set_option maxHeartbeats 1000000 in
+/-- `step` of SSTORE at the Yul level: a stack-output-free state transformer that applies
+`EvmYul.State.sstore` to `s.toState` and writes it back via `setState` (returned literal `none`). -/
+theorem step_SSTORE (s : EvmYul.Yul.State) (key val : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.SSTORE none s [key, val]
+      = .ok (s.setState (EvmYul.State.sstore s.toState key val), none) := by
+  unfold EvmYul.step; rfl
+
+set_option maxHeartbeats 4000000 in
+/-- **Exec-level `sstore(key, val)` effect.** Executing the statement `sstore(key, val)` (literal
+arguments) through the full `exec → execPrimCall → primCall → step` plumbing writes the value at
+`key`, yielding the post-state `s.setState (State.sstore s.toState key val)`. The static-mode guard
+of `primCall` is discharged by `hperm : s.executionEnv.perm = true`. Fuel offset `+6` (as
+`mstore_lit_eff`). -/
+theorem sstore_eff (fuel : Nat) (s : EvmYul.Yul.State) (key val : EvmYul.UInt256)
+    (hperm : s.executionEnv.perm = true) :
+    EvmYul.Yul.exec (fuel + 6)
+      (EvmYul.Yul.Ast.Stmt.ExprStmtCall
+        (EvmYul.Yul.Ast.Expr.Call (Sum.inl Operation.SSTORE)
+          [EvmYul.Yul.Ast.Expr.Lit key, EvmYul.Yul.Ast.Expr.Lit val])) none s
+    = .ok (s.setState (EvmYul.State.sstore s.toState key val)) := by
+  simp [EvmYul.Yul.exec, EvmYul.Yul.eval, EvmYul.Yul.evalArgs, EvmYul.Yul.evalTail,
+        EvmYul.Yul.execPrimCall, EvmYul.Yul.primCall,
+        EvmYul.Yul.cons', EvmYul.Yul.reverse', EvmYul.Yul.multifill', step_SSTORE, multifill_nil,
+        hperm]
+
+set_option maxHeartbeats 4000000 in
+/-- **Storage write reads back (the R5.3 payoff).** Executing `sstore(K, v)` and then loading slot
+`K` back yields exactly `v`. Composes `sstore_eff` (the post-exec state is `State.sstore s.toState K v`)
+with `sstore_sload` (that state reads `K` back as `v`), given the owner account is present. This is
+the "the relayed Merkle root is stored and reads back at its deterministic nested-mapping slot" fact
+for Relay.sol's accept branch (`Relay.sol:1394`). -/
+theorem sstore_reads_back (fuel : Nat) (s : EvmYul.Yul.State) (K v : EvmYul.UInt256)
+    (acc : EvmYul.Account .Yul)
+    (hperm : s.executionEnv.perm = true)
+    (hpresent : s.toState.lookupAccount s.toState.executionEnv.codeOwner = some acc) :
+    ∃ post, EvmYul.Yul.exec (fuel + 6)
+        (EvmYul.Yul.Ast.Stmt.ExprStmtCall
+          (EvmYul.Yul.Ast.Expr.Call (Sum.inl Operation.SSTORE)
+            [EvmYul.Yul.Ast.Expr.Lit K, EvmYul.Yul.Ast.Expr.Lit v])) none s
+        = .ok post ∧ (post.toState.sload K).2 = v := by
+  refine ⟨_, sstore_eff fuel s K v hperm, ?_⟩
+  cases s with
+  | Ok ss vs =>
+    show ((EvmYul.State.sstore ss.toState K v).sload K).2 = v
+    exact sstore_sload ss.toState K v acc hpresent
+  | OutOfFuel => exact absurd hperm (by decide)
+  | Checkpoint j =>
+    have hf : (EvmYul.Yul.State.Checkpoint j).executionEnv.perm = false := rfl
+    rw [hf] at hperm
+    exact absurd hperm (by decide)
+
+/-! ## 8. Hole-freeness checks -/
 
 #print axioms uint_transcmp
 #print axioms addr_transcmp
@@ -210,5 +288,9 @@ theorem sstore_sload {τ} (self : EvmYul.State τ) (k v : EvmYul.UInt256)
 #print axioms sstore_codeOwner
 #print axioms sstore_accountMap
 #print axioms sstore_sload
+#print axioms multifill_nil
+#print axioms step_SSTORE
+#print axioms sstore_eff
+#print axioms sstore_reads_back
 
 end RelayStorageLayer
