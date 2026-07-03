@@ -169,18 +169,19 @@ This is the most important part of the rung for an auditor; the full ledger is [
      closed. (In the abstract model, `weight_read` discharges the read via an `mstore`-then-`mload` round-trip
      while the deployed primitive is `calldatacopy`; both reduce to the same EVMYulLean `ByteArray.write` /
      `mem_roundtrip`, and the literal model takes the `calldatacopy` path directly.)
-  2. *The deployed loop exits early; the model runs to completion.* On-chain, acceptance **returns inside the
-     first iteration whose running weight crosses the threshold** (`Relay.sol:1330`); the modeled loop runs
-     all `N` iterations and the theorem examines the *final* accumulator. The transport is sound — addends are
-     non-negative, so under `hnoovf` a prefix crossing implies the final total crosses; and the abstract
-     `threshold_sound` is prefix-robust (apply it to the consumed prefix, which is itself a `ValidRun`) — and
-     the per-prefix form **is** proven on the real bytecode at bounded K
-     ([`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol), the tight per-prefix contrapositive) —
-     but the ∀N statement quantifies over the run-to-completion model, and this early-exit gap is part of
-     BR-3's encoding fidelity, stated here so it is not discovered by a reader as an omission. **The literal
-     model shares this idealization** — `relay_loop_sound_literal` also runs the loop to completion with the
-     final tally; the transport argument is identical — so early-return remains the one residual model-vs-
-     deployed deviation after the address-map item is closed.
+  2. *The deployed loop exits early — now modeled faithfully.* On-chain, acceptance **returns inside the
+     first iteration whose running weight crosses the threshold** (`Relay.sol:1330`). The `relay_loop_sound`
+     / `relay_loop_sound_literal` statements run all `N` iterations and examine the *final* accumulator; that
+     transport is sound (non-negative addends + prefix-robust `threshold_sound`, with the per-prefix form
+     proven on the real bytecode at bounded K, [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol)).
+     **The early-return is now also modeled directly** ([`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean),
+     `relay_loop_sound_literal_early`): `body_effL_accept` executes the body's accept branch — statement 17's
+     `if gt(weight,thr) { return(0,0) }` fires — so the body halts with `.error (YulHalt _ ⟨1⟩)`;
+     `loop_step_accept` propagates that halt out of the `For`, and `loop_accL_early` runs `t` advancing
+     iterations then the accepting one, so the loop **genuinely early-returns** rather than running to
+     completion. The capstone concludes both: the loop returns *and* the total registered weight exceeds
+     `thr` (via `threshold_sound` on the accepted `(t+1)`-prefix). So this idealization is discharged — the
+     early-exit control flow is executed by the validated semantics, not just argued about.
 - **Modular vs. integer arithmetic (BR-2) — internalized.** The bytecode refinement reasons in
   `𝕌 = Fin 2²⁵⁶` (mod 2²⁵⁶); the abstract proof in `ℕ`. `bytecode_threshold_sound_int` carries an explicit
   `Σ < 2²⁵⁶` hypothesis and proves (via `absAcc_val`) that the modular accumulator equals the integer
