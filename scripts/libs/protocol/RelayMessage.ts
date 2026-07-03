@@ -136,12 +136,46 @@ export namespace RelayMessage {
       protocolMessageMerkleRoot = ProtocolMessageMerkleRoot.decode(rest, false);
       encodedSignatures = rest.slice(protocolMessageMerkleRoot.encodedLength);
     }
-    const signatures = ECDSASignatureWithIndex.decodeSignatureList(encodedSignatures);
+    // RLY-03: separate the signature list from an optional random-number trailer. `decodeSignatureList`
+    // requires an exact-length input, so we cannot hand it the trailer — slice the list precisely first
+    // (2-byte count prefix + count * 67-byte records) and treat any remainder as the trailer that
+    // `encode()` appended (randomNumber || merkleProof).
+    if (encodedSignatures.length < 4) {
+      throw Error(`Invalid relay message: too short - missing signatures`);
+    }
+    const signatureCount = parseInt(encodedSignatures.slice(0, 4), 16);
+    const signatureListLength = 4 + signatureCount * 134; // (1 + 32 + 32 + 2) * 2 hex chars per signature
+    if (encodedSignatures.length < signatureListLength) {
+      throw Error(`Invalid relay message: signature list truncated`);
+    }
+    const signatures = ECDSASignatureWithIndex.decodeSignatureList(
+      encodedSignatures.slice(0, signatureListLength)
+    );
+    const trailer = encodedSignatures.slice(signatureListLength);
+    let isRandomNumberGeneratingProtocolMessage: boolean | undefined;
+    let randomNumber: string | undefined;
+    let merkleProof: string[] | undefined;
+    if (trailer.length > 0) {
+      // RLY-03 trailer: a 32-byte random number followed by zero or more 32-byte Merkle-proof elements
+      // (mirror of the append in `encode()`).
+      if (trailer.length % 64 !== 0) {
+        throw Error(`Invalid relay message: random trailer length (${trailer.length}) not a multiple of 64`);
+      }
+      isRandomNumberGeneratingProtocolMessage = true;
+      randomNumber = "0x" + trailer.slice(0, 64);
+      merkleProof = [];
+      for (let position = 64; position < trailer.length; position += 64) {
+        merkleProof.push("0x" + trailer.slice(position, position + 64));
+      }
+    }
     return {
       signingPolicy,
       protocolMessageMerkleRoot,
       newSigningPolicy,
       signatures,
+      isRandomNumberGeneratingProtocolMessage,
+      randomNumber,
+      merkleProof,
     }
   }
 

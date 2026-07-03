@@ -125,6 +125,61 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     expect(RelayMessage.equals(relayMessage2, decodedRelayMessage)).to.be.true;
   });
 
+  it("Should encode and decode a random-number Relay message with the RLY-03 trailer", async () => {
+    const merkleRoot = ethers.hexlify(ethers.randomBytes(32));
+    const messageData = {
+      protocolId: 2,
+      votingRoundId,
+      isSecureRandom: true,
+      merkleRoot,
+    } as IProtocolMessageMerkleRoot;
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+    const signatures = await generateSignatures(accountPrivateKeys, messageHash, N / 2 + 1);
+
+    const randomNumber = ethers.hexlify(ethers.randomBytes(32));
+    const merkleProof = [
+      ethers.hexlify(ethers.randomBytes(32)),
+      ethers.hexlify(ethers.randomBytes(32)),
+      ethers.hexlify(ethers.randomBytes(32)),
+    ];
+
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: messageData,
+      isRandomNumberGeneratingProtocolMessage: true,
+      randomNumber,
+      merkleProof,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
+    const decoded = RelayMessage.decode(fullData);
+    // the trailer is now parsed (previously decode() threw on the extra bytes)
+    expect(decoded.isRandomNumberGeneratingProtocolMessage).to.be.true;
+    expect(decoded.randomNumber!.toLowerCase()).to.equal(randomNumber.toLowerCase());
+    expect(decoded.merkleProof!.map(x => x.toLowerCase())).to.deep.equal(merkleProof.map(x => x.toLowerCase()));
+    // the core message still round-trips and re-encoding reproduces the exact bytes (incl. the trailer)
+    expect(decoded.signatures.length).to.equal(signatures.length);
+    expect(RelayMessage.equals(relayMessage, decoded)).to.be.true;
+    expect(RelayMessage.encode(decoded)).to.equal(fullData);
+
+    // edge case: single-leaf tree ⇒ empty Merkle proof ⇒ trailer is just the 32-byte random number
+    const relayMessageEmptyProof = { ...relayMessage, merkleProof: [] as string[] };
+    const encodedEmpty = RelayMessage.encode(relayMessageEmptyProof);
+    const decodedEmpty = RelayMessage.decode(encodedEmpty);
+    expect(decodedEmpty.isRandomNumberGeneratingProtocolMessage).to.be.true;
+    expect(decodedEmpty.randomNumber!.toLowerCase()).to.equal(randomNumber.toLowerCase());
+    expect(decodedEmpty.merkleProof).to.deep.equal([]);
+    expect(RelayMessage.encode(decodedEmpty)).to.equal(encodedEmpty);
+
+    // negative: a non-random message must NOT acquire a trailer on decode
+    const plainMessage = { signingPolicy: signingPolicyData, signatures, protocolMessageMerkleRoot: messageData };
+    const decodedPlain = RelayMessage.decode(RelayMessage.encode(plainMessage));
+    expect(decodedPlain.isRandomNumberGeneratingProtocolMessage).to.be.undefined;
+    expect(decodedPlain.randomNumber).to.be.undefined;
+    expect(decodedPlain.merkleProof).to.be.undefined;
+  });
+
   it("Should encode and decode ftso feeds", async () => {
     const feeds = [{category: 1, name: "BTC/USD"}, {category: 126, name: "1TEST123"}];
     const encoded = FtsoConfigurations.encodeFeedIds(feeds);
