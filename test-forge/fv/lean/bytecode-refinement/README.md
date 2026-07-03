@@ -194,9 +194,19 @@ The signature loop (the security-critical core) is done at R4b. R5 extends the l
   with the `perm=true` static-mode guard) + `sstore_reads_back` — executing the accept-branch write
   `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)` (Relay.sol:1394) stores a value that
   reads back, via `sstore_sload`.
-- **R5.4 — fees** (remaining): `verify()` fee conservation — already covered at bounded scope by the Halmos
-  `RelayVerifyFeeFV` harness; the Lean-level version needs the value-transfer / `call` layer. Orthogonal to
+- **R5.4 — fees** (in progress): `verify()` fee conservation — already covered at bounded scope by the Halmos
+  `RelayVerifyFeeFV` harness; the Lean-level version adds the value-transfer / `call` layer. Orthogonal to
   the core `relay()` accounting.
+- **brick 48 — end-to-end composition — ✅ done** (`RelayBodyEff.lean`, `CompositionLayer`): stitches R5.2 +
+  the loop capstone into a single top-level accept statement. `relay_dispatch_loop_accept` — from the mode
+  dispatch, `protocolId ≠ 1` routes into the verify branch, and under the loop's iteration premises
+  (ecrecover boundary) plus a valid signer prefix crossing threshold, `relay()` halts with the accept
+  `return(0,0)` **and** total registered weight > threshold. Two combinators expose the modeling boundary
+  honestly: `dispatch_then_loop_accept` (verify = the loop; setup elided) and `dispatch_setup_loop_accept`
+  (verify = `[setupStmt, loopStmt]`, the setup's aggregate state transition carried as an explicit
+  hypothesis — faithful since `setupStmt := Stmt.Block realSetup` is one `Stmt`). The accept-*write* (R5.3)
+  stays separate because the loop model's D3 deviation returns on accept rather than break-then-write;
+  reconciling D3 is the last remaining end-to-end gap.
 
 All landed steps are hole-free (`{propext, Classical.choice, Quot.sound}`) and gated by `../verify_lean.py`.
 The accounting-soundness property is already covered by the loop; R5 adds breadth (mode-specific effects),
