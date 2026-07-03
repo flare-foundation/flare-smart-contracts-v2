@@ -194,9 +194,13 @@ The signature loop (the security-critical core) is done at R4b. R5 extends the l
   with the `perm=true` static-mode guard) + `sstore_reads_back` — executing the accept-branch write
   `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)` (Relay.sol:1394) stores a value that
   reads back, via `sstore_sload`.
-- **R5.4 — fees** (in progress): `verify()` fee conservation — already covered at bounded scope by the Halmos
-  `RelayVerifyFeeFV` harness; the Lean-level version adds the value-transfer / `call` layer. Orthogonal to
-  the core `relay()` accounting.
+- **R5.4 — fees — ✅ done** (`RelayFeeLayer.lean`): `verify()` fee conservation. Word- and integer-level
+  `fee + (msg.value − fee) = msg.value` with no under/overflow (`fee_conservation` / `fee_conservation_toNat`),
+  the `transferBalance` value-conservation primitive (`transfer_conservation` — the balance analog of
+  `sstore_sload`, and exactly what the Yul `.CALL` performs at `Interpreter.lean:78`), and the caller
+  net-zero across the two forwards (`two_transfer_caller_net_zero`). The exec-level `.CALL` wiring
+  (`primCall`/`callDispatcher`, the fuel-carrying analog of `sstore_eff`) is the documented remaining
+  boundary; value conservation is also Halmos-covered at bounded scope by `RelayVerifyFeeFV`.
 - **brick 48 — end-to-end composition — ✅ done** (`RelayBodyEff.lean`, `CompositionLayer`): stitches R5.2 +
   the loop capstone into a single top-level accept statement. `relay_dispatch_loop_accept` — from the mode
   dispatch, `protocolId ≠ 1` routes into the verify branch, and under the loop's iteration premises
