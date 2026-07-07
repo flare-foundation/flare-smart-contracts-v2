@@ -14,7 +14,7 @@ All commands are from the repo root unless noted: `flare-smart-contracts-v2/`.
 | Tool | Version (verified) | Install / source |
 |------|--------------------|------------------|
 | Foundry (`forge`) | **1.7.1** (suite-verified); `foundry:stable` / `foundryup` in CI | `curl -L https://foundry.paradigm.xyz \| bash && foundryup` |
-| `solc` | 0.8.27 (Relay pragma `^0.8.13`) | foundry-managed / system |
+| `solc` | **0.8.27+commit.40a35a09** (Relay pragma `^0.8.20`; the exact `pragma solidity 0.8.27` in the test base pins the verified unit) | foundry-managed / system |
 | Halmos | **0.3.3** (CI: `python:3.12`) | `pip install --user halmos` |
 | z3 (SMT solver) | **4.12.6** | implicit Halmos dependency |
 | Kontrol / KEVM | Kontrol **v1.0.248**, K **v7.1.334** | pinned Docker image (§11.5) |

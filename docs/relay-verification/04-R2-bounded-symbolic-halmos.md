@@ -14,6 +14,19 @@ Halmos runs the compiled contract with **symbolic** inputs: instead of one concr
 **executes the actual bytecode** — it does not reconstruct a model from Solidity structure — so it is
 **immune to the assembly barrier** (Enemy 2): Relay's hand-rolled storage is just bytecode being run.
 
+**Which bytecode, precisely.** The artifact this repo's toolchain compiles from source — **solc
+0.8.27+commit.40a35a09, optimizer 200, `evm_version=cancun`** (settings pinned in
+[`foundry.toml`](../../foundry.toml); the solc version pinned by the test base's exact
+`pragma solidity 0.8.27`, which fixes the whole verified compilation unit — Relay.sol's own pragma is
+`^0.8.20`). Each harness deploys `new Relay(config)`, embedding Relay's creation code in the harness
+artifact; Halmos runs that constructor and then symbolically executes the resulting **runtime** bytecode.
+Deterministic compilation ties this artifact to a deployment (same source + compiler + settings ⇒ identical
+bytes, checkable via the on-chain metadata/source verification); deployment-baked **immutables** come from
+the harness's — usually symbolic — constructor config, so proofs quantify over configurations. Note the
+trust profile: at this rung **solc is inside the verified object** (we check its *output*; a miscompilation
+of a checked property within bound would surface as a counterexample) — the inverse of R4b, which models
+the Yul IR and *trusts* solc's Yul→bytecode backend (L7 §7.4).
+
 Its limit is the **induction barrier** (Enemy 1): loops are unrolled to a fixed depth, so coverage is
 bounded — here **K ≤ 3 signatures** and **N ≤ 5 voters**. Within that bound the guarantee is exhaustive
 (all inputs, not samples). This is why R2 is the bounded floor: maximal object-fidelity (real bytecode),
