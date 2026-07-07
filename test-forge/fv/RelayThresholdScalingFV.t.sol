@@ -31,6 +31,7 @@ contract RelayThresholdScalingFV {
     // identity  floor(x/d) >= t  <=>  x >= t*d  makes  eff = floor(threshold*tib/10000) >= threshold
     // exactly equivalent to  threshold*tib >= threshold*THRESHOLD_BIPS. (The post-division form makes Z3
     // time out on the /10000; this equivalent is the same theorem and solves instantly.)
+    // EXPECT: PASS (proof).
     function check_scaling_neverWeakens(uint16 threshold, uint16 tib) external {
         vm.assume(tib >= THRESHOLD_BIPS);      // Relay.sol:235: thresholdIncreaseBIPS >= 10000 (uint16 => <=0xffff)
         assert(uint256(threshold) * uint256(tib) >= uint256(threshold) * THRESHOLD_BIPS);
@@ -39,17 +40,20 @@ contract RelayThresholdScalingFV {
     // R5a' — corroborate the floor identity on the ACTUAL division at the boundary tib == THRESHOLD_BIPS
     // (1.0x): there the rescale is the identity, eff == threshold exactly (no truncation loss). This anchors
     // the equivalence used above to the real _eff() at the one point where it must hold with equality.
+    // EXPECT: PASS (proof).
     function check_scaling_identityAtBoundary(uint16 threshold) external pure {
         assert(_eff(threshold, uint16(THRESHOLD_BIPS)) == threshold);
     }
 
     // R5b — no overflow / no wrap: the truncated result never exceeds the (fitting) product.
+    // EXPECT: PASS (proof).
     function check_scaling_noOverflow(uint16 threshold, uint16 tib) external {
         uint256 prod = uint256(threshold) * uint256(tib); // <= 0xffff*0xffff < 2^32
         assert(_eff(threshold, tib) <= prod);  // div result <= dividend
     }
 
     // ANTI-VACUITY: the increase CAN strictly exceed the base threshold (the path is live) => CEX expected.
+    // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_scaling_canIncrease(uint16 threshold, uint16 tib) external {
         vm.assume(tib > THRESHOLD_BIPS);       // strictly above 1.0x (uint16 => <=0xffff)
         assert(_eff(threshold, tib) <= threshold); // claim "never strictly increases" -> FALSE => CEX

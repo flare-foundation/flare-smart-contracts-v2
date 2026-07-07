@@ -68,6 +68,7 @@ contract RelayModeOneFV is RelayTestBase {
 
     // AC-6 — a Mode-1 new policy whose threshold is below the MIN band cannot be installed (rejected at
     // checkThresholdConsistency, before signatures even matter).
+    // EXPECT: PASS (proof).
     function check_modeOne_thresholdTooSmall_rejected(
         uint16 t, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {

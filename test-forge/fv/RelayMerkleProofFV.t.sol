@@ -59,6 +59,7 @@ contract RelayMerkleProofFV is RelayTestBase {
     }
 
     // M2 — a submitted sibling different from the committed one cannot reproduce the root => reject.
+    // EXPECT: PASS (proof).
     function check_m2_wrongSibling_cannotStore(
         uint256 val, bytes32 cs, bytes32 ts, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {
@@ -67,6 +68,7 @@ contract RelayMerkleProofFV is RelayTestBase {
     }
 
     // M3/M8 — a misaligned trailer (one extra byte => proof not a whole number of 32-byte words) is rejected.
+    // EXPECT: PASS (proof).
     function check_m3_misalignedProof_rejected(
         uint256 val, bytes32 cs, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {

@@ -47,6 +47,7 @@ contract RelayGovernanceNonceFV is RelayTestBase {
     }
 
     // AC-10 — once nonce n1 is accepted, ANY n2 <= n1 is rejected (no replay, no stale config).
+    // EXPECT: PASS (proof).
     function check_nonce_mustStrictlyIncrease(
         uint256 n1, uint256 n2, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {
@@ -58,6 +59,7 @@ contract RelayGovernanceNonceFV is RelayTestBase {
     }
 
     // Anti-vacuity: two strictly-increasing nonces are BOTH acceptable (the path is live).
+    // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_nonce_increasing(
         uint256 n1, uint256 n2, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {
@@ -70,6 +72,7 @@ contract RelayGovernanceNonceFV is RelayTestBase {
     // AC-2 — governanceFeeSetup is rejected in SETTER mode (signingPolicySetter != 0): fees are governed by
     // the quorum only in relay-only deployments (Relay.sol:476 require(signingPolicySetter == address(0))).
     // For ANY non-zero setter address, the call reverts regardless of the message/signatures.
+    // EXPECT: PASS (proof).
     function check_feeSetup_rejectedInSetterMode(
         address s, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {

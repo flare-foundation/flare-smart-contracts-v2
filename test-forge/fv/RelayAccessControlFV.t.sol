@@ -25,6 +25,7 @@ contract RelayAccessControlFV is RelayTestBase {
     }
 
     // AC-1 — for ANY setter address that is not the caller, setSigningPolicy reverts (caller is not authorised).
+    // EXPECT: PASS (proof).
     function check_setSigningPolicy_onlySetter(address s) external {
         vm.assume(s != address(this));     // the caller (this test) is NOT the registered setter
         Relay r = new Relay(_initialConfig(bytes32(uint256(1))), s, IRelay(address(0)));
@@ -34,6 +35,7 @@ contract RelayAccessControlFV is RelayTestBase {
     }
 
     // Anti-vacuity: when the caller IS the setter, the guard passes and the (valid) policy is accepted.
+    // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_setter_canCall() external {
         Relay r = new Relay(_initialConfig(bytes32(uint256(1))), address(this), IRelay(address(0)));
         IIRelay.SigningPolicy memory sp = _validPolicy(uint24(REWARD_EPOCH_ID) + 1);

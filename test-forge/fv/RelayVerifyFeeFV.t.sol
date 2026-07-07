@@ -23,6 +23,7 @@ contract RelayVerifyFeeFV {
     }
 
     // AC-9a — conservation: forwarded + refund == msg.value (no ETH created or destroyed).
+    // EXPECT: PASS (proof).
     function check_fee_conserved(uint256 msgValue, uint256 fee) external {
         vm.assume(msgValue >= fee); // the require(msg.value >= fee) guard (Relay.sol:1566/1580)
         (uint256 forwarded, uint256 refund) = _split(msgValue, fee);
@@ -30,6 +31,7 @@ contract RelayVerifyFeeFV {
     }
 
     // AC-9b — the refund never exceeds msg.value and the fee is forwarded exactly (no over/under-pay).
+    // EXPECT: PASS (proof).
     function check_fee_noOverpayKept(uint256 msgValue, uint256 fee) external {
         vm.assume(msgValue >= fee);
         (uint256 forwarded, uint256 refund) = _split(msgValue, fee);
@@ -38,6 +40,7 @@ contract RelayVerifyFeeFV {
 
     // AC-9c — underpayment is rejected: the require(msg.value >= fee) guard is the only acceptance gate,
     // so msg.value < fee can never proceed (modeled: the precondition is necessary for a well-defined split).
+    // EXPECT: PASS (proof).
     function check_fee_underpaymentImpossible(uint256 msgValue, uint256 fee) external {
         vm.assume(msgValue < fee);
         // with msgValue < fee the contract reverts at require(msg.value >= fee); there is no split.

@@ -81,6 +81,7 @@ contract RelayCanonicalityFV is RelayTestBase {
     // ---- P3.b — high s: s > secp256k1n/2 cannot accept, even with canonical v and w0 > thr. PASS. ----
     // The "Bad s" revert (Relay.sol:1275) precedes the weight add (:1325). v is pinned canonical (27)
     // so ONLY the s-malleability gate can be responsible for rejection; s is symbolic, ASSUMED high.
+    // EXPECT: PASS (proof).
     function check_p3_highS_cannotAccept(uint16 w0, uint16 thr, bytes32 s) external {
         vm.assume(uint256(s) > HALF_N); // EIP-2 high-s half: rejected by Relay.sol:1277
         vm.assume(uint256(w0) > uint256(thr));

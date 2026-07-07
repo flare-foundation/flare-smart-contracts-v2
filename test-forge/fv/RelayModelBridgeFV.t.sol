@@ -69,6 +69,7 @@ contract RelayModelBridgeFV is RelayTestBase {
     // Reads as: ∀ w0,thr,a . accept ⟹ _psAt(1,..) > thr. The `if (ok)` is the antecedent of the
     // implication (not control flow to skip a test): when the REAL bytecode accepts, the pure-Solidity
     // model's prefix sum must already exceed thr. A PASS ties bytecode behavior to the model at K=1.
+    // EXPECT: PASS (proof).
     function check_bridge_1sig(uint16 w0, uint16 thr, Sig calldata a) external {
         (Relay r, bytes memory p) = _deploy(w0, 0, 0, thr);
         bool ok = _call(r, p, abi.encodePacked(uint16(1), _sig(a, 0)));
@@ -76,6 +77,7 @@ contract RelayModelBridgeFV is RelayTestBase {
     }
 
     // BRIDGE K=2 — real bytecode accept => psAt(2) > threshold.
+    // EXPECT: PASS (proof).
     function check_bridge_2sig(uint16 w0, uint16 w1, uint16 thr, Sig calldata a, Sig calldata b) external {
         (Relay r, bytes memory p) = _deploy(w0, w1, 0, thr);
         bool ok = _call(r, p, abi.encodePacked(uint16(2), _sig(a, 0), _sig(b, 1)));
@@ -83,6 +85,7 @@ contract RelayModelBridgeFV is RelayTestBase {
     }
 
     // BRIDGE K=3 — real bytecode accept => psAt(3) > threshold.
+    // EXPECT: PASS (proof).
     function check_bridge_3sig(uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
         external
     {

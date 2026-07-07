@@ -59,6 +59,7 @@ contract RelaySigParamFV is RelayTestBase {
     // symbolic (unlike RelaySigFV's concrete 100/260), so a PASS is the parametric theorem over ALL
     // single-voter weight/threshold pairs, not one instance. vm.assume(w0 ≤ thr) is the hypothesis that
     // restricts the ∀ to the "below threshold" region — the only region where soundness must hold.
+    // EXPECT: PASS (proof).
     function check_threshold_1sig_param(uint16 w0, uint16 thr, Sig calldata a) external {
         vm.assume(uint256(w0) <= uint256(thr));
         (Relay r, bytes memory p) = _deploy(w0, 0, 0, thr);
@@ -66,6 +67,8 @@ contract RelaySigParamFV is RelayTestBase {
         assert(!_call(r, p, sigs));
     }
 
+    // Parametric threshold soundness, K=2: for ALL weights w0,w1, threshold, and signatures — if
+    // w0+w1 <= thr, relay() cannot accept. EXPECT: PASS (proof).
     function check_threshold_2sig_param(uint16 w0, uint16 w1, uint16 thr, Sig calldata a, Sig calldata b) external {
         vm.assume(uint256(w0) + uint256(w1) <= uint256(thr));
         (Relay r, bytes memory p) = _deploy(w0, w1, 0, thr);
@@ -73,6 +76,8 @@ contract RelaySigParamFV is RelayTestBase {
         assert(!_call(r, p, sigs));
     }
 
+    // Parametric threshold soundness, K=3: for ALL weights w0..w2, threshold, and signatures — if
+    // w0+w1+w2 <= thr, relay() cannot accept. EXPECT: PASS (proof).
     function check_threshold_3sig_param(uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
         external
     {
@@ -90,6 +95,7 @@ contract RelaySigParamFV is RelayTestBase {
     // voter twice; the strict-increase guard rejects the repeat, so relay() cannot accept.
 
     // duplicate in the trailing slot: indices [0,1,1]
+    // EXPECT: PASS (proof).
     function check_noDoubleCount_tailDup_param(uint16 w0, uint16 w1, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
         external
     {
@@ -105,6 +111,7 @@ contract RelaySigParamFV is RelayTestBase {
     }
 
     // duplicate adjacent at the start: indices [0,0,1]
+    // EXPECT: PASS (proof).
     function check_noDoubleCount_headDup_param(uint16 w0, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
         external
     {
@@ -120,6 +127,7 @@ contract RelaySigParamFV is RelayTestBase {
     // Mirror image of the proofs above: here thr is BELOW the honest sum, so acceptance ought to be
     // possible; asserting ¬accept must therefore be REFUTED. A counterexample witnesses that the accept
     // path is live (loop bound large enough) — without it every "cannot accept" proof would be vacuous.
+    // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reachability_param(uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
         external
     {

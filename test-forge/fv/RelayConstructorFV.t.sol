@@ -22,6 +22,7 @@ contract RelayConstructorFV is RelayTestBase {
     }
 
     // thresholdIncreaseBIPS below 1.0x (THRESHOLD_BIPS) is rejected.
+    // EXPECT: PASS (proof).
     function check_ctor_rejectsLowThresholdIncrease(uint16 tib) external {
         vm.assume(uint256(tib) < THRESHOLD_BIPS);
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
@@ -30,6 +31,7 @@ contract RelayConstructorFV is RelayTestBase {
     }
 
     // zero reward-epoch duration is rejected (RLY-11).
+    // EXPECT: PASS (proof).
     function check_ctor_rejectsZeroRewardEpochDuration() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.rewardEpochDurationInVotingEpochs = 0;
@@ -37,6 +39,7 @@ contract RelayConstructorFV is RelayTestBase {
     }
 
     // zero voting-epoch duration is rejected (RLY-11).
+    // EXPECT: PASS (proof).
     function check_ctor_rejectsZeroVotingEpochDuration() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.votingEpochDurationSeconds = 0;
@@ -44,12 +47,14 @@ contract RelayConstructorFV is RelayTestBase {
     }
 
     // zero initial signing-policy hash is rejected (L-4).
+    // EXPECT: PASS (proof).
     function check_ctor_rejectsZeroPolicyHash() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(0));
         assert(!_tryDeploy(cfg));
     }
 
     // Anti-vacuity: the valid base config deploys successfully.
+    // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_ctor_validDeploys() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         assert(!_tryDeploy(cfg)); // EXPECT counterexample: valid config deploys

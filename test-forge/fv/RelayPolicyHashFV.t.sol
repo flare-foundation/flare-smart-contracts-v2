@@ -111,6 +111,8 @@ contract RelayPolicyHashFV is RelayTestBase {
     // assembly over the identical calldata bytes; if `calculateSigningPolicyHash != _signingPolicyHash`
     // for any assignment the solver would trigger the mismatch revert. PASS => provable equivalence.
 
+    // Hash equivalence at NV=1: the assembly-recomputed policy hash equals the reference fold for ALL
+    // symbolic 1-voter policy bytes (seed/threshold/address/weight). EXPECT: PASS (proof).
     function check_policyHash_equiv_NV1(bytes32 seed, uint16 thr, address a0, uint16 w0) external {
         bytes memory p = _policy1(seed, thr, a0, w0);
         bytes32 stored = _signingPolicyHash(p);
@@ -119,6 +121,7 @@ contract RelayPolicyHashFV is RelayTestBase {
         assert(!_isHashMismatch(ok, ret));
     }
 
+    // Hash equivalence at NV=2: same equivalence over all symbolic 2-voter policies. EXPECT: PASS (proof).
     function check_policyHash_equiv_NV2(
         bytes32 seed, uint16 thr, address a0, uint16 w0, address a1, uint16 w1
     ) external {
@@ -129,6 +132,7 @@ contract RelayPolicyHashFV is RelayTestBase {
         assert(!_isHashMismatch(ok, ret));
     }
 
+    // Hash equivalence at NV=3: same equivalence over all symbolic 3-voter policies. EXPECT: PASS (proof).
     function check_policyHash_equiv_NV3(
         bytes32 seed, uint16 thr, address a0, uint16 w0, address a1, uint16 w1, address a2, uint16 w2
     ) external {
@@ -146,6 +150,7 @@ contract RelayPolicyHashFV is RelayTestBase {
     // FAILS. A counterexample here proves the hash-check path is reached and the detector fires;
     // if this ever PASSES the equivalence proofs are vacuous (path unreachable / loop truncated).
 
+    // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_policyHash_mismatchReachable_NV3(
         bytes32 seed, uint16 thr, address a0, uint16 w0, address a1, uint16 w1, address a2, uint16 w2
     ) external {

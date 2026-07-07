@@ -46,6 +46,7 @@ contract RelayThresholdConsistencyFV is RelayTestBase {
     }
 
     // AC-6a — a threshold below the MIN band (threshold*BIPS < totalWeight*MIN_BIPS) is rejected.
+    // EXPECT: PASS (proof).
     function check_thresholdTooSmall_rejected(uint16 w, uint16 t) external {
         vm.assume(w > 0);
         vm.assume(uint256(t) * THRESHOLD_BIPS < uint256(w) * MIN_THRESHOLD_BIPS);
@@ -53,12 +54,14 @@ contract RelayThresholdConsistencyFV is RelayTestBase {
     }
 
     // AC-6b — a threshold above the MAX band (threshold*BIPS > totalWeight*MAX_BIPS) is rejected.
+    // EXPECT: PASS (proof).
     function check_thresholdTooBig_rejected(uint16 w, uint16 t) external {
         vm.assume(uint256(t) * THRESHOLD_BIPS > uint256(w) * MAX_THRESHOLD_BIPS);
         assert(!_try(w, t));
     }
 
     // Anti-vacuity: an in-band threshold is accepted (the validation is not trivially always-revert).
+    // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_inBand_accepted(uint16 w, uint16 t) external {
         vm.assume(w > 0 && w < 2**15); // keep totalWeight < 2**16
         vm.assume(uint256(t) * THRESHOLD_BIPS >= uint256(w) * MIN_THRESHOLD_BIPS);

@@ -75,12 +75,14 @@ contract RelayEcrecoverSymbolicFV {
     }
 
     // (i) PROOF: a bad signature (empty return) is NEVER accepted — for ANY stale buffer or would-be word.
+    // EXPECT: PASS (proof).
     function check_emptyReturn_rejected(bytes32 word, bytes32 stale) external {
         (bool accepted,) = _guardedRecover(0, word, stale); // mode 0 => empty return
         assert(!accepted);
     }
 
     // (ii) PROOF: a zero signer (a well-formed 32-byte zero return) is rejected, for ANY stale buffer.
+    // EXPECT: PASS (proof).
     function check_zeroSigner_rejected(bytes32 stale) external {
         (bool accepted,) = _guardedRecover(1, bytes32(0), stale); // mode 1, recovered word 0
         assert(!accepted);
@@ -88,6 +90,7 @@ contract RelayEcrecoverSymbolicFV {
 
     // (iii) PROOF: when the guard accepts, it uses the precompile's FRESH return (never the stale buffer),
     //       and accepts iff that fresh signer is non-zero.
+    // EXPECT: PASS (proof).
     function check_accepted_usesFreshReturn_notStale(bytes32 word, bytes32 stale) external {
         (bool accepted, bytes32 got) = _guardedRecover(1, word, stale); // mode 1 => fresh return `word`
         assert(got == word); // the fresh return overwrote the stale buffer
@@ -97,6 +100,7 @@ contract RelayEcrecoverSymbolicFV {
     // REACHABILITY / non-vacuity control (verify_fv.py requires a `reach` check to be REFUTED by a CEX):
     // the accept path IS live — a genuine non-zero signer is accepted. Asserting !accepted must fail, so
     // Halmos returns a witness (word != 0), proving the proofs above are not vacuously true.
+    // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_validSigner_accepted(bytes32 word, bytes32 stale) external {
         (bool accepted,) = _guardedRecover(1, word, stale);
         assert(!accepted); // EXPECT: refuted (CEX word != 0) -> accept path reachable

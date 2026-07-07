@@ -58,6 +58,50 @@ calldata that breaks the property.
    failure (the accept path went unreachable → the proofs it guards are vacuous). This is why you will see,
    in each file, both `check_<property>` and `check_reach_<something>`.
 
+### 2.1 The naming convention (normative)
+
+The mapping from function names to expected behavior is established in exactly two places in code — there
+are no annotations in the Solidity itself:
+
+| Rule | Where established | Effect |
+|---|---|---|
+| name starts with **`check_`** | [`verify_fv.py:44`](verify_fv.py) passes `--function check_` to Halmos (also Halmos's default) | the function is a **symbolic obligation**: discovered, all params made symbolic, every path's assert handed to the SMT solver |
+| name contains **`reach`** (case-insensitive substring) | [`verify_fv.py:35-38`](verify_fv.py) `is_reachability()` | the verdict is **inverted**: a counterexample is the healthy result (`CEX (expected)`); a PASS is a `VACUITY ALARM` and fails the gate |
+| anything else `check_…` | default branch of the same verdict loop | a **proof**: PASS is healthy; a counterexample fails the gate |
+
+Consequences to respect when adding checks:
+
+- **Never put `reach` in a proof's name** (e.g. `check_reachNewLimit_holds` would be silently expected to
+  *fail*). Conversely, every anti-vacuity control **must** contain `reach` (`check_reach_*`,
+  `check_reachability_*`, `*_mismatchReachable_*` all work — it is a substring match).
+- **Every `check_` function carries a matching `EXPECT:` line** in the comment block directly above it, so
+  the intent is readable at the function and greppable against the convention:
+  - proofs end with `EXPECT: PASS` (canonical dedicated line: `// EXPECT: PASS (proof).`),
+  - reachability controls with `EXPECT: COUNTEREXAMPLE` (canonical:
+    `// EXPECT: COUNTEREXAMPLE (reachability control).`).
+- Self-audit — every check's leading comment must agree with its name class (no output = conforming):
+
+  ```bash
+  cd test-forge/fv && python3 - <<'EOF'
+  import re, glob
+  def blk(src,i):
+      out=[]; j=i-1
+      while j>=0 and src[j].strip().startswith("//"): out.append(src[j]); j-=1
+      return "\n".join(out)
+  for p in sorted(glob.glob("*.t.sol")):
+      src=open(p).read().splitlines()
+      for i,l in enumerate(src):
+          m=re.search(r'function (check_\w+)',l)
+          if not m: continue
+          reach="reach" in m.group(1).lower(); b=blk(src,i)
+          want,wrong=("COUNTEREXAMPLE","EXPECT: PASS") if reach else ("EXPECT: PASS","COUNTEREXAMPLE")
+          if want not in b or wrong in b: print(f"MISMATCH {p}: {m.group(1)}")
+  EOF
+  ```
+
+(The Kontrol harnesses under [`kontrol/`](kontrol/) follow the same idea with the `prove_` prefix and
+`prove_reach_*` controls, judged manually in their `run.sh` — the substring convention is Halmos-gate-specific.)
+
 Run the whole gate the way CI does (`test-fv-halmos`):
 
 ```bash

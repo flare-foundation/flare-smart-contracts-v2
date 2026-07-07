@@ -64,6 +64,7 @@ contract RelayMustUseNewPolicyFV is RelayTestBase {
 
     // L8 — once epoch 2 is initialised, the epoch-1 policy CANNOT finalize an epoch-2 round at/after the
     // new epoch's start (votingRoundId >= START_E2): relay() reverts "Must use new sign policy".
+    // EXPECT: PASS (proof).
     function check_mustUseNewPolicy_afterStart(Sig calldata a, Sig calldata b, Sig calldata c) external {
         assert(!_relayWithP1(START_E2, a, b, c)); // 6820 >= START_E2 => rejected
     }

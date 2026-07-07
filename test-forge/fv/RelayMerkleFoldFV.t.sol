@@ -28,6 +28,7 @@ contract RelayMerkleFoldFV is RelayTestBase {
     }
 
     // ---- BASE — depth-0 fold is the identity, hence injective in the leaf. ----
+    // EXPECT: PASS (proof).
     function check_fold_base_injective(bytes32 leaf1, bytes32 leaf2) external pure {
         vm.assume(leaf1 != leaf2);
         // fold over the empty proof returns the leaf unchanged; distinct leaves => distinct depth-0 roots.
@@ -36,12 +37,14 @@ contract RelayMerkleFoldFV is RelayTestBase {
 
     // ---- STEP — one fold step preserves injectivity (the inductive core). ----
     // If two running hashes fold to the same parent with the same sibling, they were already equal.
+    // EXPECT: PASS (proof).
     function check_fold_step_injective(bytes32 h1, bytes32 h2, bytes32 pe) external pure {
         vm.assume(_sortedPair(h1, pe) == _sortedPair(h2, pe));
         assert(h1 == h2);
     }
 
     // ---- Bounded corroboration: full depth-2 fold is injective in the leaf. ----
+    // EXPECT: PASS (proof).
     function check_fold_depth2_injective(bytes32 leaf1, bytes32 leaf2, bytes32 p0, bytes32 p1) external pure {
         bytes32 r1 = _sortedPair(_sortedPair(leaf1, p0), p1);
         bytes32 r2 = _sortedPair(_sortedPair(leaf2, p0), p1);

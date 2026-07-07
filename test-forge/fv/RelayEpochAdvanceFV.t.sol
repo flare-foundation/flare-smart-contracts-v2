@@ -32,6 +32,7 @@ contract RelayEpochAdvanceFV is RelayTestBase {
     }
 
     // L1 — any epoch other than lastInitialized+1 (==2) is REJECTED (no skip/replay/regress).
+    // EXPECT: PASS (proof).
     function check_epochAdvance_requiresSequential(uint24 epoch) external {
         vm.assume(epoch != uint24(REWARD_EPOCH_ID) + 1); // != 2
         Relay r = _deploySetter();
@@ -41,6 +42,7 @@ contract RelayEpochAdvanceFV is RelayTestBase {
     }
 
     // Anti-vacuity: the correct next epoch (==2) IS accepted, so the guard is not trivially always-revert.
+    // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_epochAdvance_correctSucceeds() external {
         Relay r = _deploySetter();
         IIRelay.SigningPolicy memory sp = _validPolicy(uint24(REWARD_EPOCH_ID) + 1); // == 2
@@ -53,6 +55,7 @@ contract RelayEpochAdvanceFV is RelayTestBase {
     // This is the inductive STEP for unbounded monotonicity: by base (constructor sets it to
     // initialRewardEpochId) + this step, the pointer is strictly increasing across ANY sequence of
     // policy initialisations — it can never stall or regress (meta-induction, as for the sig-loop / fold).
+    // EXPECT: PASS (proof).
     function check_epochAdvance_incrementsByOne() external {
         Relay r = _deploySetter();
         (uint32 before, ) = r.lastInitializedRewardEpochData(); // == REWARD_EPOCH_ID (1)

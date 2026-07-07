@@ -45,11 +45,12 @@ contract RelayDelayedPolicyFV is RelayTestBase {
     }
 
     // L — a round before the policy's validity start (but in the same epoch) is rejected as delayed.
+    // EXPECT: PASS (proof).
     function check_delayedPolicy_rejected(Sig calldata a, Sig calldata b, Sig calldata c) external {
         assert(!_relay(BEFORE, a, b, c)); // 3360 < 3410 => "Delayed sign policy"
     }
 
-    // Non-vacuity: at/after the start the policy is usable, so acceptance is reachable. EXPECT: CEX.
+    // Non-vacuity: at/after the start the policy is usable, so acceptance is reachable. EXPECT: COUNTEREXAMPLE.
     function check_reach_atStart(Sig calldata a, Sig calldata b, Sig calldata c) external {
         assert(!_relay(DELAYED_START, a, b, c)); // 3410 >= 3410 => no delay; finalizable
     }

@@ -49,11 +49,12 @@ contract RelayWrongEpochFV is RelayTestBase {
     }
 
     // exp(v) < r — an epoch-1 message cannot be finalized by the epoch-2 policy.
+    // EXPECT: PASS (proof).
     function check_wrongEpoch_rejected(Sig calldata a, Sig calldata b, Sig calldata c) external {
         assert(!_relay(EPOCH1_ROUND, a, b, c)); // round 3460 => epoch 1 < policy epoch 2 => rejected
     }
 
-    // Non-vacuity: an epoch-2 message (exp(v) == r, v >= s) IS finalizable with the epoch-2 policy. EXPECT: CEX.
+    // Non-vacuity: an epoch-2 message (exp(v) == r, v >= s) IS finalizable with the epoch-2 policy. EXPECT: COUNTEREXAMPLE.
     function check_reach_correctEpoch(Sig calldata a, Sig calldata b, Sig calldata c) external {
         assert(!_relay(E2_START, a, b, c)); // round 6720 => epoch 2 == policy epoch => finalizable
     }
