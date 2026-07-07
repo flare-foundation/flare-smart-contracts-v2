@@ -28,7 +28,7 @@ See `docs/relay-assembly-review.md` (mutation surface, no delegatecall/fallback,
 
 | Layer | Tool | What it gives | Scope |
 |------|------|---------------|-------|
-| Symbolic execution on **real bytecode** | **Halmos** | 25 harnesses (`test-forge/fv/*.t.sol`) | bounded (K≤3, N≤5), but the actual deployed bytecode |
+| Symbolic execution on **real bytecode** | **Halmos** | 26 harnesses (`test-forge/fv/*.t.sol`) | bounded (K≤3, N≤5), but the actual deployed bytecode |
 | Unbounded-in-K via k-induction | **Kontrol/KEVM** | sig-loop weight invariant + random monotonicity (`test-forge/fv/kontrol/`) | ∀K, on a faithful Solidity **model**, N∈{3,5} |
 | Unbounded **algorithm** proof | **Lean 4** | sig-loop threshold soundness (`test-forge/fv/lean/RelaySigLoop.lean`) | **∀N ∀K**, abstract algorithm, machine-checked (no `sorry`) |
 | Model↔bytecode bridge | **Halmos** | `RelayModelBridgeFV` — real bytecode obeys the Kontrol model's `psAt` invariant | K=1,2,3 |

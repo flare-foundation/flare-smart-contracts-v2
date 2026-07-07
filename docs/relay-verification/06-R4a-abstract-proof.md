@@ -53,6 +53,21 @@ because indices increase) plus the one-step recurrence `sumTake(w, idx+1) = sumT
 contrapositive — *insufficient total weight ⟹ can never accept* — follows in one line. (Full proof:
 [L8 §A](08-the-mathematics.md), [L9 §A](09-the-formal-detail.md).)
 
+**The file, itemized.** [`RelaySigLoop.lean`](../../test-forge/fv/lean/RelaySigLoop.lean) is nine public
+items — two definitions, one inductive predicate, six theorems:
+
+| Result | Kind | In plain words |
+|--------|------|----------------|
+| `sumTake` | def | the prefix sum of the first `k` voter weights (the on-chain `psAt(k)`) |
+| `sumTake_succ` | theorem | the one-step recurrence: boundary `idx+1` adds exactly `w[idx]` |
+| `sumTake_le_succ` | theorem | one more boundary never decreases the prefix sum |
+| `sumTake_mono` | theorem | the prefix sum is monotone in the boundary |
+| `loop` | def | the accounting loop: add the signature's weight, advance the boundary past its index |
+| `ValidRun` | inductive predicate | the index discipline: strictly increasing, in range — double-counting impossible by construction |
+| `loop_inv` | theorem | the §6.3 invariant is preserved over any whole run, for any stream and any weights |
+| **`threshold_sound`** | **theorem — the capstone** | **accept ⟹ the total registered weight of distinct voters exceeds the threshold, ∀N ∀K** |
+| `insufficient_weight_cannot_accept` | theorem | the contrapositive: total registered weight ≤ threshold ⟹ no signature stream ever accepts |
+
 ---
 
 ## 6.4 Status and axiom audit

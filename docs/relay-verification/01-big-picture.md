@@ -125,7 +125,7 @@ rung chosen for what it can reach that the rung below cannot:
          ▲   the math: induction, no EVM in sight
    R3   KONTROL (∀K on a Solidity model, N∈{3,5})  +  CERTORA (storage invariants — blocked)
          ▲   unbounded-in-K by induction; Certora hits the assembly wall (a finding)
-   R2   HALMOS — 25 harnesses / 85 checks on the REAL BYTECODE ... bounded (K≤3, N≤5), all inputs in range
+   R2   HALMOS — 26 harnesses / 89 checks on the REAL BYTECODE ... bounded (K≤3, N≤5), all inputs in range
          ▲   symbolic execution; immune to the assembly wall; each proof anti-vacuity-guarded
    R0/R1 FOUNDRY tests + fuzzing on the deployed contract ........ concrete + random inputs
 ```

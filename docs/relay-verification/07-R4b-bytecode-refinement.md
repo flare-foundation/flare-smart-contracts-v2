@@ -92,9 +92,9 @@ These add exactly **two** documented, upstream-dischargeable axioms beyond the s
   **∀N**, accept ⟹ the total of the masked *memory reads* exceeds the threshold.
 
 **The simulation-relation capstone `relay_loop_sound` (the accounting core of `R`).** Composing the EVM
-accumulation with the abstract accounting — `bridge` identifies the masked-read sum with
-`RelaySigLoop.sigLoop`'s accumulated weight, and the abstract `threshold_sound` is restated in-file (so one
-`lake env lean` checks the whole chain):
+accumulation with the abstract accounting — `bridge` identifies the masked-read sum with the abstract
+loop's accumulated weight (`sigLoop`, the in-file restatement of `RelaySigLoop.loop`), and the abstract
+`threshold_sound` is restated in-file too (so one `lake env lean` checks the whole chain):
 
 > **∀N: if the deployed signature loop accepts (final weight > threshold), the total registered voting weight
 > exceeds the threshold — no voter double-counted — on the validated EVM.**

@@ -6,7 +6,8 @@ pragma solidity ^0.8.13;
 // address (or oldFee to the old relay), and refunds the remainder `msg.value - fee` to msg.sender:
 //   require(msg.value >= fee);  ... forward fee ...  refund = msg.value - fee;  if (refund>0) send refund.
 // SAFETY: no ETH is created or destroyed (forwarded + refunded == msg.value) and the refund cannot
-// underflow. This mirrors P7 (RelayFeeConservationFV, the relay() path) for the verify() path; both the
+// underflow. This complements P7 (RelayFeeConservationFV — the REAL balance movements of a succeeding
+// verify() on the new-relay branch): here the conservation ARITHMETIC is pinned for both branches — the
 // new-relay branch (fee/feeCollection) and the old-relay delegation branch (oldFee/oldRelay) conserve.
 // Pure-arithmetic model of the value flow (the external sends are state-less; see Step-6 doc for the
 // reentrancy/no-state-write argument). Self-contained.

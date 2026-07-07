@@ -17,25 +17,39 @@ Kontrol proves properties by **k-induction** — it discharges a base case and a
 pre-state is *fully symbolic*, so a single step covers every iteration count. This crosses the induction
 barrier in the **K dimension** (the number of signatures / relays), which is the genuinely unbounded one.
 
-**What it proved (verdicts, Kontrol 1.0.248):**
+**What it proved (verdicts, Kontrol 1.0.248)** — the full inventory: **13 `prove_` functions** (7 in
+`RelaySigLoopFV` + 6 in `RelayRandomMonoFV`), of which 9 are proofs and 4 are `reach` anti-vacuity
+controls that must *counterexample* (the same `reach` naming idea as the Halmos suite).
 
 `RelaySigLoopFV` — the signature-loop **weight invariant** `weight ≤ prefixSum(nextUnusedIndex)`, via
 k-induction over a grounded prefix sum (N=3 voter model; re-validated at N=5, ~2.25 h, identical verdicts):
 
-- `prove_base_invariant` ✅
-- `prove_step_preserves_invariant` ✅
-- `prove_lemma_prefix_monotone` ✅
-- `prove_accept_implies_threshold_exceeded` ✅
-- `prove_insufficientWeight_cannotAccept` ✅
-- `prove_reach_stepNeedsGuard` → counterexample (confirms the no-double-count guard is load-bearing)
-- `prove_reach_acceptIsPossible` → counterexample (accept path live)
+| `prove_` function | Kind · verdict | What it establishes |
+|---|---|---|
+| `prove_base_invariant` | proof ✅ | base case: the invariant holds at loop entry (`weight = 0`, `nextUnusedIndex = 0`) |
+| `prove_step_preserves_invariant` | proof ✅ | inductive step: one signature preserves the invariant from a *fully-symbolic* pre-state — the ∀K discharge |
+| `prove_lemma_prefix_monotone` | proof ✅ | grounded lemma: prefix sums of non-negative weights are monotone (derived, not assumed) |
+| `prove_accept_implies_threshold_exceeded` | proof ✅ | accept (`weight > threshold`) ⟹ the total registered weight exceeds the threshold |
+| `prove_insufficientWeight_cannotAccept` | proof ✅ | contrapositive: insufficient total registered weight can never accept, for any K |
+| `prove_reach_stepNeedsGuard` | reach control · CEX by design | the step *without* the order guard re-counts a voter and breaks the invariant — the no-double-count guard is load-bearing |
+| `prove_reach_acceptIsPossible` | reach control · CEX by design | acceptance is genuinely reachable with enough weight — the proofs above are not vacuous |
 
-`RelayRandomMonoFV` — random-pointer **monotonicity** (a stale relay never regresses the live round):
-`prove_base_monotone` ✅, `prove_step_monotone` ✅, `prove_step_staleDoesNotRegress` ✅,
-`prove_step_advancesToNewer` ✅, plus two reachability controls that counterexample by design.
+`RelayRandomMonoFV` — random-pointer **monotonicity** (a stale relay never regresses the live round; the
+modeled update rule is exactly `max(live, round)`):
+
+| `prove_` function | Kind · verdict | What it establishes |
+|---|---|---|
+| `prove_base_monotone` | proof ✅ | base: at sequence start the pointer has not decreased |
+| `prove_step_monotone` | proof ✅ | one relay never regresses the pointer, for a fully-symbolic (pointer, round) — monotone ∀K |
+| `prove_step_staleDoesNotRegress` | proof ✅ | a stale (older-or-equal) round leaves the pointer unchanged |
+| `prove_step_advancesToNewer` | proof ✅ | a strictly newer round moves the pointer exactly to it |
+| `prove_reach_canAdvance` | reach control · CEX by design | the advance path is live: the pointer *can* strictly increase |
+| `prove_reach_canStayStale` | reach control · CEX by design | the stale path is live: a stale relay *can* leave the pointer in place |
 
 Each negative proof is paired with a reachability control that *must* counterexample — the same
-anti-vacuity discipline as the Halmos suite.
+anti-vacuity discipline as the Halmos suite. Verdicts are judged from the per-test PASSED/FAILED list
+printed by `run.sh`'s `kontrol prove` step — the 9 proofs pass, the 4 `reach` controls fail (produce
+their counterexample) by design — never from the process exit code (§5.4).
 
 **Honest caveats (stated in each harness header and the README):**
 
@@ -69,15 +83,17 @@ but not the whole ∀N∀K story either.
 Certora's distinctive strength is **parametric** invariants: a `rule … (method f)` is checked for **every**
 external/public method and arbitrary arguments — i.e., over all callers and all call sequences, not just
 the specific sequences Halmos/Kontrol enumerate. The spec targets exactly the cross-transaction **storage**
-properties where that would beat the other tools:
+properties where that would beat the other tools — **five invariants**, each specified and locally
+typechecked, none cloud-dischargeable (the assembly-storage wall, ledger item **C-1** in
+[L10](10-claims-ledger-trust-and-residual.md)):
 
-| Rule | Property |
-|------|----------|
-| `nonceMonotonic` | `governanceFeeNonce` never decreases, ∀ function (globalizes RLY-02 / the 2-call [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol)) |
-| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function incl. `relay()` Mode-1 (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol)) |
-| `signingPolicySetterImmutable` | the setter authority is immutable after construction |
-| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared |
-| `merkleRootWriteOnce` | a finalized Merkle root is write-once per (protocolId, votingRoundId) |
+| Rule | Property | Status |
+|------|----------|--------|
+| `nonceMonotonic` | `governanceFeeNonce` never decreases, ∀ function (globalizes RLY-02 / the 2-call [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol)) | typechecked ✅ · cloud: spurious "violation" (C-1) · per-sequence form proven in Halmos |
+| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function incl. `relay()` Mode-1 (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol)) | typechecked ✅ · cloud: spurious "violation" (C-1) · per-sequence form proven in Halmos |
+| `signingPolicySetterImmutable` | the setter authority is immutable after construction | typechecked ✅ · cloud: spurious "violation" (C-1) — the decisive tell below |
+| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared | typechecked ✅ · cloud: `UNKNOWN` (C-1) |
+| `merkleRootWriteOnce` | a finalized Merkle root is write-once per (protocolId, votingRoundId) | typechecked ✅ · cloud: `UNKNOWN` (C-1) |
 
 `ecrecover` is left NONDET (modeling-contract A2): the storage invariants must hold regardless of which
 signatures the prover admits.

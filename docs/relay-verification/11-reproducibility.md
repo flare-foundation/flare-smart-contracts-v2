@@ -56,7 +56,7 @@ python3 test-forge/fv/verify_fv.py --loop 2
 
 Expect from the gate:
 ```
-[fv] 85 checks: 57 proofs hold, 28 reachability controls live (CEX). 0 violation(s).
+[fv] 89 checks: 60 proofs hold, 29 reachability controls live (CEX). 0 violation(s).
 [fv] OK — all proofs hold and every reachability control is live (non-vacuous).
 ```
 **CI:** `test-fv-halmos` (`python:3.12` image; installs halmos + foundry, `forge build`, then the gate).
