@@ -210,7 +210,9 @@ test-fv-halmos:
     - halmos.toml
   before_script:
   - python3 --version; git --version; curl --version | head -1   # env diagnostics
-  - pip install --user halmos
+  # pin the two solver-critical packages to the reference toolchain (test-forge/fv/requirements-halmos.lock —
+  # the venv every green run is judged against); the transitive rest are pure-python and insensitive
+  - pip install --user 'halmos==0.3.3' 'z3-solver==4.12.6.0'
   - curl -L https://foundry.paradigm.xyz | bash
   - export PATH="$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
   - foundryup

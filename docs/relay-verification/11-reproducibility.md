@@ -15,8 +15,8 @@ All commands are from the repo root unless noted: `flare-smart-contracts-v2/`.
 |------|--------------------|------------------|
 | Foundry (`forge`) | **1.7.1** (suite-verified); `foundry:stable` / `foundryup` in CI | `curl -L https://foundry.paradigm.xyz \| bash && foundryup` |
 | `solc` | **0.8.27+commit.40a35a09** (Relay pragma `^0.8.20`; the exact `pragma solidity 0.8.27` in the test base pins the verified unit) | foundry-managed / system |
-| Halmos | **0.3.3** (CI: `python:3.12`) | `pip install --user halmos` |
-| z3 (SMT solver) | **4.12.6** | implicit Halmos dependency |
+| Halmos | **0.3.3** (CI: `python:3.12`) | pinned — [`test-forge/fv/requirements-halmos.lock`](../../test-forge/fv/requirements-halmos.lock) (full reference-venv freeze) |
+| z3 (SMT solver) | **4.12.6.0** | pinned in the same lock (CI installs `halmos==0.3.3 z3-solver==4.12.6.0`) |
 | Kontrol / KEVM | Kontrol **v1.0.248**, K **v7.1.334** | pinned Docker image (§11.5) |
 | Certora CLI | **8.16.1** | `pip install certora-cli` (+ `CERTORAKEY` for cloud) |
 | Lean (the abstract proof) | Lean 4 core | `elan` (no mathlib needed) |
@@ -44,10 +44,12 @@ Expect: 59 tests pass. **CI:** `test-unit-forge` (`forge test -vvv`), `coverage-
 ## 11.3 R2 — Halmos suite (the FV gate)
 
 ```bash
-pip install --user halmos
+# recreate the REFERENCE toolchain (the venv every green run + doc-quoted output comes from):
+python3.11 -m venv .venv-halmos
+.venv-halmos/bin/pip install -r test-forge/fv/requirements-halmos.lock
 forge build
 # the exact CI gate (reads halmos.toml: loop=6, solver-timeout-assertion=0):
-HALMOS=halmos python3 test-forge/fv/verify_fv.py
+HALMOS=.venv-halmos/bin/halmos python3 test-forge/fv/verify_fv.py
 # a single harness:
 halmos --contract RelaySigParamFV
 # tripwire demo — too-small bound must FAIL with vacuity alarms:
@@ -64,7 +66,11 @@ Triggered on changes to [`Relay.sol`](../../contracts/protocol/implementation/Re
 
 > Note: a Halmos "counterexample" on an obviously-true assertion is usually a **solver timeout**, not a
 > bug. `solver-timeout-assertion=0` in `halmos.toml` is what lets the nonlinear `RelayThresholdScalingFV`
-> proofs finish (see the CI-gate memory / commit `37a27851`).
+> proofs finish (see the CI-gate memory / commit `37a27851`). The same three nonlinear proofs have been
+> observed to misreport under a *different local install even at identical halmos/z3 versions* — which is
+> why the reference toolchain is pinned as a full freeze
+> ([`requirements-halmos.lock`](../../test-forge/fv/requirements-halmos.lock)) and verdicts should be judged
+> from that venv (or CI).
 
 ---
 
