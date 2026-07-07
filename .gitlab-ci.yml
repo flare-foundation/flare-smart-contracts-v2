@@ -256,6 +256,26 @@ test-fv-lean:
   - export PATH="$ELAN_HOME/bin:$PATH"
   - EVMYUL_DIR=/tmp/evmyul python3 test-forge/fv/lean/verify_lean.py
 
+# Keeps the verification docs' code links honest. The docs use SYMBOL-ADDRESSED links (link text = the
+# function/theorem name, anchor = single line `#L<n>` of its definition — single-line anchors render on
+# both GitLab and GitHub; ranges do not). verify_links.py recomputes every anchor from the sources and
+# fails if any link is stale, any plain mention of an indexed artifact is unlinked, or any anchor points
+# past EOF. Fix locally with: python3 docs/relay-verification/verify_links.py --fix
+test-doc-links:
+  needs: []
+  timeout: 5 minutes
+  tags: [ flarenetwork-md ]
+  image: python:3.12
+  rules:
+  - changes:
+    - docs/relay-verification/**/*
+    - docs/relay-verification-summary.md
+    - test-forge/fv/**/*
+    - test-forge/unit/protocol/implementation/Relay.t.sol
+    - certora/specs/**/*
+  script:
+  - python3 docs/relay-verification/verify_links.py --check
+
 ##
 ## COVERAGE
 ##

@@ -195,6 +195,7 @@ CI gate (§11.7).
 | `test-fv-halmos` | R2 | `python3 test-forge/fv/verify_fv.py` | ✅ |
 | `build-smart-contracts`, `test-linter`, `test-linter-forge` | build/lint | `forge build` / solhint | ✅ |
 | `test-fv-lean` | R4b/R5 | `python3 test-forge/fv/lean/verify_lean.py` (pinned EVMYulLean, all 8 files hole-free) | ✅ |
+| `test-doc-links` | docs | `python3 docs/relay-verification/verify_links.py --check` (symbol-addressed code links stay current; fix with `--fix`) | ✅ |
 | (Kontrol) | R3 | Docker image; run offline (heavy) | manual/offline |
 | (Certora) | R3 | `certoraRun` (needs key) | manual/offline |
 | (Lean the abstract proof) | R4a | `lake env lean RelaySigLoop.lean` | manual/offline |

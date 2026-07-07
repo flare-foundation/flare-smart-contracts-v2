@@ -205,7 +205,7 @@ The stack is sound *because* of how the rungs are chosen around this:
 - **The bytecode refinement** reconnects the unbounded guarantee to a *validated* EVM semantics, stepping over the assembly
   barrier for the loop mechanism.
 - The **per-sequence** forms of the storage invariants Certora could not globally close *are* proven
-  (Halmos [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol) for the nonce, [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol) for the epoch pointer, etc.).
+  (Halmos [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L18) for the nonce, [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15) for the epoch pointer, etc.).
 
 So the residual after the full stack is not "the security core is untested" but "all-functions storage
 invariants *over raw assembly storage* are not automatically dischargeable" — incremental assurance over an

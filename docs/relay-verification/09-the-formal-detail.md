@@ -599,16 +599,16 @@ Faithful early return closes the last idealization: `relay_loop_sound_literal_ea
 them together. R5 adds **breadth** (the mode-specific effects), not a new soundness fact: the accounting soundness
 is already the loop's.
 
-- **Storage round-trip** (`RelayStorageLayer.sstore_sload`): `((State.sstore self k v).sload k).2 = v` on
+- **Storage round-trip** ([`RelayStorageLayer.sstore_sload`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean#L181)): `((State.sstore self k v).sload k).2 = v` on
   EVMYulLean's real `State`, the storage analog of `DataLayer.mem_roundtrip`. The obstacle was RBMap key ordering:
   `TransCmp` for the derived `Ord` does not synthesize, so it is transferred from `Fin`/`Nat` (the derived
   `compare a b` collapses to `(compare a.val b.val).then .eq = compare a.val b.val`), and `find?_erase` (absent in
   Batteries) is derived bottom-up on `RBNode`.
-- **Mode dispatch** (`RelayBodyEff.dispatch_routes_verify`): `relay()`'s protocolId branching
+- **Mode dispatch** ([`RelayBodyEff.dispatch_routes_verify`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean#L1880)): `relay()`'s protocolId branching
   (`if eq(protocolId,1) {custom}; if iszero(eq(protocolId,1)) {verify}`, Relay.sol:894/916) routes faithfully —
   when `protocolId ≠ 1` the custom guard is skipped and the verify guard fires, so the modes do not
   cross-contaminate.
-- **Accept-branch write** (`RelayStorageLayer.sstore_eff` + `sstore_reads_back`): the exec-level `SSTORE` (with the
+- **Accept-branch write** ([`RelayStorageLayer.sstore_eff`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean#L242) + `sstore_reads_back`): the exec-level `SSTORE` (with the
   `perm = true` static-mode guard discharged) for the deployed
   `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)` (Relay.sol:1394) stores a value that reads
   back, via `sstore_sload`.

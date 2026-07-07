@@ -26,25 +26,25 @@ k-induction over a grounded prefix sum (N=3 voter model; re-validated at N=5, ~2
 
 | `prove_` function | Kind · verdict | What it establishes |
 |---|---|---|
-| `prove_base_invariant` | proof ✅ | base case: the invariant holds at loop entry (`weight = 0`, `nextUnusedIndex = 0`) |
-| `prove_step_preserves_invariant` | proof ✅ | inductive step: one signature preserves the invariant from a *fully-symbolic* pre-state — the ∀K discharge |
-| `prove_lemma_prefix_monotone` | proof ✅ | grounded lemma: prefix sums of non-negative weights are monotone (derived, not assumed) |
-| `prove_accept_implies_threshold_exceeded` | proof ✅ | accept (`weight > threshold`) ⟹ the total registered weight exceeds the threshold |
-| `prove_insufficientWeight_cannotAccept` | proof ✅ | contrapositive: insufficient total registered weight can never accept, for any K |
-| `prove_reach_stepNeedsGuard` | reach control · CEX by design | the step *without* the order guard re-counts a voter and breaks the invariant — the no-double-count guard is load-bearing |
-| `prove_reach_acceptIsPossible` | reach control · CEX by design | acceptance is genuinely reachable with enough weight — the proofs above are not vacuous |
+| [`prove_base_invariant`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L57) | proof ✅ | base case: the invariant holds at loop entry (`weight = 0`, `nextUnusedIndex = 0`) |
+| [`prove_step_preserves_invariant`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L65) | proof ✅ | inductive step: one signature preserves the invariant from a *fully-symbolic* pre-state — the ∀K discharge |
+| [`prove_lemma_prefix_monotone`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L50) | proof ✅ | grounded lemma: prefix sums of non-negative weights are monotone (derived, not assumed) |
+| [`prove_accept_implies_threshold_exceeded`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L81) | proof ✅ | accept (`weight > threshold`) ⟹ the total registered weight exceeds the threshold |
+| [`prove_insufficientWeight_cannotAccept`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L92) | proof ✅ | contrapositive: insufficient total registered weight can never accept, for any K |
+| [`prove_reach_stepNeedsGuard`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L105) | reach control · CEX by design | the step *without* the order guard re-counts a voter and breaks the invariant — the no-double-count guard is load-bearing |
+| [`prove_reach_acceptIsPossible`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L119) | reach control · CEX by design | acceptance is genuinely reachable with enough weight — the proofs above are not vacuous |
 
 `RelayRandomMonoFV` — random-pointer **monotonicity** (a stale relay never regresses the live round; the
 modeled update rule is exactly `max(live, round)`):
 
 | `prove_` function | Kind · verdict | What it establishes |
 |---|---|---|
-| `prove_base_monotone` | proof ✅ | base: at sequence start the pointer has not decreased |
-| `prove_step_monotone` | proof ✅ | one relay never regresses the pointer, for a fully-symbolic (pointer, round) — monotone ∀K |
-| `prove_step_staleDoesNotRegress` | proof ✅ | a stale (older-or-equal) round leaves the pointer unchanged |
-| `prove_step_advancesToNewer` | proof ✅ | a strictly newer round moves the pointer exactly to it |
-| `prove_reach_canAdvance` | reach control · CEX by design | the advance path is live: the pointer *can* strictly increase |
-| `prove_reach_canStayStale` | reach control · CEX by design | the stale path is live: a stale relay *can* leave the pointer in place |
+| [`prove_base_monotone`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L35) | proof ✅ | base: at sequence start the pointer has not decreased |
+| [`prove_step_monotone`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L40) | proof ✅ | one relay never regresses the pointer, for a fully-symbolic (pointer, round) — monotone ∀K |
+| [`prove_step_staleDoesNotRegress`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L45) | proof ✅ | a stale (older-or-equal) round leaves the pointer unchanged |
+| [`prove_step_advancesToNewer`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L51) | proof ✅ | a strictly newer round moves the pointer exactly to it |
+| [`prove_reach_canAdvance`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L59) | reach control · CEX by design | the advance path is live: the pointer *can* strictly increase |
+| [`prove_reach_canStayStale`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L65) | reach control · CEX by design | the stale path is live: a stale relay *can* leave the pointer in place |
 
 Each negative proof is paired with a reachability control that *must* counterexample — the same
 anti-vacuity discipline as the Halmos suite. Verdicts are judged from the per-test PASSED/FAILED list
@@ -61,7 +61,7 @@ their counterexample) by design — never from the process exit code (§5.4).
    not *itself* machine-checked — each piece is. (This is one motivation for the Lean proof at R4, where the
    induction *is* internal and machine-checked.)
 3. **It checks a faithful Solidity *model* of the loop body, not Relay's inline-assembly bytecode.** The
-   bytecode side at K≤3 is covered by Halmos ([`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol)), and [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol) ties the model's
+   bytecode side at K≤3 is covered by Halmos ([`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L23)), and [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L31) ties the model's
    `psAt` invariant to the real bytecode. A bmc-depth-1 model↔bytecode equivalence obligation would fully
    bridge the gap (future work; see [L10](10-claims-ledger-trust-and-residual.md) and [`docs/relay-t1-bridge.md`](../../docs/relay-t1-bridge.md)).
 
@@ -89,8 +89,8 @@ typechecked, none cloud-dischargeable (the assembly-storage wall, ledger item **
 
 | Rule | Property | Status |
 |------|----------|--------|
-| `nonceMonotonic` | `governanceFeeNonce` never decreases, ∀ function (globalizes RLY-02 / the 2-call [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol)) | typechecked ✅ · cloud: spurious "violation" (C-1) · per-sequence form proven in Halmos |
-| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function incl. `relay()` Mode-1 (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol)) | typechecked ✅ · cloud: spurious "violation" (C-1) · per-sequence form proven in Halmos |
+| `nonceMonotonic` | `governanceFeeNonce` never decreases, ∀ function (globalizes RLY-02 / the 2-call [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L18)) | typechecked ✅ · cloud: spurious "violation" (C-1) · per-sequence form proven in Halmos |
+| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function incl. `relay()` Mode-1 (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15)) | typechecked ✅ · cloud: spurious "violation" (C-1) · per-sequence form proven in Halmos |
 | `signingPolicySetterImmutable` | the setter authority is immutable after construction | typechecked ✅ · cloud: spurious "violation" (C-1) — the decisive tell below |
 | `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared | typechecked ✅ · cloud: `UNKNOWN` (C-1) |
 | `merkleRootWriteOnce` | a finalized Merkle root is write-once per (protocolId, votingRoundId) | typechecked ✅ · cloud: `UNKNOWN` (C-1) |

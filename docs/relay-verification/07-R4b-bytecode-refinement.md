@@ -93,7 +93,7 @@ These add exactly **two** documented, upstream-dischargeable axioms beyond the s
 
 **The simulation-relation capstone `relay_loop_sound` (the accounting core of `R`).** Composing the EVM
 accumulation with the abstract accounting — `bridge` identifies the masked-read sum with the abstract
-loop's accumulated weight (`sigLoop`, the in-file restatement of `RelaySigLoop.loop`), and the abstract
+loop's accumulated weight (`sigLoop`, the in-file restatement of [`RelaySigLoop.loop`](../../test-forge/fv/lean/RelaySigLoop.lean#L62)), and the abstract
 `threshold_sound` is restated in-file too (so one `lake env lean` checks the whole chain):
 
 > **∀N: if the deployed signature loop accepts (final weight > threshold), the total registered voting weight
@@ -173,7 +173,7 @@ This is the most important part of the rung for an auditor; the full ledger is [
      first iteration whose running weight crosses the threshold** (`Relay.sol:1330`). The `relay_loop_sound`
      / `relay_loop_sound_literal` statements run all `N` iterations and examine the *final* accumulator; that
      transport is sound (non-negative addends + prefix-robust `threshold_sound`, with the per-prefix form
-     proven on the real bytecode at bounded K, [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol)).
+     proven on the real bytecode at bounded K, [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L23)).
      **The early-return is now also modeled directly** ([`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean),
      `relay_loop_sound_literal_early`): `body_effL_accept` executes the body's accept branch — statement 17's
      `if gt(weight,thr) { return(0,0) }` fires — so the body halts with `.error (YulHalt _ ⟨1⟩)`;

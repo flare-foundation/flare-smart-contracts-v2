@@ -339,7 +339,7 @@ The accounting conclusion is identical to `relay_loop_sound`; what shrinks is th
 low-`s`, `staticcall` success, `returndatasize = 32`, signer ≠ 0, recovered signer matches the registered voter)
 and the accept gate, together with the calldata index decode and the `ValidRun` numeric discipline. Everything
 mechanical — execution, the memory reads, the mask, the tally, the accumulation, the accept gate, and the
-index-range/strict-increase guards — is proved against the validated EVM. The `RelayLoopMemRead.relay_loop_sound`
+index-range/strict-increase guards — is proved against the validated EVM. The [`RelayLoopMemRead.relay_loop_sound`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean#L454)
 statement of §C.5 remains as the simpler corroborating result; the literal chain is the stronger one. All
 literal-chain theorems are hole-free (`[propext, Classical.choice, Quot.sound]`; the two accounting-extraction
 lemmas need only `[propext, Quot.sound]`), inheriting the same two upstream-dischargeable data-layer specs

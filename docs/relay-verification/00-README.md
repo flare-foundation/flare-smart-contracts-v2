@@ -102,6 +102,11 @@ L10 §residual). Engineer reproducing: L11, with each rung doc alongside. Newcom
   loop-body model** that executes the deployed 17-statement signature-verification body statement-for-statement
   on the validated EVM ([`test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)), deriving the
   memory-read facts the masked-read statement assumed.
+- **Code links are symbol-addressed and machine-maintained.** A mention of a check/proof/theorem links to
+  its defining file at a single-line anchor (`#L<n>` — the one form both GitLab and GitHub render).
+  [`verify_links.py`](verify_links.py) recomputes every anchor from the sources; CI (`test-doc-links`)
+  fails on any stale link, so line numbers in these docs never rot. After renaming or moving an artifact:
+  `python3 docs/relay-verification/verify_links.py --fix`.
 
 ---
 
