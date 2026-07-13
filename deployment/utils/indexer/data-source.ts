@@ -5,7 +5,7 @@ import fs from "fs";
 import { MEMORY_DATABASE_FILE } from "../../tasks/run-simulation";
 
 export async function getDataSource(readOnly = false) {
-  const sqliteDatabase = MEMORY_DATABASE_FILE
+  const sqliteDatabase = MEMORY_DATABASE_FILE;
   if (!readOnly && fs.existsSync(sqliteDatabase)) {
     fs.unlinkSync(sqliteDatabase);
   }
@@ -16,7 +16,7 @@ export async function getDataSource(readOnly = false) {
     database: sqliteDatabase,
     entities: [TLPTransaction, TLPEvents, TLPState],
     synchronize: !readOnly,
-    flags: readOnly ? 1 : undefined,
+    ...(readOnly ? { flags: 1 } : {}),
   });
   await retry(async () => {
     await dataSource.initialize();

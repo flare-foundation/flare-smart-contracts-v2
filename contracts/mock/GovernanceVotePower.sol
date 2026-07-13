@@ -2,7 +2,7 @@
 pragma solidity 0.7.6;
 
 import { ICChainStake } from "../userInterfaces/ICChainStake.sol";
-import { IIGovernanceVotePower, IGovernanceVotePower, WNat, CheckPointsByAddress,
+import { IIGovernanceVotePower, IGovernanceVotePower, CheckPointsByAddress,
         DelegateCheckPointsByAddress, IVPToken, IPChainStakeMirror, SafeMath, SafeCast }
     from "../../flattened/FlareSmartContracts.sol";
 

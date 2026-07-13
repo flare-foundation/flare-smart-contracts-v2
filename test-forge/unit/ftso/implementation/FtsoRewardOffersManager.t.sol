@@ -12,6 +12,10 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 
 contract FtsoRewardOffersManagerTest is Test {
 
+    uint16 internal constant MAX_BIPS = 1e4;
+    uint24 internal constant PPM_MAX = 1e6;
+    uint64 internal constant DAY = 1 days;
+
     FtsoRewardOffersManager private ftsoRewardOffersManager;
 
     address private governance;
@@ -28,14 +32,10 @@ contract FtsoRewardOffersManagerTest is Test {
 
     bytes21 private feedId1;
     bytes21 private feedId2;
-    uint16 internal constant MAX_BIPS = 1e4;
-    uint24 internal constant PPM_MAX = 1e6;
     address private claimBackAddr;
     address private sender;
     bytes private feeds1;
     bytes private feeds2;
-
-    uint64 internal constant DAY = 1 days;
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -133,7 +133,7 @@ contract FtsoRewardOffersManagerTest is Test {
 
     function testOfferRewardsRevertTooLate() public {
         _mockGetCurrentEpochId(2);
-        vm.warp(100); // block.timestamp = 100
+        vm.warp(100); // vm.getBlockTimestamp() = 100
         _mockCurrentRewardEpochExpectedEndTs(110);
         _mockNewSigningPolicyInitializationStartSeconds(20);
         IFtsoRewardOffersManager.Offer[] memory offers;
@@ -280,13 +280,13 @@ contract FtsoRewardOffersManagerTest is Test {
 
         vm.startPrank(mockInflation);
         // add daily authorized inflation on reward manager contract
-        vm.warp(100); // block.timestamp = 100
+        vm.warp(100); // vm.getBlockTimestamp() = 100
         ftsoRewardOffersManager.setDailyAuthorizedInflation(5000);
         ( , uint256 authorizedInflation, ) = ftsoRewardOffersManager.getTokenPoolSupplyData();
         assertEq(authorizedInflation, 5000);
 
         // receive inflation
-        vm.warp(200); // block.timestamp = 200
+        vm.warp(200); // vm.getBlockTimestamp() = 200
         ftsoRewardOffersManager.receiveInflation{value: 5000} ();
         assertEq(address(ftsoRewardOffersManager).balance, 5000);
         vm.stopPrank();
@@ -387,13 +387,13 @@ contract FtsoRewardOffersManagerTest is Test {
 
         vm.startPrank(mockInflation);
         // add daily authorized inflation on reward manager contract
-        vm.warp(100); // block.timestamp = 100
+        vm.warp(100); // vm.getBlockTimestamp() = 100
         ftsoRewardOffersManager.setDailyAuthorizedInflation(5000);
         ( , uint256 authorizedInflation, ) = ftsoRewardOffersManager.getTokenPoolSupplyData();
         assertEq(authorizedInflation, 5000);
 
         // receive inflation
-        vm.warp(200); // block.timestamp = 200
+        vm.warp(200); // vm.getBlockTimestamp() = 200
         ftsoRewardOffersManager.receiveInflation{value: 5000} ();
         assertEq(address(ftsoRewardOffersManager).balance, 5000);
         vm.stopPrank();
@@ -460,13 +460,13 @@ contract FtsoRewardOffersManagerTest is Test {
 
         vm.startPrank(mockInflation);
         // add daily authorized inflation on reward manager contract
-        vm.warp(100); // block.timestamp = 100
+        vm.warp(100); // vm.getBlockTimestamp() = 100
         ftsoRewardOffersManager.setDailyAuthorizedInflation(5000);
         ( , uint256 authorizedInflation, ) = ftsoRewardOffersManager.getTokenPoolSupplyData();
         assertEq(authorizedInflation, 5000);
 
         // receive inflation
-        vm.warp(200); // block.timestamp = 200
+        vm.warp(200); // vm.getBlockTimestamp() = 200
         ftsoRewardOffersManager.receiveInflation{value: 5000} ();
         assertEq(address(ftsoRewardOffersManager).balance, 5000);
         vm.stopPrank();
@@ -548,7 +548,7 @@ contract FtsoRewardOffersManagerTest is Test {
 
     function _setTimes() internal {
         _mockGetCurrentEpochId(2);
-        vm.warp(100); // block.timestamp = 100
+        vm.warp(100); // vm.getBlockTimestamp() = 100
         _mockCurrentRewardEpochExpectedEndTs(110);
         _mockNewSigningPolicyInitializationStartSeconds(5);
     }

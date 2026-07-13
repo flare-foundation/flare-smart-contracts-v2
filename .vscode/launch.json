@@ -9,7 +9,7 @@
          "console": "integratedTerminal",
          "request": "launch",
          "name": "Relay test",
-         "runtimeExecutable": "yarn",
+         "runtimeExecutable": "pnpm",
          "outFiles": [
            "${workspaceFolder}/**/*.js"
          ],
@@ -19,4 +19,3 @@
        }
      ]
    }
-   

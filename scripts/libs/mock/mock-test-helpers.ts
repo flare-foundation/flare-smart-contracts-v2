@@ -12,7 +12,9 @@ export const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10);
 export const THRESHOLD_INCREASE_BIPS = 12000;
 
 export function eventSignature(contractName: string, eventName: string): string {
-  const contract = (artifacts as unknown as { require(name: string): unknown }).require(contractName) as { events: Record<string, { name: string }> };
+  const contract = (artifacts as unknown as { require(name: string): unknown }).require(contractName) as {
+    events: Record<string, { name: string }>;
+  };
   const eventEntry = Object.entries(contract.events).find(([, value]) => value.name === eventName);
   if (!eventEntry) throw new Error(`Event ${eventName} not found in contract ${contractName}`);
   return eventEntry[0];
@@ -22,8 +24,14 @@ function prefix0x(hex: string): string {
   return hex.startsWith("0x") ? hex : "0x" + hex;
 }
 
-export function decodeEvent<T extends object = { [key: string]: string }>(contractName: string, eventName: string, data: TLPEvents): T {
-  const contract = (artifacts as unknown as { require(name: string): unknown }).require(contractName) as { events: Record<string, { name: string }> };
+export function decodeEvent<T extends object = { [key: string]: string }>(
+  contractName: string,
+  eventName: string,
+  data: TLPEvents
+): T {
+  const contract = (artifacts as unknown as { require(name: string): unknown }).require(contractName) as {
+    events: Record<string, { name: string }>;
+  };
   const _signature = eventSignature(contractName, eventName);
   const eventEntry = Object.entries(contract.events).find(([, value]) => value.name === eventName);
   if (!eventEntry) throw new Error(`Event ${eventName} not found in contract ${contractName}`);
@@ -31,7 +39,7 @@ export function decodeEvent<T extends object = { [key: string]: string }>(contra
   return web3.eth.abi.decodeLog(
     abi,
     prefix0x(data.data),
-    [prefix0x(data.topic0), prefix0x(data.topic1), prefix0x(data.topic2), prefix0x(data.topic3)].filter(x => x)
+    [prefix0x(data.topic0), prefix0x(data.topic1), prefix0x(data.topic2), prefix0x(data.topic3)].filter((x) => x)
   ) as unknown as T;
 }
 
@@ -55,20 +63,23 @@ export async function extractEpochSettings(flareSystemsManagerAddress: string): 
   );
 }
 
-const privateKeys = JSON.parse(fs.readFileSync("./deployment/test-1020-accounts.json").toString()) as HardhatNetworkAccountUserConfig[];
+const privateKeys = JSON.parse(
+  fs.readFileSync("./deployment/test-1020-accounts.json").toString()
+) as HardhatNetworkAccountUserConfig[];
 const addressMap: Map<string, string> = new Map<string, string>();
-privateKeys.forEach(x => addressMap.set(web3.eth.accounts.privateKeyToAccount(x.privateKey).address.toLowerCase(), x.privateKey));
+privateKeys.forEach((x) =>
+  addressMap.set(web3.eth.accounts.privateKeyToAccount(x.privateKey).address.toLowerCase(), x.privateKey)
+);
 
 export function privateKeysForAddresses(addresses: string[]): string[] {
-  return addresses.map(address => addressMap.get(address.toLowerCase())!);
+  return addresses.map((address) => addressMap.get(address.toLowerCase())!);
 }
-
 
 export const FIXED_TEST_VOTERS = [
   "0x3d91185a02774C70287F6c74Dd26d13DFB58ff16",
   "0x0a057a7172d0466AEF80976D7E8c80647DfD35e3",
   "0x650240A1F1024Fe55e6F2ed56679aB430E338581",
-  "0x2E3bfF5d8F20FDb941adC794F9BF3deA0416988f"
+  "0x2E3bfF5d8F20FDb941adC794F9BF3deA0416988f",
 ];
 
 export function eventToSigningPolicy(event: SigningPolicyInitializedEvent): ISigningPolicy {
@@ -77,7 +88,7 @@ export function eventToSigningPolicy(event: SigningPolicyInitializedEvent): ISig
     startVotingRoundId: +event.startVotingRoundId,
     threshold: +event.threshold,
     seed: "0x" + BigInt(event.seed).toString(16).padStart(64, "0").toLowerCase(),
-    voters: event.voters.map(x => x.toLowerCase()),
-    weights: event.weights.map(x => +x)
-  }
+    voters: event.voters.map((x) => x.toLowerCase()),
+    weights: event.weights.map((x) => +x),
+  };
 }

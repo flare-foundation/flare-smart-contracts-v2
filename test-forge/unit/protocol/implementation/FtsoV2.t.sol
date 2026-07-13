@@ -26,6 +26,14 @@ import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/
 // solhint-disable-next-line max-states-count
 contract FtsoV2Test is Test {
 
+    uint256 constant private SAMPLE_SIZE = 0x1000000000000000000000000000000;
+    uint256 constant private RANGE = 0x800000000000000000000000000;
+    uint256 constant private SAMPLE_INCREASE_LIMIT = 0x100000000000000000000000000000;
+    uint256 constant private RANGE_INCREASE_LIMIT = 0x8000000000000000000000000000;
+    uint256 constant private RANGE_INCREASE_PRICE = 10 ** 24;
+    uint256 constant private SAMPLE_SIZE_INCREASE_PRICE = 1425;
+    uint256 constant private DURATION = 8;
+
     FtsoV2 private ftsoV2;
     FtsoV2 private ftsoV2Implementation;
     FtsoV2Proxy private ftsoV2Proxy;
@@ -52,13 +60,6 @@ contract FtsoV2Test is Test {
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
-    uint256 constant private SAMPLE_SIZE = 0x1000000000000000000000000000000;
-    uint256 constant private RANGE = 0x800000000000000000000000000;
-    uint256 constant private SAMPLE_INCREASE_LIMIT = 0x100000000000000000000000000000;
-    uint256 constant private RANGE_INCREASE_LIMIT = 0x8000000000000000000000000000;
-    uint256 constant private RANGE_INCREASE_PRICE = 10 ** 24;
-    uint256 constant private SAMPLE_SIZE_INCREASE_PRICE = 1425;
-    uint256 constant private DURATION = 8;
     bytes21 private flrFeedId = bytes21(bytes.concat(bytes1(uint8(0)), bytes("FLR")));
     bytes21 private sflrFeedId = bytes21(bytes.concat(bytes1(uint8(50)), bytes("SFLR")));
 
@@ -92,7 +93,7 @@ contract FtsoV2Test is Test {
             governance,
             addressUpdater,
             flareDaemon,
-            uint32(block.timestamp),
+            uint32(vm.getBlockTimestamp()),
             90,
             10
         );

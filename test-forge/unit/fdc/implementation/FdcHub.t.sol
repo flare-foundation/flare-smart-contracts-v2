@@ -13,6 +13,8 @@ import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FdcHubTest is Test {
+    uint64 internal constant DAY = 1 days;
+
     FdcHub private fdcHub;
     FdcInflationConfigurations private fdcInflationConfigurations;
     FdcRequestFeeConfigurations private fdcRequestFeeConfigurations;
@@ -35,8 +37,6 @@ contract FdcHubTest is Test {
     bytes32 private type2;
     bytes32 private source2;
     uint256 private fee2;
-
-    uint64 internal constant DAY = 1 days;
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -290,13 +290,13 @@ contract FdcHubTest is Test {
 
         vm.startPrank(mockInflation);
         // set daily authorized inflation
-        vm.warp(100); // block.timestamp = 100
+        vm.warp(100); // vm.getBlockTimestamp() = 100
         fdcHub.setDailyAuthorizedInflation(5000);
         ( , uint256 authorizedInflation, ) = fdcHub.getTokenPoolSupplyData();
         assertEq(authorizedInflation, 5000);
 
         // receive inflation
-        vm.warp(200); // block.timestamp = 200
+        vm.warp(200); // vm.getBlockTimestamp() = 200
         fdcHub.receiveInflation{value: 5000} ();
         assertEq(address(fdcHub).balance, 5000);
         vm.stopPrank();

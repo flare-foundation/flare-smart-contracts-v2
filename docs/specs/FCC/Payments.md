@@ -1,0 +1,170 @@
+# PMW Payments (`TeePayments`)
+
+The `TeePayments*` contracts let the owner of a **Protocol Managed Wallet (PMW)** — a multisig wallet on an external chain (XRPL, BTC, …) whose keys are held by FCC TEE machines — instruct payments out of that wallet. They sit **outside** the [`FlareTeeManager`](../../../contracts/tee/) diamond as their own UUPS-upgradeable proxies, and turn a high-level *"pay recipient `R` amount `A` from account `X`"* call into a signed `TeeInstructionsSent` event that the relay/TEE pipeline picks up, signs on the target chain, and broadcasts.
+
+A PMW account is identified by the pair `(sourceId, accountAddress)` and bound to a Flare `walletId`. Two payment models exist, discriminated by [`ITeePaymentsModel.paymentModel()`](../../../contracts/userInterfaces/tee/ITeePaymentsModel.sol):
+
+| Model | Contract | Example chains | Nonce model | Reissue |
+|-------|----------|----------------|-------------|---------|
+| `ACCOUNT` | [`TeePayments`](../../../contracts/tee/implementation/TeePayments.sol) | XRPL, EVM | one native sequence per account | single payment |
+| `UTXO` | [`TeePaymentsUtxo`](../../../contracts/tee/implementation/TeePaymentsUtxo.sol) | BTC, DOGE | per-anchor nonce streams, batched | whole batch |
+
+Both inherit the shared [`TeePaymentsBase`](../../../contracts/tee/implementation/TeePaymentsBase.sol). The split exists because the two chain families have fundamentally different transaction-ordering models: account chains have a single monotonic sequence per address, whereas UTXO chains spend specific outputs, so FCC runs several parallel "anchor" chains per wallet and nonces are per-anchor.
+
+Supporting contracts, all outside the diamond:
+
+- [`TeePaymentsRegistry`](../../../contracts/tee/implementation/TeePaymentsRegistry.sol) — maps each `sourceId` to its `(keyType, opType, paymentModel, TeePayments)` binding.
+- [`TeePaymentsConfigVerifier`](../../../contracts/tee/implementation/TeePaymentsConfigVerifier.sol) — requests and validates the PMW configuration attestations used to register accounts/anchors.
+- [`TeePaymentsFeeScheduleManager`](../../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol) — per-extension fee schedules (see [Operation Fees](./OperationFees.md)).
+- [`AddressValidator`](../../../contracts/tee/implementation/AddressValidator.sol) — validates each payment's recipient address against the chain/network configured for its `sourceId` (see [Recipient address validation](#recipient-address-validation)).
+
+## Shared base — registration, authorization, dispatch
+
+[`TeePaymentsBase`](../../../contracts/tee/implementation/TeePaymentsBase.sol) holds the state and plumbing common to both models:
+
+- `accountHashToWalletId` — `keccak256(abi.encode(sourceId, accountAddress))` → `walletId`.
+- `walletAccounts` — the list of `PMWMultisigAccount` per wallet.
+- `authorizationAddresses` — the address allowed to submit payment instructions for an account (set at registration).
+- `paymentHashes` — `keccak256(abi.encode(paymentInstruction, paymentId))` per `(accountHash, paymentId)`, recorded at `pay` time so a later reissue can prove it is re-sending a known payment.
+
+**Registration** (`addPMWMultisigAccount`, model-specific) follows the same shape in both contracts:
+
+1. Call `teePaymentsConfigVerifier.verify{Account,Utxo}ConfiguredProof(walletId, proof)` — this **validates** the attestation (reverts on an invalid proof) and **returns nothing**.
+2. `_registerAccount(walletId, sourceId, accountAddress, authorizationAddress)` — validates wallet ownership (`getOwner == msg.sender`), system extension id, key type (`_sourceKeyType`), and that the wallet is in `PRODUCTION`/`PAUSED`; computes the account hash; rejects a duplicate; writes the account, authorization address, and `walletAccounts` entry.
+3. Seed model-specific state and emit the model's registration event.
+
+Because the whole FDC2 proof (header + request body + response body) is signature-verified together, the payment contracts read the verified fields **straight from the calldata `proof`** — there is no returned struct.
+
+**Authorization** — `pay`/`reissue` are gated by `_checkAuthorizationAddress` (`authorizationAddresses[accountHash] == msg.sender`); registration and `addAnchors` are gated by wallet ownership.
+
+**Recipient address validation** — `pay` (both models) calls `_requireValidRecipientAddress(sourceId, recipientAddress)`, which reverts `InvalidRecipientAddress()` unless [`AddressValidator.isValidAddress(sourceId, recipientAddress)`](../../../contracts/tee/implementation/AddressValidator.sol) returns true. The validator (injected via `AddressUpdatable` as `"AddressValidator"`) maps each `sourceId`, by governance config, to a `{chainKind, network}` profile and runs the matching stateless validator: Bitcoin (Base58Check legacy + Bech32/Bech32m SegWit) and Dogecoin (Base58Check only), both network-enforced; XRPL (classic r-addresses — network-agnostic by format — and X-addresses whose `X`/`T` prefix network is enforced, with reserved tag flags rejected); or EVM (canonical EIP-55, network-agnostic). It is fail-closed — an unconfigured `sourceId` is rejected — so governance must configure every active source. `reissue` re-sends an already-paid (already-validated) instruction and is not re-checked.
+
+**Dispatch** — `_sendPaymentInstructions` forwards `msg.value` to [`FlareTeeManager.sendSystemInstructions`](../../../contracts/tee/facets/InstructionsFacet.sol) with the computed `instructionId`, the receiving TEEs, the op type/command, the ABI-encoded message, and the wallet's cosigner set. That emits the `TeeInstructionsSent` event the off-chain pipeline consumes.
+
+### Unified instruction id
+
+Both models compute the `instructionId` through the shared [`TeePaymentsBase._computeInstructionId(opType, opCommand, sourceId, accountAddress, paymentId, reissueNumber)`](../../../contracts/tee/implementation/TeePaymentsBase.sol) helper, so every payment instruction has the same preimage:
+
+```
+keccak256(abi.encode(opType, opCommand, sourceId, accountAddress, paymentId, reissueNumber))
+```
+
+A payment and each of its reissues differ only by `opCommand` (`"PAY"` vs `"REISSUE"`) and the trailing `reissueNumber`: **PAY always uses `reissueNumber == 0`**, while **REISSUE uses `1, 2, ...`**. `paymentId` is the payment's own id in the account model, or the batch's first payment id (`batchPaymentId`) in the UTXO model (see each model below). Off-chain recomputers must match this byte ordering exactly.
+
+**Fee pre-flight** — `pay`/`reissue` are `payable` and revert `FeeTooLow()` if `msg.value` is short of the per-instruction fee (see [Operation Fees](./OperationFees.md)). A wallet computes the exact amount to send with the read-only `getPaymentFee(account, opCommand)` on `TeePaymentsBase` (shared by both models): it resolves the wallet from the account (`accountHashToWalletId`, reverting `PMWMultisigAccountNotRegistered()` for an unknown account) and the op type from the source (`_sourceOpType`), then returns `FlareTeeManager.calculateFeeByWalletId(walletId, opType, opCommand)`. Pass `bytes32("PAY")` or `bytes32("REISSUE")` as `opCommand`; the result equals what the corresponding dispatch will charge (it reverts `ThresholdNotMet()` if the wallet has too few available keys).
+
+**Shared read getters** on `TeePaymentsBase` (both models): `getPaymentFee` (above), `getPaymentHash(account, paymentId)` (the per-payment hash, or 0 if none), and `getNextPaymentId(account)` — the next payment id to be assigned, so the latest issued id is `getNextPaymentId - 1` (a value of 1 means no payment yet). `getNextPaymentId` reads each model's own account state through an internal `_getNextPaymentId` hook; for UTXO accounts it is the entry point to resolve the current batch (`getBatchPaymentId(getNextPaymentId - 1)` → `getBatchRecord`).
+
+## Config verifier
+
+[`TeePaymentsConfigVerifier`](../../../contracts/tee/implementation/TeePaymentsConfigVerifier.sol) is the single place that both requests and verifies PMW configuration attestations, for both models:
+
+- `requestAccountConfiguredAttestation(...)` / `requestUtxoConfiguredAttestation(...)` — wallet owners call these directly to trigger an FDC2 attestation request (the request body carries the account index / anchors / public keys; the source id rides in the FDC2 header).
+- `verifyAccountConfiguredProof(walletId, proof)` / `verifyUtxoConfiguredProof(walletId, proof)` — **validate-only**: they re-run the signing-policy / TEE-signature and cosigner checks through the shared stateless [`Fdc2ProofVerification`](../../../contracts/fdc2/library/Fdc2ProofVerification.sol) library, cross-check the proof's public keys against the wallet's confirmed keys, and (for UTXO) validate the anchor-set shape. They revert on any failure and return nothing.
+
+The verifier is stateless with respect to accounts — it never writes account/anchor storage; the payment contracts do. See also [FDC / Verification](../FDC/Verification.md#what-changes-for-fdc2).
+
+## Registry
+
+[`TeePaymentsRegistry`](../../../contracts/tee/implementation/TeePaymentsRegistry.sol) is the source-of-truth for which `TeePayments` contract owns a `sourceId` and which model it uses. Governance registers sources with `registerSources`, which validates that the bound contract's `paymentModel()` matches the declared model. Lookups used on the hot path:
+
+- `getSourceOpTypeAndTeePayments(sourceId)` / `getSourceKeyTypeAndTeePayments(sourceId)` — `(opType|keyType, teePayments)`; the payment contracts assert `teePayments == address(this)` to reject unsupported sources.
+- `getSourcePaymentModel(sourceId)` — used by `TeePaymentsFeeScheduleManager` to restrict fee-schedule config to `ACCOUNT` sources.
+
+## Account model — `TeePayments`
+
+State per account is minimal: `AccountState { uint64 initialNonce; uint64 nextPaymentId; }`. `initialNonce` is seeded at registration from the attested `responseBody.sequence`; `nextPaymentId` starts at 1.
+
+**`pay(account, paymentInstruction, claimBackAddress)`**
+
+1. `paymentId = nextPaymentId++`; record `paymentHashes[accountHash][paymentId]`.
+2. Native nonce = `_nativeNonce(initialNonce, paymentId)` = `initialNonce + paymentId - 1`.
+3. Build the `PaymentInstructionMessage` (wallet id, sender/recipient, amount, max fee, fee schedule from `TeePaymentsFeeScheduleManager.getEffectiveSchedule`, payment reference, nonce, paymentId).
+4. Instruction id = `_computeInstructionId(opType, "PAY", sourceId, accountAddress, paymentId, 0)` (see [unified instruction id](#unified-instruction-id)).
+5. Dispatch. Returns `paymentId`.
+
+**`reissue(account, paymentId, [paymentInstruction], reissueFeeParams, claimBackAddress)`** re-sends exactly one previously-paid payment (e.g. with a higher max fee). It requires `paymentInstructions.length == 1`, verifies the supplied instruction against the stored `paymentHashes[accountHash][paymentId]` **before** any external calls (cheap revert), bumps a per-`(account, paymentId)` `reissueCounter` to a `reissueNumber` (starting at 1; PAY uses 0), and dispatches with op command `"REISSUE"` and instruction id `_computeInstructionId(opType, "REISSUE", sourceId, accountAddress, paymentId, reissueNumber)`. It always returns `true` — the account model reissues a single payment in one instruction, so it is finalized immediately.
+
+The registration event is `PMWMultisigAccountAdded(walletId, sourceId, accountAddress, authorizationAddress, initialNonce)`.
+
+## UTXO model — `TeePaymentsUtxo`
+
+The UTXO model is the more involved one. A wallet account runs **N parallel anchor chains**; payments are grouped into **batches** routed onto one anchor at a time; each anchor has its own monotonic nonce stream.
+
+### Anchors
+
+Each account stores an array of `UtxoAnchorState { bytes32 genesisAnchorTxid; uint32 genesisAnchorVout; uint64 nextNonce; uint64 availableAt; }`. Anchors are **grow-only**:
+
+- `addPMWMultisigAccount(walletId, proof, authorizationAddress)` registers the account and its initial anchor set (`_appendAnchors` from the verified proof), seeds `nextPaymentId = 1`, `batchSize = 1`, `accountIndex`, and `anchorCount`, then emits `PMWMultisigUtxoAccountAdded(walletId, sourceId, accountAddress, accountIndex, anchorCount, authorizationAddress)` and `UtxoBatchSettingsSet`.
+- `addAnchors(proof)` grows the set. It derives the account from the (verifier-validated) proof, checks `accountIndex` still matches (`AccountIndexMismatch`), requires strictly more anchors than stored (`NoNewAnchors`), checks the new set is a **prefix-preserving superset** of the stored anchors via `_checkStoredAnchorsMatch` (`AnchorMismatch`), appends the new ones, and emits `UtxoAnchorsAdded(walletId, sourceId, accountAddress, accountIndex, anchorCount)`.
+
+Per-anchor **addresses are not stored on-chain** — any party derives an anchor's address on the target UTXO chain off-chain from the wallet's (parent) xpubs + threshold + `accountIndex` + `anchorIndex` (the account-level keys are the non-hardened children of the parent xpubs at `accountIndex`), so the contract keeps only each anchor's genesis outpoint (`genesisAnchorTxid` / `genesisAnchorVout`, used by `_checkStoredAnchorsMatch` on growth) plus its nonce / reuse state. The config verifier enforces the anchor-set bounds (non-empty, `<= MAX_ANCHOR_COUNT`) and a non-empty `accountAddress` at proof time, so the contract trusts the validated proof.
+
+### Anchor selection (cyclic round-robin)
+
+When a new batch opens, `_openBatch` scans anchors cyclically starting from the per-account `nextAnchorIndex` cursor and takes the **first anchor whose reuse window has cleared** (`availableAt <= block.timestamp`). If a candidate is busy it moves on to the next (including any freshly added chains); only if **all** anchors are still busy does it revert `AnchorNotReady(earliestAvailableAt)`. On selection it advances the cursor, consumes the anchor's nonce (`batchNonce = anchor.nextNonce++`), and reserves the anchor's reuse window for the projected batch end (`availableAt = batchEndTs + anchorReuseDelaySeconds[sourceId]`). When the batch closes the window is only ever brought **earlier** — `availableAt = min(availableAt, closedAt + anchorReuseDelaySeconds[sourceId])` — so an early close frees the anchor sooner while a close can never push the window later than what was reserved at open. The reuse delay ensures at most one unconfirmed batch per anchor at a time.
+
+### Batches
+
+A **batch** groups one or more payments that share one anchor and one nonce. Batch fields live in `AccountState` (`batchPaymentId`, `batchEndTs`, `batchPaymentCount`, `batchSizeEffective`, `batchNonce`, `batchAnchorIndex`, `batchRewardEpochId`, `batchOpen`). On the first `pay` after a batch closes, `_openBatch` snapshots the **effective** batch size and duration (capped by the per-source `MaxBatchSettings`) into `batchSizeEffective` / `batchEndTs` — so a settings change mid-batch only affects the *next* batch.
+
+`_closeOpenBatchIfDue` closes the open batch when either:
+
+- it has **ended** — `block.timestamp > batchEndTs`;
+- the **reward epoch changed** — `batchRewardEpochId != currentRewardEpochId`.
+
+Fullness is **not** a trigger here: a batch that fills is closed synchronously by `pay` in the same call, so an open batch is never full and `_isBatchFull` is never true inside `_closeOpenBatchIfDue`.
+
+`pay` closes a due batch, opens a fresh one if needed, records the payment, and — because the only *new* close reason after open is fullness (block time and reward epoch are fixed within a call) — captures `_isBatchFull` once and, if full, closes the batch **at the current block**, emitting `batchEndTs = block.timestamp` (the actual close time) rather than the planned end. That lets off-chain consumers detect a full close immediately via the standard "`batchEndTs` has passed" rule without tracking batch-size history. Closing stamps a `BatchRecord { nonce, batchEndTs, paymentCount, anchorIndex, rewardEpochId }`.
+
+`pay` also indexes each payment to its batch so the mapping is resolvable on-chain. The index is **sparse**: a slot is written only when `paymentId != batchPaymentId`, i.e. for every payment *except* the batch's first — for which `paymentId == batchPaymentId` and the answer needs no stored slot. Single-payment batches (the common case) therefore cost no extra storage. `getBatchPaymentId(account, paymentId)` returns the stored value, or the `paymentId` itself when the slot is zero (the batch-start sentinel; payment ids start at 1, so 0 is unambiguous). It works for open and closed batches alike and reverts `InvalidPaymentId` for an id that was never issued.
+
+### Instruction id and message
+
+The UTXO instruction id binds the batch's first payment id (`batchPaymentId`); see [unified instruction id](#unified-instruction-id) for the shared preimage:
+
+```
+PAY:     _computeInstructionId(opType, "PAY",     sourceId, accountAddress, batchPaymentId, 0)
+REISSUE: _computeInstructionId(opType, "REISSUE", sourceId, accountAddress, batchPaymentId, reissueNumber)
+```
+
+`batchPaymentId` — the batch's first payment id, a per-account monotonic value shared by every payment in the batch — is the batch identity in the id preimage; every off-chain party that recomputes the id must use it. (The settling transaction is still located off-chain by `(walletId, anchorIndex, nonce)`, which the message carries.) The message (`UtxoPaymentInstructionMessage`) carries the account index, the selected anchor's **index** (not its address or genesis outpoint — both are derived off-chain from the wallet's (parent) xpubs + threshold + `accountIndex` + `anchorIndex`), the nonce, the payment id, the batch payment id, and `batchEndTs`.
+
+### Reissue / replacement
+
+`reissue(account, batchPaymentId, paymentInstructions, reissueFeeParams, claimBackAddress)` re-sends the payments of an already-closed batch (e.g. to bump fees, or to nullify with a negative fee factor). The batch must have ended.
+
+A `ReplacementAttempt { uint64 id; uint64 nextPaymentId; uint64 emittedCount; uint24 rewardEpochId; bool finalized; uint256[] blocks; }` tracks progress per `(accountHash, batchPaymentId)`:
+
+- A reissue whose first instruction matches the batch's *first* payment **starts a fresh attempt** (`++id`, reset `nextPaymentId`/`emittedCount`/`blocks`), emitting `UtxoReplacementStarted`. Otherwise it **continues** the active attempt (must be non-finalized and in the same reward epoch).
+- `_checkPaymentRange` ensures the requested range stays within the batch's `[batchPaymentId, batchPaymentId + paymentCount)` window — the global `paymentHashes` keying alone can't prevent spilling into a neighbouring batch's payment ids.
+- Each instruction is validated against its stored payment hash, then dispatched with `reissueNumber = replacement.id` in the instruction id (so two attempts that both restart from the beginning derive distinct ids). The same receiving TEEs are fetched once and reused across the batch's instructions.
+- `_recordReissueBlock` appends `block.number` (deduped) to `blocks` — the exact blocks the watcher must scan, instead of a wide range.
+- When `emittedCount == batch.paymentCount`, the attempt **finalizes**: `_finalizeReplacement` emits `UtxoReplacementReady(walletId, accountHash, batchPaymentId, replacementId, firstPaymentId, paymentCount, blocks)`. `reissue` returns `true` once the whole batch has been re-emitted, `false` while a multi-call replacement is still in progress.
+
+### Batch settings
+
+`setBatchSettings(account, batchSize, batchDurationSeconds)` (wallet-owner) sets the account's preferred batch size/duration (effective from the next batch). Governance caps them per source via `setMaxBatchSettings` and sets the per-source anchor reuse delay via `setAnchorReuseDelay`. Getters: `getBatchSettings`, `getMaxBatchSettings`, `getAnchorReuseDelay`, `getAnchor`, `getAnchorCount`, `getBatchRecord(account, batchPaymentId)` — the batch record (`nonce`, `batchEndTs`, `paymentCount`, `anchorIndex`, `rewardEpochId`) consumed by the reissue flow. For a closed batch this is the stored record; for the currently-open batch it is synthesized from live account state, where `batchEndTs` is the batch's *planned* end (a closed record instead stamps the actual close time). It also returns an `open` flag that disambiguates the two: `true` for the live, still-mutating open batch, `false` for a final closed record. A zeroed record (`paymentCount == 0`, `open == false`) means the id is unknown — neither a closed batch nor the open one. Finally, `getBatchPaymentId(account, paymentId)` resolves any issued payment id to the batch it belongs to (see [Batches](#batches)).
+
+## Fees
+
+Payment fee schedules are **not** part of the instruction-dispatch contracts:
+
+- [`TeePaymentsFeeScheduleManager`](../../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol) holds per-source fee schedules; `pay`/`reissue` read the effective schedule via `getEffectiveSchedule` and embed it in the message. Reissue may override it via `reissueFeeParams` (a single zero-delay factor schedule; scheduled signatures are not supported — `ScheduledSignaturesUnsupported`).
+
+See [Operation Fees](./OperationFees.md) for how these relate to the in-diamond per-instruction `OperationFees`.
+
+## Events
+
+All events and errors are declared on the public `I*` interfaces ([`ITeePaymentsBase`](../../../contracts/userInterfaces/tee/ITeePaymentsBase.sol), [`ITeePayments`](../../../contracts/userInterfaces/tee/ITeePayments.sol), [`ITeePaymentsUtxo`](../../../contracts/userInterfaces/tee/ITeePaymentsUtxo.sol)):
+
+| Event | Emitted by | Meaning |
+|-------|-----------|---------|
+| `PMWMultisigAccountAdded(walletId, sourceId, accountAddress, authorizationAddress, initialNonce)` | `TeePayments` | account-model account registered |
+| `PMWMultisigUtxoAccountAdded(walletId, sourceId, accountAddress, accountIndex, anchorCount, authorizationAddress)` | `TeePaymentsUtxo` | UTXO-model account registered |
+| `UtxoAnchorsAdded(walletId, sourceId, accountAddress, accountIndex, anchorCount)` | `TeePaymentsUtxo` | anchor set grown (new total) |
+| `UtxoBatchSettingsSet(walletId, sourceId, accountAddress, batchSize, batchDurationSeconds)` | `TeePaymentsUtxo` | batch settings (re)configured |
+| `UtxoReplacementStarted(walletId, accountHash, batchPaymentId, replacementId, firstPaymentId, startBlock)` | `TeePaymentsUtxo` | a fresh reissue attempt began |
+| `UtxoReplacementReady(walletId, accountHash, batchPaymentId, replacementId, firstPaymentId, paymentCount, blocks)` | `TeePaymentsUtxo` | a reissue attempt finalized (whole batch re-emitted) |
+
+The actual `pay`/`reissue` dispatch surfaces as the diamond's `TeeInstructionsSent` event (see [Instructions](./Instructions.md)), keyed by the instruction id described above.

@@ -23,25 +23,27 @@ export class SignerEmulator {
   ) {
     this.address = this.web3.eth.accounts.privateKeyToAccount(this.privateKey).address;
     if (this.loggingEnabled) {
-      this.logger = getLogger(`signer-emulator-${this.address}`)
+      this.logger = getLogger(`signer-emulator-${this.address}`);
     }
   }
 
   public async signAndEncode(messages: SignDepositMessage[]): Promise<string> {
-    const signaturePayloadHexList: string[] = await Promise.all(messages.map(async (message) => {
-      const messageHash = web3.utils.keccak256(ProtocolMessageMerkleRoot.encode(message.messageToSign))
-      const signaturePayload = {
-        type: "0x00",
-        message: message.messageToSign,
-        signature: await ECDSASignature.signMessageHash(messageHash, this.privateKey),
-        unsignedMessage: message.unsignedMessage
-      } as ISignaturePayload;
-      return PayloadMessage.encode({
-        protocolId: message.messageToSign.protocolId,
-        votingRoundId: message.messageToSign.votingRoundId,
-        payload: SignaturePayload.encode(signaturePayload)
+    const signaturePayloadHexList: string[] = await Promise.all(
+      messages.map(async (message) => {
+        const messageHash = web3.utils.keccak256(ProtocolMessageMerkleRoot.encode(message.messageToSign));
+        const signaturePayload = {
+          type: "0x00",
+          message: message.messageToSign,
+          signature: await ECDSASignature.signMessageHash(messageHash, this.privateKey),
+          unsignedMessage: message.unsignedMessage,
+        } as ISignaturePayload;
+        return PayloadMessage.encode({
+          protocolId: message.messageToSign.protocolId,
+          votingRoundId: message.messageToSign.votingRoundId,
+          payload: SignaturePayload.encode(signaturePayload),
+        });
       })
-    }));
+    );
     return PayloadMessage.concatenateHexStrings(signaturePayloadHexList);
   }
 
@@ -54,7 +56,7 @@ export class SignerEmulator {
     if (this.loggingEnabled) {
       this.logger!.info(`Voter ${this.address} sent:`);
       for (const message of messages) {
-        this.logger!.info(`${ProtocolMessageMerkleRoot.print(message.messageToSign)}, ${message.unsignedMessage}`)
+        this.logger!.info(`${ProtocolMessageMerkleRoot.print(message.messageToSign)}, ${message.unsignedMessage}`);
       }
     }
   }

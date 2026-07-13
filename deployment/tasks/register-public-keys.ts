@@ -16,8 +16,8 @@ export async function registerPublicKeys(
   hre: HardhatRuntimeEnvironment,
   contracts: Contracts,
   entities: Entity[],
-  quiet: boolean = false) {
-
+  quiet: boolean = false
+) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
 

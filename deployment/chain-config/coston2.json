@@ -1,4 +1,5 @@
 {
+    "$schema": "./chain-parameters.json",
     "testDeployment": false,
     "submissionDeployerPrivateKey": "<use .env: SUBMISSION_DEPLOYER_PRIVATE_KEY>",
     "deployerPrivateKey": "<use .env: DEPLOYER_PRIVATE_KEY>",
@@ -427,5 +428,51 @@
         {"attestationType": "Web2Json", "source": "testIgnite", "inflationShare": 1000, "minRequestsThreshold": 2, "mode": 0},
         {"attestationType": "XRPPayment", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
         {"attestationType": "XRPPaymentNonexistence", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0}
+    ],
+
+    "teeSupportedPlatforms": ["GCP_INTEL_TDX", "GCP_AMD_SEV", "GCP_AMD_SEV_ES", "TEST_PLATFORM"],
+    "teeSupportedKeyTypesWithSigningAlgos": [
+        {"keyType": "XRP", "signingAlgos": ["sha512half-secp256k1-ecdsa"]},
+        {"keyType": "EVM", "signingAlgos": ["keccak256-secp256k1-ecdsa", "keccak256-secp256k1-vrf"]}
+    ],
+    "teeDefaultFeeWei": "1000",
+    "teeAvailabilityCheckValidityDurationSeconds": 21600,
+    "teeSigningPolicyValidityDurationInRewardEpochs": 100,
+    "teeChallengeValidityDurationSeconds": 600,
+    "teePublicExtensionCreationEnabled": true,
+    "teeEmergencyUnpauseGracePeriodSeconds": 7200,
+    "teeOwnersPPM": 100000,
+    "teeOperationFees": [
+        {"opType": "F_REG", "opCommand": "TEE_ATTESTATION", "feeWei": "1"},
+        {"opType": "F_REG", "opCommand": "TO_PAUSE_FOR_UPGRADE", "feeWei": "1"},
+        {"opType": "F_REG", "opCommand": "REPLICATE_FROM", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_GENERATE", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_DELETE", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_DATA_PROVIDER_RESTORE", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "SET_PAUSING_ADDRESSES", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "RESUME", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "VRF", "feeWei": "1"},
+        {"opType": "F_XRP", "opCommand": "PAY", "feeWei": "1"},
+        {"opType": "F_XRP", "opCommand": "REISSUE", "feeWei": "1"},
+        {"opType": "F_XRP", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
+        {"opType": "F_FDC2", "opCommand": "PROVE", "feeWei": "1"}
+    ],
+    "teePaymentsConfigurations": [
+        {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "testXRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}]}
+    ],
+    "teePaymentsUtxoConfigurations": [],
+    "fdc2MinThresholdBIPS": 4000,
+    "fdc2DefaultNumberOfTees": 1,
+    "fdc2RequestFees": [
+        {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1"},
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "PMWPaymentStatus", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "PMWFeeProof", "source": "testXRP", "feeWei": "1"}
+    ],
+    "fdc2InflationConfigurations": [
+        {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "PMWPaymentStatus", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "PMWFeeProof", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0}
     ]
 }

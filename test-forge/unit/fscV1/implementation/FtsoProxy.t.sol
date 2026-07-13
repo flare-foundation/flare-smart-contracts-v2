@@ -25,6 +25,14 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 // solhint-disable-next-line max-states-count
 contract FtsoProxyTest is Test {
 
+    uint256 constant private SAMPLE_SIZE = 0x1000000000000000000000000000000;
+    uint256 constant private RANGE = 0x800000000000000000000000000;
+    uint256 constant private SAMPLE_INCREASE_LIMIT = 0x100000000000000000000000000000;
+    uint256 constant private RANGE_INCREASE_LIMIT = 0x8000000000000000000000000000;
+    uint256 constant private RANGE_INCREASE_PRICE = 10 ** 24;
+    uint256 constant private SAMPLE_SIZE_INCREASE_PRICE = 1425;
+    uint256 constant private DURATION = 8;
+
     FtsoProxy private ftsoProxyFLR;
     FtsoProxy private ftsoProxySGB;
     FtsoProxy private ftsoProxyBTC;
@@ -47,14 +55,6 @@ contract FtsoProxyTest is Test {
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
-
-    uint256 constant private SAMPLE_SIZE = 0x1000000000000000000000000000000;
-    uint256 constant private RANGE = 0x800000000000000000000000000;
-    uint256 constant private SAMPLE_INCREASE_LIMIT = 0x100000000000000000000000000000;
-    uint256 constant private RANGE_INCREASE_LIMIT = 0x8000000000000000000000000000;
-    uint256 constant private RANGE_INCREASE_PRICE = 10 ** 24;
-    uint256 constant private SAMPLE_SIZE_INCREASE_PRICE = 1425;
-    uint256 constant private DURATION = 8;
 
     address private voter;
 
@@ -104,7 +104,7 @@ contract FtsoProxyTest is Test {
             governance,
             addressUpdater,
             flareDaemon,
-            uint32(block.timestamp),
+            uint32(vm.getBlockTimestamp()),
             90,
             10
         );

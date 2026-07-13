@@ -17,5 +17,37 @@ scope, rules, and submission guidelines.
 ## Vulnerability disclosures
 
 Critical vulnerabilities will be disclosed via GitHub's
-[security advisory](https://github.com/flare-foundation/fassets/security)
+[security advisory](https://github.com/flare-foundation/flare-smart-contracts-v2/security)
 system.
+
+## Review scope
+
+### In scope
+- `contracts/adapters/**/*`
+- `contracts/customFeeds/**/*`
+- `contracts/fastUpdates/**/*`
+- `contracts/fdc/**/*`
+- `contracts/fdc2/**/*`
+- `contracts/fscV1/**/*`
+- `contracts/ftso/**/*`
+- `contracts/governance/**/*`
+- `contracts/incentivePool/**/*`
+- `contracts/inflation/**/*`
+- `contracts/protocol/**/*`
+- `contracts/rNat/**/*`
+- `contracts/staking/**/*`
+- `contracts/tee/**/*`
+- `contracts/userInterfaces/**/*`
+- `contracts/utils/**/*`
+
+### Out of scope
+
+- `contracts/diamond/**/*`
+- `contracts/mock/**/*`
+
+## Previous audits
+
+<!-- Add audit entries as they are completed -->
+| Auditor | Date | Scope | Report |
+| ------- | ---- | ----- | ------ |
+

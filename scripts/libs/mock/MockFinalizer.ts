@@ -9,16 +9,24 @@ import { ProtocolMessageMerkleRoot } from "../protocol/ProtocolMessageMerkleRoot
 import { ISignaturePayload, SignaturePayload } from "../protocol/SignaturePayload";
 import { ISigningPolicy, SigningPolicy, SigningPolicyInitializedEvent } from "../protocol/SigningPolicy";
 import { Queue } from "./Queue";
-import { RELAY_SELECTOR, SUBMIT_SIGNATURES_SELECTOR, THRESHOLD_INCREASE_BIPS, decodeEvent, eventSignature, eventToSigningPolicy, extractEpochSettings } from "./mock-test-helpers";
+import {
+  RELAY_SELECTOR,
+  SUBMIT_SIGNATURES_SELECTOR,
+  THRESHOLD_INCREASE_BIPS,
+  decodeEvent,
+  eventSignature,
+  eventToSigningPolicy,
+  extractEpochSettings,
+} from "./mock-test-helpers";
 
-const SUMMARY_RANGE = 4
+const SUMMARY_RANGE = 4;
 export interface QueueEntry {
   votingRoundId: number;
   protocolId: number;
   messageHash: string;
 }
 export interface SigningPolicyUse {
-  signingPolicy: ISigningPolicy
+  signingPolicy: ISigningPolicy;
   threshold: number;
 }
 
@@ -33,7 +41,7 @@ export class MockFinalizer {
     public relayContractAddress: string,
     public flareSystemsManagerAddress: string,
     public historySec = 60 * 5, // 5 minutes
-    public indexerRefreshWindowSec = 3, // 3 seconds
+    public indexerRefreshWindowSec = 3 // 3 seconds
   ) {
     this.logger = getLogger(`finalizer`);
   }
@@ -57,7 +65,6 @@ export class MockFinalizer {
   minRewardEpochSigningPolicy = -1;
   maxRewardEpochSigningPolicy = -1;
 
-
   getMatchingSigningPolicy(votingRoundId: number): SigningPolicyUse | undefined {
     if (this.minRewardEpochSigningPolicy < 0) {
       this.logger?.info(`No signing policies yet`);
@@ -74,16 +81,20 @@ export class MockFinalizer {
       if (expectedRewardEpoch === this.maxRewardEpochSigningPolicy) {
         return {
           signingPolicy: this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!,
-          threshold: this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!.threshold
-        }
+          threshold: this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!.threshold,
+        };
       }
       if (expectedRewardEpoch === this.maxRewardEpochSigningPolicy + 1) {
         return {
           signingPolicy: this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!,
-          threshold: Math.floor(this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!.threshold * THRESHOLD_INCREASE_BIPS / 10000)
-        }
+          threshold: Math.floor(
+            (this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!.threshold * THRESHOLD_INCREASE_BIPS) / 10000
+          ),
+        };
       }
-      this.logger.info(`Above: votingRoundId: ${votingRoundId}, maxStartVotingEpochId: ${maxStartVotingEpochId}, expectedRewardEpoch: ${expectedRewardEpoch}`);
+      this.logger.info(
+        `Above: votingRoundId: ${votingRoundId}, maxStartVotingEpochId: ${maxStartVotingEpochId}, expectedRewardEpoch: ${expectedRewardEpoch}`
+      );
       return undefined;
     }
     // TODO: use binary search to optimize
@@ -91,8 +102,8 @@ export class MockFinalizer {
     while (votingRoundId < this.signingPolicies.get(rewardEpochId)!.startVotingRoundId) rewardEpochId++;
     return {
       signingPolicy: this.signingPolicies.get(rewardEpochId)!,
-      threshold: this.signingPolicies.get(rewardEpochId)!.threshold
-    }
+      threshold: this.signingPolicies.get(rewardEpochId)!.threshold,
+    };
   }
 
   recordProcessed(entry: QueueEntry) {
@@ -106,7 +117,7 @@ export class MockFinalizer {
     let result = "Processed:";
     for (const [votingRoundId, protocolIdToProcessed] of this.processed.entries()) {
       if (votingRoundId > lastVotingRoundId) {
-        const processedProtocolIds: number[] = []
+        const processedProtocolIds: number[] = [];
         for (const [protocolId, processed] of protocolIdToProcessed.entries()) {
           if (processed) {
             processedProtocolIds.push(protocolId);
@@ -126,7 +137,9 @@ export class MockFinalizer {
       const matchingSigningPolicy = this.getMatchingSigningPolicy(entry.votingRoundId);
 
       if (!signaturePayloads) {
-        throw new Error(`No signature payloads for votingRoundId: ${entry.votingRoundId}, protocolId: ${entry.protocolId}`);
+        throw new Error(
+          `No signature payloads for votingRoundId: ${entry.votingRoundId}, protocolId: ${entry.protocolId}`
+        );
       }
 
       const messageData = signaturePayloads[0].message;
@@ -145,7 +158,7 @@ export class MockFinalizer {
         this.logger.info(`Finalized: ${ProtocolMessageMerkleRoot.print(messageData)}`);
       } catch (e) {
         this.logger.error(`Error finalizing ${ProtocolMessageMerkleRoot.print(messageData)}. Skipped`);
-        this.logger.error(`ERROR: ${e}`);
+        this.logger.error(`ERROR: ${String(e)}`);
       }
     }
   }
@@ -156,11 +169,17 @@ export class MockFinalizer {
       .createQueryBuilder("event")
       .andWhere("event.timestamp >= :startTime", { startTime })
       .andWhere("event.timestamp <= :endTime", { endTime })
-      .andWhere("event.address = :contractAddress", { contractAddress: this.relayContractAddress.slice(2).toLowerCase() })
-      .andWhere("event.topic0 = :signature", { signature: eventSignature("Relay", "SigningPolicyInitialized").slice(2) })
+      .andWhere("event.address = :contractAddress", {
+        contractAddress: this.relayContractAddress.slice(2).toLowerCase(),
+      })
+      .andWhere("event.topic0 = :signature", {
+        signature: eventSignature("Relay", "SigningPolicyInitialized").slice(2),
+      })
       .getMany();
-    const signingPolicyEvents = queryResult.map((event) => decodeEvent<SigningPolicyInitializedEvent>("Relay", "SigningPolicyInitialized", event));
-    return signingPolicyEvents.map(event => eventToSigningPolicy(event));
+    const signingPolicyEvents = queryResult.map((event) =>
+      decodeEvent<SigningPolicyInitializedEvent>("Relay", "SigningPolicyInitialized", event)
+    );
+    return signingPolicyEvents.map((event) => eventToSigningPolicy(event));
   }
 
   public async querySignaturePayloads(startTime: number, endTime: number): Promise<ISignaturePayload[]> {
@@ -169,25 +188,30 @@ export class MockFinalizer {
       .createQueryBuilder("tx")
       .andWhere("tx.timestamp >= :startTime", { startTime })
       .andWhere("tx.timestamp <= :endTime", { endTime })
-      .andWhere("tx.to_address = :contractAddress", { contractAddress: this.submissionContractAddress.slice(2).toLowerCase() })
+      .andWhere("tx.to_address = :contractAddress", {
+        contractAddress: this.submissionContractAddress.slice(2).toLowerCase(),
+      })
       .andWhere("tx.function_sig = :signature", { signature: SUBMIT_SIGNATURES_SELECTOR.slice(2).toLowerCase() })
       .getMany();
     const result: ISignaturePayload[] = [];
-    queryResult.filter((tx) => tx.input.length > 8).forEach((tx) => {
-      SignaturePayload.decodeCalldata(tx.input).forEach((payload) => {
-        result.push(payload.payload);
-      })
-    });
+    queryResult
+      .filter((tx) => tx.input.length > 8)
+      .forEach((tx) => {
+        SignaturePayload.decodeCalldata(tx.input).forEach((payload) => {
+          result.push(payload.payload);
+        });
+      });
     return result;
-
-
   }
 
   public processSigningPolicies(newSigningPolicies: ISigningPolicy[]) {
     newSigningPolicies.sort((a, b) => a.rewardEpochId - b.rewardEpochId);
     for (const signingPolicy of newSigningPolicies) {
       if (!this.signingPolicies.has(signingPolicy.rewardEpochId)) {
-        if (this.signingPolicies.size === 0 || this.signingPolicies.get(signingPolicy.rewardEpochId - 1) !== undefined) {
+        if (
+          this.signingPolicies.size === 0 ||
+          this.signingPolicies.get(signingPolicy.rewardEpochId - 1) !== undefined
+        ) {
           if (this.signingPolicies.get(signingPolicy.rewardEpochId) !== undefined) {
             // Already processed
             continue;
@@ -207,7 +231,7 @@ export class MockFinalizer {
           this.voterToIndexMaps.set(signingPolicy.rewardEpochId, voterToIndex);
           this.voterToWeightMaps.set(signingPolicy.rewardEpochId, voterToWeight);
         } else {
-          throw new Error(`Missing signing policy for epoch ${signingPolicy.rewardEpochId - 1}`)
+          throw new Error(`Missing signing policy for epoch ${signingPolicy.rewardEpochId - 1}`);
         }
       }
     }
@@ -219,13 +243,17 @@ export class MockFinalizer {
       const protocolId = payload.message.protocolId;
       const matchingSigningPolicy = this.getMatchingSigningPolicy(votingRoundId);
       if (!matchingSigningPolicy) {
-        this.logger.info(`No signing policy for votingRoundId: ${votingRoundId}. Expected reward epoch: ${this.epochSettings.expectedRewardEpochForVotingRoundId(votingRoundId)}`);
+        this.logger.info(
+          `No signing policy for votingRoundId: ${votingRoundId}. Expected reward epoch: ${this.epochSettings.expectedRewardEpochForVotingRoundId(votingRoundId)}`
+        );
         return;
       }
       const voterToIndexMap = this.voterToIndexMaps.get(matchingSigningPolicy.signingPolicy.rewardEpochId);
       const augPayload = SignaturePayload.augment(payload, voterToIndexMap!);
       if (augPayload.signer === undefined) {
-        this.logger.info(`Signer not in the signing policy for rewardEpochId: ${matchingSigningPolicy.signingPolicy.rewardEpochId}.`);
+        this.logger.info(
+          `Signer not in the signing policy for rewardEpochId: ${matchingSigningPolicy.signingPolicy.rewardEpochId}.`
+        );
         return;
       }
       const messageHash = augPayload.messageHash;
@@ -271,7 +299,7 @@ export class MockFinalizer {
           this.queue.push({
             votingRoundId,
             protocolId,
-            messageHash
+            messageHash,
           });
         }
       }
@@ -279,10 +307,14 @@ export class MockFinalizer {
   }
 
   public logStatus() {
-    const expectedRewardEpochId = this.epochSettings.expectedRewardEpochForVotingRoundId(this.epochSettings.votingEpochForTime(Date.now()))
-    this.logger.info("---------------------------------------")
+    const expectedRewardEpochId = this.epochSettings.expectedRewardEpochForVotingRoundId(
+      this.epochSettings.votingEpochForTime(Date.now())
+    );
+    this.logger.info("---------------------------------------");
     this.logger.info(`Expected reward epoch: ${expectedRewardEpochId}`);
-    this.logger.info(`Signing policies: ${this.signingPolicies.size} [${this.minRewardEpochSigningPolicy}, ${this.maxRewardEpochSigningPolicy}]`);
+    this.logger.info(
+      `Signing policies: ${this.signingPolicies.size} [${this.minRewardEpochSigningPolicy}, ${this.maxRewardEpochSigningPolicy}]`
+    );
     this.logger.info(`${this.recentProcessedSummary(expectedRewardEpochId - SUMMARY_RANGE)}`);
   }
 
@@ -290,13 +322,13 @@ export class MockFinalizer {
     this.dataSource = await getDataSource(true);
     this.epochSettings = await extractEpochSettings(this.flareSystemsManagerAddress);
     let endTimeSec = Math.floor(Date.now() / 1000);
-    let startTimeSec = endTimeSec - this.historySec;  // start one minute ago
+    let startTimeSec = endTimeSec - this.historySec; // start one minute ago
     let newSigningPolicies = await this.querySigningPolicies(startTimeSec, endTimeSec);
     this.processSigningPolicies(newSigningPolicies);
     let signaturePayloads = await this.querySignaturePayloads(startTimeSec, endTimeSec);
     startTimeSec = endTimeSec - this.indexerRefreshWindowSec;
     this.processSignaturePayloads(signaturePayloads);
-    setInterval(() => this.logStatus(), 5000)
+    setInterval(() => this.logStatus(), 5000);
     while (true) {
       endTimeSec = Math.floor(Date.now() / 1000);
       newSigningPolicies = await this.querySigningPolicies(startTimeSec, endTimeSec);
@@ -304,9 +336,8 @@ export class MockFinalizer {
       signaturePayloads = await this.querySignaturePayloads(startTimeSec, endTimeSec);
       this.processSignaturePayloads(signaturePayloads);
       startTimeSec = endTimeSec - this.indexerRefreshWindowSec;
-      await this.processQueue()
+      await this.processQueue();
       await sleep(500);
     }
-
   }
 }

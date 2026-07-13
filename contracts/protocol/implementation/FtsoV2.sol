@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
+pragma solidity ^0.8.24;
 
 import { FtsoV2Interface } from "../../userInterfaces/LTS/FtsoV2Interface.sol";
 import { IFastUpdater } from "../../userInterfaces/IFastUpdater.sol";
@@ -475,8 +475,8 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     }
 
     /**
-     * Unused. just to present to satisfy UUPSUpgradeable requirement.
-     * The real check is in onlyGovernance modifier on upgradeTo and upgradeToAndCall.
+     * Unused. Present just to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeToAndCall.
      */
     function _authorizeUpgrade(address newImplementation) internal override {}
 

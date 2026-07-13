@@ -795,7 +795,7 @@ contract PollingManagementGroupTest is Test {
             1,
             maintainer,
             "rejection based proposal",
-            123, // settings.votingStartTs = 0; block.timestamp = 123
+            123, // settings.votingStartTs = 0; vm.getBlockTimestamp() = 123
             123 + 7200,
             6000,
             5000,

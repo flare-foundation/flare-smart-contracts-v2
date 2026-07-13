@@ -3,7 +3,10 @@ import { Contracts } from "../scripts/Contracts";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { FlareSystemsManagerContract, RelayContract } from "../../typechain-truffle";
 import { ISigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import {
+  IProtocolMessageMerkleRoot,
+  ProtocolMessageMerkleRoot,
+} from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
 import { RelayMessage } from "../../scripts/libs/protocol/RelayMessage";
 import crypto from "crypto";
@@ -20,8 +23,8 @@ export async function provideRandomNumberForInitialRewardEpoch(
   triggerFlareDaemon: boolean,
   contracts: Contracts,
   parameters: ChainParameters,
-  quiet: boolean = false) {
-
+  quiet: boolean = false
+) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
 
@@ -39,7 +42,9 @@ export async function provideRandomNumberForInitialRewardEpoch(
   const Relay = artifacts.require("Relay") as RelayContract;
 
   // Fetch contracts
-  const flareSystemsManager = await FlareSystemsManager.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER));
+  const flareSystemsManager = await FlareSystemsManager.at(
+    contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER)
+  );
   const relay = await Relay.at(contracts.getContractAddress(Contracts.RELAY));
 
   const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10); // first 4 bytes is function selector
@@ -52,7 +57,9 @@ export async function provideRandomNumberForInitialRewardEpoch(
 
   console.error(`Current reward epoch id: ${initialRewardEpochId}.`);
   console.error(`Current reward epoch start voting round id: ${initialRewardEpochStartVotingRoundId}.`);
-  console.error(`Current reward epoch expected end timestamp: ${(await flareSystemsManager.currentRewardEpochExpectedEndTs()).toString()}.`);
+  console.error(
+    `Current reward epoch expected end timestamp: ${(await flareSystemsManager.currentRewardEpochExpectedEndTs()).toString()}.`
+  );
 
   const initialSigningPolicy: ISigningPolicy = {
     rewardEpochId: initialRewardEpochId,
@@ -60,7 +67,7 @@ export async function provideRandomNumberForInitialRewardEpoch(
     threshold: parameters.initialThreshold,
     seed: web3.utils.keccak256("123"),
     voters: parameters.initialVoters,
-    weights: parameters.initialNormalisedWeights
+    weights: parameters.initialNormalisedWeights,
   };
 
   while (true) {
@@ -69,7 +76,7 @@ export async function provideRandomNumberForInitialRewardEpoch(
         from: initialVoter,
         to: flareDaemonAddress,
         data: TRIGGER_SELECTOR,
-        gas: 100000000
+        gas: 100000000,
       });
       console.error("Flare daemon triggered successfully.");
     }
@@ -83,30 +90,35 @@ export async function provideRandomNumberForInitialRewardEpoch(
         }
         break;
       }
-      const votingRoundId = (await relay.getVotingRoundId(latestBlock.timestamp)).toNumber()
+      const votingRoundId = (await relay.getVotingRoundId(latestBlock.timestamp)).toNumber();
       const isFinalized = await relay.isFinalized(parameters.ftsoProtocolId, votingRoundId);
       if (!isFinalized) {
         const random = new Uint32Array(1);
         crypto.getRandomValues(random);
-        const merkleRoot = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-          ["tuple(uint32,uint256,bool)"],
-          [[votingRoundId, random[0], true]]));
-        const messageData: IProtocolMessageMerkleRoot = { protocolId: parameters.ftsoProtocolId, votingRoundId: votingRoundId, isSecureRandom: true, merkleRoot: merkleRoot };
+        const merkleRoot = web3.utils.keccak256(
+          web3.eth.abi.encodeParameters(["tuple(uint32,uint256,bool)"], [[votingRoundId, random[0], true]])
+        );
+        const messageData: IProtocolMessageMerkleRoot = {
+          protocolId: parameters.ftsoProtocolId,
+          votingRoundId: votingRoundId,
+          isSecureRandom: true,
+          merkleRoot: merkleRoot,
+        };
         const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
         const signatures = await generateSignatures([initialVoterPrivateKey], messageHash, 1);
 
         const relayMessage = {
-            signingPolicy: initialSigningPolicy,
-            signatures,
-            protocolMessageMerkleRoot: messageData,
+          signingPolicy: initialSigningPolicy,
+          signatures,
+          protocolMessageMerkleRoot: messageData,
         };
 
         const fullData = RelayMessage.encode(relayMessage);
 
         await web3.eth.sendTransaction({
-            from: initialVoter,
-            to: relay.address,
-            data: RELAY_SELECTOR + fullData.slice(2)
+          from: initialVoter,
+          to: relay.address,
+          data: RELAY_SELECTOR + fullData.slice(2),
         });
 
         console.error(`Providing random number for voting round id: ${votingRoundId}.`);
@@ -117,5 +129,5 @@ export async function provideRandomNumberForInitialRewardEpoch(
 }
 
 async function sleep(ms: number) {
-  await new Promise<void>(resolve => setTimeout(() => resolve(), ms));
+  await new Promise<void>((resolve) => setTimeout(() => resolve(), ms));
 }

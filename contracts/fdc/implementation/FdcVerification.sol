@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
+pragma solidity ^0.8.24;
 
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";

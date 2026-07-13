@@ -4,7 +4,6 @@ pragma solidity ^0.8.27;
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IWNatDelegationFee } from "../../userInterfaces/IWNatDelegationFee.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
-import { ProtocolsV2Interface } from "../../userInterfaces/LTS/ProtocolsV2Interface.sol";
 
 contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
 

@@ -34,7 +34,7 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         if (isECDSA) {
             (bytes32 r, bytes32 s) = extractSignature(_signature);
             uint256 sUint = uint256(s);
-            if (sUint > N / 2) {
+            if (sUint < N && sUint > N / 2) {
                 sUint = N - sUint;
             }
             require(P256.verify(message, r, bytes32(sUint), bytes32(part1), bytes32(part2)), "invalid signature");
@@ -59,52 +59,52 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         require(success, "couldn't read certificate element");
 
         // read RawTBSCertificate element
-	    (, data, success) = this.readASN1Element(data, 0x30, true);
+	    (, data, success) = readASN1Element(data, 0x30, true);
         require(success, "couldn't read RawTBSCertificate element");
 
         // version
-        (length, , success) = this.readASN1Element(data, 0xa0, false);
+        (length, , success) = readASN1Element(data, 0xa0, false);
         require(success, "couldn't read version element");
 
         // serial number
         data = Bytes.slice(data, length);
-        (length, , success) = this.readASN1Element(data, 0x02, false);
+        (length, , success) = readASN1Element(data, 0x02, false);
         require(success, "couldn't read serial number element");
 
         // signature algorithm identifier
         data = Bytes.slice(data, length);
-        (length, , success) = this.readASN1Element(data, 0x30, false);
+        (length, , success) = readASN1Element(data, 0x30, false);
         require(success, "couldn't read signature algorithm identifier");
 
         // issuer
         data = Bytes.slice(data, length);
-        (length, , success) = this.readASN1Element(data, 0x30, false);
+        (length, , success) = readASN1Element(data, 0x30, false);
         require(success, "couldn't read issuer element");
 
         // validity
         data = Bytes.slice(data, length);
-        (length, , success) = this.readASN1Element(data, 0x30, false);
+        (length, , success) = readASN1Element(data, 0x30, false);
         require(success, "couldn't read validity element");
 
         // subject
         data = Bytes.slice(data, length);
-        (length, , success) = this.readASN1Element(data, 0x30, false);
+        (length, , success) = readASN1Element(data, 0x30, false);
         require(success, "couldn't read subject element");
 
         // subject public key info
         data = Bytes.slice(data, length);
-        (, data, success) = this.readASN1Element(data, 0x30, true);
+        (, data, success) = readASN1Element(data, 0x30, true);
         require(success, "couldn't read subject public key info element");
 
         // algorithm
         bytes memory algorithm;
-        (length, algorithm, success) = this.readASN1Element(data, 0x30, true);
+        (length, algorithm, success) = readASN1Element(data, 0x30, true);
         require(success, "couldn't read algorithm element");
 
         if (keccak256(algorithm) == keccak256(ECDSA_ALGORITHM_ID)) { // ECDSA
             // public key
             data = Bytes.slice(data, length);
-            (, data, success) = this.readASN1Element(data, 0x03, true);
+            (, data, success) = readASN1Element(data, 0x03, true);
             require(success, "couldn't read public key element");
 
             // skip the first byte, which is 0x00
@@ -117,17 +117,17 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         } else if (keccak256(algorithm) == keccak256(RSA_ALGORITHM_ID)) { // RSA
             // public key
             data = Bytes.slice(data, length);
-            (, data, success) = this.readASN1Element(data, 0x03, true);
+            (, data, success) = readASN1Element(data, 0x03, true);
             require(success, "couldn't read public key element");
 
             // get N and E from public key
             // skip the first byte, which is the number of unused bits
             data = Bytes.slice(data, 1);
-            (, data, success) = this.readASN1Element(data, 0x30, true);
+            (, data, success) = readASN1Element(data, 0x30, true);
             require(success, "couldn't read public key data");
 
             // N and E
-            (length, _part1, success) = this.readASN1Element(data, 0x02, true);
+            (length, _part1, success) = readASN1Element(data, 0x02, true);
             require(success, "couldn't read N element");
             if (_part1.length > 1 && _part1[0] == bytes1(0x00)) {
                 // skip the first byte, which is 0x00
@@ -136,7 +136,7 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
 
             // E
             data = Bytes.slice(data, length);
-            (, _part2, success) = this.readASN1Element(data, 0x02, true);
+            (, _part2, success) = readASN1Element(data, 0x02, true);
             require(success, "couldn't read E element");
             if (_part2.length > 1 && _part2[0] == bytes1(0x00)) {
                 // skip the first byte, which is 0x00
@@ -161,10 +161,10 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         (uint256 length, bytes memory data, bool success) = readASN1Element(_signature, 0x30, true);
         require(success, "couldn't read signature");
         require(length == _signature.length, "invalid signature length");
-        (length, rs, success) = this.readASN1Element(data, 0x02, true);
+        (length, rs, success) = readASN1Element(data, 0x02, true);
         require(success, "couldn't read r");
         if (rs.length < 33) {
-            _r = bytes32(rs);
+            _r = bytes32(uint256(bytes32(rs)) >> ((32 - rs.length) * 8)); // left-pad with zeros
         } else if (rs.length == 33 && rs[0] == bytes1(0x00)) {
             // skip the first byte, which is 0x00
             _r = bytes32(Bytes.slice(rs, 1));
@@ -172,11 +172,11 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
             revert("invalid r");
         }
         data = Bytes.slice(data, length);
-        (length , rs, success) = this.readASN1Element(data, 0x02, true);
+        (length , rs, success) = readASN1Element(data, 0x02, true);
         require(success, "couldn't read s");
         require(length == data.length, "invalid data length");
         if (rs.length < 33) {
-            _s = bytes32(rs);
+            _s = bytes32(uint256(bytes32(rs)) >> ((32 - rs.length) * 8)); // left-pad with zeros
         } else if (rs.length == 33 && rs[0] == bytes1(0x00)) {
             // skip the first byte, which is 0x00
             _s = bytes32(Bytes.slice(rs, 1));
@@ -195,7 +195,7 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
      * @return _length The length of the bytes read (header length + element length).
      * @return _extractedData The extracted element without the header.
      */
-    function readASN1Element(bytes calldata _data, bytes1 _expectedTag, bool _extractData)
+    function readASN1Element(bytes memory _data, bytes1 _expectedTag, bool _extractData)
         public pure
         returns(uint256 _length, bytes memory _extractedData, bool _success)
     {
@@ -238,7 +238,7 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         }
 
         if (_extractData) {
-            _extractedData = _data[headerLength : _length];
+            _extractedData = Bytes.slice(_data, headerLength, _length);
         }
         _success = true;
     }

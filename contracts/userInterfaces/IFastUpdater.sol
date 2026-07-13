@@ -2,18 +2,12 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { SortitionCredential } from "./ISortition.sol";
+import {Signature} from "./ISignature.sol";
 
 /**
  * Fast updater interface.
  */
 interface IFastUpdater {
-
-    /// Signature structure
-    struct Signature {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
 
     /// Fast update structure
     struct FastUpdates {

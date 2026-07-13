@@ -1,0 +1,193 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.35;
+
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IMachineEmergencyPause } from "../../userInterfaces/tee/IMachineEmergencyPause.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
+import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
+import { MachineEmergencyPause } from "./MachineEmergencyPause.sol";
+import { MachineManager } from "./MachineManager.sol";
+import { OperationFees } from "./OperationFees.sol";
+import { ExternalAddresses } from "./ExternalAddresses.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
+/**
+ * @title Instructions
+ * @notice Library for the core instruction-sending logic.
+ * @dev Validates tee machines, calculates fee, sends fee to reward manager, emits event.
+ *      Does NOT validate the caller (sender) — that is the responsibility of the calling facet.
+ *      Also manages system instructions senders and instruction ID generation.
+ */
+library Instructions {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
+    /// @custom:storage-location erc7201:tee.Instructions.State
+    struct State {
+        /// List of system instructions sender contracts.
+        EnumerableSet.AddressSet systemInstructionsSenders;
+        /// Instruction IDs counter per extension ID.
+        mapping(uint256 extensionId => uint256 counter) instructionIdsCounter;
+    }
+
+    // erc7201 builtin not recognized by slither's parser; the constant is initialized at declaration
+    //slither-disable-next-line uninitialized-state
+    bytes32 internal constant STATE_POSITION = bytes32(erc7201("tee.Instructions.State"));
+
+    /// Prefix reserved for system-owned extension.
+    bytes2 internal constant SYSTEM_OP_TYPE_PREFIX = bytes2("F_");
+
+    function generateInstructionId(
+        uint256 _extensionId
+    )
+        internal
+        returns (bytes32)
+    {
+        State storage s = getState();
+        uint256 counter = s.instructionIdsCounter[_extensionId]++;
+        return keccak256(abi.encode(_extensionId, counter, blockhash(block.number - 1)));
+    }
+
+    function sendInstructions(
+        bytes32 _instructionId,
+        address[] memory _teeIds,
+        IInstructions.TeeInstructionParams memory _instructionParams
+    )
+        internal
+        returns (bytes32)
+    {
+        require(_teeIds.length > 0, IInstructions.NoTeeMachinesSpecified());
+        require(_instructionParams.opType != bytes32(0), IInstructions.OperationTypeEmpty());
+        require(_instructionParams.opCommand != bytes32(0), IInstructions.OperationCommandEmpty());
+        require(_instructionParams.message.length > 0, IInstructions.MessageEmpty());
+        require(
+            _instructionParams.cosignersThreshold <= _instructionParams.cosigners.length,
+            IInstructions.CosignersThresholdTooHigh()
+        );
+
+        // Resolve full TEE machine data internally (needed for the emitted event payload).
+        IMachineManager.TeeMachine[] memory teeMachines =
+            new IMachineManager.TeeMachine[](_teeIds.length);
+        uint256 extensionId = MachineManager.getExtensionId(_teeIds[0]);
+        // Block every dispatch path (regular + system opTypes) when the destination
+        // extension is in emergency pause. All machines are validated below to share
+        // this extensionId, so a single check covers the whole batch.
+        require(
+            !MachineEmergencyPause.isExtensionEmergencyPaused(extensionId),
+            IMachineEmergencyPause.EmergencyPauseActive(extensionId)
+        );
+        if (_instructionId == bytes32(0)) {
+            _instructionId = generateInstructionId(extensionId);
+        }
+
+        bool _isSystemOpType = isSystemOpType(_instructionParams.opType);
+        for (uint256 i = 0; i < _teeIds.length; i++) {
+            address teeId = _teeIds[i];
+            require(
+                i == 0 || MachineManager.getExtensionId(teeId) == extensionId,
+                ITeeCommonErrors.ExtensionIdMismatch()
+            );
+            if (!_isSystemOpType) {
+                require(
+                    MachineManager.getTeeMachineStatus(teeId) ==
+                        IMachineManager.TeeStatus.PRODUCTION,
+                    ITeeCommonErrors.TeeMachineNotAvailable()
+                );
+            }
+            teeMachines[i] = MachineManager.getTeeMachine(teeId);
+        }
+
+        uint256 calculatedFee = OperationFees.calculateFeeByTeeIds(
+            _instructionParams.opType, _instructionParams.opCommand, _teeIds
+        );
+        require(calculatedFee <= msg.value, IInstructions.FeeTooLow());
+
+        // Send fee to reward manager
+        ExternalAddresses.State storage ext = ExternalAddresses.getState();
+        uint24 currentRewardEpochId = IFlareSystemsManager(ext.flareSystemsManager)
+            .getCurrentRewardEpochId();
+        IIRewardManager(ext.rewardManager).receiveRewards{value: msg.value}(
+            currentRewardEpochId, false
+        );
+
+        // emit event
+        _emitInstructionsSent(
+            _instructionId, extensionId, currentRewardEpochId, teeMachines, _instructionParams
+        );
+
+        return _instructionId;
+    }
+
+    function isSystemInstructionsSender(
+        address _sender
+    )
+        internal view
+        returns (bool)
+    {
+        return getState().systemInstructionsSenders.contains(_sender);
+    }
+
+    function isSystemOpType(
+        bytes32 _opType
+    )
+        internal pure
+        returns (bool)
+    {
+        return _opType[0] == SYSTEM_OP_TYPE_PREFIX[0] && _opType[1] == SYSTEM_OP_TYPE_PREFIX[1];
+    }
+
+    function removeDuplicates(
+        address[] memory _teeIds
+    )
+        internal pure
+    {
+        uint256 length = _teeIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            for (uint256 j = i + 1; j < length; j++) {
+                if (_teeIds[i] == _teeIds[j]) {
+                    _teeIds[j] = _teeIds[length - 1];
+                    length--;
+                    j--;
+                }
+            }
+        }
+        // solhint-disable-next-line no-inline-assembly
+        assembly { mstore(_teeIds, length) }
+    }
+
+    function getState()
+        internal pure
+        returns (State storage _state)
+    {
+        bytes32 position = STATE_POSITION;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            _state.slot := position
+        }
+    }
+
+    function _emitInstructionsSent(
+        bytes32 _instructionId,
+        uint256 _extensionId,
+        uint24 _currentRewardEpochId,
+        IMachineManager.TeeMachine[] memory _teeMachines,
+        IInstructions.TeeInstructionParams memory _instructionParams
+    )
+        private
+    {
+        emit IInstructions.TeeInstructionsSent(
+            _extensionId,
+            _instructionId,
+            uint32(_currentRewardEpochId),
+            _teeMachines,
+            _instructionParams.opType,
+            _instructionParams.opCommand,
+            _instructionParams.message,
+            _instructionParams.cosigners,
+            _instructionParams.cosignersThreshold,
+            _instructionParams.claimBackAddress,
+            msg.value
+        );
+    }
+}

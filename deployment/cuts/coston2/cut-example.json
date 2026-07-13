@@ -1,0 +1,39 @@
+{
+  "diamond": "0x0000000000000000000000000000000000000000",
+  "facets": [
+    "DiamondGovernanceFacet",
+    "DiamondLoupeFacet",
+    "ExtensionManagerFacet",
+    "ExtensionGovernanceFacet",
+    "InstructionsFacet",
+    "MachineManagerFacet",
+    "VerificationFacet",
+    "OperationFeesFacet",
+    "OwnerAllowlistFacet",
+    "WalletManagerFacet",
+    "WalletKeyManagerFacet",
+    "WalletProjectManagerFacet",
+    "WalletBackupManagerFacet",
+    "VrfFacet",
+    "ExternalAddressesFacet",
+    "MachinePathManagerFacet",
+    "WalletProjectPauseFacet",
+    "MachineEmergencyPauseFacet"
+  ],
+  "deleteAllOldMethods": false,
+  "deleteSelectorSigs": [],
+  "init": {
+    "contract": "FlareTeeManagerInit",
+    "method": "init",
+    "args": [
+      "0x1000000000000000000000000000000000000007",
+      "0x99E0770aa23CAA9071B6112208297E7a8d8F8a4A",
+      "0x99E0770aa23CAA9071B6112208297E7a8d8F8a4A",
+      "21600",
+      "100",
+      "600",
+      "1000"
+    ]
+  },
+  "execute": false
+}

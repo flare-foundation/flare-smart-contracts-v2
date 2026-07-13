@@ -1,6 +1,5 @@
-
 import * as elliptic from "elliptic";
-import { sha256, keccak, ripemd160 } from 'ethereumjs-util';
+import { sha256, keccak, ripemd160 } from "ethereumjs-util";
 const EC: typeof elliptic.ec = elliptic.ec;
 const ec: elliptic.ec = new EC("secp256k1");
 
@@ -13,8 +12,15 @@ export function privateKeyToPublicKeyPair(privateKey: Buffer): Buffer[] {
   return [x, y];
 }
 
+export function privateKeyToPublicKeyPairString(privateKey: string): string[] {
+  const keyPair = ec.keyFromPrivate(privateKey).getPublic();
+  const x = keyPair.getX().toBuffer(undefined, 32);
+  const y = keyPair.getY().toBuffer(undefined, 32);
+  return [`0x${x.toString("hex")}`, `0x${y.toString("hex")}`];
+}
+
 export function compressPublicKey(x: Buffer, y: Buffer): Buffer {
-  const prefix = ((new BN(y)).isEven()) ? 0x02 : 0x03;
+  const prefix = new BN(y).isEven() ? 0x02 : 0x03;
   const out = new Uint8Array(33);
   out[0] = prefix;
   out.set(x, 1);
@@ -31,7 +37,7 @@ export function encodePublicKey(x: Buffer, y: Buffer, compress: boolean): Buffer
 }
 
 export function publicPairToPublicKeyWith0xPrefix(x: Buffer, y: Buffer): string {
-  return `0x${x.toString('hex')}${y.toString('hex')}`
+  return `0x${x.toString("hex")}${y.toString("hex")}`;
 }
 
 export function publicKeyToAvalancheAddress(x: Buffer, y: Buffer) {

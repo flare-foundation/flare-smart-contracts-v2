@@ -57,7 +57,7 @@ export class TLPTransaction {
   @Index({ unique: false })
   timestamp!: number;
 
-  @OneToMany(() => TLPEvents, event => event.transaction_id)
+  @OneToMany(() => TLPEvents, (event) => event.transaction_id)
   TPLEvents_set!: TLPEvents[];
 }
 
@@ -67,7 +67,7 @@ export class TLPEvents {
   @PrimaryGeneratedColumn({ type: "int" })
   id!: number;
 
-  @ManyToOne(type => TLPTransaction, transaction_id => transaction_id.TPLEvents_set)
+  @ManyToOne((type) => TLPTransaction, (transaction_id) => transaction_id.TPLEvents_set)
   @JoinColumn({ name: "transaction_id" })
   @Index()
   transaction_id!: TLPTransaction;

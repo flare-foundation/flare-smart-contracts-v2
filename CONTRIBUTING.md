@@ -7,16 +7,19 @@ Any changes you make SHOULD be noted in the changelog.
 For merge request to be accepted, it MUST pass all linter and formatter checks,
 MUST pass all tests, and MUST be reviewed by at least one other contributor.
 
+> **IMPORTANT:** If you use AI assistance (GitHub Copilot, ChatGPT, Claude, etc.)
+> while contributing, you MUST disclose this in your merge request description.
+
 ## Set up your dev environment
 
 ### Hardhat
 
 ```bash
 # install dependencies
-yarn --frozen-lockfile
+pnpm --frozen-lockfile
 
 # compile contracts
-yarn compile
+pnpm compile
 ```
 
 ### Foundry
@@ -35,31 +38,26 @@ forge build
 
 ## Testing
 
-
 ### Hardhat
-
-#### How to run
 
 ```bash
 # recompile contracts before running tests
-yarn compile
+pnpm compile
 
 # all hardhat tests
-yarn hardhat test
+pnpm hardhat test
 
 # only unit tests in hardhat environment
-yarn test_unit_hh
+pnpm test_unit_hh
 
 # only integration tests in hardhat environment
-yarn test_integration_hh
+pnpm test_integration_hh
 
 # generate coverage report
-yarn coverage
+pnpm coverage
 ```
 
 ### Foundry
-
-#### How to run
 
 ```bash
 # all forge tests
@@ -72,7 +70,7 @@ forge test --mc <contract_name>
 forge test --mt <test_name>
 
 # generate coverage report
-yarn coverage-forge
+pnpm coverage-forge
 ```
 
 The default behavior for forge test is to only display a summary of passing and failing tests. To show more information change the verbosity level with the `-v` flag:
@@ -95,7 +93,7 @@ There are currently three linters included in this repository:
 
 ```bash
 # installs slither via pip if slither executable isn't found in PATH
-yarn install-slither
+pnpm install-slither
 ```
 
 If you wish to install slither yourself you can check their instructions [here](https://github.com/crytic/slither?tab=readme-ov-file#how-to-install).
@@ -103,15 +101,34 @@ If you wish to install slither yourself you can check their instructions [here](
 ### How to run
 
 ```bash
-# run eslint
-yarn eslint
+# run eslint on TypeScript
+pnpm lint:check
 
-# run solhint
-yarn lint
-
-# run solhint on forge test contracts
-yarn lint-forge
+# run solhint on all Solidity
+pnpm lint-sol
 
 # run slither
-yarn slither
+pnpm slither
+
+# check formatting
+pnpm format:check
 ```
+
+## Deployment
+
+Supported networks: `flare`, `songbird`, `coston`, `coston2`, `scdev` (local).
+
+### TEE Diamond deploy (Forge)
+
+```bash
+pnpm deploy_tee_contracts <network> <fullDeploy:boolean>
+```
+
+### Diamond cut execution
+
+```bash
+pnpm tee_diamond_cut <network> <cut-config-name>
+```
+
+Cut configurations are in `deployment/cuts/<network>/`.
+Internal output files are written to `deployment/output-internal/` (gitignored).

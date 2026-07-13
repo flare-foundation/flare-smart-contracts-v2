@@ -10,6 +10,8 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 
 contract FtsoInflationConfigurationsTest is Test {
 
+    uint16 internal constant MAX_BIPS = 1e4;
+
     FtsoInflationConfigurations private inflationConfigs;
     address private governance;
 
@@ -18,8 +20,6 @@ contract FtsoInflationConfigurationsTest is Test {
     bytes21 private feed1;
     bytes21 private feed2;
     bytes private secondaryBands;
-
-    uint16 internal constant MAX_BIPS = 1e4;
 
     function setUp() public {
         governance = makeAddr("governance");

@@ -25,11 +25,13 @@ import { redeployContracts } from "./deployment/scripts/redeploy-contracts";
 import { registerPublicKeys } from "./deployment/tasks/register-public-keys";
 import { deployFdcContracts } from "./deployment/scripts/deploy-fdc-contracts";
 import { redeployRelay } from "./deployment/scripts/redeploy-relay";
+import { redeployContractsTee } from "./deployment/scripts/redeploy-contracts-tee";
+import { checkAddressUpdater } from "./scripts/check-address-updater";
 import fs from "fs";
 import { HardhatNetworkAccountUserConfig } from "hardhat/types";
 // Importing standalone simple library to surpass warnings in mock contracts and in mock contract imports
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const intercept = require('intercept-stdout') as (fn: (text: string) => string) => void;
+const intercept = require("intercept-stdout") as (fn: (text: string) => string) => void;
 
 dotenv.config();
 
@@ -66,7 +68,7 @@ const accounts = [
   //   0x26c43a1d431a4e5ee86cd55ed7ef9edf3641e901
   ...(JSON.parse(fs.readFileSync("deployment/test-1020-accounts.json").toString()) as HardhatNetworkAccountUserConfig[])
     .slice(0, process.env.TENDERLY === "true" ? 150 : 2000)
-    .filter(x => x.privateKey !== process.env.DEPLOYER_PRIVATE_KEY),
+    .filter((x) => x.privateKey !== process.env.DEPLOYER_PRIVATE_KEY),
   ...(process.env.GENESIS_GOVERNANCE_PRIVATE_KEY
     ? [{ privateKey: process.env.GENESIS_GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
     : []),
@@ -129,17 +131,15 @@ function readContracts(network: string, filePath?: string): Contracts {
 
 // Tasks
 // Override solc compile task and filter out useless warnings
-task(TASK_COMPILE).
-  setAction(async (args, hre, runSuper) => {
-    (intercept as (fn: (text: string) => string) => void)((text: string) => {
-      if (/MockContract.sol/.test(text)) return "";
-      if (/SuicidalMock.sol/.test(text)) return "";
-      if (/FlareSmartContracts.sol/.test(text)) return "";
-      return text;
-    });
-    await runSuper(args);
+task(TASK_COMPILE).setAction(async (args, hre, runSuper) => {
+  (intercept as (fn: (text: string) => string) => void)((text: string) => {
+    if (/MockContract.sol/.test(text)) return "";
+    if (/SuicidalMock.sol/.test(text)) return "";
+    if (/FlareSmartContracts.sol/.test(text)) return "";
+    return text;
   });
-
+  await runSuper(args);
+});
 
 task("run-simulation", `Runs local simulation.`) // prettier-ignore
   .addOptionalParam("voters", "Number of voters to simulate", "4")
@@ -147,24 +147,26 @@ task("run-simulation", `Runs local simulation.`) // prettier-ignore
     await runSimulation(hre, accounts, +args.voters);
   });
 
-task("transfer-and-wrap-funds", `Transfer and wrap funds.`).setAction(async (args: { quiet: boolean }, hre, _runSuper) => {
-  if (!process.env.CHAIN_CONFIG) {
-    throw Error("CHAIN_CONFIG environment variable not set.");
+task("transfer-and-wrap-funds", `Transfer and wrap funds.`).setAction(
+  async (args: { quiet: boolean }, hre, _runSuper) => {
+    if (!process.env.CHAIN_CONFIG) {
+      throw Error("CHAIN_CONFIG environment variable not set.");
+    }
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
+    }
+    if (!process.env.ENTITIES_FILE_PATH) {
+      throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
+    }
+    if (!process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY) {
+      throw Error("ACCOUNT_WITH_FUNDS_PRIVATE_KEY environment variable not set.");
+    }
+    const network = process.env.CHAIN_CONFIG;
+    const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+    const entities = readEntities(process.env.ENTITIES_FILE_PATH);
+    await transferAndWrapFunds(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, oldContracts, entities, args.quiet);
   }
-  if (!process.env.OLD_CONTRACTS_PATH) {
-    throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
-  }
-  if (!process.env.ENTITIES_FILE_PATH) {
-    throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
-  }
-  if (!process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY) {
-    throw Error("ACCOUNT_WITH_FUNDS_PRIVATE_KEY environment variable not set.");
-  }
-  const network = process.env.CHAIN_CONFIG;
-  const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
-  const entities = readEntities(process.env.ENTITIES_FILE_PATH);
-  await transferAndWrapFunds(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, oldContracts, entities, args.quiet);
-});
+);
 
 task("register-entities", `Entities registration.`).setAction(async (args: { quiet: boolean }, hre, _runSuper) => {
   if (!process.env.CHAIN_CONFIG) {
@@ -179,22 +181,24 @@ task("register-entities", `Entities registration.`).setAction(async (args: { qui
   await registerEntities(hre, contracts, entities, args.quiet);
 });
 
-task("register-public-keys", `Public keys registration.`).setAction(async (args: { quiet: boolean }, hre, _runSuper) => {
-  if (!process.env.CHAIN_CONFIG) {
-    throw Error("CHAIN_CONFIG environment variable not set.");
+task("register-public-keys", `Public keys registration.`).setAction(
+  async (args: { quiet: boolean }, hre, _runSuper) => {
+    if (!process.env.CHAIN_CONFIG) {
+      throw Error("CHAIN_CONFIG environment variable not set.");
+    }
+    if (!process.env.ENTITIES_FILE_PATH) {
+      throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
+    }
+    const network = process.env.CHAIN_CONFIG;
+    const contracts = readContracts(network);
+    const entities = readEntities(process.env.ENTITIES_FILE_PATH);
+    await registerPublicKeys(hre, contracts, entities, args.quiet);
   }
-  if (!process.env.ENTITIES_FILE_PATH) {
-    throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
-  }
-  const network = process.env.CHAIN_CONFIG;
-  const contracts = readContracts(network);
-  const entities = readEntities(process.env.ENTITIES_FILE_PATH);
-  await registerPublicKeys(hre, contracts, entities, args.quiet);
-});
+);
 
 task("provide-random-number-for-initial-reward-epoch", `Provide random number for initial reward epoch.`)
   .addOptionalParam("trigger", "Trigger Flare daemon", "")
-  .setAction(async (args: { quiet: boolean, trigger: string | boolean }, hre, _runSuper) => {
+  .setAction(async (args: { quiet: boolean; trigger: string | boolean }, hre, _runSuper) => {
     if (!process.env.INITIAL_VOTER_PRIVATE_KEY) {
       throw Error("INITIAL_VOTER_PRIVATE_KEY environment variable not set.");
     }
@@ -357,6 +361,29 @@ task("deploy-fdc", "Deploy FDC contracts")
     }
   });
 
+task("redeploy-contracts-tee", "Redeploy contracts needed for TEE")
+  .addFlag("quiet", "Suppress console output")
+  .setAction(async (args, hre, runSuper) => {
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
+    }
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+      const contracts = readContracts(network);
+      await redeployContractsTee(hre, oldContracts, contracts, parameters, args.quiet);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set.");
+    }
+  });
+
+task("check-address-updater", "Check Address Updater").setAction(async (args, hre, runSuper) => {
+  const network = process.env.CHAIN_CONFIG!;
+  const contracts = readContracts(network);
+  await checkAddressUpdater(hre, contracts);
+});
+
 // verification constants
 const ETHERSCAN_API_URL = process.env.ETHERSCAN_API_URL || "123";
 const FLARE_EXPLORER_API_KEY = process.env.FLARE_EXPLORER_API_KEY || "123";
@@ -366,15 +393,19 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: "0.8.30",
+        version: "0.8.35",
         settings: {
           evmVersion: "cancun",
           optimizer: {
             enabled: true,
             runs: 200,
           },
-          // keep viaIR off globally to avoid RNat Yul issues
-          viaIR: false,
+          // viaIR for normal builds (TeePaymentsUtxo size / TeePayments stack), but OFF under COVERAGE so
+          // solidity-coverage instrumentation isn't optimized away (accurate reports) — the two TeePayments
+          // contracts are pinned viaIR:true below so they still compile under coverage. Forge tests read
+          // block.timestamp/number via vm.getBlockTimestamp()/vm.getBlockNumber() so viaIR doesn't fold
+          // stale values across vm.warp/vm.roll. RNat is pinned off below (Yul stack issues).
+          viaIR: !COVERAGE,
         },
       },
       {
@@ -398,26 +429,73 @@ const config: HardhatUserConfig = {
       },
       // enable IR only for files that require deeper stack handling (contracts in P256 usage path)
       "@openzeppelin/contracts/utils/cryptography/P256.sol": {
-        version: "0.8.30",
+        version: "0.8.35",
         settings: {
           evmVersion: "cancun",
           optimizer: {
             enabled: true,
-            runs: 200
+            runs: 200,
           },
-          viaIR: COVERAGE
+          viaIR: COVERAGE,
         },
       },
       // contracts that imports P256
       "contracts/protocol/implementation/NodePossessionVerifier.sol": {
-        version: "0.8.30",
+        version: "0.8.35",
         settings: {
           evmVersion: "cancun",
           optimizer: {
             enabled: true,
-            runs: 200
+            runs: 200,
           },
-          viaIR: COVERAGE
+          viaIR: COVERAGE,
+        },
+      },
+      // Pin RNat to viaIR off (global viaIR triggers Yul stack issues here).
+      "contracts/rNat/implementation/RNat.sol": {
+        version: "0.8.35",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+          viaIR: false,
+        },
+      },
+      "contracts/rNat/implementation/RNatAccount.sol": {
+        version: "0.8.35",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+          viaIR: false,
+        },
+      },
+      // TeePayments contracts always need viaIR (TeePaymentsUtxo size, TeePayments stack), including
+      // under coverage where the global default flips off.
+      "contracts/tee/implementation/TeePayments.sol": {
+        version: "0.8.35",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+          viaIR: true,
+        },
+      },
+      "contracts/tee/implementation/TeePaymentsUtxo.sol": {
+        version: "0.8.35",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+          viaIR: true,
         },
       },
       // EXTRA_OVERRIDES
@@ -434,36 +512,40 @@ const config: HardhatUserConfig = {
     scdev: {
       url: process.env.SCDEV_RPC || "http://127.0.0.1:9650/ext/bc/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     staging: {
       url: process.env.STAGING_RPC || "http://127.0.0.1:9650/ext/bc/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     songbird: {
       url: process.env.SONGBIRD_RPC || "https://songbird-api.flare.network/ext/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     flare: {
       url: process.env.FLARE_RPC || "https://flare-api.flare.network/ext/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     coston: {
       url: process.env.COSTON_RPC || "https://coston-api.flare.network/ext/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     coston2: {
       url: process.env.COSTON2_RPC || "https://coston2-api.flare.network/ext/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     hardhat: {
       accounts,
       initialDate: "2021-01-01", // no time - get UTC @ 00:00:00
+      // Pin the EVM to cancun (matches the compiler evmVersion). Newer Hardhat defaults to a post-Fusaka
+      // hardfork that enforces the EIP-7825 per-transaction gas cap (16,777,216), which breaks the
+      // simulation's high-gas setup transactions.
+      hardfork: "cancun",
       blockGasLimit: 125000000, // 10x ETH gas
       /*
         Normally each Truffle smart contract interaction that modifies state results in a transaction mined in a new block
@@ -476,7 +558,7 @@ const config: HardhatUserConfig = {
       allowBlocksWithSameTimestamp: true,
     },
     local: {
-      url: "http://127.0.0.1:8545",
+      url: process.env.LOCAL_RPC || "http://127.0.0.1:8545",
       chainId: 31337,
     },
   },
@@ -543,8 +625,8 @@ const config: HardhatUserConfig = {
     ],
   },
   sourcify: {
-    enabled: false
-  }
+    enabled: false,
+  },
 };
 
 export default config;
