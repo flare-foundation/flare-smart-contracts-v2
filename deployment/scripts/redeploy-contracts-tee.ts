@@ -79,18 +79,6 @@ export async function redeployContractsTee(
   } = await voterRegistryOld.getWeightsSums(currentRewardEpochId);
 
   // Deploy new contracts
-  const voterRegistry = await VoterRegistry.new(
-    governanceSettings,
-    deployerAccount.address,
-    deployerAccount.address, // tmp address updater
-    parameters.maxVotersPerRewardEpoch,
-    currentRewardEpochId,
-    newSigningPolicyInitializationStartBlockNumber,
-    normalisedWeightsSumOfVotersWithPublicKeys,
-    registeredVoters,
-    registrationWeights
-  );
-  spewNewContractInfo(contracts, null, VoterRegistry.contractName, `VoterRegistry.sol`, voterRegistry.address, quiet);
 
   const voterPreRegistry = await VoterPreRegistry.new(deployerAccount.address); // tmp address updater
   spewNewContractInfo(
@@ -120,6 +108,20 @@ export async function redeployContractsTee(
     flareSystemsCalculator.address,
     quiet
   );
+
+  const voterRegistry = await VoterRegistry.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address, // tmp address updater
+    parameters.maxVotersPerRewardEpoch,
+    currentRewardEpochId,
+    newSigningPolicyInitializationStartBlockNumber,
+    normalisedWeightsSumOfVotersWithPublicKeys,
+    registeredVoters,
+    registrationWeights
+  );
+  spewNewContractInfo(contracts, null, VoterRegistry.contractName, `VoterRegistry.sol`, voterRegistry.address, quiet);
+
 
   // update contract addresses
   await voterRegistry.updateContractAddresses(
