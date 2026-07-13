@@ -463,6 +463,10 @@
             "description": "If reward epoch of a message is less then `lastInitializedRewardEpoch - messageFinalizationWindowInRewardEpochs`\nthe relaying of a message is not allowed.",
             "type": "integer"
         },
+        "minFeeBIPS": {
+            "description": "Minimum fee percentage value voters can set, in BIPS (e.g. 20%).",
+            "type": "integer"
+        },
         "minimalRewardsOfferValueNAT": {
             "description": "The minimal reward offer value in NAT (e.g. 1,000,000).",
             "type": "integer"
@@ -606,6 +610,10 @@
             "description": "The threshold for the signing policy in PPM (must be less then 100%, e.g. 50%).",
             "type": "integer"
         },
+        "stakingFactor": {
+            "description": "Multiplier applied to node staking weights when computing voter registration weight (e.g. 5).",
+            "type": "integer"
+        },
         "submissionDeployerPrivateKey": {
             "description": "Submission deployer private key. Overriden if provided in `.env` file as `SUBMISSION_DEPLOYER_PRIVATE_KEY`",
             "type": "string"
@@ -697,6 +705,7 @@
         "maxNodeIdsPerEntity",
         "maxVotersPerRewardEpoch",
         "messageFinalizationWindowInRewardEpochs",
+        "minFeeBIPS",
         "minimalRewardsOfferValueNAT",
         "newSigningPolicyInitializationStartSeconds",
         "newSigningPolicyMinNumberOfVotingRoundsDelay",
@@ -732,6 +741,7 @@
         "signingPolicySignNonPunishableDurationBlocks",
         "signingPolicySignNonPunishableDurationSeconds",
         "signingPolicyThresholdPPM",
+        "stakingFactor",
         "submissionDeployerPrivateKey",
         "submissionWindowBlocks",
         "submitUptimeVoteMinDurationBlocks",

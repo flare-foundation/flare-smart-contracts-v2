@@ -23,8 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `bytes32 publicKeyPart1/publicKeyPart2`
 * `Signature` and `PublicKey` structs moved to shared interfaces `ISignature.sol` / `IPublicKey.sol`
 * Solidity pragma relaxed from `0.8.20` to `^0.8.20` across the contracts
-  (`NodePossessionVerifier` requires `^0.8.24` for the OpenZeppelin P-256 lib)
+  (`NodePossessionVerifier` requires `^0.8.24` for the OpenZeppelin P-256 lib;
+  `FlareSystemsCalculator` and `WNatDelegationFee` bumped to `^0.8.27`)
 * Adopted named imports across all Solidity files
+* FIP-16: `FlareSystemsCalculator` registration weight applies a `stakingFactor` multiplier
+  to node staking weight (default 5x), settable by governance
+* FIP-16: `WNatDelegationFee` enforces a `minFeeBIPS` lower bound on voter fees (default 20%), settable in the constructor
+* `FlareSystemsCalculator` and `WNatDelegationFee` improvements: added setter events,
+  governance setter for signing policy sign durations, and revert strings replaced with custom errors
 
 ### Fixed
 

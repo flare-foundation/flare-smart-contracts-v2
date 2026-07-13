@@ -76,7 +76,7 @@ contract FtsoRewardManagerProxyTest is Test {
         mockWNat = makeAddr("mockWNat");
         mockFlareSystemsCalculator = makeAddr("mockFlareSystemsCalculator");
 
-        wNatDelegationFee = new WNatDelegationFee(addressUpdater, 2, 2000);
+        wNatDelegationFee = new WNatDelegationFee(addressUpdater, 2, 2000, 2000);
 
         vm.prank(governance);
         vm.expectRevert("reward manager not set");
@@ -435,44 +435,44 @@ contract FtsoRewardManagerProxyTest is Test {
         _mockGetCurrentEpochId(0);
         assertEq(ftsoRewardManagerProxy.getDataProviderCurrentFeePercentage(voter1), 2000);
 
-        // change fee to 10%
+        // change fee to 25%
         vm.prank(voter1);
-        wNatDelegationFee.setVoterFeePercentage(uint16(1000));
+        wNatDelegationFee.setVoterFeePercentage(uint16(2500));
 
         // move to epoch 2
         _mockGetCurrentEpochId(2);
-        assertEq(ftsoRewardManagerProxy.getDataProviderCurrentFeePercentage(voter1), 1000);
+        assertEq(ftsoRewardManagerProxy.getDataProviderCurrentFeePercentage(voter1), 2500);
     }
 
     function testGetDataProviderFeePercentage() public {
         _mockGetCurrentEpochId(0);
 
-        // change fee to 10%
+        // change fee to 25%
         vm.prank(voter1);
-        wNatDelegationFee.setVoterFeePercentage(uint16(1000));
+        wNatDelegationFee.setVoterFeePercentage(uint16(2500));
 
         assertEq(ftsoRewardManagerProxy.getDataProviderFeePercentage(voter1, 0), 2000);
         assertEq(ftsoRewardManagerProxy.getDataProviderFeePercentage(voter1, 1), 2000);
-        assertEq(ftsoRewardManagerProxy.getDataProviderFeePercentage(voter1, 2), 1000);
+        assertEq(ftsoRewardManagerProxy.getDataProviderFeePercentage(voter1, 2), 2500);
     }
 
     function testGetDataProviderScheduledFeePercentageChanges() public {
         _mockGetCurrentEpochId(0);
 
-        // change fee to 10%
+        // change fee to 25%
         vm.prank(voter1);
-        wNatDelegationFee.setVoterFeePercentage(uint16(1000));
+        wNatDelegationFee.setVoterFeePercentage(uint16(2500));
 
-        // set fee to 5%
+        // set fee to 30%
         _mockGetCurrentEpochId(1);
         vm.prank(voter1);
-        wNatDelegationFee.setVoterFeePercentage(uint16(500));
+        wNatDelegationFee.setVoterFeePercentage(uint16(3000));
 
         (uint256[] memory percentageBIPS, uint256[] memory validFrom, bool[] memory isFixed) =
             ftsoRewardManagerProxy.getDataProviderScheduledFeePercentageChanges(voter1);
         assertEq(percentageBIPS.length, 2);
-        assertEq(percentageBIPS[0], 1000);
-        assertEq(percentageBIPS[1], 500);
+        assertEq(percentageBIPS[0], 2500);
+        assertEq(percentageBIPS[1], 3000);
         assertEq(validFrom[0], 2);
         assertEq(validFrom[1], 3);
         assertEq(isFixed[0], true);

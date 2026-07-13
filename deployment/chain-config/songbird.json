@@ -74,8 +74,10 @@
     "signingPolicySignNonPunishableDurationSeconds": 1200,
     "signingPolicySignNonPunishableDurationBlocks": 1200,
     "signingPolicySignNoRewardsDurationBlocks": 1200,
+    "stakingFactor": 5,
     "feePercentageUpdateOffset": 3,
     "defaultFeePercentageBIPS": 2000,
+    "minFeeBIPS": 2000,
     "pChainStakeEnabled": false,
 
     "ftsoProtocolId": 100,

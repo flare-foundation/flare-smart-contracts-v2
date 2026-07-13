@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.27;
 
 import { IPChainStakeMirror } from "@flarenetwork/flare-periphery-contracts/flare/IPChainStakeMirror.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -43,11 +43,13 @@ contract FlareSystemsCalculator is Governed, AddressUpdatable, IIFlareSystemsCal
     uint64 public signingPolicySignNonPunishableDurationBlocks; // 600
     /// Number of blocks (in addition to non-punishable blocks) after which all rewards are burned.
     uint64 public signingPolicySignNoRewardsDurationBlocks; // 600
+    /// Multiplier applied to node staking weights when computing registration weight.
+    uint16 public stakingFactor;
 
 
     /// Only VoterRegistry contract can call methods with this modifier.
     modifier onlyVoterRegistry {
-        require(msg.sender == address(voterRegistry), "only voter registry");
+        require(msg.sender == address(voterRegistry), OnlyVoterRegistry());
         _;
     }
 
@@ -61,6 +63,7 @@ contract FlareSystemsCalculator is Governed, AddressUpdatable, IIFlareSystemsCal
      * @param _signingPolicySignNonPunishableDurationBlocks Number of non-punishable blocks to sign new signing policy.
      * @param _signingPolicySignNoRewardsDurationBlocks Number of blocks (in addition to non-punishable blocks) after
      * which all rewards are burned.
+     * @param _stakingFactor Multiplier applied to node staking weights when computing registration weight.
      */
     constructor(
         IGovernanceSettings _governanceSettings,
@@ -69,20 +72,29 @@ contract FlareSystemsCalculator is Governed, AddressUpdatable, IIFlareSystemsCal
         uint24 _wNatCapPPM,
         uint64 _signingPolicySignNonPunishableDurationSeconds,
         uint64 _signingPolicySignNonPunishableDurationBlocks,
-        uint64 _signingPolicySignNoRewardsDurationBlocks
+        uint64 _signingPolicySignNoRewardsDurationBlocks,
+        uint16 _stakingFactor
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
-        require(_wNatCapPPM <= PPM_MAX, "_wNatCapPPM too high");
+        require(_wNatCapPPM <= PPM_MAX, WNatCapPPMTooHigh());
         wNatCapPPM = _wNatCapPPM;
+        emit WNatCapPPMSet(_wNatCapPPM);
         signingPolicySignNonPunishableDurationSeconds = _signingPolicySignNonPunishableDurationSeconds;
         signingPolicySignNonPunishableDurationBlocks = _signingPolicySignNonPunishableDurationBlocks;
         signingPolicySignNoRewardsDurationBlocks = _signingPolicySignNoRewardsDurationBlocks;
+        emit SigningPolicySignDurationsSet(
+            _signingPolicySignNonPunishableDurationSeconds,
+            _signingPolicySignNonPunishableDurationBlocks,
+            _signingPolicySignNoRewardsDurationBlocks
+        );
+        stakingFactor = _stakingFactor;
+        emit StakingFactorSet(_stakingFactor);
     }
 
     /**
      * Calculates the registration weight of a voter.
-     * It is approximation of the staking weight and capped WNat weight to the power of 0.75.
+     * It is approximation of (stakingFactor * staking weight + capped WNat weight) to the power of 0.75.
      * If some node id or delegation address is chilled, the weight for its part is zero.
      * @param _voter The address of the voter.
      * @param _rewardEpochId The reward epoch id.
@@ -104,7 +116,7 @@ contract FlareSystemsCalculator is Governed, AddressUpdatable, IIFlareSystemsCal
             nodeWeights = pChainStakeMirror.batchVotePowerOfAt(nodeIds, _votePowerBlockNumber);
             for (uint256 i = 0; i < nodeWeights.length; i++) {
                 if (_rewardEpochId >= voterRegistry.chilledUntilRewardEpochId(nodeIds[i])) {
-                    _registrationWeight += nodeWeights[i];
+                    _registrationWeight += stakingFactor * nodeWeights[i];
                 } else {
                     nodeWeights[i] = 0;
                 }
@@ -145,8 +157,40 @@ contract FlareSystemsCalculator is Governed, AddressUpdatable, IIFlareSystemsCal
      * @dev Only governance can call this method.
      */
     function setWNatCapPPM(uint24 _wNatCapPPM) external onlyGovernance {
-        require(_wNatCapPPM <= PPM_MAX, "_wNatCapPPM too high");
+        require(_wNatCapPPM <= PPM_MAX, WNatCapPPMTooHigh());
         wNatCapPPM = _wNatCapPPM;
+        emit WNatCapPPMSet(_wNatCapPPM);
+    }
+
+    /**
+     * Sets the signing policy sign phase durations used for the burn factor calculation.
+     * @dev Only governance can call this method.
+     */
+    function setSigningPolicySignDurations(
+        uint64 _signingPolicySignNonPunishableDurationSeconds,
+        uint64 _signingPolicySignNonPunishableDurationBlocks,
+        uint64 _signingPolicySignNoRewardsDurationBlocks
+    )
+        external onlyGovernance
+    {
+        signingPolicySignNonPunishableDurationSeconds = _signingPolicySignNonPunishableDurationSeconds;
+        signingPolicySignNonPunishableDurationBlocks = _signingPolicySignNonPunishableDurationBlocks;
+        signingPolicySignNoRewardsDurationBlocks = _signingPolicySignNoRewardsDurationBlocks;
+        emit SigningPolicySignDurationsSet(
+            _signingPolicySignNonPunishableDurationSeconds,
+            _signingPolicySignNonPunishableDurationBlocks,
+            _signingPolicySignNoRewardsDurationBlocks
+        );
+    }
+
+    /**
+     * Sets the multiplier applied to node staking weights.
+     * @dev Only governance can call this method, and only while voter registration is disabled.
+     */
+    function setStakingFactor(uint16 _stakingFactor) external onlyGovernance {
+        require(!flareSystemsManager.isVoterRegistrationEnabled(), VoterRegistrationEnabled());
+        stakingFactor = _stakingFactor;
+        emit StakingFactorSet(_stakingFactor);
     }
 
     /**
@@ -155,6 +199,7 @@ contract FlareSystemsCalculator is Governed, AddressUpdatable, IIFlareSystemsCal
      */
     function enablePChainStakeMirror() external onlyGovernance {
         pChainStakeMirrorEnabled = true;
+        emit PChainStakeMirrorEnabled();
     }
 
     /**
@@ -165,7 +210,7 @@ contract FlareSystemsCalculator is Governed, AddressUpdatable, IIFlareSystemsCal
     function calculateBurnFactorPPM(uint24 _rewardEpochId, address _voter) external view returns(uint256) {
         (uint64 startTs, uint64 startBlock, uint64 endTs, uint64 endBlock) =
             flareSystemsManager.getSigningPolicySignInfo(_rewardEpochId + 1);
-        require(endTs != 0, "signing policy not signed yet");
+        require(endTs != 0, SigningPolicyNotSignedYet());
         if (endTs - startTs <= signingPolicySignNonPunishableDurationSeconds) {
             return 0; // signing policy was signed on time secondwise
         }

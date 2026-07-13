@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import { Test } from "forge-std/Test.sol";
 import { FlareSystemsCalculator } from "../../../../contracts/protocol/implementation/FlareSystemsCalculator.sol";
 import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
+import { IFlareSystemsManager } from "../../../../contracts/userInterfaces/IFlareSystemsManager.sol";
 import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
 import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
 import { IWNatDelegationFee } from "../../../../contracts/userInterfaces/IWNatDelegationFee.sol";
@@ -31,10 +32,10 @@ contract FlareSystemsCalculatorTest is Test {
         addressUpdater = makeAddr("addressUpdater");
 
         calculator =
-            new FlareSystemsCalculator(govSetting, governance, addressUpdater, WNAT_CAP, 20 * 60, 600, 600);
+            new FlareSystemsCalculator(govSetting, governance, addressUpdater, WNAT_CAP, 20 * 60, 600, 600, 5);
 
         calculatorNoMirroring =
-            new FlareSystemsCalculator(govSetting, governance, addressUpdater, WNAT_CAP, 20 * 60, 600, 600);
+            new FlareSystemsCalculator(govSetting, governance, addressUpdater, WNAT_CAP, 20 * 60, 600, 600, 5);
 
         bytes32[] memory contractNameHashes = new bytes32[](7);
         contractNameHashes[0] = keccak256(abi.encode("EntityManager"));
@@ -96,7 +97,7 @@ contract FlareSystemsCalculatorTest is Test {
     }
 
     function testSetWNatCapFail2() public {
-        vm.expectRevert("_wNatCapPPM too high");
+        vm.expectRevert(IFlareSystemsCalculator.WNatCapPPMTooHigh.selector);
 
         vm.prank(governance);
 
@@ -109,6 +110,43 @@ contract FlareSystemsCalculatorTest is Test {
         calculator.setWNatCapPPM(30000);
 
         assertEq(calculator.wNatCapPPM(), uint24(30000));
+    }
+
+    function testSetStakingFactor() public {
+        _mockIsVoterRegistrationEnabled(false);
+        vm.prank(governance);
+        calculator.setStakingFactor(7);
+        assertEq(calculator.stakingFactor(), uint16(7));
+    }
+
+    function testSetStakingFactorOnlyGovernance() public {
+        vm.expectRevert("only governance");
+        calculator.setStakingFactor(7);
+    }
+
+    function testSetStakingFactorVoterRegistrationEnabled() public {
+        _mockIsVoterRegistrationEnabled(true);
+        vm.prank(governance);
+        vm.expectRevert(IFlareSystemsCalculator.VoterRegistrationEnabled.selector);
+        calculator.setStakingFactor(7);
+    }
+
+    function testSetSigningPolicySignDurations() public {
+        vm.prank(governance);
+        calculator.setSigningPolicySignDurations(1800, 700, 800);
+        assertEq(calculator.signingPolicySignNonPunishableDurationSeconds(), uint64(1800));
+        assertEq(calculator.signingPolicySignNonPunishableDurationBlocks(), uint64(700));
+        assertEq(calculator.signingPolicySignNoRewardsDurationBlocks(), uint64(800));
+    }
+
+    function testSetSigningPolicySignDurationsOnlyGovernance() public {
+        vm.expectRevert("only governance");
+        calculator.setSigningPolicySignDurations(1800, 700, 800);
+    }
+
+    function testEnablePChainStakeMirrorOnlyGovernance() public {
+        vm.expectRevert("only governance");
+        calculator.enablePChainStakeMirror();
     }
 
     function testCalculateRegistrationWeight() public {
@@ -195,10 +233,10 @@ contract FlareSystemsCalculatorTest is Test {
         uint256 registrationWeight =
             calculator.calculateRegistrationWeight(voter, rewardEpochId, votePowerBlockNumber);
 
-        // sum of weights = 2100100000
-        // sqrt(2100100000) = 45826
-        // sqrt(45826) = 214
-        assertEq(registrationWeight, 45826 * 214);
+        // sum of weights = 5 * (1e9 + 1e8 + 1e9) + 1e5 = 10500100000
+        // sqrt(10500100000) = 102469
+        // sqrt(102469) = 320
+        assertEq(registrationWeight, 102469 * 320);
     }
 
     function testCalculateRegistrationWeightVoterChilled() public {
@@ -551,7 +589,15 @@ contract FlareSystemsCalculatorTest is Test {
             abi.encode(signTs, signBlock)
         );
 
-        vm.expectRevert("signing policy not signed yet");
+        vm.expectRevert(IFlareSystemsCalculator.SigningPolicyNotSignedYet.selector);
         calculator.calculateBurnFactorPPM(rewardEpochId - 1, voter);
+    }
+
+    function _mockIsVoterRegistrationEnabled(bool _enabled) private {
+        vm.mockCall(
+            address(calculator.flareSystemsManager()),
+            abi.encodeWithSelector(IFlareSystemsManager.isVoterRegistrationEnabled.selector),
+            abi.encode(_enabled)
+        );
     }
 }
