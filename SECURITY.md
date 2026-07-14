@@ -17,5 +17,34 @@ scope, rules, and submission guidelines.
 ## Vulnerability disclosures
 
 Critical vulnerabilities will be disclosed via GitHub's
-[security advisory](https://github.com/flare-foundation/fassets/security)
+[security advisory](https://github.com/flare-foundation/flare-smart-contracts-v2/security)
 system.
+
+## Review scope
+
+### In scope
+- `contracts/adapters/**/*`
+- `contracts/customFeeds/**/*`
+- `contracts/fastUpdates/**/*`
+- `contracts/fdc/**/*`
+- `contracts/fscV1/**/*`
+- `contracts/ftso/**/*`
+- `contracts/governance/**/*`
+- `contracts/incentivePool/**/*`
+- `contracts/inflation/**/*`
+- `contracts/protocol/**/*`
+- `contracts/rNat/**/*`
+- `contracts/staking/**/*`
+- `contracts/userInterfaces/**/*`
+- `contracts/utils/**/*`
+
+### Out of scope
+
+- `contracts/mock/**/*`
+
+## Previous audits
+
+| Auditor | Date | Scope | Report |
+| ------- | ---- | ----- | ------ |
+| Zellic | March 2026 | FSP V1 and V2 | [Smart Contract Security Assessment](./audit/2026-03-16-Zellic-FSP_V1_and_V2_Smart_Contract_Security_Assessment.pdf) |
+| Zellic | June 2026 | FIP 16 | [Smart Contract Patch Review](./audit/2026-06-22-Zellic-FIP_16_Smart_Contract_Patch_Review.pdf) |
