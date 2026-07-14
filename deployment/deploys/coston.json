@@ -17,7 +17,7 @@
   {
     "name": "FlareSystemsCalculator",
     "contractName": "FlareSystemsCalculator.sol",
-    "address": "0x3787dCBD770202F856ED9204c19d6f9022Ff3BF2"
+    "address": "0x93FC4822406b1be653540B51e98030BfCA0775d5"
   },
   {
     "name": "FlareSystemsManager",
@@ -37,7 +37,7 @@
   {
     "name": "WNatDelegationFee",
     "contractName": "WNatDelegationFee.sol",
-    "address": "0xD6f2DC0A3433613d3d0Ee1d764e22631cCF175C8"
+    "address": "0x9Df6E3DC1b8A42316980edA034fDc2C7E0E1aEC9"
   },
   {
     "name": "FtsoInflationConfigurations",

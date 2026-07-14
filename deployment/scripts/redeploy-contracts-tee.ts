@@ -18,6 +18,7 @@ import {
   VoterPreRegistryContract,
   VoterRegistryContract,
   VoterRegistryInstance,
+  WNatDelegationFeeContract,
 } from "../../typechain-truffle";
 import { Account } from "web3-core";
 
@@ -37,6 +38,7 @@ export async function redeployContractsTee(
   const VoterPreRegistry = artifacts.require("VoterPreRegistry") as VoterPreRegistryContract;
   const FlareSystemsCalculator = artifacts.require("FlareSystemsCalculator") as FlareSystemsCalculatorContract;
   const FlareSystemsManager = artifacts.require("FlareSystemsManager") as FlareSystemsManagerContract;
+  const WNatDelegationFee = artifacts.require("WNatDelegationFee") as WNatDelegationFeeContract;
 
   // Define accounts in play for the deployment process
   let deployerAccount: Account;
@@ -64,7 +66,6 @@ export async function redeployContractsTee(
     contracts.getContractAddress(Contracts.VOTER_REGISTRY)
   );
   const entityManager = contracts.getContractAddress(Contracts.ENTITY_MANAGER);
-  const wNatDelegationFee = contracts.getContractAddress(Contracts.WNAT_DELEGATION_FEE);
 
   // Read current state
   const currentRewardEpochId = await flareSystemsManager.getCurrentRewardEpochId();
@@ -120,8 +121,33 @@ export async function redeployContractsTee(
     registeredVoters,
     registrationWeights
   );
-  spewNewContractInfo(contracts, null, VoterRegistry.contractName, `VoterRegistry.sol`, voterRegistry.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    VoterRegistry.contractName,
+    `VoterRegistry.sol`,
+    voterRegistry.address,
+    quiet
+  );
 
+  const wNatDelegationFee = await WNatDelegationFee.new(
+    deployerAccount.address, // tmp address updater
+    parameters.feePercentageUpdateOffset,
+    parameters.defaultFeePercentageBIPS,
+    parameters.minFeeBIPS
+  );
+  spewNewContractInfo(
+    contracts,
+    null,
+    WNatDelegationFee.contractName,
+    `WNatDelegationFee.sol`,
+    wNatDelegationFee.address,
+    quiet
+  );
+
+  if (parameters.pChainStakeEnabled) {
+    await flareSystemsCalculator.enablePChainStakeMirror();
+  }
 
   // update contract addresses
   await voterRegistry.updateContractAddresses(
@@ -158,10 +184,21 @@ export async function redeployContractsTee(
       addressUpdater,
       flareSystemsManager.address,
       entityManager,
-      wNatDelegationFee,
+      wNatDelegationFee.address,
       voterRegistry.address,
       pChainStakeMirror,
       wNat,
+    ]
+  );
+
+  await wNatDelegationFee.updateContractAddresses(
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER
+    ]),
+    [
+      addressUpdater,
+      flareSystemsManager.address
     ]
   );
 
