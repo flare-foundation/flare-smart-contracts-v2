@@ -255,8 +255,11 @@ def main() -> int:
 
     all_changes: list[str] = []
     hard_problems: list[str] = []
+    # Engagement-log files are historical records: exempt from auto-linking so code moves
+    # never churn their text (they are prose logs, not navigable reference docs).
+    SKIP_DOCS = {"CHECKPOINT.md", "CONCEPTS.md"}
     for doc in _expand(DOCS):
-        if doc.name == Path(__file__).name:
+        if doc.name == Path(__file__).name or doc.name in SKIP_DOCS:
             continue
         new_text, changes, problems = process_doc(doc, by_name, by_qual, file_lines)
         all_changes += changes

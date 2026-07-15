@@ -124,4 +124,7 @@ tool-specific references live alongside it: [`certora/README.md`](../../certora/
 [`docs/relay-phase3-documented-items.md`](../../docs/relay-phase3-documented-items.md), and [`docs/relay-t1-bridge.md`](../../docs/relay-t1-bridge.md).
 The **hardening half** of the engagement (goal 2) is documented in [`docs/relay-fixes.md`](../relay-fixes.md)
 (the RLY-* robustness fixes, issue-by-issue, with tests) and [`docs/relay-security-review.md`](../relay-security-review.md)
-(the post-fix security review).
+(the post-fix security review). Two engagement-log companions live alongside this ladder:
+[`CHECKPOINT.md`](CHECKPOINT.md) — the raw chronological engineering log behind these docs — and
+[`CONCEPTS.md`](CONCEPTS.md) — plain-words explanations of the concepts used here (SMT solvers, k-induction,
+CEXes, psAt, …), a draft of future FAQ pages.
