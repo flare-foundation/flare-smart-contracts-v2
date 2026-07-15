@@ -24,6 +24,16 @@ variables:
     - $YARN_CACHE_DIR
     - node_modules/
     policy: pull
+  # Same cache, read-write: for jobs pinned to the flarenetwork-md runner, whose runner-local cache the
+  # (untagged) build-smart-contracts job can never seed. With pull-push, the first self-provisioned run
+  # (see the node_modules fallback in those jobs) warms the local cache for subsequent runs.
+  cache-nodejs-rw:
+    key:
+      files: [ yarn.lock ]
+    paths:
+    - $YARN_CACHE_DIR
+    - node_modules/
+    policy: pull-push
 
 
 ##
@@ -164,16 +174,34 @@ test-linter-forge:
   script:
   - yarn lint-forge
 
+# NOTE on node_modules: forge remappings resolve @gnosis.pm/* from node_modules/. This job is pinned to
+# the flarenetwork-md runner, whose local cache the untagged build-smart-contracts job cannot seed — so the
+# cache is treated as an optimization only, with a deterministic fallback (apt node + pinned yarn-via-npx).
+# foundry:stable cannot host that fallback (non-root, no package manager), hence the same digest-pinned
+# python image + checksum-verified Foundry release as test-fv-halmos.
 test-unit-forge:
   extends: .test-node-sc
-  timeout: 10 minutes
+  timeout: 15 minutes
   tags: [ flarenetwork-md ]
-  image: ghcr.io/foundry-rs/foundry:stable
+  image: python:3.11.6-bookworm@sha256:ba7a7ac30c38e119c4304f98ef0e188f90f4f67a958bb6899da9defb99bfb471
+  cache: [ !reference [.partials, cache-nodejs-rw] ]
+  variables:
+    FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+    FOUNDRY_VERSION: "v1.7.1"
+    FOUNDRY_ARCHIVE_SHA256: "cf7e688ed0c4c48adffca788b496076e31060b67ac5afe1e43dbb5499c20c88b"
   before_script:
+  - if [ ! -d node_modules ]; then apt-get update -qq && apt-get install -y -qq nodejs npm > /dev/null && npx --yes yarn@1.22.22 install --frozen-lockfile; fi
+  - mkdir -p "$HOME/.foundry/bin"
+  - curl --fail --location --retry 3 --output "/tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" "https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_VERSION}/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz"
+  - echo "$FOUNDRY_ARCHIVE_SHA256  /tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" | sha256sum --check --strict
+  - tar -xzf "/tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" -C "$HOME/.foundry/bin"
+  - export PATH="$HOME/.foundry/bin:$PATH"
+  - forge --version
   - forge soldeer install
   - forge install --no-git
   - forge build
   script:
+  - export PATH="$HOME/.foundry/bin:$PATH"
   - forge test -vvv
 
 ##
@@ -193,7 +221,7 @@ test-fv-halmos:
   needs:
   - job: build-smart-contracts
     artifacts: true
-  cache: [ !reference [.partials, cache-nodejs] ]
+  cache: [ !reference [.partials, cache-nodejs-rw] ]
   timeout: 20 minutes
   tags: [ flarenetwork-md ]
   # Python is pinned to the reference version and image digest. Foundry is downloaded from its immutable
@@ -215,6 +243,8 @@ test-fv-halmos:
     - scripts/relay-artifact-provenance.js
   before_script:
   - python3 --version; git --version; curl --version | head -1   # env diagnostics
+  # node_modules fallback — the runner-local cache is an optimization, not a dependency (see test-unit-forge)
+  - if [ ! -d node_modules ]; then apt-get update -qq && apt-get install -y -qq nodejs npm > /dev/null && npx --yes yarn@1.22.22 install --frozen-lockfile; fi
   - pip install --user -r test-forge/fv/requirements-halmos.lock
   - mkdir -p "$HOME/.foundry/bin"
   - curl --fail --location --retry 3 --output "/tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" "https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_VERSION}/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz"
