@@ -82,10 +82,11 @@ Consequences to respect when adding checks:
 `prove_reach_*` controls. Their JUnit output is checked against a separate exact manifest by
 `kontrol/verify_kontrol.py`.)
 
-Run the whole gate the way CI does (`test-fv-halmos`):
+Run the whole gate the way CI does (`test-fv-halmos`). Fresh clone? `./scripts/bootstrap-fv.sh` sets up
+everything (node deps, forge build, the reference venv `./.venv-halmos`) and ends by running this gate:
 
 ```bash
-HALMOS=halmos python3 test-forge/fv/verify_fv.py \
+HALMOS=$PWD/.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py \
   --report-output verification-reports/relay-halmos.json
 ```
 

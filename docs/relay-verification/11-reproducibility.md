@@ -50,7 +50,10 @@ Expect: 59 tests pass. **CI:** `test-unit-forge` (`forge test -vvv`), `coverage-
 ## 11.3 R2 — Halmos suite (the FV gate)
 
 ```bash
-# recreate the REFERENCE toolchain (the venv every green run + doc-quoted output comes from):
+# ONE-COMMAND form (fresh clone): node deps + forge build + ./.venv-halmos + this gate:
+./scripts/bootstrap-fv.sh
+# ...or manually — recreate the REFERENCE toolchain (the venv every green run + doc-quoted output comes
+# from; lives at the REPO ROOT, gitignored):
 python3.11 -m venv .venv-halmos
 .venv-halmos/bin/pip install -r test-forge/fv/requirements-halmos.lock
 forge build

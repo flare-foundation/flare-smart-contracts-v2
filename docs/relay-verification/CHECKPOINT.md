@@ -8,6 +8,8 @@
 > Reading order: the ⭐ banners at the top are current; numbered sections below are the
 > chronological history (oldest at the bottom of each era). The polished, audit-facing
 > account is `docs/relay-verification/` — this file is the raw engineering log behind it.
+> Fresh clone? Start at the repo-root `CLAUDE.md` and run `./scripts/bootstrap-fv.sh`
+> (creates the in-repo `./.venv-halmos` reference toolchain and runs the Halmos gate).
 
 ---
 
