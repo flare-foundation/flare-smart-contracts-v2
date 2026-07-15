@@ -37,9 +37,11 @@ fi
 # --- 1. node deps (forge remappings reference node_modules/, e.g. @gnosis.pm) ---------------------
 step "node deps (needed by forge remappings)"
 if [ ! -d node_modules ]; then
+  # this is a yarn.lock project — npm ci does NOT apply (no package-lock.json). Prefer a real yarn;
+  # otherwise run yarn classic via npx (ships with npm), pinned for determinism.
   if command -v yarn >/dev/null 2>&1; then yarn install --frozen-lockfile;
-  elif command -v npm >/dev/null 2>&1; then npm ci;
-  else echo "ERROR: need yarn or npm for node_modules (forge remappings depend on it)." >&2; exit 1; fi
+  elif command -v npx >/dev/null 2>&1; then npx --yes yarn@1.22.22 install --frozen-lockfile;
+  else echo "ERROR: need yarn (or node+npx) for node_modules (forge remappings depend on it)." >&2; exit 1; fi
 else
   echo "node_modules present — skipping"
 fi
