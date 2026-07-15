@@ -64,7 +64,6 @@ def main() -> int:
             "status": "pass",
             "repository": {
                 "commit": git(["rev-parse", "HEAD"]),
-                "subrepository_commit": git(["-C", "flare-smart-contracts-v2", "rev-parse", "HEAD"]),
                 "worktree": git(["status", "--porcelain"]),
             },
             "manifest": {"path": str(args.manifest), "sha256": hashlib.sha256(manifest_bytes).hexdigest()},

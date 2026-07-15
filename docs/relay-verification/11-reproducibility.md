@@ -234,7 +234,7 @@ has a machine verdict; Certora remains key/cloud-gated. A green pipeline retains
 evidence reports rather than only human-oriented logs.
 
 The final `test-fv-bundle` job runs `verify_bundle.py` after the Halmos and Lean jobs.
-It refuses missing or non-passing reports and records both Git commits, the
+It refuses missing or non-passing reports and records the Git commit, the
 verification-manifest hash, and a SHA-256 for every evidence report. This bundle is
 the canonical hand-off artifact for a run; raw tool output alone may be stale or
 incomplete.

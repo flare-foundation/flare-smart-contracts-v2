@@ -268,7 +268,7 @@ test-fv-halmos:
     - verification-reports/relay-artifact-parity.json
     - verification-reports/relay-halmos.json
 
-# The bundle is the hand-off artifact: it binds passing evidence to both Git commits,
+# The bundle is the hand-off artifact: it binds passing evidence to the Git commit,
 # the manifest hash, and the SHA-256 of every report. Keep this deliberately separate
 # from the individual gates so a partial or stale report cannot be presented as a run.
 test-fv-bundle:
