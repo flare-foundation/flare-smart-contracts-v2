@@ -123,6 +123,13 @@ rewrite certora/README.md (run matrix + architecture + residual), docs sweep (02
 commit+push, memory. Toolchain: certoraRun 8.16.1 at ~/Library/Python/3.11/bin, solc ~/.local/solc/solc-0.8.27,
 java /usr/local/opt/openjdk/bin, key ~/.config/certora.env (source, never print).
 
+*ONBOARDING SELF-CONTAINED & VALIDATED (2026-07-15):* fresh-clone path proven end-to-end from origin:
+`git clone -b relay-fix-3 … && ./scripts/bootstrap-fv.sh` → node deps (yarn, or pinned `npx yarn@1.22.22` —
+npm-ci is WRONG for this yarn.lock repo, caught by rehearsal), forge build, in-repo `./.venv-halmos` from
+the lock, Halmos gate green (89/89, 60/60, 29/29, 0 violations), `git status` clean. Agent entry point =
+repo-root `CLAUDE.md` (auto-loaded; reading order, hard rules, git signing config, gate table). Commits
+9933d0bc / 9c9b4f2c / 31ca4a7c. The parent-folder venv is legacy.
+
 *Recorded powdr follow-ups (NOT started):*
 - **N1 (actionable now, days):** differential cross-validation harness — bodyL/loop fragments through
   powdr yul-semantics interpreter vs EVMYulLean exec; document agreement in L10 (A-EVM row).
