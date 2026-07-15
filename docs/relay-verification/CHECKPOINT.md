@@ -130,6 +130,17 @@ the lock, Halmos gate green (89/89, 60/60, 29/29, 0 violations), `git status` cl
 repo-root `CLAUDE.md` (auto-loaded; reading order, hard rules, git signing config, gate table). Commits
 9933d0bc / 9c9b4f2c / 31ca4a7c. The parent-folder venv is legacy.
 
+*PIPELINE HEALED (2026-07-15, all green incl. first-ever test-fv-bundle run):* two LATENT defects exposed
+when pushes resumed after 8 idle days — neither caused by the new commits. (1) `test-unit-forge` +
+`test-fv-halmos` (tagged flarenetwork-md) sourced node_modules ONLY from runner-local cache, which the
+untagged build-smart-contracts job can never seed → evicted cache = permanently red. Fix (ad2351c8): cache
+demoted to optimization — deterministic fallback (apt node + pinned `npx yarn@1.22.22`), cache-nodejs-rw
+(pull-push) so the first run re-seeds the tagged runner, test-unit-forge moved off non-root foundry:stable
+onto the digest-pinned python image + checksummed Foundry v1.7.1 (same as the halmos job). (2)
+`test-fv-bundle` had NEVER actually executed (always skipped behind the halmos failure); first run exposed
+a phantom `git -C flare-smart-contracts-v2` from the retired dual-folder layout. Fix (03b82238): bundle
+records the single canonical commit. Lesson: a green pipeline can mask never-run jobs and warm-cache luck.
+
 *Recorded powdr follow-ups (NOT started):*
 - **N1 (actionable now, days):** differential cross-validation harness — bodyL/loop fragments through
   powdr yul-semantics interpreter vs EVMYulLean exec; document agreement in L10 (A-EVM row).
