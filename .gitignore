@@ -11,6 +11,7 @@ deployment/deploys/initialRewardEpochId.txt
 # Foundry files
 cache-forge/
 artifacts-forge/
+verification-reports/
 !/broadcast
 /broadcast/*/31337/
 /broadcast/**/dry-run/
@@ -50,3 +51,6 @@ dependencies/
 certora/emv-*
 certora/.certora_internal
 .certora_internal
+
+# Python bytecode caches (FV gate scripts)
+__pycache__/

@@ -51,62 +51,47 @@ calldata that breaks the property.
    [`../../halmos.toml`](../../halmos.toml). It is a real hazard: it bit this suite once at the default.
 
 2. **The anti-vacuity control.** Because a vacuous pass is worthless, every harness carries a **reachability
-   control** — a function with `reach` in its name that asserts the *negation* of a reachable event, so
-   Halmos **must refute it with a witness**. The gate script
+   control** that asserts the *negation* of a reachable event, so Halmos **must refute it with a witness**.
+   The gate script
    [`verify_fv.py`](verify_fv.py) enforces both halves: every `check_` proof must PASS **and** every
-   `check_reach…` control must produce a **counterexample**. A reachability control that "passes" is a hard
-   failure (the accept path went unreachable → the proofs it guards are vacuous). This is why you will see,
-   in each file, both `check_<property>` and `check_reach_<something>`.
+   declared control must produce a **validated counterexample model**. A timeout, stuck path, exception,
+   all-revert result, invalid model, or truncated loop is never accepted as a witness.
 
-### 2.1 The naming convention (normative)
+### 2.1 The proof inventory (normative)
 
-The mapping from function names to expected behavior is established in exactly two places in code — there
-are no annotations in the Solidity itself:
+[`verification-manifest.json`](verification-manifest.json) is the source of truth for expected behavior:
 
 | Rule | Where established | Effect |
 |---|---|---|
-| name starts with **`check_`** | [`verify_fv.py:44`](verify_fv.py) passes `--function check_` to Halmos (also Halmos's default) | the function is a **symbolic obligation**: discovered, all params made symbolic, every path's assert handed to the SMT solver |
-| name contains **`reach`** (case-insensitive substring) | [`verify_fv.py:35-38`](verify_fv.py) `is_reachability()` | the verdict is **inverted**: a counterexample is the healthy result (`CEX (expected)`); a PASS is a `VACUITY ALARM` and fails the gate |
-| anything else `check_…` | default branch of the same verdict loop | a **proof**: PASS is healthy; a counterexample fails the gate |
+| name starts with **`check_`** | the manifest's `function_prefix` is passed to Halmos | Halmos discovers the symbolic obligation |
+| identifier is in `halmos.proofs` | explicit manifest entry | only Halmos exit code `PASS` is healthy |
+| identifier is in `halmos.reachability` | explicit manifest entry | only exit code `COUNTEREXAMPLE` with a validated model is healthy |
+| result is missing or undeclared | exact set comparison in `verify_fv.py` | hard failure; deleting or silently adding a check cannot leave CI green |
 
 Consequences to respect when adding checks:
 
-- **Never put `reach` in a proof's name** (e.g. `check_reachNewLimit_holds` would be silently expected to
-  *fail*). Conversely, every anti-vacuity control **must** contain `reach` (`check_reach_*`,
-  `check_reachability_*`, `*_mismatchReachable_*` all work — it is a substring match).
+- Add the fully-qualified identifier to exactly one manifest list. The `reach` naming convention remains
+  useful to readers but no longer controls the machine verdict.
 - **Every `check_` function carries a matching `EXPECT:` line** in the comment block directly above it, so
   the intent is readable at the function and greppable against the convention:
   - proofs end with `EXPECT: PASS` (canonical dedicated line: `// EXPECT: PASS (proof).`),
   - reachability controls with `EXPECT: COUNTEREXAMPLE` (canonical:
     `// EXPECT: COUNTEREXAMPLE (reachability control).`).
-- Self-audit — every check's leading comment must agree with its name class (no output = conforming):
-
-  ```bash
-  cd test-forge/fv && python3 - <<'EOF'
-  import re, glob
-  def blk(src,i):
-      out=[]; j=i-1
-      while j>=0 and src[j].strip().startswith("//"): out.append(src[j]); j-=1
-      return "\n".join(out)
-  for p in sorted(glob.glob("*.t.sol")):
-      src=open(p).read().splitlines()
-      for i,l in enumerate(src):
-          m=re.search(r'function (check_\w+)',l)
-          if not m: continue
-          reach="reach" in m.group(1).lower(); b=blk(src,i)
-          want,wrong=("COUNTEREXAMPLE","EXPECT: PASS") if reach else ("EXPECT: PASS","COUNTEREXAMPLE")
-          if want not in b or wrong in b: print(f"MISMATCH {p}: {m.group(1)}")
-  EOF
-  ```
 
 (The Kontrol harnesses under [`kontrol/`](kontrol/) follow the same idea with the `prove_` prefix and
-`prove_reach_*` controls, judged manually in their `run.sh` — the substring convention is Halmos-gate-specific.)
+`prove_reach_*` controls. Their JUnit output is checked against a separate exact manifest by
+`kontrol/verify_kontrol.py`.)
 
 Run the whole gate the way CI does (`test-fv-halmos`):
 
 ```bash
-HALMOS=halmos python3 test-forge/fv/verify_fv.py     # halmos.toml supplies loop=6 + the artifacts dir
+HALMOS=halmos python3 test-forge/fv/verify_fv.py \
+  --report-output verification-reports/relay-halmos.json
 ```
+
+Before this gate, CI runs [`verify_relay_artifact.py`](verify_relay_artifact.py). It recompiles Relay with
+the pinned FV compiler, proves that its metadata-stripped creation and runtime bytecode equal the Hardhat
+deployment artifact, and byte-compares the generated optimized Yul with the committed Lean source snapshot.
 
 ---
 
@@ -120,8 +105,9 @@ formalization of EVM/Yul, itself validated against the Ethereum execution-spec t
 - [`lean/bytecode-refinement/`](lean/bytecode-refinement/) — the same soundness lifted onto a loop executed by
   the *validated EVM semantics*, for all N. See its [`README.md`](lean/bytecode-refinement/README.md).
 
-**"Hole-free" is a precise claim, and you can check it yourself.** Every theorem ends with `#print axioms`.
-A proof is trusted exactly when that list is `[propext, Classical.choice, Quot.sound]` — Lean's three standard
+**"Hole-free" is a precise claim, and you can check it yourself.** Every declared audited result has a
+`#print axioms` directive. A proof is trusted when that list is a subset of
+`[propext, Classical.choice, Quot.sound]` — Lean's three standard
 axioms — with **no `sorryAx`** (no gaps) and **no `Lean.ofReduceBool`** (no `native_decide`). Two proofs add
 `zeroes_data` / `toByteArray_size`: these are *documented, upstream-dischargeable specs* (an `opaque` FFI
 symbol and a `private` bound), not semantic assumptions — the file headers explain each, and the exact

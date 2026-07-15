@@ -10,7 +10,8 @@ to a fixed depth; these are ∀-over-the-iteration-count via k-induction).
 |------|------------|
 | `RelaySigLoopFV.t.sol`   | unbounded-in-K signature-loop **weight invariant** (`weight ≤ prefixSum(nextUnusedIndex)`), via k-induction over a grounded prefix sum. 5 PROVE + 2 anti-vacuity controls. |
 | `RelayRandomMonoFV.t.sol`| unbounded **random-pointer monotonicity** (a stale relay never regresses the live round). 4 PROVE + 2 controls. |
-| `run.sh`                 | the build+prove recipe (installs nix solc, writes `foundry.toml`, runs `forge build` → `kontrol build` → `kontrol prove`). `kontrol prove` matches **both** `RelaySigLoopFV.prove_` and `RelayRandomMonoFV.prove_`; comment `RelayRandomMonoFV` out of the alternation to reproduce only the (faster) signature loop. |
+| `run.sh`                 | the build+prove recipe (checks pinned tool versions, writes `foundry.toml`, runs `forge build` → `kontrol build` → `kontrol prove`, then validates JUnit). It matches **both** harnesses. |
+| `verification-manifest.json` / `verify_kontrol.py` | exact 9-proof + 4-control inventory and fail-closed JUnit verdict gate. |
 | `foundry.toml`           | minimal Foundry config. |
 | `Dockerfile`             | **fully pinned, reproducible** Kontrol 1.0.248 toolchain (see below). |
 
@@ -60,8 +61,9 @@ docker run --rm --platform linux/amd64 -v "$PWD/test-forge/fv/kontrol":/work kon
 ```
 
 Per harness: `forge build` (≈1 s) → `kontrol build` (≈8–18 min, reuses the baked kdist) → `kontrol prove`.
-Judge from the per-test PASSED/FAILED list, NOT the process exit code (the reachability controls FAIL by
-design, so a non-zero exit is expected).
+The prover's nonzero exit is expected because reachability controls fail by design, but it is no longer
+ignored: `run.sh` preserves it and `verify_kontrol.py` jointly validates the exit, exact JUnit inventory,
+proof passes, and concrete control failures. Errors, skips, pending/incomplete proofs, and drift fail closed.
 
 ## Honest caveats (also in each harness header)
 

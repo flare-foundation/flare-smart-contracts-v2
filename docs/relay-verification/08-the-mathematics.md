@@ -342,7 +342,7 @@ mechanical — execution, the memory reads, the mask, the tally, the accumulatio
 index-range/strict-increase guards — is proved against the validated EVM. The [`RelayLoopMemRead.relay_loop_sound`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean#L454)
 statement of §C.5 remains as the simpler corroborating result; the literal chain is the stronger one. All
 literal-chain theorems are hole-free (`[propext, Classical.choice, Quot.sound]`; the two accounting-extraction
-lemmas need only `[propext, Quot.sound]`), inheriting the same two upstream-dischargeable data-layer specs
+lemmas need only `[propext, Quot.sound]`), inheriting the same upstream-dischargeable data/window specs
 (`zeroes_data`, `toByteArray_size`) only where the memory *write* round-trip is used.
 
 ### Summary of §C
@@ -358,9 +358,9 @@ lemmas need only `[propext, Quot.sound]`), inheriting the same two upstream-disc
 | `body_effM`, `loop_accM` | the **memory-reading** body `w += mload(i·32)&0xffff` and its induction, all N | R4b′ (§C.5) |
 | `bytecode_threshold_sound_mem(_int)` | accept ⟹ Σ masked reads > thr (modular; integer under no overflow), all N | R4b′ |
 | `bridge`, `relay_loop_sound` | masked-read sum = abstract loop weight; **accept ⟹ total registered weight > thr**, all N | R4b′ |
-| `body_effL`, `iter_advance` | the **literal** 17-statement deployed body executed in full; per-iteration advance derived | R4b″ (§C.6) |
+| `body_effL`, `iter_advance` | the **literal hand-transliterated** 17-statement body model; per-iteration advance derived | R4b″ (§C.6) |
 | `range_guard_pass`, `order_guard_pass`, `iter_advance_tight` | structural index guards derived from `ValidRun`; tightened advance | R4b″ |
-| `relay_loop_sound_literal_derived_tight` | **accept ⟹ total registered weight > thr**, `hcov`/`hcorr` derived; residual = ecrecover (`IterPremiseT`), all N | R4b″ |
+| `relay_loop_sound_literal_derived_tight` | conditional **accept ⟹ total registered weight > thr**; reads derived, `ValidRun`/execution/acceptance and ecrecover premises explicit, all N | R4b″ |
 | `relay_loop_sound_literal_early` | the same, with the accept branch as the deployed `return(0,0)` — the loop halts at the first threshold crossing (early return, faithful) | R4b″ |
 | `sstore_sload`, `sstore_reads_back` | storage round-trip; accept-write `merkleRootsPrivate[·][·]` (Relay.sol:1394) reads back | R5 |
 | `dispatch_routes_verify` | mode dispatch routes faithfully (`protocolId ≠ 1` → verify); modes don't cross-contaminate | R5 |

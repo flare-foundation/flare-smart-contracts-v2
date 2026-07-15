@@ -13,9 +13,10 @@ All commands are from the repo root unless noted: `flare-smart-contracts-v2/`.
 
 | Tool | Version (verified) | Install / source |
 |------|--------------------|------------------|
-| Foundry (`forge`) | **1.7.1** (suite-verified); `foundry:stable` / `foundryup` in CI | `curl -L https://foundry.paradigm.xyz \| bash && foundryup` |
-| `solc` | **0.8.27+commit.40a35a09** (Relay pragma `^0.8.20`; the exact `pragma solidity 0.8.27` in the test base pins the verified unit) | foundry-managed / system |
-| Halmos | **0.3.3** (CI: `python:3.12`) | pinned — [`test-forge/fv/requirements-halmos.lock`](../../test-forge/fv/requirements-halmos.lock) (full reference-venv freeze) |
+| Python orchestration | **3.11.6** | CI image `python:3.11.6-bookworm@sha256:ba7a…` |
+| Foundry (`forge`) | **1.7.1** | immutable release archive, SHA-256 `cf7e688e…`; no moving `stable`/`foundryup` in FV CI |
+| `solc` | FV **0.8.27+commit.40a35a09**; deployment **0.8.30+commit.73712a01** | both checked from artifact metadata; semantic bytecode parity is mandatory |
+| Halmos | **0.3.3** (Python 3.11.6) | full pinned closure in [`test-forge/fv/requirements-halmos.lock`](../../test-forge/fv/requirements-halmos.lock) |
 | z3 (SMT solver) | **4.12.6.0** | pinned in the same lock (CI installs `halmos==0.3.3 z3-solver==4.12.6.0`) |
 | Kontrol / KEVM | Kontrol **v1.0.248**, K **v7.1.334** | pinned Docker image (§11.5) |
 | Certora CLI | **8.16.1** | `pip install certora-cli` (+ `CERTORAKEY` for cloud) |
@@ -26,6 +27,11 @@ All commands are from the repo root unless noted: `flare-smart-contracts-v2/`.
 Repo build config: [`foundry.toml`](../../foundry.toml) sets `src=contracts`, `test=test-forge`, `out=artifacts-forge`,
 `evm_version=cancun`, `optimizer=true/200`, and `skip=['*.yul']` (so reference IR artifacts aren't
 compiled). FV config: [`halmos.toml`](../../halmos.toml) sets `loop=6`, `solver-timeout-assertion=0`, `forge-build-out=artifacts-forge`.
+
+The normative machine-readable record is
+[`test-forge/fv/verification-manifest.json`](../../test-forge/fv/verification-manifest.json). It owns the
+compiler settings, 89-check Halmos inventory, EVMYulLean pin, allowed Lean axioms, exact axiom-audit counts,
+and required capstones. Changes to proof inventory or trust settings therefore appear as explicit manifest diffs.
 
 ---
 
@@ -48,8 +54,15 @@ Expect: 59 tests pass. **CI:** `test-unit-forge` (`forge test -vvv`), `coverage-
 python3.11 -m venv .venv-halmos
 .venv-halmos/bin/pip install -r test-forge/fv/requirements-halmos.lock
 forge build
-# the exact CI gate (reads halmos.toml: loop=6, solver-timeout-assertion=0):
-HALMOS=.venv-halmos/bin/halmos python3 test-forge/fv/verify_fv.py
+# create deployment provenance after Hardhat compilation:
+node scripts/relay-artifact-provenance.js --output verification-reports/relay-deployment.json
+# bind FV solc output + optimized Yul to the deployment artifact:
+.venv-halmos/bin/python test-forge/fv/verify_relay_artifact.py \
+  --deployment-report verification-reports/relay-deployment.json \
+  --report-output verification-reports/relay-artifact-parity.json
+# exact CI gate (halmos.toml supplies loop=6 and unlimited assertion timeout):
+HALMOS=.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py \
+  --report-output verification-reports/relay-halmos.json
 # a single harness:
 halmos --contract RelaySigParamFV
 # tripwire demo — too-small bound must FAIL with vacuity alarms:
@@ -58,19 +71,16 @@ python3 test-forge/fv/verify_fv.py --loop 2
 
 Expect from the gate:
 ```
-[fv] 89 checks: 60 proofs hold, 29 reachability controls live (CEX). 0 violation(s).
-[fv] OK — all proofs hold and every reachability control is live (non-vacuous).
+[fv] 89/89 checks observed: 60/60 proofs hold, 29/29 reachability controls have validated counterexamples. 0 violation(s).
+[fv] OK - exact proof inventory holds and every reachability control has a valid witness.
 ```
-**CI:** `test-fv-halmos` (`python:3.12` image; installs halmos + foundry, `forge build`, then the gate).
+**CI:** `test-fv-halmos` (digest-pinned Python; checksum-pinned Foundry; full Halmos lock; unit tests,
+artifact/IR parity, then the exact proof gate). The normalized JSON reports are retained as CI artifacts.
 Triggered on changes to [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol), the relay interfaces, `test-forge/fv/**`, or [`halmos.toml`](../../halmos.toml).
 
-> Note: a Halmos "counterexample" on an obviously-true assertion is usually a **solver timeout**, not a
-> bug. `solver-timeout-assertion=0` in `halmos.toml` is what lets the nonlinear `RelayThresholdScalingFV`
-> proofs finish (see the CI-gate memory / commit `37a27851`). The same three nonlinear proofs have been
-> observed to misreport under a *different local install even at identical halmos/z3 versions* — which is
-> why the reference toolchain is pinned as a full freeze
-> ([`requirements-halmos.lock`](../../test-forge/fv/requirements-halmos.lock)) and verdicts should be judged
-> from that venv (or CI).
+The gate distinguishes Halmos's six result classes. Only exit `0` is a proof pass and only exit `1` with at
+least one `is_valid=true` model is a reachability witness; timeout, stuck, all-revert, exception, malformed
+JSON, missing/unexpected checks, process/JSON disagreement, and bounded loops all fail closed.
 
 ---
 
@@ -80,14 +90,21 @@ Triggered on changes to [`Relay.sol`](../../contracts/protocol/implementation/Re
 pip install certora-cli            # 8.16.1
 # Local typecheck (no key, no cloud) — compiles Relay under Certora + typechecks the spec; passes:
 certoraRun certora/Relay.conf --compilation_steps_only --solc /path/to/solc-0.8.27
-# Full cloud proof (needs an account):
+# The DISCHARGED cloud runs (need an account; see certora/README.md for the run matrix + report links):
 export CERTORAKEY=<your key>
+certoraRun certora/Relay-rawstorage.conf --solc /path/to/solc-0.8.27      # 3 scalar rules, via-ir: 19/21 fns
+certoraRun certora/Relay-rawstorage-A3.conf --solc /path/to/solc-0.8.27   # 3 scalar rules, legacy: 20/21
+./certora/munge.sh                                                        # regenerate + verify the munged tree
+certoraRun certora/Relay-writeonce.conf --solc /path/to/solc-0.8.27       # write-once, via-ir: 21/23
+certoraRun certora/Relay-writeonce-B2.conf --solc /path/to/solc-0.8.27    # write-once, legacy: 22/23
+# The HISTORICAL wall, for comparison (spurious violations):
 certoraRun certora/Relay.conf --solc /path/to/solc-0.8.27
 ```
 
-Expect: local typecheck exits 0 (only benign OZ-`MerkleProof` summarization warnings). The cloud run
-reproduces the **documented spurious violations** (the storage-havoc wall, [L5 §5.2](05-R3-unbounded-attempts.md));
-prior runs: `prover.certora.com/output/3798318/{a9a6c094…, 93ef4cf5…}`.
+Expect: local typecheck exits 0 (only benign OZ-`MerkleProof` summarization warnings). The discharged runs
+prove each rule non-vacuously for every function except `relay()` (via-ir also excepts `setSigningPolicy`) —
+judge from per-rule statuses (`SUCCESS`/`SANITY_FAIL`), not the CLI exit banner ([L5 §5.2](05-R3-unbounded-attempts.md)).
+Historical wall runs: `prover.certora.com/output/3798318/{a9a6c094…, 93ef4cf5…}`.
 
 ---
 
@@ -101,8 +118,9 @@ docker run --rm --platform linux/amd64 -v "$PWD/test-forge/fv/kontrol":/work kon
 ```
 
 Per harness: `forge build` (~1 s) → `kontrol build` (~8–18 min, reuses the baked kdist) → `kontrol prove`.
-**Judge from the per-test PASSED/FAILED list, not the exit code** (reachability controls FAIL by design).
-Expect the verdicts in [L5 §5.1](05-R3-unbounded-attempts.md) (5 PROVE + 2 CEX for `RelaySigLoopFV`, etc.).
+`run.sh` requests Kontrol's JUnit report, preserves the expected nonzero prover exit, and passes both to
+`verify_kontrol.py`. The exact manifest requires 9 proofs and 4 concrete-failure controls; errors, skips,
+pending/incomplete proofs, missing checks, and unexpected checks fail the run.
 Pinned: Kontrol v1.0.248, K v7.1.334, `nixpkgs @ 9eac87a…`, base image by sha256 digest.
 
 ---
@@ -114,8 +132,8 @@ Pinned: Kontrol v1.0.248, K v7.1.334, `nixpkgs @ 9eac87a…`, base image by sha2
 lean test-forge/fv/lean/RelaySigLoop.lean
 ```
 
-Expect: no errors; `#print axioms threshold_sound` = `[propext, Quot.sound]` (no `sorryAx`). Checks in
-seconds.
+Expect: no errors and two explicit `#print axioms` results with no `sorryAx`. This abstract file is also
+part of the automated nine-file Lean gate below.
 
 ---
 
@@ -148,30 +166,33 @@ No `error:`, no `sorry`/`sorryAx`. The file is self-contained; its scope and ass
 > `#eval`/`native_decide` on standalone files cannot link the extern lib — which is why the bytecode-refinement proofs
 > are symbolic and avoid `native_decide` entirely (this also keeps the axiom list clean).
 
-### The whole Lean gate (all 8 files) — the `test-fv-lean` CI job
+### The whole Lean gate (all 9 files) — the `test-fv-lean` CI job
 
-The check above verifies one file in isolation. The full R4b + R5 Lean development — **8 files**, hole-freeness
-enforced — is checked in one command, exactly as CI does it:
+The check above verifies one file in isolation. The full abstract + R4b + R5 development — **9 files**,
+hole-freeness enforced — is checked in one command, exactly as CI does it:
 
 ```bash
 # after the one-time EVMYulLean build above:
-EVMYUL_DIR=/tmp/evmyul2 python3 test-forge/fv/lean/verify_lean.py   # exit 0 = all 8 files hole-free
+EVMYUL_DIR=/tmp/evmyul2 python3 test-forge/fv/lean/verify_lean.py   # exit 0 = all 9 files hole-free
 ```
 
-`verify_lean.py` type-checks every file under `test-forge/fv/lean/bytecode-refinement/` against the pinned
-semantics and asserts each `#print axioms` line stays within the allowed set (rejecting any `sorryAx` /
-`native_decide`):
+`verify_lean.py` first verifies the checkout's actual Git commit and `lean-toolchain`, then scans the source
+for proof holes and undeclared axioms. It checks the abstract file plus every refinement file and requires
+exactly 165 declared `#print axioms` results, including the manifest's named capstones:
 
+- **ABSTRACT:** `RelaySigLoop` (core Lean, checked under the same pinned toolchain).
 - **STANDALONE** (import `EvmYul` only): `RelayBytecodeRefinement`, `DataLayer`, `RelayLoopMemRead`,
   `RelayLoopWindows`, `RelayLoopLiteral`, `RelayStorageLayer` (R5.1/5.3 storage + accept-write),
   `RelayFeeLayer` (R5.4 fees).
 - **INTEGRATION** (imports three siblings — compiled into the package lib first): `RelayBodyEff` (the literal
   loop-body model, the mode dispatch, and the end-to-end composition).
 
-Allowed axioms: `⊆ {propext, Classical.choice, Quot.sound}` + the two documented data-layer specs
-`zeroes_data`, `toByteArray_size` (see §11.8 and [`AXIOM_DISCHARGE.md`](../../test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md)).
-The same job is wired into `.gitlab-ci.yml` as **`test-fv-lean`** (clones + builds EVMYulLean pinned, then runs
-`verify_lean.py`), gated on changes under `test-forge/fv/lean/**`.
+Allowed axioms: `⊆ {propext, Classical.choice, Quot.sound}` plus three declarations implementing two
+documented data/window spec shapes: `RelayDataLayer.zeroes_data`, `RelayWindows.zeroes_data`, and
+`RelayDataLayer.toByteArray_size` (see §11.8 and
+[`AXIOM_DISCHARGE.md`](../../test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md)).
+The same job is wired into `.gitlab-ci.yml` as **`test-fv-lean`** and emits a normalized JSON report. It is
+triggered by Relay/interface/compiler/artifact-provenance changes as well as every Lean/Yul change.
 
 ---
 
@@ -180,9 +201,8 @@ The same job is wired into `.gitlab-ci.yml` as **`test-fv-lean`** (clones + buil
 For any Lean theorem, the certificate is its `#print axioms` output. The bar (the engagement's definition
 of "done"):
 
-- **allowed:** `propext`, `Classical.choice`, `Quot.sound` (standard, consistent, domain-neutral) — plus the
-  two documented, upstream-dischargeable data-layer specs `zeroes_data` / `toByteArray_size`, flagged only on
-  the memory-*write* results (§L9 §G; [`AXIOM_DISCHARGE.md`](../../test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md));
+- **allowed:** `propext`, `Classical.choice`, `Quot.sound` (standard, consistent, domain-neutral), plus only
+  the three named data/window declarations in the manifest;
 - **forbidden:** `sorryAx` (any hole/incomplete proof in the dependency tree) and `Lean.ofReduceBool`
   (would appear if `native_decide` were used — enlarges the trusted base; deliberately avoided).
 
@@ -198,16 +218,22 @@ CI gate (§11.7).
 |--------|------|---------|--------|
 | `test-unit-forge` | R0/R1 | `forge test -vvv` | ✅ |
 | `coverage-forge` (+ `-reports`) | R0/R1 | `forge build` + coverage | ✅ |
-| `test-fv-halmos` | R2 | `python3 test-forge/fv/verify_fv.py` | ✅ |
+| `build-smart-contracts` + `test-fv-halmos` | artifact provenance | deployment report + FV bytecode/IR parity | ✅ |
+| `test-fv-halmos` | R2 | unit-test gates + exact-manifest `verify_fv.py` | ✅ |
 | `build-smart-contracts`, `test-linter`, `test-linter-forge` | build/lint | `forge build` / solhint | ✅ |
-| `test-fv-lean` | R4b/R5 | `python3 test-forge/fv/lean/verify_lean.py` (pinned EVMYulLean, all 8 files hole-free) | ✅ |
+| `test-fv-lean` | R4a/R4b/R5 | `verify_lean.py` (pinned commit/toolchain, all 9 files, 165 audits) | ✅ |
 | `test-doc-links` | docs | `python3 docs/relay-verification/verify_links.py --check` (symbol-addressed code links stay current; fix with `--fix`) | ✅ |
-| (Kontrol) | R3 | Docker image; run offline (heavy) | manual/offline |
 | (Certora) | R3 | `certoraRun` (needs key) | manual/offline |
-| (Lean the abstract proof) | R4a | `lake env lean RelaySigLoop.lean` | manual/offline |
+| (Kontrol) | R3 | Docker + JUnit manifest gate | manual/offline, fail-closed |
 
-R0–R2 **and R4b/R5** run on every relevant push (the green pipeline — the latter via `test-fv-lean`, gated on
-`test-forge/fv/lean/**`). R3 and R4a are heavyweight or key/toolchain-gated and are reproduced offline per the
-sections above; their artifacts are committed so the results are re-checkable.
+R0–R2 and all Lean files run on every relevant push. Kontrol remains heavyweight/manual but its runner now
+has a machine verdict; Certora remains key/cloud-gated. A green pipeline retains the exact normalized
+evidence reports rather than only human-oriented logs.
+
+The final `test-fv-bundle` job runs `verify_bundle.py` after the Halmos and Lean jobs.
+It refuses missing or non-passing reports and records both Git commits, the
+verification-manifest hash, and a SHA-256 for every evidence report. This bundle is
+the canonical hand-off artifact for a run; raw tool output alone may be stale or
+incomplete.
 
 **Next:** [L12 — Lessons](12-lessons.md): the transferable method distilled from all of this.

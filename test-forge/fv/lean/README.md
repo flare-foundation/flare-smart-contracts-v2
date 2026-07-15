@@ -8,7 +8,10 @@ where the bounded tools (Halmos: fixed K; Kontrol: fixed N) cannot reach:
 | `RelaySigLoop.lean` | **the abstract proof** | the accounting algorithm (no EVM) | **∀N ∀K** |
 | `bytecode-refinement/RelayBytecodeRefinement.lean` | **the bytecode refinement** | a loop run by validated EVM/Yul semantics | **∀N** |
 
-Both are hole-free: no `sorry`/`admit`/`axiom`, `#print axioms` ⊆ `{propext, Classical.choice, Quot.sound}`.
+Both are hole-free: no `sorry`/`admit`/`native_decide`. Most results use only
+`{propext, Classical.choice, Quot.sound}`; the data/window layer declares exactly three
+upstream-dischargeable specifications (`RelayDataLayer.zeroes_data`,
+`RelayDataLayer.toByteArray_size`, `RelayWindows.zeroes_data`), all explicitly allowlisted and reported.
 
 ## `RelaySigLoop.lean` — the abstract proof (∀N ∀K)
 
@@ -33,13 +36,16 @@ lean RelaySigLoop.lean        # Lean 4, core only (no mathlib) — checks in sec
 Lifts the abstract result onto a loop executed by NethermindEth's validated EVMYulLean operational
 semantics, for all N: `bytecode_loop_correct` (the interpreter runs the loop to completion and computes
 the accumulator) and `bytecode_threshold_sound` (accept ⟹ total > threshold, on the validated semantics).
-The encoded loop is memory-free; the data-layer, overflow-bound, and encoding assumptions are stated in
-the claims ledger. Build/check instructions and the assumption boundary are in
+The original encoded loop is memory-free. The later data/window developments discharge the masked-read and
+overflow layers under their stated hypotheses, while the literal-body and dispatch theorems remain a
+hand-transliterated, conditional refinement rather than extraction of the entire compiled program.
+Build/check instructions and the exact assumption boundary are in
 `bytecode-refinement/README.md` and `../../../docs/relay-verification/`.
 
 ## Trust boundary
 
-The abstract proof owns the accounting; the bytecode refinement connects it to validated EVM semantics for
-the loop mechanism; the deployed-bytecode link at bounded K is the Halmos bridge
+The abstract proof owns the accounting under `ValidRun`; the bytecode refinement connects that accounting
+to validated EVM semantics for the modeled loop mechanism. The artifact gate binds the FV compiler output
+and committed optimized Yul to the Hardhat deployment bytecode; the bounded behavioral link is the Halmos bridge
 (`../RelayModelBridgeFV.t.sol`, K≤3); cryptography (`ecrecover`/`keccak`) and the boundary-call
 operational contracts are stated assumptions. Full ledger: `../../../docs/relay-verification/`.

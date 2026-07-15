@@ -145,24 +145,25 @@ The residual — explicitly *assumed*, validated separately — is small and nam
 scope by design), the operational ABI of each boundary call, a trusted signing-policy setter, and the
 per-iteration *selection/validity* the external calls determine (which voter each signature recovers to, and
 that indices are strictly increasing). The **data layer** — that each iteration reads the intended weight from
-memory — is no longer assumed: the loop now runs the deployed contract's *actual* 17-statement signature-verification
-body on the validated EVM, so the memory reads are executed and their correctness is *derived*, not assumed (the
+memory — is no longer simply postulated: the literal model runs a statement-for-statement transcription of
+the contract's 17-statement signature-verification body on the validated EVM, so its memory reads are
+executed and their correctness is derived inside that model (the
 hole-free literal chain, capstone `relay_loop_sound_literal_derived_tight`, in
 [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean); the simpler masked-read
 `relay_loop_sound` corroborates — L7 §7.3). L10 fences the residual precisely.
 
 > ⚠ **Caveat (discharged in L7/L10 — the most important one).** The loop run inside the validated EVM
-> model at R4b is a *counting accumulation loop*; its body is now the deployed contract's **actual 17-statement
-> signature-verification body**, executed statement-for-statement — real `mstore`/`calldatacopy`/`mload`, the
+> model at R4b is a *counting accumulation loop*; its body is a hand-transliterated 17-statement model,
+> executed statement-for-statement — real `mstore`/`calldatacopy`/`mload`, the
 > masked weight read, the tally and the accept gate — so the **loop mechanism, the data layer, and the body's
 > memory plumbing** are all captured (the literal chain `relay_loop_sound_literal_derived_tight`; the earlier
 > masked-read `relay_loop_sound` remains as the simpler corroborating statement — L7 §7.3). What is still
 > abstracted is only the *cryptography*: the `ecrecover` precompile (invoked via `staticcall`) is uninterpreted
 > by design, so the ecrecover facts (a valid signature recovers to the registered voter) plus the no-double-count
-> discipline are the stated per-iteration hypothesis (`IterPremiseT`), and the signature-specific accounting is
-> what **the abstract proof** handles in full generality. The result therefore establishes *accept ⟹ enough
-> genuine voter weight, on a validated model of the real machine, for all N* — not "the entire deployed contract
-> is proven equivalent down to the cryptography."
+> discipline are stated hypotheses (`IterPremiseT`/`ValidRun`), and successful execution/acceptance remains
+> explicit in the capstones. The signature-specific accounting is
+> what **the abstract proof** handles in full generality. The result establishes its conditional theorem on
+> validated semantics for all N — not whole-program equivalence of every accepted deployed execution.
 
 ---
 

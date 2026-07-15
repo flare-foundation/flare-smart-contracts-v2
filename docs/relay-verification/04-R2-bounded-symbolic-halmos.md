@@ -41,16 +41,17 @@ proof. Three design elements:
 
 **(a) The gate — [`test-forge/fv/verify_fv.py`](../../test-forge/fv/verify_fv.py).** Halmos's raw exit code is not a usable CI signal (the
 anti-vacuity controls fail by design). The gate runs one Halmos invocation over all `check_*` functions in
-`test-forge/fv/**` (for a how-to-read-the-suite primer, see [`test-forge/fv/README.md`](../../test-forge/fv/README.md)), reads the JSON, and judges each check by convention:
+`test-forge/fv/**` (for a how-to-read-the-suite primer, see [`test-forge/fv/README.md`](../../test-forge/fv/README.md)), reads the JSON, and judges each check against the exact committed manifest:
 
-- a **proof** check (name without `reach`) must have **no counterexample**;
-- a **reachability** control (name contains `reach`) must **produce a counterexample**.
+- a declared **proof** must return Halmos `PASS`;
+- a declared **reachability** control must return `COUNTEREXAMPLE` with a validated model;
+- the observed and declared check sets must be identical, with zero bounded loops.
 
 It prints a per-check table and the summary line, and exits non-zero on any violation. Current CI output:
 
 ```
-[fv] 89 checks: 60 proofs hold, 29 reachability controls live (CEX). 0 violation(s).
-[fv] OK — all proofs hold and every reachability control is live (non-vacuous).
+[fv] 89/89 checks observed: 60/60 proofs hold, 29/29 reachability controls have validated counterexamples. 0 violation(s).
+[fv] OK - exact proof inventory holds and every reachability control has a valid witness.
 ```
 
 **(b) The anti-vacuity tripwire.** Every property harness pairs each positive proof with a **reachability
@@ -132,7 +133,7 @@ are nonlinear and need `solver-timeout-assertion = 0` (§4.2).
 | [`RelayRandomBindingFV`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L29) | random value binding / no-forgery (`p4_storedEqualsCommitted`, `p4_uncommittedValue_cannotStore`) |
 | [`RelayRandomMonotonicityFV`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L19) | random-pointer monotonicity over arbitrary sequences (`advances`, `bothHistoricalRetained`, `staleDoesNotRegress`; `reach_twoRelays`) |
 | [`RelayMerkleProofFV`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L18) | proof-element + alignment soundness (`m2_wrongSibling_cannotStore`, `m3_misalignedProof_rejected`) |
-| [`RelayMerkleFoldFV`](../../test-forge/fv/RelayMerkleFoldFV.t.sol#L22) | **unbounded-depth** fold injectivity / anti-forgery |
+| [`RelayMerkleFoldFV`](../../test-forge/fv/RelayMerkleFoldFV.t.sol#L22) | injectivity for the same sibling/path sequence (base, one-step, depth-2 checks; not arbitrary-proof membership soundness) |
 
 ### Fees
 

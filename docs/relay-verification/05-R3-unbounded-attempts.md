@@ -83,22 +83,25 @@ but not the whole ∀N∀K story either.
 Certora's distinctive strength is **parametric** invariants: a `rule … (method f)` is checked for **every**
 external/public method and arbitrary arguments — i.e., over all callers and all call sequences, not just
 the specific sequences Halmos/Kontrol enumerate. The spec targets exactly the cross-transaction **storage**
-properties where that would beat the other tools — **five invariants**, each specified and locally
-typechecked, none cloud-dischargeable (the assembly-storage wall, ledger item **C-1** in
-[L10](10-claims-ledger-trust-and-residual.md)):
+properties where that would beat the other tools — **five invariants**, each now **cloud-proven for every
+function except `relay()`** (2026-07; under the deployment via-ir codegen also excepting
+`setSigningPolicy`). The assembly-storage wall (ledger item **C-1** in
+[L10](10-claims-ledger-trust-and-residual.md)) is thereby narrowed to a single-function residual:
 
 | Rule | Property | Status |
 |------|----------|--------|
-| `nonceMonotonic` | `governanceFeeNonce` never decreases, ∀ function (globalizes RLY-02 / the 2-call [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L18)) | typechecked ✅ · cloud: spurious "violation" (C-1) · per-sequence form proven in Halmos |
-| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function incl. `relay()` Mode-1 (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15)) | typechecked ✅ · cloud: spurious "violation" (C-1) · per-sequence form proven in Halmos |
-| `signingPolicySetterImmutable` | the setter authority is immutable after construction | typechecked ✅ · cloud: spurious "violation" (C-1) — the decisive tell below |
-| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared | typechecked ✅ · cloud: `UNKNOWN` (C-1) |
-| `merkleRootWriteOnce` | a finalized Merkle root is write-once per (protocolId, votingRoundId) | typechecked ✅ · cloud: `UNKNOWN` (C-1) |
+| `nonceMonotonic` | `governanceFeeNonce` never decreases, ∀ function (globalizes RLY-02 / the 2-call [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L18)) | ✅ proven **20/21 fns** (legacy) · 19/21 (via-ir), incl. `governanceFeeSetup`, the writer; `relay()` vacuous (residual) |
+| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15)) | ✅ proven 20/21 (legacy) · 19/21 (via-ir); `relay()` (incl. its Mode-1 write) vacuous — covered per-sequence by Halmos |
+| `signingPolicySetterImmutable` | the setter authority is immutable after construction | ✅ proven 20/21 (legacy) · 19/21 (via-ir); `relay()` vacuous |
+| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the in-spec reachable-state link) | ✅ proven **22/23** (legacy, incl. `setSigningPolicy` — its writer) · 21/23 (via-ir); `relay()` vacuous |
+| `merkleRootWriteOnce` | a finalized Merkle root is write-once per (protocolId, votingRoundId) | ✅ proven 22/23 (legacy) · 21/23 (via-ir); `relay()` vacuous |
 
 `ecrecover` is left NONDET (modeling-contract A2): the storage invariants must hold regardless of which
 signatures the prover admits.
 
-**Status: specified + locally typechecked, cloud-run executed, not cloud-dischargeable.**
+**Status: cloud-proven, non-vacuously (`rule_sanity basic`), for every function except `relay()`** — and
+except `setSigningPolicy` under the deployment via-ir codegen (the legacy-codegen runs cover it). The
+historical wall, for the record:
 
 - The specs pass Certora's **local** pipeline — `certoraRun certora/Relay.conf --compilation_steps_only` —
   which compiles [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol) under Certora and **typechecks the spec against the real contract** (exit 0,
@@ -123,13 +126,27 @@ assembly `assignStruct`/`sstore`. When Certora's storage analysis cannot resolve
 conservatively **havocs all storage**, so every storage invariant breaks on every assembly-writing function
 — including slots that function never touches.
 
-**What it would take to discharge them:** re-model the storage layout in CVL with `ghost` variables + raw
-`hook Sstore`/`hook Sload` that mirror every assembly write (decoding the packed `StateData` bit-offsets and
-the computed mapping slots), then state the invariants over the ghosts. This is substantial **and
-re-introduces the faithfulness risk the engagement avoids** (a wrong bit-offset = a meaningless proof). Not
-recommended unless an audit specifically requires all-functions storage invariants — the **per-sequence**
-forms are already proven (Halmos `RelayGovernanceNonceFV`, `RelayEpochAdvanceFV`, …) and the ∀N∀K
-signature-loop soundness is the Lean proof.
+**How they were discharged (2026-07-15).** Not by the ghost/hook re-modeling once contemplated (which
+would have re-introduced hand-decoded bit-offsets), but by removing the failing analysis from the loop:
+`-enableStorageSplitting false` makes storage one SMT array whose aliasing is decided by the prover's
+**injective hashing model** (keccak-derived locations are guaranteed distinct from scalar slots and from
+other keys' locations) — the three getter-based rules then verify with zero spec changes. The two
+write-once rules (whose direct-storage-access formulation depends on the same analysis) are restated over
+plain-Solidity view getters via a **faithfulness-machine-checked munged copy**
+([`certora/munge.sh`](../../certora/munge.sh) regenerates it and fails unless the diff is exactly two
+`private → internal` keywords) and a harness ([`certora/harness/RelayHarness.sol`](../../certora/harness/RelayHarness.sol)).
+A legacy-codegen run also surfaced a genuine **unreachable-state counterexample** — parametric rules start
+from arbitrary storage, including "hash set while the epoch pointer is below it", from which
+`setSigningPolicy` may legitimately rewrite — now excluded by a documented in-spec reachable-state link
+(`require epoch <= lastInitializedRewardEpoch`). Full run matrix, report links, and mechanics:
+[`certora/README.md`](../../certora/README.md).
+
+**The narrowed residual:** under the no-splitting model, `relay()` itself (and `setSigningPolicy` under
+via-ir codegen) has no non-reverting path — the rules hold for it only vacuously (`SANITY_FAIL`, flagged by
+`rule_sanity`). This is intrinsic path-modeling, not a spec gap: the ghost/hook route inherits it (raw
+hooks *require* splitting-off). The failure mode is now visible no-coverage rather than false alarms, and
+`relay()`'s storage behavior stays covered by the per-sequence Halmos proofs on the real bytecode, the
+Kontrol ∀K invariant, and the Lean literal model.
 
 ---
 
@@ -138,7 +155,8 @@ signature-loop soundness is the Lean proof.
 Two independent, state-of-the-art unbounded provers fail on the **same** obstacle:
 
 - **Kontrol** at full symbolic-N — state-explosive (12 h / 0 proofs).
-- **Certora** at all-functions storage invariants — storage-slot havoc from inline assembly.
+- **Certora** at all-functions storage invariants — storage-slot havoc from inline assembly (since
+  narrowed to the `relay()`-only residual — §5.2).
 
 The root cause is identical: Relay is **~90% hand-rolled inline assembly with bit-packed storage written to
 scratch-memory-computed slots**, which defeats automated provers' storage models. That two different tools
@@ -148,8 +166,9 @@ twice, a real property of the contract.
 This is exactly why the stack escalates to **R4 (Lean + validated EVM semantics)**, which does not
 reconstruct a storage model at all: the abstract proof reasons at the algorithm level (no EVM), and the bytecode refinement reasons
 against a *validated* operational semantics of the bytecode. The convergent wall both justifies the
-strategy and bounds the residual: what remains unverified after the stack is "all-functions storage
-invariants *over raw assembly storage*", whose **per-sequence** forms are already proven elsewhere.
+strategy and bounds the residual: after the stack (and the 2026-07 discharge) what remains unverified is
+the all-functions storage invariants **on `relay()` alone**, whose per-sequence forms are proven on the
+real bytecode and whose accept-path write is proven in the Lean literal model.
 
 ---
 
@@ -173,11 +192,19 @@ Pinned: Kontrol `v1.0.248`, K `v7.1.334`, toolchain `nixpkgs @ 9eac87a…`, base
 ```bash
 pip install certora-cli            # tested: 8.16.1
 export CERTORAKEY=<your key>
-certoraRun certora/Relay.conf --solc /path/to/solc-0.8.27                 # cloud proof
+# the discharged runs (see certora/README.md for the full matrix + report links):
+certoraRun certora/Relay-rawstorage.conf --solc /path/to/solc-0.8.27      # 3 scalar rules, via-ir: 19/21
+certoraRun certora/Relay-rawstorage-A3.conf --solc /path/to/solc-0.8.27   # 3 scalar rules, legacy: 20/21
+./certora/munge.sh                                                         # regenerate + verify munged tree
+certoraRun certora/Relay-writeonce.conf --solc /path/to/solc-0.8.27       # write-once, via-ir: 21/23
+certoraRun certora/Relay-writeonce-B2.conf --solc /path/to/solc-0.8.27    # write-once, legacy: 22/23
+# the historical wall, for comparison (spurious violations):
+certoraRun certora/Relay.conf --solc /path/to/solc-0.8.27
 certoraRun certora/Relay.conf --compilation_steps_only --solc /path/to/solc-0.8.27   # local typecheck (no key)
 ```
 
-The cloud run reproduces the spurious violations above (the documented wall); the local typecheck passes.
+Judge from the per-rule statuses in the report (`SUCCESS` = proven non-vacuously; `SANITY_FAIL` = the
+`relay()` vacuity residual; the CLI's exit banner lumps the latter under "violations").
 
 **Next:** [L6 — R4a: the abstract proof](06-R4a-abstract-proof.md), where the ∀N∀K soundness that Kontrol
 could only approach at fixed N is proven outright, hole-free, in Lean.

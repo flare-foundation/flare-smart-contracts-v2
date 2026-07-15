@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "target": {
+    "source": "contracts/protocol/implementation/Relay.sol",
+    "contract": "Relay",
+    "optimized_ir_snapshot": "test-forge/fv/lean/relay_ir_optimized.yul",
+    "verification_compiler": {
+      "version": "0.8.27+commit.40a35a09",
+      "short_version": "0.8.27",
+      "evm_version": "cancun",
+      "optimizer_enabled": true,
+      "optimizer_runs": 200,
+      "via_ir": false
+    },
+    "deployment_compiler": {
+      "version": "0.8.30+commit.73712a01",
+      "evm_version": "cancun",
+      "optimizer_enabled": true,
+      "optimizer_runs": 200,
+      "via_ir": false
+    }
+  },
+  "toolchain": {
+    "foundry": "1.7.1",
+    "halmos": "0.3.3",
+    "z3": "4.12.6.0",
+    "evmyullean_commit": "047f63070309f436b66c61e276ab3b6d1169265a",
+    "lean_toolchain": "leanprover/lean4:v4.22.0",
+    "kontrol": "1.0.248",
+    "k": "7.1.334"
+  },
+  "halmos": {
+    "function_prefix": "check_",
+    "expected_process_exitcode": 1,
+    "expected_check_count": 89,
+    "max_bounded_loops": 0,
+    "proofs": [
+      "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_setSigningPolicy_onlySetter",
+      "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_badV_cannotAccept",
+      "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_highS_cannotAccept",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsLowThresholdIncrease",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroPolicyHash",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroRewardEpochDuration",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroVotingEpochDuration",
+      "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_noDoubleCount",
+      "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_threshold",
+      "test-forge/fv/RelayDelayedPolicyFV.t.sol:RelayDelayedPolicyFV.check_delayedPolicy_rejected",
+      "test-forge/fv/RelayEcrecoverSymbolicFV.t.sol:RelayEcrecoverSymbolicFV.check_accepted_usesFreshReturn_notStale",
+      "test-forge/fv/RelayEcrecoverSymbolicFV.t.sol:RelayEcrecoverSymbolicFV.check_emptyReturn_rejected",
+      "test-forge/fv/RelayEcrecoverSymbolicFV.t.sol:RelayEcrecoverSymbolicFV.check_zeroSigner_rejected",
+      "test-forge/fv/RelayEpochAdvanceFV.t.sol:RelayEpochAdvanceFV.check_epochAdvance_incrementsByOne",
+      "test-forge/fv/RelayEpochAdvanceFV.t.sol:RelayEpochAdvanceFV.check_epochAdvance_requiresSequential",
+      "test-forge/fv/RelayFeeConservationFV.t.sol:RelayFeeConservationFV.check_p7_feeConservation",
+      "test-forge/fv/RelayFinalizationWindowFV.t.sol:RelayFinalizationWindowFV.check_messageTooOld_rejected",
+      "test-forge/fv/RelayGovernanceNonceFV.t.sol:RelayGovernanceNonceFV.check_feeSetup_rejectedInSetterMode",
+      "test-forge/fv/RelayGovernanceNonceFV.t.sol:RelayGovernanceNonceFV.check_nonce_mustStrictlyIncrease",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_historicalSecure_eq_byteNonZero",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_leafNorm_machineChecked",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_liveAndHistorical_agree",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_liveSecure_eq_byteNonZero",
+      "test-forge/fv/RelayMerkleFoldFV.t.sol:RelayMerkleFoldFV.check_fold_base_injective",
+      "test-forge/fv/RelayMerkleFoldFV.t.sol:RelayMerkleFoldFV.check_fold_depth2_injective",
+      "test-forge/fv/RelayMerkleFoldFV.t.sol:RelayMerkleFoldFV.check_fold_step_injective",
+      "test-forge/fv/RelayMerkleProofFV.t.sol:RelayMerkleProofFV.check_m2_wrongSibling_cannotStore",
+      "test-forge/fv/RelayMerkleProofFV.t.sol:RelayMerkleProofFV.check_m3_misalignedProof_rejected",
+      "test-forge/fv/RelayModeOneFV.t.sol:RelayModeOneFV.check_modeOne_thresholdTooSmall_rejected",
+      "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_bridge_1sig",
+      "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_bridge_2sig",
+      "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_bridge_3sig",
+      "test-forge/fv/RelayMustUseNewPolicyFV.t.sol:RelayMustUseNewPolicyFV.check_mustUseNewPolicy_afterStart",
+      "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_equiv_NV1",
+      "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_equiv_NV2",
+      "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_equiv_NV3",
+      "test-forge/fv/RelayRandomBindingFV.t.sol:RelayRandomBindingFV.check_p4_storedEqualsCommitted",
+      "test-forge/fv/RelayRandomBindingFV.t.sol:RelayRandomBindingFV.check_p4_uncommittedValue_cannotStore",
+      "test-forge/fv/RelayRandomMonotonicityFV.t.sol:RelayRandomMonotonicityFV.check_advances",
+      "test-forge/fv/RelayRandomMonotonicityFV.t.sol:RelayRandomMonotonicityFV.check_bothHistoricalRetained",
+      "test-forge/fv/RelayRandomMonotonicityFV.t.sol:RelayRandomMonotonicityFV.check_staleDoesNotRegress",
+      "test-forge/fv/RelayReturnDiscriminatorFV.t.sol:RelayReturnDiscriminatorFV.check_protocolId1_successReturns35",
+      "test-forge/fv/RelayReturnDiscriminatorFV.t.sol:RelayReturnDiscriminatorFV.check_protocolId3_isNot35",
+      "test-forge/fv/RelayReturnDiscriminatorFV.t.sol:RelayReturnDiscriminatorFV.check_protocolId3_successReturns0",
+      "test-forge/fv/RelaySigFV.t.sol:RelaySigFV.check_noDoubleCount_duplicateIndex_cannotAccept",
+      "test-forge/fv/RelaySigFV.t.sol:RelaySigFV.check_threshold_twoVoters_cannotAccept",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_noDoubleCount_headDup_param",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_noDoubleCount_tailDup_param",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_threshold_1sig_param",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_threshold_2sig_param",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_threshold_3sig_param",
+      "test-forge/fv/RelayThresholdConsistencyFV.t.sol:RelayThresholdConsistencyFV.check_thresholdTooBig_rejected",
+      "test-forge/fv/RelayThresholdConsistencyFV.t.sol:RelayThresholdConsistencyFV.check_thresholdTooSmall_rejected",
+      "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_scaling_identityAtBoundary",
+      "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_scaling_neverWeakens",
+      "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_scaling_noOverflow",
+      "test-forge/fv/RelayVerifyFeeFV.t.sol:RelayVerifyFeeFV.check_fee_conserved",
+      "test-forge/fv/RelayVerifyFeeFV.t.sol:RelayVerifyFeeFV.check_fee_noOverpayKept",
+      "test-forge/fv/RelayVerifyFeeFV.t.sol:RelayVerifyFeeFV.check_fee_underpaymentImpossible",
+      "test-forge/fv/RelayWrongEpochFV.t.sol:RelayWrongEpochFV.check_wrongEpoch_rejected"
+    ],
+    "reachability": [
+      "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_reach_setter_canCall",
+      "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_reachability_canonicalAccepts",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_reach_ctor_validDeploys",
+      "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_reachability",
+      "test-forge/fv/RelayDelayedPolicyFV.t.sol:RelayDelayedPolicyFV.check_reach_atStart",
+      "test-forge/fv/RelayEcrecoverSymbolicFV.t.sol:RelayEcrecoverSymbolicFV.check_reach_validSigner_accepted",
+      "test-forge/fv/RelayEpochAdvanceFV.t.sol:RelayEpochAdvanceFV.check_reach_epochAdvance_correctSucceeds",
+      "test-forge/fv/RelayFeeConservationFV.t.sol:RelayFeeConservationFV.check_p7_reachability",
+      "test-forge/fv/RelayFinalizationWindowFV.t.sol:RelayFinalizationWindowFV.check_reach_recentNotTooOld",
+      "test-forge/fv/RelayGovernanceNonceFV.t.sol:RelayGovernanceNonceFV.check_reach_nonce_increasing",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_reach_highByte_canAccept",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_reach_insecure_canAccept",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_reach_secure_canAccept",
+      "test-forge/fv/RelayMerkleFoldFV.t.sol:RelayMerkleFoldFV.check_reach_fold_distinguishes",
+      "test-forge/fv/RelayMerkleProofFV.t.sol:RelayMerkleProofFV.check_reach_matchingProof",
+      "test-forge/fv/RelayModeOneFV.t.sol:RelayModeOneFV.check_reach_modeOne_validInstalls",
+      "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_reach_bridge_canAccept",
+      "test-forge/fv/RelayMustUseNewPolicyFV.t.sol:RelayMustUseNewPolicyFV.check_reach_oldPolicyOkBeforeStart",
+      "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_mismatchReachable_NV3",
+      "test-forge/fv/RelayRandomBindingFV.t.sol:RelayRandomBindingFV.check_p4_reachability",
+      "test-forge/fv/RelayRandomMonotonicityFV.t.sol:RelayRandomMonotonicityFV.check_reachability_twoRelays",
+      "test-forge/fv/RelayReturnDiscriminatorFV.t.sol:RelayReturnDiscriminatorFV.check_reach_protocolId1_canAccept",
+      "test-forge/fv/RelayReturnDiscriminatorFV.t.sol:RelayReturnDiscriminatorFV.check_reach_protocolId3_canAccept",
+      "test-forge/fv/RelaySigFV.t.sol:RelaySigFV.check_reachability_threeVoters_canAccept",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_reachability_param",
+      "test-forge/fv/RelayThresholdConsistencyFV.t.sol:RelayThresholdConsistencyFV.check_reach_inBand_accepted",
+      "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_reach_scaling_canIncrease",
+      "test-forge/fv/RelayVerifyFeeFV.t.sol:RelayVerifyFeeFV.check_reach_exactFee",
+      "test-forge/fv/RelayWrongEpochFV.t.sol:RelayWrongEpochFV.check_reach_correctEpoch"
+    ]
+  },
+  "lean": {
+    "allowed_axioms": [
+      "Classical.choice",
+      "Quot.sound",
+      "RelayDataLayer.toByteArray_size",
+      "RelayDataLayer.zeroes_data",
+      "RelayWindows.zeroes_data",
+      "propext"
+    ],
+    "declared_axioms": {
+      "DataLayer.lean": [
+        "RelayDataLayer.zeroes_data",
+        "RelayDataLayer.toByteArray_size"
+      ],
+      "RelayLoopWindows.lean": [
+        "RelayWindows.zeroes_data"
+      ]
+    },
+    "axiom_audit_counts": {
+      "RelaySigLoop.lean": 2,
+      "RelayBytecodeRefinement.lean": 5,
+      "DataLayer.lean": 11,
+      "RelayLoopMemRead.lean": 8,
+      "RelayLoopWindows.lean": 26,
+      "RelayLoopLiteral.lean": 31,
+      "RelayStorageLayer.lean": 13,
+      "RelayFeeLayer.lean": 14,
+      "RelayBodyEff.lean": 55
+    },
+    "required_results": {
+      "RelaySigLoop.lean": [
+        "RelaySigLoop.threshold_sound",
+        "RelaySigLoop.insufficient_weight_cannot_accept"
+      ],
+      "RelayBytecodeRefinement.lean": [
+        "bytecode_loop_correct",
+        "bytecode_threshold_sound_int"
+      ],
+      "DataLayer.lean": [
+        "weight_read"
+      ],
+      "RelayLoopMemRead.lean": [
+        "relay_loop_sound"
+      ],
+      "RelayLoopWindows.lean": [
+        "weight_of_window",
+        "signer_of_window"
+      ],
+      "RelayLoopLiteral.lean": [
+        "return_eff",
+        "staticcall_hyp_compose"
+      ],
+      "RelayStorageLayer.lean": [
+        "sstore_reads_back"
+      ],
+      "RelayFeeLayer.lean": [
+        "two_transfer_caller_net_zero"
+      ],
+      "RelayBodyEff.lean": [
+        "relay_loop_sound_literal_derived_tight",
+        "relay_loop_sound_literal_early",
+        "relay_dispatch_loop_accept",
+        "dispatch_setup_loop_accept"
+      ]
+    }
+  }
+}

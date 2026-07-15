@@ -1,11 +1,11 @@
 # L7 — R4b: the bytecode refinement
 
-> **What you get from this level.** The top rung: lifting the abstract proof's ∀N∀K soundness onto a loop
-> executed by a **validated model of the EVM**, for all N — crossing the assembly barrier. §7.2 establishes the
+> **What you get from this level.** Conditional ∀N refinement statements for a hand-modeled loop executed
+> by a **validated model of the EVM**. §7.2 establishes the
 > loop *mechanism* (memory-free); §7.3 then discharges the **data layer (BR-1)** — the body becomes the
 > deployed contract's real `mload(slot) & 0xffff` read — and composes the simulation-relation capstone
 > `relay_loop_sound` (accept ⟹ total registered weight > threshold): the **accounting core** of the relation
-> `R`. §7.3 further builds the **literal** model (`RelayBodyEff`, the full 17-statement deployed body executed
+> `R`. §7.3 further builds the **literal** model (`RelayBodyEff`, a 17-statement hand transcription executed
 > by the validated `exec`), which *derives* `hcov`/`hcorr` and the index-range/strict-increase guards —
 > leaving only the cryptographic `ecrecover` facts assumed (`relay_loop_sound_literal_derived_tight`). The overview, the results, and the honest residual. The mathematics is
 > [L8 §C](08-the-mathematics.md); the verbatim Lean, fuel-genericity, and axiom audit are
@@ -79,8 +79,9 @@ descend to the `Array.data` level — see [L9](09-the-formal-detail.md).)
 | `mask16_toNat` / `mask16_of_lt` | `and(x, 0xffff)` extracts the low 16 bits; identity on a 16-bit weight |
 | `weight_read` | the capstone: `mload(slot) & 0xffff = w` for a 16-bit weight stored at a 32-byte slot |
 
-These add exactly **two** documented, upstream-dischargeable axioms beyond the standard three — `zeroes_data`
-(the `opaque` `memset_zero`) and `toByteArray_size` (blocked only by a `private` upstream bound). Both are
+These add exactly **two specification shapes** beyond the standard three — `zeroes_data` (the `opaque`
+`memset_zero`) and `toByteArray_size` (blocked only by a `private` upstream bound). They appear as three
+qualified local declarations because the data and window namespaces each declare `zeroes_data`. All are
 *access-modifier* limitations, not semantic assumptions; each becomes a theorem with a one-line upstream edit.
 
 **The memory-reading loop, ∀N ([`RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean)).** §7.2's body is replaced by the deployed contract's
@@ -111,18 +112,19 @@ discipline are the *stated hypotheses* of `relay_loop_sound`:
 - `hvalid` — `ValidRun`: strictly-increasing in-range indices (the deployed guards passed = no double-count);
 - `hnoovf` — no overflow (BR-2).
 
-Everything *else* — the loop mechanism, the `mload`, the mask, the accumulation, the accept gate, and the
-accounting soundness — is *proven* against the validated semantics.
+Within this abstract model, the loop mechanism, `mload`, mask, accumulation, accept gate, and accounting
+soundness are proved against the validated semantics. Connecting those hypotheses to every compiled accepted
+execution remains BR-3.
 
 **The literal loop-body model — `hcov`/`hcorr` derived (2026-07-02/03).** The memory-reading loop above uses
 an *abstract* 2-statement body (`body_effM`) that *assumes* the read is state-preserving and returns the
 selected weight (`hcov`/`hcorr`). A companion model now removes those assumptions:
 [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean) — with
-[`RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean) (the deployed
-body transliterated statement-for-statement from `relay_ir_optimized.yul:1563-1610`) and
+[`RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean) (the Yul body
+hand-transliterated statement-for-statement from `relay_ir_optimized.yul:1563-1610`) and
 [`RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean) (the calldata
-byte-window decode) — executes the **full 17-statement deployed body** `bodyL` through the validated Yul
-`exec`, threading the *real* `mstore`/`calldatacopy`/`mload` state. The chain, all hole-free
+byte-window decode) — executes the **17-statement body model** `bodyL` through the validated Yul
+`exec`, threading modeled `mstore`/`calldatacopy`/`mload` state. The chain, all hole-free
 (`[propext, Classical.choice, Quot.sound]`; the accounting-extraction lemmas need only `[propext, Quot.sound]`):
 
 > `body_effL` (one iteration executed) → `s16_ww_advance` / `s16_ii_preserved` (the body adds exactly the
@@ -151,22 +153,24 @@ This is the most important part of the rung for an auditor; the full ledger is [
 - **The data layer (BR-1) is now proven, not assumed** (§7.3). With the memory-reading loop in place, the
   per-step quantity is a genuine `mload(...) & 0xffff` against the validated `MachineState`, not the loop
   index. And the "fully literal EVM model … would *derive* `hcov`/`hcorr`/`hvalid`" that this bullet used to
-  file under *future engineering* is now **built** (§7.3, `RelayBodyEff.lean`): the literal 17-statement body
+  file under *future engineering* is now **built as a conditional hand-transliterated model** (§7.3,
+  `RelayBodyEff.lean`): the literal 17-statement body
   is executed by the validated `exec`, `hcov`/`hcorr` are derived (`mload_masked_voter`), and the structural
   index guards are derived from `ValidRun`. The residual at this rung is therefore *only* the **external-call
   boundary**: `ecrecover` is uninterpreted (MC-2 / OP-1), supplied as the explicit per-iteration premise
   `IterPremiseT` (the cryptographic guards). The accounting conclusion is unchanged;
   `ecrecover` itself stays an assumption by design.
-- **Model-vs-deployed fidelity, made explicit (two BR-3 items a referee should see — the first now closed by the literal model).**
-  1. *The address map — matched in the literal model.* The **abstract** model (§7.3) places weight `j`
+- **Model-vs-deployed fidelity, made explicit (two BR-3 items a referee should see).**
+  1. *The address map — mirrored in the literal model.* The **abstract** model (§7.3) places weight `j`
      memory-resident at slot `j·32`, read once per iteration (`hcov`). The deployed loop instead
      `calldatacopy`s each voter record **from calldata into one fixed scratch slot** (`memPtr+96`) and re-reads
      that same slot every iteration
      ([`Relay.sol:1306-1319`](../../contracts/protocol/implementation/Relay.sol#L1306)). The **literal** model
-     (`RelayBodyEff.bodyL`) uses exactly this deployed addressing: `body_effL` threads the real `calldatacopy`
+     (`RelayBodyEff.bodyL`) mirrors this deployed addressing: `body_effL` threads `calldatacopy`
      into the scratch slot and the `mload` back out, and `mload_masked_voter` derives the read *without* the
      `hcov`/`hcorr` assumption — so the addressing-discipline gap this item flagged for the abstract model is
-     closed. (In the abstract model, `weight_read` discharges the read via an `mstore`-then-`mload` round-trip
+     closed inside the model. The remaining BR-3 obligation is equivalence between the hand transcription and
+     the compiled Yul. (In the abstract model, `weight_read` discharges the read via an `mstore`-then-`mload` round-trip
      while the deployed primitive is `calldatacopy`; both reduce to the same EVMYulLean `ByteArray.write` /
      `mem_roundtrip`, and the literal model takes the `calldatacopy` path directly.)
   2. *The deployed loop exits early — now modeled faithfully.* On-chain, acceptance **returns inside the
@@ -198,10 +202,10 @@ verified."
 
 ---
 
-## 7.5 Beyond the loop — the whole-`relay()` extension (R5)
+## 7.5 Beyond the loop — the `relay()` breadth model (R5)
 
-R4b proves the security-critical signature loop. **R5** extends the *same* literal, validated-EVM, hole-free
-method to the rest of `relay()` — **breadth**, not a new soundness fact (the accounting soundness is the loop's).
+R4b proves conditional properties of the security-critical signature-loop model. **R5** extends the same
+validated-EVM method with `relay()` components — **breadth**, not a whole-program refinement theorem.
 All results are hole-free and CI-gated with the loop proofs by `verify_lean.py` (§7.6):
 
 - **R5.1 storage round-trip** ([`RelayStorageLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean) `sstore_sload`): `(sstore k v).sload k = v` on EVMYulLean's real `State` — the storage analog of `DataLayer.mem_roundtrip` (needed transferring `TransCmp` for the RBMap key comparators from `Fin`/`Nat` and deriving `find?_erase` on `RBNode`).
@@ -219,8 +223,8 @@ deployed break→write→return) so the accept-write folds into the composition.
 
 ## 7.6 Status and reproduce
 
-- **Hole-free**, axioms `[propext, Classical.choice, Quot.sound]` (the data-layer / memory-reading files add
-  the two documented upstream-dischargeable axioms `zeroes_data`, `toByteArray_size`), re-verified from the
+- **Hole-free**, axioms within the manifest allowlist (the data/window files add the three named
+  upstream-dischargeable declarations), re-verified from the
   git-committed copies from scratch (`lake env lean`, exit 0).
 
 ```bash
@@ -236,7 +240,7 @@ lake env lean RelayBytecodeRefinement.lean   # loop mechanism (memory-free), ∀
 lake env lean DataLayer.lean                 # the data layer (byte/memory/value/mask/weight_read)
 lake env lean RelayLoopMemRead.lean          # abstract memory-reading loop + relay_loop_sound, ∀N
 lake env lean RelayLoopWindows.lean          # calldata byte-window decode
-lake env lean RelayLoopLiteral.lean          # deployed body transliterated + interpreter atoms
+lake env lean RelayLoopLiteral.lean          # hand-transliterated body model + interpreter atoms
 lake env lean RelayStorageLayer.lean         # R5.1/5.3 storage round-trip + accept-write reads back
 lake env lean RelayFeeLayer.lean             # R5.4 fee conservation + transferBalance
 # RelayBodyEff.lean imports three siblings, so compile them into the package lib first:
@@ -245,18 +249,17 @@ for f in DataLayer RelayLoopWindows RelayLoopLiteral; do lake env lean -o $LIB/$
 lake env lean RelayBodyEff.lean              # LITERAL body + literal capstone + R5 composition, ∀N
 # expect exit 0; the loop-mechanism / accounting / literal / R5 theorems print
 #   depends on axioms: [propext, Classical.choice, Quot.sound]
-# and the data-layer / mstore / window theorems additionally list zeroes_data (and toByteArray_size).
+# and data/window theorems may list the three qualified local declarations for two spec shapes.
 
-# ...or run all 8 files + the hole-freeness audit in one shot (the CI test-fv-lean job):
-EVMYUL_DIR=/tmp/evmyul2 python3 <repo>/test-forge/fv/lean/verify_lean.py   # exit 0 = all 8 hole-free
+# ...or run the abstract proof + all 8 refinement files and 165 audits in one shot:
+EVMYUL_DIR=/tmp/evmyul2 python3 <repo>/test-forge/fv/lean/verify_lean.py
 ```
 
 ---
 
 ## 7.7 Where this leaves the stack
 
-With the bytecode refinement and the memory-reading loop in place, the chain is complete end-to-end at the
-loop-accounting level:
+The layers now provide strong corroborating evidence, with their different scopes kept explicit:
 
 ```
 Halmos: the real bytecode obeys the model's prefix-sum invariant (RelayModelBridgeFV), K≤3      [R2]
@@ -264,22 +267,21 @@ Abstract proof:        the abstract algorithm is threshold-sound                
 Bytecode refinement:   a validated EVM semantics runs the unbounded loop & soundness transfers ∀N              [R4b]
 Memory-reading loop:   the body is the real mload(slot)&0xffff; accept ⟹ Σ masked reads > thr  ∀N              [R4b′]
 R, accounting core:    deployed loop accepts ⟹ total registered weight > thr (relay_loop_sound) ∀N             [R4b′]
-Literal body model:    the full 17-statement deployed body; hcov/hcorr & index guards DERIVED  ∀N              [R4b″]
+Literal body model:    hand-transliterated 17-statement body; reads/guards derived, execution premises explicit [R4b″]
                        (relay_loop_sound_literal_derived_tight)
-Whole-relay() (R5):    dispatch → loop → accept ⟹ registered weight > thr (relay_dispatch_loop_accept) ∀N      [R5]
+Relay breadth (R5):    conditional dispatch → loop → accept statement                                  ∀N      [R5]
                        + storage round-trip / accept-write (sstore_sload, sstore_reads_back, Relay.sol:1394),
                          mode dispatch (dispatch_routes_verify), fee conservation (fee_conservation, …)
 ─────────────────────────────────────────────────────────────────────────────────────────────
-proven on the validated EVM (modulo 2 upstream-dischargeable axioms): data layer (BR-1),
+proved as the stated conditional models on the validated EVM (with 3 allowlisted local declarations),
                        incl. the literal memory reads (hcov/hcorr) and index-range/strict-increase guards
 remaining assumptions: crypto (MC-2) = ecrecover, as the per-iteration premise IterPremiseT (OP-1);
                        overflow bound (BR-2, discharged under hnoovf)
 ```
 
-Everything from loop control flow through the real memory read, the mask, accumulation, threshold
-soundness, and — in the literal model — the memory-read content and the index-discipline guards is
-machine-checked against the validated semantics; the residual is the external-call (`ecrecover`)
-boundary, named and bounded (`IterPremiseT`).
+Loop control flow, memory reads, masks, accumulation, and index-discipline lemmas are machine-checked in
+the model. Remaining work includes deriving `ValidRun`, successful early-return acceptance, setup, and the
+accept-write from one accepted compiled execution, in addition to the external `ecrecover` boundary.
 
 **Next:** the deep dives — [L8 — the mathematics](08-the-mathematics.md) and
 [L9 — the formal detail](09-the-formal-detail.md); or the audit core,

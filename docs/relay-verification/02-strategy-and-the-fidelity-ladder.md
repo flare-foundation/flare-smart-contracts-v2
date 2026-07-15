@@ -55,8 +55,8 @@ Every claim in the engagement is classified by **two axes at once**: *what objec
 | **R1** | the deployed bytecode | random inputs | Foundry fuzzing |
 | **R2** | the deployed bytecode | **all** inputs up to a fixed bound | **Halmos** (bounded symbolic) |
 | **R3** | a *model* of the contract | **all** inputs, unbounded (induction) | **Kontrol/KEVM**, **Certora** |
-| **R4** | a **validated model of the EVM** running the contract's loop | **all** inputs, unbounded | **Lean + EVMYulLean** |
-| **R5** | the **whole `relay()` body** on the validated EVM — beyond the signature loop: mode dispatch, storage/accept-write, end-to-end composition, fees | **all** inputs, unbounded | **Lean + EVMYulLean** — *largely attained* |
+| **R4** | a **validated model of the EVM** running a hand-transliterated loop model | **all** model sizes, conditional | **Lean + EVMYulLean** |
+| **R5** | separate `relay()` breadth models: mode dispatch, storage/accept-write, conditional composition, fees | **all** modeled inputs | **Lean + EVMYulLean** |
 | *(ceiling)* | the literal deployed bytes, end-to-end **incl. cryptography & exact memory** | all inputs | *permanently out of reach — crypto is MC-2; the residual fenced in [L10]* |
 
 Two barriers separate the rungs:
@@ -179,13 +179,14 @@ names are in the per-rung docs and the claims ledger ([L10](10-claims-ledger-tru
 | R0/R1 | Foundry | functional behavior of all modes (incl. signing-policy rotation); coverage 31→59 tests | real bytecode | concrete + fuzz | ✅ green in CI (`test-unit-forge`, `coverage-forge`) |
 | R2 | Halmos | sig/threshold accounting; full `relay()` epoch matrix; access control; lifecycle; Merkle; randomness; fees — 26 harnesses / **89 checks (60 proofs, 29 anti-vacuity controls)** | **real bytecode** | bounded (K≤3, N≤5) | ✅ green in CI (`test-fv-halmos`, gated by [`verify_fv.py`](../../test-forge/fv/verify_fv.py)) |
 | R3 | Kontrol | sig-loop weight invariant; random monotonicity — **∀K** (k-induction) | Solidity **model** | ∀K, N∈{3,5} | ✅ proven (Docker-pinned); full symbolic-N intractable (documented) |
-| R3 | Certora | 5 all-functions storage invariants (nonce/epoch monotonic, setter-immutable, hash/root write-once) | model | ∀ functions & sequences | ⚠ specified + locally typechecked; **not cloud-dischargeable** (assembly storage-havoc wall) |
-| R4a | Lean (the abstract proof) | sig-loop **threshold soundness** | abstract algorithm | **∀N ∀K** | ✅ hole-free (`[propext, Quot.sound]`) |
-| R4b | Lean + EVMYulLean (the bytecode refinement) | threshold soundness on **validated EVM semantics** — deployed 17-statement loop body run literally (`relay_loop_sound_literal_derived_tight`; memory reads derived), abstract masked-read `relay_loop_sound` corroborating | validated EVM model | **∀N** | ✅ hole-free (`[propext, Classical.choice, Quot.sound]`) |
-| R5 | Lean + EVMYulLean (whole-`relay()`) | **breadth beyond the loop:** end-to-end composition — `protocolId ≠ 1` routes dispatch → signature loop → accept ⟹ registered weight > threshold (`relay_dispatch_loop_accept`); mode dispatch (`dispatch_routes_verify`); storage round-trip + accept-write (`sstore_sload` / `sstore_reads_back`, Relay.sol:1394); fee conservation (`fee_conservation` / `transfer_conservation` / `two_transfer_caller_net_zero`) | validated EVM model | **∀N** (breadth) | ✅ hole-free; residual: exec-level `.CALL` wiring + D3 accept-write reconciliation |
+| R3 | Certora | 5 all-functions storage invariants (nonce/epoch monotonic, setter-immutable, hash/root write-once) | model | ∀ functions & sequences | ✅ **cloud-proven for every function except `relay()`** (legacy codegen; the deployment via-ir codegen also excepts `setSigningPolicy`) — the storage-splitting analysis removed from the loop, 2026-07; `relay()`-vacuity is the narrowed residual (C-1, [L5 §5.2](05-R3-unbounded-attempts.md)) |
+| R4a | Lean (the abstract proof) | sig-loop **threshold soundness under `ValidRun`** | abstract algorithm | **∀N ∀K** | ✅ hole-free |
+| R4b | Lean + EVMYulLean | threshold soundness for the literal hand-transliterated loop model; memory reads and index guards derived, execution/acceptance hypotheses explicit | validated EVM model | **∀N**, conditional | ✅ hole-free; artifact + optimized-Yul provenance gated |
+| R5 | Lean + EVMYulLean (`relay()` breadth) | conditional dispatch→loop→accept composition; independent storage round-trip/accept-write and fee-conservation components | validated EVM model | **∀N** (breadth) | ✅ hole-free; not byte-complete; setup, `.CALL` wiring, and D3 reconciliation remain explicit boundaries |
 
-The two ⚠ rows are the honest results, not omissions: Kontrol's symbolic-N intractability and Certora's
-storage-havoc wall are the **convergent assembly-barrier finding** of §2.7.
+The residual entries are the honest results, not omissions: Kontrol's symbolic-N intractability and the
+`relay()` residual of the (since largely discharged) Certora storage wall are the **convergent
+assembly-barrier finding** of §2.7.
 
 ---
 
@@ -197,6 +198,12 @@ storage (bit-packed `StateData` written via `sstore` to scratch-memory-computed 
 storage models. That two different tools fail the same way is the *tell*: it is the assembly barrier
 (R3→R4) appearing twice, a real property of the contract, not a tooling mishap.
 
+*(2026-07 update: the Certora half of the wall was subsequently **narrowed** — disabling the failing
+storage-splitting analysis (`-enableStorageSplitting false`, with the prover's injective hashing model
+deciding aliasing) discharges all five invariants for every function except `relay()` itself, which the
+model covers only vacuously. The convergence remains the design-time finding, and `relay()` remains the
+assembly-barrier residual — see [L5 §5.2](05-R3-unbounded-attempts.md) and [`certora/README.md`](../../certora/README.md).)*
+
 The stack is sound *because* of how the rungs are chosen around this:
 
 - **Halmos** needs no storage model — it executes the real bytecode — so the security-critical surface is
@@ -204,12 +211,13 @@ The stack is sound *because* of how the rungs are chosen around this:
 - **Lean (the abstract proof)** gives the unbounded guarantee at the algorithm level, needing no EVM model.
 - **The bytecode refinement** reconnects the unbounded guarantee to a *validated* EVM semantics, stepping over the assembly
   barrier for the loop mechanism.
-- The **per-sequence** forms of the storage invariants Certora could not globally close *are* proven
+- The **per-sequence** forms of the storage invariants *are* proven on the real bytecode
   (Halmos [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L18) for the nonce, [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15) for the epoch pointer, etc.).
 
-So the residual after the full stack is not "the security core is untested" but "all-functions storage
-invariants *over raw assembly storage* are not automatically dischargeable" — incremental assurance over an
-already-strong, multi-tool, multi-fidelity base. The generalizable lesson is in [L12](12-lessons.md):
+So the residual after the full stack is not "the security core is untested" but "the all-functions storage
+invariants, now cloud-proven for every other function, cover `relay()` itself only via its per-sequence
+Halmos proofs and the Lean model" — incremental assurance over an already-strong, multi-tool,
+multi-fidelity base. The generalizable lesson is in [L12](12-lessons.md):
 *when independent unbounded tools converge on the same stall against hand-written assembly, that is the
 signal to switch to theorem-proving against a validated low-level semantics.*
 

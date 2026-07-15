@@ -2,8 +2,8 @@
 # Snapshot of the engagement's reference venv (.venv-halmos: Python 3.11.6, macOS) — the
 # environment every green suite run and the doc-quoted gate output come from. Recreate:
 #   python3.11 -m venv .venv-halmos && .venv-halmos/bin/pip install -r test-forge/fv/requirements-halmos.lock
-# CI (test-fv-halmos) pins the two solver-critical packages from this lock; the rest are
-# pure-python and version-insensitive. See docs/relay-verification/11-reproducibility.md §11.1/§11.3.
+# CI uses the same Python 3.11.6 minor and installs this entire closure before checking the
+# Halmos/z3 versions from the verification manifest. See docs/relay-verification/11-reproducibility.md.
 certifi==2026.5.20
 charset-normalizer==3.4.7
 eth-hash==0.8.0

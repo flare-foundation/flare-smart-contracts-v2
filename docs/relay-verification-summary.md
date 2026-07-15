@@ -32,7 +32,7 @@ See `docs/relay-assembly-review.md` (mutation surface, no delegatecall/fallback,
 | Unbounded-in-K via k-induction | **Kontrol/KEVM** | sig-loop weight invariant + random monotonicity (`test-forge/fv/kontrol/`) | ∀K, on a faithful Solidity **model**, N∈{3,5} |
 | Unbounded **algorithm** proof | **Lean 4** | sig-loop threshold soundness (`test-forge/fv/lean/RelaySigLoop.lean`) | **∀N ∀K**, abstract algorithm, machine-checked (no `sorry`) |
 | Model↔bytecode bridge | **Halmos** | `RelayModelBridgeFV` — real bytecode obeys the Kontrol model's `psAt` invariant | K=1,2,3 |
-| Global storage invariants | **Certora** | specs written + typechecked (`certora/`) | **blocked** — see §5 |
+| Global storage invariants | **Certora** | 5 rules, cloud-proven for all functions except `relay()` (`certora/`) | `relay()` residual — see §5 |
 
 ## 3. What is proven (by area)
 
@@ -51,9 +51,10 @@ See `docs/relay-assembly-review.md` (mutation surface, no delegatecall/fallback,
 - **Lifecycle:** strict +1 epoch advance + monotonic `lastInitialized` state-effect (`RelayEpochAdvanceFV`);
   random-pointer monotonicity over arbitrary sequences (`RelayRandomMonotonicityFV` + Kontrol
   `RelayRandomMonoFV`).
-- **Merkle & randomness:** random value binding / no-forgery (`RelayRandomBindingFV`), proof-element +
-  alignment soundness (`RelayMerkleProofFV`), and **unbounded-depth** fold injectivity / anti-forgery
-  (`RelayMerkleFoldFV`).
+- **Merkle & randomness:** random value binding (`RelayRandomBindingFV`), proof-element + alignment
+  soundness (`RelayMerkleProofFV`), and fold injectivity along a fixed sibling/path sequence
+  (`RelayMerkleFoldFV`). Full membership soundness against arbitrary alternate proof sequences and typed
+  leaf/internal-node domain separation remains outside that fold harness.
 - **Fees:** conservation in `relay()` (`RelayFeeConservationFV`) and `verify()` (`RelayVerifyFeeFV`).
 - **Encoding/return/secure-bit:** P3/P5/P6/P8 (`RelayCanonicalityFV`, `RelayIsSecureNormFV`,
   `RelayReturnDiscriminatorFV`, `RelayPolicyHashFV`).
@@ -64,25 +65,29 @@ also confirms the elaborate setup genuinely reaches acceptance.
 
 ## 4. Reproducing
 
-- **Halmos:** `halmos --contract <Name>` (a few need `--solver-timeout-assertion 0`; see the note in
-  `docs/relay-phase3-plan.md`).
-- **Kontrol:** reproducible Docker image (`test-forge/fv/kontrol/Dockerfile` + `run.sh`); see that dir.
-- **Lean:** `lean test-forge/fv/lean/RelaySigLoop.lean` (Lean 4, core only — checks in seconds;
-  `#print axioms` = `[propext, Quot.sound]`, no `sorryAx`).
-- **Certora:** `certoraRun certora/Relay.conf --solc <solc-0.8.27>` (needs `CERTORAKEY`).
+- **Halmos:** `python3 test-forge/fv/verify_fv.py` checks an exact 89-check manifest, exact Halmos exit
+  classes, validated reachability models, and zero truncated loops.
+- **Artifact parity:** `verify_relay_artifact.py` binds the pinned FV build and optimized Yul to the
+  Hardhat deployment artifact after stripping only Solidity CBOR metadata.
+- **Kontrol:** the pinned Docker `run.sh` emits JUnit and `verify_kontrol.py` checks all 9 proofs + 4 controls.
+- **Lean:** `verify_lean.py` checks the abstract proof plus all eight refinement files, the exact
+  EVMYulLean commit/toolchain, source holes, declared axioms, and 165 `#print axioms` results.
+- **Certora:** `certoraRun certora/Relay-rawstorage.conf --solc <solc-0.8.27>` (+ `-A3`/`-writeonce*` variants; needs `CERTORAKEY`).
 
 ## 5. Honest limits (what is NOT proven, and why)
 
 1. **Global all-functions/all-sequences storage invariants** (nonce/epoch monotonicity, setter
-   immutability, hash/root write-once) — **not dischargeable by Certora on this contract.** Two cloud runs
-   confirmed the failures are *spurious*: Relay is ~90% hand-rolled inline assembly with bit-packed storage
-   written via `sstore` to scratch-memory-computed slots, which defeats Certora's storage-slot analysis →
-   it havocs all storage. This is the **same wall Kontrol hit** (the N=10 model ran 12 h / 0 proofs). A
-   tool-vs-contract-style mismatch, **not a vulnerability**. The per-sequence forms of these properties
-   *are* proven (Halmos/Kontrol). Detail: `certora/README.md`.
-2. **Bytecode-level ∀N refinement** — lifting the abstract ∀N∀K proof onto a loop run by validated EVM
-   semantics (EVMYulLean) is **complete and hole-free** for the loop mechanism (the data layer, overflow
-   bound, and encoding fidelity remain stated assumptions). See
+   immutability, hash/root write-once) — now **cloud-proven for every function except `relay()`**
+   (2026-07: the failing storage-splitting analysis disabled; legacy codegen also covers
+   `setSigningPolicy`, which via-ir excepts). On `relay()` itself the model is vacuous (visible
+   no-coverage, not false alarms) — its storage behavior stays covered by the per-sequence Halmos proofs
+   on the real bytecode and the Lean literal model. Historically this was the assembly storage-havoc wall
+   (same wall Kontrol hit at symbolic-N); a tool-vs-contract-style mismatch, **not a vulnerability**.
+   Run matrix + mechanics: `certora/README.md`.
+2. **Bytecode-level ∀N refinement** — the EVMYulLean files are hole-free and the memory/window/overflow
+   layers are substantially discharged, but the literal and early-return capstones still take execution,
+   `ValidRun`, and acceptance facts as hypotheses. The model is now hash-bound to freshly generated Yul;
+   whole-program accepted-execution refinement remains open. See
    `test-forge/fv/lean/bytecode-refinement/` and `docs/relay-verification/07-R4b-bytecode-refinement.md`.
 3. **Full symbolic-N in Kontrol** — empirically state-explosive; mitigated by verified N∈{3,5} + the Lean
    ∀N proof + the bounded model↔bytecode bridge. Detail: `docs/relay-phase3-documented-items.md`.
@@ -104,5 +109,5 @@ which is incremental assurance over an already-strong, multi-tool stack.
 - `docs/relay-t1-bridge.md` — the model↔bytecode bridge (T1) analysis.
 - `docs/relay-verification/` — the authoritative full ladder (audit + tutorial + reproducibility), incl. the completed bytecode-level ∀N refinement.
 - `test-forge/fv/lean/bytecode-refinement/` — the bytecode-level ∀N refinement proof + README.
-- `certora/README.md` — Certora specs, cloud-run result, and the assembly-wall diagnosis.
+- `certora/README.md` — Certora specs, the discharged run matrix, and the `relay()` residual.
 - `.claude/skills/kontrol-fv/SKILL.md` — the reusable FV methodology.

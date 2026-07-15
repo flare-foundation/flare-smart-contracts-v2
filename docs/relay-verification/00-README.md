@@ -35,13 +35,18 @@ randomness, and fees — bounded in size but on the actual deployed code, each p
 anti-vacuity control. **Kontrol/KEVM** (R3) lifts the signature-loop weight invariant and random
 monotonicity to **∀K** (unbounded signatures) by k-induction on a faithful Solidity *model*, at voter
 counts N∈{3,5}. **Lean 4** (R4a) proves the signature-loop threshold soundness **∀N ∀K** as an abstract
-algorithm, hole-free. The **bytecode refinement** (R4b) then lifts that soundness onto a loop executed by
-NethermindEth's **validated EVMYulLean** semantics, for all N — closing the abstract-vs-real-machine gap
-for the loop mechanism. Two unbounded approaches — Kontrol at full symbolic-N and **Certora** at
+algorithm under the explicit `ValidRun` discipline, hole-free. The **bytecode refinement** (R4b) checks a
+hand-transliterated loop model on NethermindEth's **validated EVMYulLean** semantics for all N. It derives
+the memory windows and index guards, but its acceptance theorems still carry explicit execution/acceptance
+hypotheses; it is therefore a conditional refinement, not extraction of the whole compiled program. Two
+unbounded approaches — Kontrol at full symbolic-N and **Certora** at
 all-functions storage invariants — hit the *same* wall: Relay's ~90% hand-written inline-assembly storage
 defeats automated storage analysis. That convergent failure is itself a finding, and it is exactly the gap
-the R4 (Lean) rungs step over. The bytecode refinement now runs the deployed contract's **actual 17-statement
-loop body** on the validated EVM (the hole-free [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean) chain):
+the R4 (Lean) rungs address at model level. (The Certora half was later **narrowed** — 2026-07 — to a
+`relay()`-only residual: with the failing analysis disabled, all five storage invariants are cloud-proven
+for every other function; L5 §5.2.) The bytecode refinement runs a statement-for-statement model of
+the contract's **17-statement loop body** on the validated EVM (the hole-free
+[`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean) chain).
 `relay_loop_sound_literal_derived_tight` carries *accept ⟹ total registered weight > threshold* for all N with
 the memory-read facts (`hcov`/`hcorr`) **derived, not assumed** and the structural index guards discharged from
 the accounting discipline — the abstract masked-read statement `relay_loop_sound` (`mload(slot) & 0xffff`, **data
@@ -54,7 +59,8 @@ end-to-end **dispatch → loop → accept** composition (`relay_dispatch_loop_ac
 is small and named — exactly the ecrecover boundary (MC-2/OP-1), stated per-iteration as `IterPremiseT`:
 cryptography (`ecrecover`/`keccak`), the operational ABI of each boundary call, a trusted signing-policy setter,
 and the per-iteration *selection/validity* those external calls determine (which voter each signature recovers to,
-strictly-increasing). Everything else is machine-checked.
+strictly-increasing). CI separately binds the `0.8.27` FV build and optimized-Yul snapshot to the `0.8.30`
+Hardhat deployment artifact by exact metadata-stripped bytecode hashes.
 
 ---
 
@@ -69,7 +75,7 @@ discharged deeper. Read only as deep as you need.
 | **L2** | [`02-strategy-and-the-fidelity-ladder.md`](02-strategy-and-the-fidelity-ladder.md) | tutorial + audit | The research-first strategy, the **fidelity ladder (R0–R5)**, and the executive results table across all rungs. |
 | **L3** | [`03-R0R1-foundation-tests.md`](03-R0R1-foundation-tests.md) | all | Foundry concrete + fuzz tests: the base of the stack. |
 | **L4** | [`04-R2-bounded-symbolic-halmos.md`](04-R2-bounded-symbolic-halmos.md) | all | The 26-harness / 89-check Halmos suite on real bytecode + the vacuity tripwire. The property catalog + the complete per-check inventory. |
-| **L5** | [`05-R3-unbounded-attempts.md`](05-R3-unbounded-attempts.md) | all | Kontrol (∀K on a model) and Certora (storage invariants) — partial successes and the honest assembly wall. |
+| **L5** | [`05-R3-unbounded-attempts.md`](05-R3-unbounded-attempts.md) | all | Kontrol (∀K on a model) and Certora (storage invariants, since proven for all functions but `relay()`) — partial successes and the honest assembly wall. |
 | **L6** | [`06-R4a-abstract-proof.md`](06-R4a-abstract-proof.md) | all | The abstract proof: the ∀N ∀K threshold-soundness theorem in Lean. |
 | **L7** | [`07-R4b-bytecode-refinement.md`](07-R4b-bytecode-refinement.md) | all | The bytecode refinement: lifting the abstract proof onto validated EVM semantics, ∀N. |
 | **L8** | [`08-the-mathematics.md`](08-the-mathematics.md) | deep dive | The objects in math notation: abstract model, operational semantics, refinement, fuel-genericity. |

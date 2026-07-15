@@ -28,7 +28,9 @@ When two independent unbounded tools (Kontrol at symbolic-N, Certora at storage 
 *same* obstacle — inline-assembly storage — that was diagnostic: it located the difficulty precisely (the
 R3→R4 barrier) and justified the jump to theorem proving. **Record failed tool runs as findings**, with the
 decisive tell (here: `setSigningPolicy` "violating" an invariant it cannot logically affect). A stall that
-is understood is a result. ([L5](05-R3-unbounded-attempts.md))
+is understood is a result — and sometimes later *dischargeable*: revisiting the Certora wall with the
+failing analysis disabled (rather than re-modeled around) eventually proved the invariants for every
+function but `relay()` ([L5 §5.2](05-R3-unbounded-attempts.md)). ([L5](05-R3-unbounded-attempts.md))
 
 ### 4. Separate the two enemies by refinement
 

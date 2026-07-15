@@ -115,3 +115,6 @@ theorem insufficient_weight_cannot_accept (w : List Nat) (idxs : List Nat) (thr 
   Nat.not_lt.mp (fun hlt => absurd (threshold_sound w idxs thr hv hlt) (Nat.not_lt.mpr htot))
 
 end RelaySigLoop
+
+#print axioms RelaySigLoop.threshold_sound
+#print axioms RelaySigLoop.insufficient_weight_cannot_accept

@@ -4,7 +4,7 @@
 > a referee needs to reconstruct or attack it. **§A** the abstract proof; **§B** the EVMYulLean API as we actually
 > use it; **§C** the bytecode-refinement bricks and capstone; **§D** *fuel-genericity* in full; **§E** the non-obvious
 > pitfalls and their fixes; **§F** the data layer, the memory-reading loop, the literal loop-body model, and the
-> whole-`relay()` extension (§G.5: storage, mode dispatch, accept-write, composition, fees);
+> `relay()` breadth model (§G.5: storage, mode dispatch, accept-write, composition, fees);
 > **§G** the axiom audit. File paths are relative to the repo root.
 >
 > Every code block below is copied from the committed sources
@@ -592,7 +592,7 @@ Faithful early return closes the last idealization: `relay_loop_sound_literal_ea
 `thr.val < sumTake (weightsOf …) …` (total registered weight exceeds the threshold). The model no longer runs all
 `N` iterations past acceptance; it stops exactly where the bytecode does.
 
-### G.5 The whole-`relay()` extension (R5) — [`RelayStorageLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean), [`RelayFeeLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayFeeLayer.lean), [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)
+### G.5 The `relay()` breadth model (R5) — [`RelayStorageLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean), [`RelayFeeLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayFeeLayer.lean), [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)
 
 §G.4 proves the security-critical signature loop. R5 extends the same literal, hole-free method to the *rest* of
 `relay()` — the mode dispatch, the per-mode state writes, the fee forwarding, and the composition that stitches
