@@ -54,3 +54,6 @@ certora/.certora_internal
 
 # Python bytecode caches (FV gate scripts)
 __pycache__/
+
+# FV reference toolchain (recreated by scripts/bootstrap-fv.sh from test-forge/fv/requirements-halmos.lock)
+.venv-halmos/
