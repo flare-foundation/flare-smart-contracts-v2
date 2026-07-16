@@ -112,9 +112,7 @@ contract MachineManagerFacet is IMachineManager {
         MachineManager.TeeMachineState storage state = s.teeMachineStates[_teeId];
         require(state.owner != address(0), TeeNotFound());
         TeeStatus newStatus;
-        if (msg.sender == state.owner ||
-            ExtensionManager.isCodeHashPlatformDisabled(state.extensionId, state.codeHash, state.platform))
-        {
+        if (msg.sender == state.owner) {
             MachineManager.checkTeeStatus(state.status, TeeStatus.PRODUCTION, TeeStatus.SUSPENDED);
             newStatus = TeeStatus.PAUSED;
         } else {
@@ -124,7 +122,7 @@ contract MachineManagerFacet is IMachineManager {
             );
             MachineManager.checkTeeStatus(state.status, TeeStatus.PRODUCTION);
             (uint64 endTs,) = Verification.getAvailabilityCheckValidity(_teeId);
-            require(endTs < block.timestamp, OnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion());
+            require(endTs < block.timestamp, OnlyOwnerOrExpiredAvailabilityCheck());
             newStatus = TeeStatus.SUSPENDED;
         }
 

@@ -175,7 +175,10 @@ interface IExtensionManager is ITeeCommonErrors {
 
     /**
      * Disable one or more platforms of a TEE code hash.
-     * Emits CodeHashPlatformsDisabled event.
+     * Every active (PRODUCTION) machine of the extension running one of the disabled
+     * (codeHash, platform) pairs is paused in the same transaction (moved to PAUSED and removed
+     * from the active sets).
+     * Emits CodeHashPlatformsDisabled and a TeeMachineStatusChanged event per paused machine.
      * @param _extensionId The id of the extension.
      * @param _codeHash The code hash.
      * @param _platforms The non-empty list of platforms to disable. Each platform must belong to the

@@ -3,8 +3,10 @@ pragma solidity ^0.8.35;
 
 import { IIExtensionManager } from "../interface/IIExtensionManager.sol";
 import { IExtensionManager } from "../../userInterfaces/tee/IExtensionManager.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
+import { MachineManager } from "../library/MachineManager.sol";
 import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
 import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -15,6 +17,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
  */
 contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @inheritdoc IExtensionManager
     function register(
@@ -132,6 +135,25 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
             extension.codeHashPlatformDisabled[_codeHash][platform] = true;
         }
         emit CodeHashPlatformsDisabled(_extensionId, _codeHash, _platforms);
+
+        // Retire every active machine running a now-disabled (codeHash, platform) in the same
+        // transaction: move it to PAUSED and drop it from both active sets via changeStatus.
+        // Iterate a memory snapshot because changeStatus mutates the underlying EnumerableSet.
+        MachineManager.State storage ms = MachineManager.getState();
+        address[] memory activeTeeIds = ms.extensionActiveTeeIds[_extensionId].values();
+        for (uint256 i = 0; i < activeTeeIds.length; i++) {
+            MachineManager.TeeMachineState storage machine = ms.teeMachineStates[activeTeeIds[i]];
+            if (machine.codeHash != _codeHash) {
+                continue;
+            }
+            bytes32 platform = machine.platform;
+            for (uint256 j = 0; j < _platforms.length; j++) {
+                if (platform == _platforms[j]) {
+                    MachineManager.changeStatus(activeTeeIds[i], IMachineManager.TeeStatus.PAUSED);
+                    break;
+                }
+            }
+        }
     }
 
     /// @inheritdoc IExtensionManager

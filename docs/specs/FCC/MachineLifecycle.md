@@ -83,15 +83,16 @@ On success: status set to `PRODUCTION`, `lastStatusChangeTs` updated, the machin
 
 ## Pausing
 
-Three pause flavors:
+Two `pause(teeId)` flavors:
 
 - **Owner-initiated `pause(teeId)`** — voluntary. Only the owner can call. Status must be `PRODUCTION` or `SUSPENDED`. Becomes `PAUSED`.
-- **Version-disabled `pause(teeId)`** — anyone can call if `(codeHash, platform)` is *disabled* on the extension (governance withdrew support). Status must be `PRODUCTION` or `SUSPENDED`. Becomes `PAUSED`.
-- **Expired-availability `pause(teeId)`** — anyone can call if the machine's availability check has expired (`Verification.getAvailabilityCheckValidity(teeId).endTs < block.timestamp`) and the caller is not the owner / version is not disabled. Status must be `PRODUCTION`. Becomes `SUSPENDED` (a softer pause that can be revived by anyone with a fresh proof, vs. `PAUSED` which only the owner can lift).
+- **Expired-availability `pause(teeId)`** — anyone can call if the machine's availability check has expired (`Verification.getAvailabilityCheckValidity(teeId).endTs < block.timestamp`) and the caller is not the owner. Status must be `PRODUCTION`. Becomes `SUSPENDED` (a softer pause that can be revived by anyone with a fresh proof, vs. `PAUSED` which only the owner can lift).
 
-A fourth path, `pauseWithProof(_proof)`, is a permissionless suspend triggered by submitting a *failing* availability-check proof: the proof's response data is invalid, **or** its `status != OK`. Status `PRODUCTION` → `SUSPENDED`. This is the rest of the network's way to take a misbehaving machine out of production without owner cooperation.
+There is no permissionless "version-disabled" pause path: disabling a `(codeHash, platform)` pauses every active machine running it directly, in the same transaction, via [`disableCodeHashPlatforms`](./Extensions.md#configuring-versions) — so no off-chain watcher is needed to retire them.
 
-All three paths emit `TeeMachineStatusChanged(teeId, newStatus)`.
+A third path, `pauseWithProof(_proof)`, is a permissionless suspend triggered by submitting a *failing* availability-check proof: the proof's response data is invalid, **or** its `status != OK`. Status `PRODUCTION` → `SUSPENDED`. This is the rest of the network's way to take a misbehaving machine out of production without owner cooperation.
+
+All paths emit `TeeMachineStatusChanged(teeId, newStatus)`.
 
 ## Emergency pause
 
@@ -106,7 +107,7 @@ Read getters — `getActiveTeeMachines`, `getAllActiveTeeMachines`, `getRandomTe
 - The extension owner OR an address on the per-extension unpauser list can call `emergencyUnpauseExtension(extensionId)`.
 - The lists themselves are managed by the extension owner via `addExtensionEmergencyPausers / Unpausers` and the matching remove methods.
 
-**Post-unpause grace window.** While the overlay is paused, machines' availability proofs can expire (typical validity tracks reward-epoch length — 3.5d on mainnets, 6h on testnets — but a long emergency can still outlast it). On unpause, `emergencyUnpauseTs[extensionId]` is recorded, and for the next `emergencyUnpauseGracePeriodSeconds` (global, governance-tunable; default 2h, bounded by 30 min ≤ x ≤ 24h) the **third-party expired-availability branch** of `pause(teeId)` is blocked (reverts `EmergencyProtectionActive(extensionId)`). This gives machine owners time to refresh attestations before anyone can shove their still-`PRODUCTION` machines to `SUSPENDED`. The owner-initiated branch, version-disabled branch, and `pauseWithProof` all remain unaffected.
+**Post-unpause grace window.** While the overlay is paused, machines' availability proofs can expire (typical validity tracks reward-epoch length — 3.5d on mainnets, 6h on testnets — but a long emergency can still outlast it). On unpause, `emergencyUnpauseTs[extensionId]` is recorded, and for the next `emergencyUnpauseGracePeriodSeconds` (global, governance-tunable; default 2h, bounded by 30 min ≤ x ≤ 24h) the **third-party expired-availability branch** of `pause(teeId)` is blocked (reverts `EmergencyProtectionActive(extensionId)`). This gives machine owners time to refresh attestations before anyone can shove their still-`PRODUCTION` machines to `SUSPENDED`. The owner-initiated branch and `pauseWithProof` remain unaffected.
 
 The protection window **combines the machine's own extension AND the system extension (id 0)**. Refreshing availability requires two on-chain steps: `requestTeeAttestation(teeId)` is routed to the machine's extension (via `Instructions.sendInstructions`), and `requestAvailabilityCheckAttestation(teeId, ...)` is routed through FDC2 to system-extension TEEs only. If either side is currently emergency-paused or still inside its grace window, the third-party `pause()` branch stays blocked — protection holds for the longer of the two grace ends.
 

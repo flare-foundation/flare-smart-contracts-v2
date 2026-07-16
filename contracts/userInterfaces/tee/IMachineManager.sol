@@ -89,7 +89,7 @@ interface IMachineManager is ITeeCommonErrors {
     error AlreadyRegistered();
     error InvalidTeeStatus();
     error InvalidResponseDataOrAvailabilityCheckStatus();
-    error OnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion();
+    error OnlyOwnerOrExpiredAvailabilityCheck();
     error OwnerMismatch();
     error TooMany();
     error TeeNotFound();

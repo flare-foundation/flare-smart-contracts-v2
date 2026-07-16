@@ -399,14 +399,14 @@ contract MachineManagerFacetTest is Test {
     // pause
     // =========================================================================
 
-    function testPauseRevertOnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion() public {
+    function testPauseRevertOnlyOwnerOrExpiredAvailabilityCheck() public {
         // Advance time past MAX_GRACE_PERIOD_SECONDS (24h) so the
         // MachineEmergencyPause.isExtensionInEmergencyOrGrace overlay short-circuits
         // for an extension with no pause history. Production timestamps always satisfy
         // this; forge's default vm.getBlockTimestamp() = 1 does not.
         vm.warp(vm.getBlockTimestamp() + 1 days + 1);
         testToProduction();
-        vm.expectRevert(IMachineManager.OnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion.selector);
+        vm.expectRevert(IMachineManager.OnlyOwnerOrExpiredAvailabilityCheck.selector);
         flareTeeManager.pause(teeId);
     }
 
@@ -436,15 +436,54 @@ contract MachineManagerFacetTest is Test {
         flareTeeManager.pause(teeId);
     }
 
-    function testPauseWhenCodeHashPlatformDisabled() public {
+    // Disabling a (codeHash, platform) pauses every active machine running it in the same
+    // transaction (removed from both active sets); a subsequent non-owner pause then reverts.
+    function testDisableCodeHashPlatformsPausesActiveMachines() public {
         testToProduction();
-        // Disable the code hash platform through the diamond
+        // Register and promote a second machine on the same version.
+        vm.prank(owner);
+        flareTeeManager.register{value: 1000}(
+            newTeeMachineData, newTeeMachineDataSignature, teeProxyId, url, address(0));
+        registerTimestamps[newTeeId] = vm.getBlockTimestamp();
+        _changeStateToProductionForTee(newTeeId, teeProxyId, url);
+
+        // Both machines are active before the disable.
+        (address[] memory activeBefore,) = flareTeeManager.getActiveTeeMachines(extensionId);
+        assertEq(activeBefore.length, 2);
+
+        // Disabling the version pauses both active machines in the same transaction.
         vm.prank(extensionOwner);
-        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
-        // anyone can call pause when code hash platform is disabled
         vm.expectEmit();
         emit IMachineManager.TeeMachineStatusChanged(teeId, IMachineManager.TeeStatus.PAUSED);
+        vm.expectEmit();
+        emit IMachineManager.TeeMachineStatusChanged(newTeeId, IMachineManager.TeeStatus.PAUSED);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
+
+        assertTrue(flareTeeManager.getTeeMachineStatus(teeId) == IMachineManager.TeeStatus.PAUSED);
+        assertTrue(flareTeeManager.getTeeMachineStatus(newTeeId) == IMachineManager.TeeStatus.PAUSED);
+
+        // Removed from both the per-extension and the global active sets.
+        (address[] memory activeAfter,) = flareTeeManager.getActiveTeeMachines(extensionId);
+        assertEq(activeAfter.length, 0);
+        (,, uint256 totalActive) = flareTeeManager.getAllActiveTeeMachines(0, 10);
+        assertEq(totalActive, 0);
+
+        // The permissionless disabled-version pause branch is gone: a non-owner pause no longer
+        // moves the (now PAUSED) machine and reverts on the status check. Warp past the emergency
+        // grace window first so we exercise that path rather than EmergencyProtectionActive.
+        vm.warp(vm.getBlockTimestamp() + 1 days + 1);
+        vm.expectRevert(IMachineManager.InvalidTeeStatus.selector);
         flareTeeManager.pause(teeId);
+    }
+
+    // A machine that is not active (INITIALIZED) when the version is disabled is left untouched;
+    // only its return-to-production path is blocked (covered by testToProductionRevertVersionNotSupported).
+    function testDisableCodeHashPlatformsLeavesNonActiveMachinesUntouched() public {
+        testRegister();
+        assertTrue(flareTeeManager.getTeeMachineStatus(teeId) == IMachineManager.TeeStatus.INITIALIZED);
+        vm.prank(extensionOwner);
+        flareTeeManager.disableCodeHashPlatforms(extensionId, codeHash, platforms);
+        assertTrue(flareTeeManager.getTeeMachineStatus(teeId) == IMachineManager.TeeStatus.INITIALIZED);
     }
 
     function testPauseRevertInvalidTeeStatus() public {
