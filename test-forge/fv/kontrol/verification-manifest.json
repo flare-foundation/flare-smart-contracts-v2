@@ -6,7 +6,7 @@
     "solc": "0.8.33"
   },
   "expected_process_exitcode": 1,
-  "expected_check_count": 13,
+  "expected_check_count": 20,
   "proofs": [
     "RelayRandomMonoFV.prove_base_monotone",
     "RelayRandomMonoFV.prove_step_advancesToNewer",
@@ -16,12 +16,19 @@
     "RelaySigLoopFV.prove_base_invariant",
     "RelaySigLoopFV.prove_insufficientWeight_cannotAccept",
     "RelaySigLoopFV.prove_lemma_prefix_monotone",
-    "RelaySigLoopFV.prove_step_preserves_invariant"
+    "RelaySigLoopFV.prove_step_preserves_invariant",
+    "RelaySigLoopFV_N5.prove_accept_implies_threshold_exceeded",
+    "RelaySigLoopFV_N5.prove_base_invariant",
+    "RelaySigLoopFV_N5.prove_insufficientWeight_cannotAccept",
+    "RelaySigLoopFV_N5.prove_lemma_prefix_monotone",
+    "RelaySigLoopFV_N5.prove_step_preserves_invariant"
   ],
   "reachability": [
     "RelayRandomMonoFV.prove_reach_canAdvance",
     "RelayRandomMonoFV.prove_reach_canStayStale",
     "RelaySigLoopFV.prove_reach_acceptIsPossible",
-    "RelaySigLoopFV.prove_reach_stepNeedsGuard"
+    "RelaySigLoopFV.prove_reach_stepNeedsGuard",
+    "RelaySigLoopFV_N5.prove_reach_acceptIsPossible",
+    "RelaySigLoopFV_N5.prove_reach_stepNeedsGuard"
   ]
 }

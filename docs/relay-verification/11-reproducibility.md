@@ -122,7 +122,7 @@ docker run --rm --platform linux/amd64 -v "$PWD/test-forge/fv/kontrol":/work kon
 
 Per harness: `forge build` (~1 s) → `kontrol build` (~8–18 min, reuses the baked kdist) → `kontrol prove`.
 `run.sh` requests Kontrol's JUnit report, preserves the expected nonzero prover exit, and passes both to
-`verify_kontrol.py`. The exact manifest requires 9 proofs and 4 concrete-failure controls; errors, skips,
+`verify_kontrol.py`. The exact manifest requires 14 proofs and 6 concrete-failure controls; errors, skips,
 pending/incomplete proofs, missing checks, and unexpected checks fail the run.
 Pinned: Kontrol v1.0.248, K v7.1.334, `nixpkgs @ 9eac87a…`, base image by sha256 digest.
 

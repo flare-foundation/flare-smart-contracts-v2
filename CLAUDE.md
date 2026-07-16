@@ -48,7 +48,7 @@ install has been observed to misreport nonlinear proofs at identical package ver
 | Lean | `EVMYUL_DIR=/tmp/evmyul2 python3 test-forge/fv/lean/verify_lean.py` | all proof files hole-free vs the pinned semantics |
 | Artifact parity | `test-forge/fv/verify_relay_artifact.py` | FV solc output ≡ deployment artifact; optimized Yul ≡ the committed Lean source snapshot |
 | Doc links | `python3 docs/relay-verification/verify_links.py --check` (`--fix` to repair) | symbol-addressed code links in the docs stay current |
-| Kontrol | `test-forge/fv/kontrol/run.sh` in the Docker image (see its README) | 9 proofs + 4 CEX-by-design vs its manifest |
+| Kontrol | `test-forge/fv/kontrol/run.sh` in the Docker image (see its README) | 14 proofs + 6 CEX-by-design vs its manifest (signature loop at N=3 **and** N=5, plus random monotonicity) |
 
 CI runs the first four (`test-fv-halmos`, `test-fv-lean`, `test-doc-links`, artifact parity inside the
 Halmos job). Certora runs are cloud + key — see `certora/README.md` for the run matrix and how to judge

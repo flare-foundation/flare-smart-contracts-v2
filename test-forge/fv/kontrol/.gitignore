@@ -1,0 +1,13 @@
+# Foundry / Kontrol build artifacts. run.sh builds in a container-internal /proj, so these normally never
+# appear here; kept as a guard for ad-hoc `forge build` / `kontrol build` run directly in this directory.
+out/
+kout/
+.kontrol/
+cache/
+broadcast/
+
+# transient run scripts, logs, per-run JUnit reports, and experiment artifacts written to this (mounted) dir
+*.tmp.sh
+*.log
+*.xml
+kontrol-verification-report.json

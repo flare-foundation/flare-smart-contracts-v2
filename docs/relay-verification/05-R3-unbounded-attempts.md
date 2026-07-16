@@ -22,7 +22,7 @@ barrier in the **K dimension** (the number of signatures / relays), which is the
 controls that must *counterexample* (the same `reach` naming idea as the Halmos suite).
 
 `RelaySigLoopFV` — the signature-loop **weight invariant** `weight ≤ prefixSum(nextUnusedIndex)`, via
-k-induction over a grounded prefix sum ([`psAt`](CONCEPTS.md#6-what-is-psat-the-prefix-sum-at-the-heart-of-the-proofs); N=3 voter model; re-validated at N=5, ~2.25 h, identical verdicts):
+k-induction over a grounded prefix sum ([`psAt`](CONCEPTS.md#6-what-is-psat-the-prefix-sum-at-the-heart-of-the-proofs); N=3 voter model; re-validated at N=5 as the committed `RelaySigLoopFV_N5.t.sol` harness, ~2.25 h, identical verdicts):
 
 | `prove_` function | Kind · verdict | What it establishes |
 |---|---|---|
@@ -48,7 +48,7 @@ modeled update rule is exactly `max(live, round)`):
 
 Each negative proof is paired with a reachability control that *must* counterexample — the same
 anti-vacuity discipline as the Halmos suite. Verdicts are judged from the per-test PASSED/FAILED list
-printed by `run.sh`'s `kontrol prove` step — the 9 proofs pass, the 4 `reach` controls fail (produce
+printed by `run.sh`'s `kontrol prove` step — the 14 proofs pass, the 6 `reach` controls fail (produce
 their counterexample) by design — never from the process exit code (§5.4).
 
 **Honest caveats (stated in each harness header and the README):**

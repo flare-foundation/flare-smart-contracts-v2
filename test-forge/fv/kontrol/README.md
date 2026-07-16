@@ -9,15 +9,17 @@ to a fixed depth; these are ∀-over-the-iteration-count via k-induction).
 | file | what it is |
 |------|------------|
 | `RelaySigLoopFV.t.sol`   | unbounded-in-K signature-loop **weight invariant** (`weight ≤ prefixSum(nextUnusedIndex)`), via k-induction over a grounded prefix sum. 5 PROVE + 2 anti-vacuity controls. |
+| `RelaySigLoopFV_N5.t.sol`| the **same** weight-invariant proof re-validated at **N=5** voters (identical structure, five `uint16` weights; K still unbounded). 5 PROVE + 2 controls. |
 | `RelayRandomMonoFV.t.sol`| unbounded **random-pointer monotonicity** (a stale relay never regresses the live round). 4 PROVE + 2 controls. |
-| `run.sh`                 | the build+prove recipe (checks pinned tool versions, writes `foundry.toml`, runs `forge build` → `kontrol build` → `kontrol prove`, then validates JUnit). It matches **both** harnesses. |
-| `verification-manifest.json` / `verify_kontrol.py` | exact 9-proof + 4-control inventory and fail-closed JUnit verdict gate. |
+| `run.sh`                 | the build+prove recipe (checks pinned tool versions, self-provisions the pinned solc if the image lacks it, writes `foundry.toml`, runs `forge build` → `kontrol build` → `kontrol prove`, then validates JUnit). It matches **all three** harnesses. |
+| `verification-manifest.json` / `verify_kontrol.py` | exact 14-proof + 6-control inventory (20 checks) and fail-closed JUnit verdict gate. |
 | `foundry.toml`           | minimal Foundry config. |
 | `Dockerfile`             | **fully pinned, reproducible** Kontrol 1.0.248 toolchain (see below). |
 
 ## Latest verdicts (Kontrol 1.0.248, `kontrol-local:ready`)
 
-`RelaySigLoopFV` (N=3 voter model; also re-validated at N=5 — same 5 PROVE + 2 CEX, prove ~2.25 h):
+`RelaySigLoopFV` (N=3 voter model) and `RelaySigLoopFV_N5` (the N=5 re-validation — a committed harness, not
+a one-off; identical 5 PROVE + 2 CEX, prove ~2.25 h):
 `prove_base_invariant` ✅ · `prove_step_preserves_invariant` ✅ · `prove_lemma_prefix_monotone` ✅ ·
 `prove_accept_implies_threshold_exceeded` ✅ · `prove_insufficientWeight_cannotAccept` ✅ ·
 `prove_reach_stepNeedsGuard` → counterexample (G2/no-double-count guard is load-bearing) ·
@@ -56,14 +58,23 @@ instead of rebuilding.
 
 ## Run a proof
 
+On Apple Silicon / any emulated (amd64-on-arm) host, pin the container to a **single core** — the
+multi-worker `kore-rpc-booster` backend deadlocks under emulation (observed to wedge at 4 cores; 1 core
+proves cleanly):
+
 ```bash
-docker run --rm --platform linux/amd64 -v "$PWD/test-forge/fv/kontrol":/work kontrol-local:ready sh /work/run.sh
+docker run --rm --platform linux/amd64 --cpuset-cpus=0 \
+  -v "$PWD/test-forge/fv/kontrol":/work kontrol-local:ready sh /work/run.sh
 ```
 
-Per harness: `forge build` (≈1 s) → `kontrol build` (≈8–18 min, reuses the baked kdist) → `kontrol prove`.
-The prover's nonzero exit is expected because reachability controls fail by design, but it is no longer
-ignored: `run.sh` preserves it and `verify_kontrol.py` jointly validates the exit, exact JUnit inventory,
-proof passes, and concrete control failures. Errors, skips, pending/incomplete proofs, and drift fail closed.
+`run.sh` copies the harnesses into a clean container-internal project with the standard `test/` layout
+(required so kontrol's JUnit writer emits `test%Contract` ids — a root layout crashes it), then:
+`forge build` (≈1 s) → `kontrol build` (≈8–18 min, reuses the baked kdist) → one `kontrol prove` over all
+three harnesses → `verify_kontrol.py`. The full 20-check run is **long at one core** (the N=5 signature loop
+alone is ≈2.25 h; the whole suite several hours) — drop an alternative from run.sh's `--match-test` to
+reproduce a subset. The prover's nonzero exit is expected (reachability controls fail by design) but not
+ignored: `verify_kontrol.py` jointly validates the exit, exact JUnit inventory, proof passes, and concrete
+control failures. Errors, skips, pending/incomplete proofs, and drift fail closed.
 
 ## Honest caveats (also in each harness header)
 
