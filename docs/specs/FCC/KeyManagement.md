@@ -118,12 +118,13 @@ function directRestore(
     returns (bytes32 _instructionId);
 ```
 
-Shares the same restore-side gate block with the legacy `backupRestore` (factored as `_validateRestoreInputs` in the facet): destination PRODUCTION, source not INITIALIZED, destination must not already hold the key, stored public key matches `BackupId.publicKey`, reward-epoch in the supported range, keyType / signingAlgo match the project, all teeIds belong to the extension.
+Shares the same restore-side gate block with the legacy `backupRestore` (factored as `_validateRestoreInputs` in the facet): destination PRODUCTION, source not INITIALIZED, destination must not already hold the key, stored public key matches `BackupId.publicKey`, keyType / signingAlgo match the project, all teeIds belong to the extension. The shared block does **not** constrain the reward epoch; each path applies its own reward-epoch rule (below).
 
 In addition:
 
-1. **Active-list path** — `(BackupId.teeId, destinationTeeId)` must be in the active list (same gate as `directBackup`).
-2. **Now mutate the destination nonce** — `WalletKeyManager.increaseKeyNonce(destinationTeeId, walletId, keyId)` bumps the stored value by `+1`. The destination's restore attestation binds to this new value, so a stale attestation cannot be replayed against a later restore call.
+1. **Recent backup only** — the backup's `rewardEpochId` must be the **current or the immediately preceding** reward epoch, otherwise `InvalidRewardEpochId`. A direct restore is a live machine-to-machine transfer, not an archived-backup restore, so a stale backup is rejected. (The admin-threshold `backupRestore` has no such window: it accepts any older epoch up to `current + 1`, reverting `InvalidRewardEpochId` only for the future.)
+2. **Active-list path** — `(BackupId.teeId, destinationTeeId)` must be in the active list (same gate as `directBackup`).
+3. **Now mutate the destination nonce** — `WalletKeyManager.increaseKeyNonce(destinationTeeId, walletId, keyId)` bumps the stored value by `+1`. The destination's restore attestation binds to this new value, so a stale attestation cannot be replayed against a later restore call.
 
 The dispatched instruction is `(F_WALLET, "KEY_DIRECT_RESTORE")` with payload [`KeyDirectRestore`](../../../contracts/userInterfaces/tee/IWalletBackupManager.sol) (sourceTeeId, source's proxy URL looked up on-chain, the BackupId, `backupInstructionId` so the destination knows which response to fetch from the source proxy, just-incremented destinationNonce, machinePathListNonce). Again, no cosigners — the path list is the authorization.
 

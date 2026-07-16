@@ -37,6 +37,17 @@ contract WalletBackupManagerFacet is IWalletBackupManager {
     {
         _validateRestoreInputs(_teeId, _backupId);
 
+        // Admin-threshold restore may recover an arbitrarily old backup, so there is no lower
+        // bound on the reward epoch — only a sanity upper bound of `current + 1`. The `+ 1` is
+        // required because a backup for the next reward epoch's signing policy is produced when
+        // that policy is relayed, which happens ~1.5h before the current epoch ends; such a
+        // backup is a valid restore source even before the current reward epoch is over.
+        require(
+            _backupId.rewardEpochId <=
+                IFlareSystemsManager(ExternalAddresses.getState().flareSystemsManager).getCurrentRewardEpochId() + 1,
+            InvalidRewardEpochId()
+        );
+
         KeyDataProviderRestore memory message = KeyDataProviderRestore({
             teePublicKey: MachineManager.getPublicKey(_teeId),
             backupId: _backupId,
@@ -151,6 +162,19 @@ contract WalletBackupManagerFacet is IWalletBackupManager {
         returns (bytes32 _instructionId)
     {
         uint256 extensionId = _validateRestoreInputs(_destinationTeeId, _backupId);
+
+        // A direct restore is a live transfer between two production machines, not a restore from
+        // an archived backup, so the backup must be recent: its reward epoch must be the current
+        // one or the immediately preceding one. This is the direct path's only reward-epoch gate
+        // (it subsumes any upper bound); `backupRestore` applies its own looser bound instead.
+        uint256 currentRewardEpochId =
+            IFlareSystemsManager(ExternalAddresses.getState().flareSystemsManager).getCurrentRewardEpochId();
+        require(
+            _backupId.rewardEpochId == currentRewardEpochId ||
+                _backupId.rewardEpochId + 1 == currentRewardEpochId,
+            InvalidRewardEpochId()
+        );
+
         uint256 listNonce = MachinePathManager.requireActiveListNonceForPath(
             extensionId, _backupId.teeId, _destinationTeeId
         );
@@ -201,9 +225,12 @@ contract WalletBackupManagerFacet is IWalletBackupManager {
     /**
      * Performs every common restore-side validation step shared by `backupRestore` and
      * `directRestore`: auth, destination-production, source-not-initialized, key-not-already-held,
-     * publicKey match, reward-epoch validity, keyType / signingAlgo match, extension match across
+     * publicKey match, keyType / signingAlgo match, extension match across
      * source / destination / wallet's project. Returns the wallet's extension id so callers that
      * need it next (e.g. for a machine-path lookup) don't have to re-derive it.
+     * @dev Reward-epoch bounds are NOT checked here — each caller owns its own rule:
+     *      `backupRestore` allows any past epoch up to `current + 1`; `directRestore` requires the
+     *      current or the immediately preceding epoch.
      */
     function _validateRestoreInputs(
         address _destinationTeeId,
@@ -227,16 +254,6 @@ contract WalletBackupManagerFacet is IWalletBackupManager {
         bytes memory publicKey = WalletKeyManager.getWalletKeyPublicKey(_backupId.walletId, _backupId.keyId);
         require(publicKey.length > 0, KeyNotConfirmed());
         require(keccak256(publicKey) == keccak256(_backupId.publicKey), InvalidPublicKey());
-        require(
-            MachineManager.getInitialSigningPolicyId(_destinationTeeId) <= _backupId.rewardEpochId,
-            UnsupportedRewardEpochId()
-        );
-
-        ExternalAddresses.State storage ext = ExternalAddresses.getState();
-        require(
-            _backupId.rewardEpochId <= IFlareSystemsManager(ext.flareSystemsManager).getCurrentRewardEpochId() + 1,
-            InvalidRewardEpochId()
-        );
 
         require(
             WalletProjectManager.getKeyType(projectId) == _backupId.keyType,

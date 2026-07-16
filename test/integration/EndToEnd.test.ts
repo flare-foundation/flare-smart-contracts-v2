@@ -2465,6 +2465,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
   });
 
   it("Should trigger direct restore of key 0 onto TEE1", async () => {
+    // A direct restore is a live transfer, so the backup's reward epoch must be the current
+    // or previous one — use the current reward epoch.
+    const currentRewardEpochId = (await flareSystemsManager.getCurrentRewardEpochId()).toString();
     const backupId = {
       teeId: TEE_IDS[0],
       walletId: WALLET1_ID,
@@ -2472,7 +2475,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       keyType: TEE_KEY_CONFIGURATIONS[0],
       signingAlgo: TEE_SIGNING_ALGOS[0][0],
       publicKey: xrpPublicKeys[0],
-      rewardEpochId: "2",
+      rewardEpochId: currentRewardEpochId,
       randomNonce: web3.utils.keccak256("rn"),
     };
 

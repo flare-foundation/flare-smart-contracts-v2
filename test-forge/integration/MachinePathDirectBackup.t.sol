@@ -530,7 +530,7 @@ contract MachinePathDirectBackupIntegrationTest is Test {
             keyType: keyType,
             signingAlgo: signingAlgo,
             publicKey: walletKeyPublicKey,
-            rewardEpochId: 1,
+            rewardEpochId: 15, // current reward epoch (mock) — within the direct-restore window
             randomNonce: bytes32("rn")
         });
     }

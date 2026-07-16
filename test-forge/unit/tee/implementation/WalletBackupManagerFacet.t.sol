@@ -525,11 +525,14 @@ contract WalletBackupManagerFacetTest is Test {
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
-    function testBackupRestoreRevertUnsupportedRewardEpochId() public {
+    // A machine's initialSigningPolicyId no longer gates which backups it may receive, so the
+    // admin-threshold path accepts an older backup (e.g. restoring onto a freshly-registered TEE).
+    function testBackupRestoreOldRewardEpochAllowed() public {
         backupId.rewardEpochId = 0;
         vm.prank(owner);
-        vm.expectRevert(IWalletBackupManager.UnsupportedRewardEpochId.selector);
-        flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
+        vm.expectEmit(true, true, true, true);
+        emit IWalletBackupManager.BackupRestoreTriggered(teeId, walletId, keyId, 1);
+        flareTeeManager.backupRestore{ value: 1000 }(teeId, backupId, backupUrl, address(0));
     }
 
     function testBackupRestoreRevertInvalidRewardEpochId() public {
@@ -785,17 +788,44 @@ contract WalletBackupManagerFacetTest is Test {
     // =========================================================================
 
     function testDirectRestoreRevertNoActiveMachinePathList() public {
+        backupId.rewardEpochId = 15; // current reward epoch (mock) — passes the direct-restore window
         vm.prank(owner);
         vm.expectRevert(IMachinePathManager.NoActiveMachinePathList.selector);
         flareTeeManager.directRestore(teeId, backupId, bytes32("instructionId"), address(0));
     }
 
     function testDirectRestoreRevertInvalidMachinePath() public {
+        backupId.rewardEpochId = 15; // current reward epoch (mock) — passes the direct-restore window
         // Active path contains a different pair.
         _registerPath(keyHolderTeeId, backupTeeId);
         vm.prank(owner);
         vm.expectRevert(IMachinePathManager.InvalidMachinePath.selector);
         flareTeeManager.directRestore(teeId, backupId, bytes32("instructionId"), address(0));
+    }
+
+    // directRestore rejects a backup whose reward epoch is neither the current nor the previous one.
+    function testDirectRestoreRevertRewardEpochOutOfWindow() public {
+        _registerPath(backupTeeId, teeId);
+        // current mock = 15; allowed window is {14, 15}.
+        backupId.rewardEpochId = 13; // too old
+        vm.prank(owner);
+        vm.expectRevert(IWalletBackupManager.InvalidRewardEpochId.selector);
+        flareTeeManager.directRestore(teeId, backupId, bytes32("instructionId"), address(0));
+
+        backupId.rewardEpochId = 16; // current + 1: allowed for backupRestore, but not current/previous
+        vm.prank(owner);
+        vm.expectRevert(IWalletBackupManager.InvalidRewardEpochId.selector);
+        flareTeeManager.directRestore(teeId, backupId, bytes32("instructionId"), address(0));
+    }
+
+    // The immediately-preceding reward epoch is accepted.
+    function testDirectRestorePreviousRewardEpochAllowed() public {
+        _registerPath(backupTeeId, teeId);
+        backupId.rewardEpochId = 14; // previous reward epoch (current mock = 15)
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, false);
+        emit IWalletBackupManager.DirectRestoreTriggered(teeId, walletId, keyId, 1, bytes32("instr"));
+        flareTeeManager.directRestore{ value: 1000 }(teeId, backupId, bytes32("instr"), address(0));
     }
 
     function testDirectRestoreRevertOnlyOwnerOrBackupManager() public {
@@ -819,6 +849,7 @@ contract WalletBackupManagerFacetTest is Test {
 
     function testDirectRestoreHappyPath() public {
         _registerPath(backupTeeId, teeId);
+        backupId.rewardEpochId = 15; // current reward epoch (mock)
         // Pre-condition: destination's nonce is 0; directRestore must bump it to exactly 1.
         (uint256 nonceBefore, ) = flareTeeManager.getKeyNonce(teeId, walletId, keyId);
         assertEq(nonceBefore, 0);
@@ -843,6 +874,7 @@ contract WalletBackupManagerFacetTest is Test {
         // Patch the backupId.teeId locally to keyHolderTeeId and re-register the matching path.
         IWalletBackupManager.BackupId memory bid = backupId;
         bid.teeId = keyHolderTeeId;
+        bid.rewardEpochId = 15; // current reward epoch (mock) — passes the direct-restore window
 
         vm.prank(owner);
         bytes32 backupInstrId =

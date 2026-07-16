@@ -95,7 +95,6 @@ interface IWalletBackupManager is ITeeCommonErrors {
     error InvalidTeeMachine();
     error KeyAlreadyAvailable();
     error KeyNotConfirmed();
-    error UnsupportedRewardEpochId();
     error InvalidRewardEpochId();
     error SourceTeeDoesNotHoldKey();
 
@@ -165,9 +164,14 @@ interface IWalletBackupManager is ITeeCommonErrors {
      *
      * Reverts:
      * - `OnlyOwnerOrBackupManager`, `TeeMachineNotInProduction` (destination), `InvalidTeeMachine`
-     *   (source), `KeyAlreadyAvailable`, `KeyNotConfirmed`, `InvalidPublicKey`,
-     *   `UnsupportedRewardEpochId`, `InvalidRewardEpochId`, `InvalidKeyType`, `InvalidSigningAlgo`,
-     *   `ExtensionIdMismatch` — same gates as the legacy `backupRestore` flow.
+     *   (source), `KeyAlreadyAvailable`, `KeyNotConfirmed`, `InvalidPublicKey`, `InvalidKeyType`,
+     *   `InvalidSigningAlgo`, `ExtensionIdMismatch` — the shared restore-input gates (also used by
+     *   `backupRestore`).
+     * - `InvalidRewardEpochId` if the backup's `rewardEpochId` is not the current or the
+     *   immediately preceding reward epoch. A direct restore is a live machine-to-machine transfer,
+     *   not an archived-backup restore, so stale backups are rejected. This is the direct path's
+     *   own reward-epoch rule — stricter than `backupRestore`, which allows any older epoch up to
+     *   `current + 1`.
      * - `NoActiveMachinePathList`, `InvalidMachinePath` — path-list gating.
      *
      * Emits DirectRestoreTriggered.
