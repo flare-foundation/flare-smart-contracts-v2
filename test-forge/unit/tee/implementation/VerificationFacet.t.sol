@@ -768,11 +768,25 @@ contract VerificationFacetTest is Test {
         flareTeeManager.updateSettings(1 hours, 1, 1);
     }
 
+    function testUpdateSettingsRevertInvalidDurationChallengeTooLong() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeCommonErrors.InvalidDuration.selector);
+        flareTeeManager.updateSettings(1 hours, 1, 1 hours + 1);
+    }
+
     function testUpdateSettings() public {
         vm.prank(initialGovernance);
         vm.expectEmit();
         emit IVerification.SettingsUpdated(1 hours, 1, 1 minutes);
         flareTeeManager.updateSettings(1 hours, 1, 1 minutes);
+    }
+
+    // The challenge validity duration accepts the inclusive maximum of one hour.
+    function testUpdateSettingsChallengeMaxOneHour() public {
+        vm.prank(initialGovernance);
+        vm.expectEmit();
+        emit IVerification.SettingsUpdated(1 hours, 1, 1 hours);
+        flareTeeManager.updateSettings(1 hours, 1, 1 hours);
     }
 
     // getCosigners

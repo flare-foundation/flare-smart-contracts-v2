@@ -261,7 +261,7 @@ library Verification {
     {
         validateDuration(_availabilityCheckValidityDurationSeconds, 1 hours, 365 days);
         validateDuration(_signingPolicyValidityDurationInRewardEpochs, 1, 100);
-        validateDuration(_challengeValidityDurationSeconds, 1 minutes, 1 days);
+        validateDuration(_challengeValidityDurationSeconds, 1 minutes, 1 hours);
         State storage s = getState();
         s.availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
         s.signingPolicyValidityDurationInRewardEpochs = _signingPolicyValidityDurationInRewardEpochs;
