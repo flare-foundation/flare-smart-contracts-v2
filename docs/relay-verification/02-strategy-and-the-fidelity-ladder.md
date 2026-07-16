@@ -46,7 +46,7 @@ that precise.
 
 ## 2.2 The fidelity ladder
 
-Every claim in the engagement is classified by **two axes at once**: *what object* it reasons about, and
+Every claim in the engagement is classified by **two axes at once** (the [fidelity ladder](CONCEPTS.md#11-the-fidelity-ladder-r0-r5), in one page): *what object* it reasons about, and
 *over what input range*.
 
 | Rung | Object reasoned about | Input coverage | Tool |
@@ -61,7 +61,7 @@ Every claim in the engagement is classified by **two axes at once**: *what objec
 
 Two barriers separate the rungs:
 
-- **The induction barrier (R2 → R3).** Crossing from "all inputs up to a bound" to "all inputs" requires
+- **The [induction barrier](CONCEPTS.md#10-bounded-vs-unbounded-proofs) (R2 → R3).** Crossing from "all inputs up to a bound" to "all inputs" requires
   an inductive argument no solver finds unaided. This is Enemy 1.
 - **The assembly barrier (R3 → R4).** A model reconstructed from high-level structure can silently diverge
   from hand-written assembly; reasoning against a *validated EVM semantics* does not. This is Enemy 2.
@@ -106,7 +106,7 @@ residual in [L10](10-claims-ledger-trust-and-residual.md).
 
 Proving the full property *directly* on real-machine semantics — cryptography, memory, gap-skipping, and
 unbounded induction at once — is intractable and conflates the two enemies. The discipline that separates
-them is **refinement**:
+them is **[refinement](CONCEPTS.md#16-refinement-and-the-simulation-relation)**:
 
 ```
    abstract model  ⊨  PROPERTY            (the abstract proof: the math; induction is easy here)
@@ -132,9 +132,9 @@ of the abstract function.
 
 ## 2.5 What "validated semantics" means, and the trust chain
 
-R4 needs a computable, reason-about-able description of EVM execution *inside Lean*. The engagement uses
+R4 needs a computable, reason-about-able description of EVM execution *inside Lean* (a [validated semantics](CONCEPTS.md#18-validated-semantics-a-evm)). The engagement uses
 **EVMYulLean** (NethermindEth) — a Lean 4 formalization of EVM/Yul execution whose **EVM interpreter is
-executed against the official Ethereum execution-spec test suites**, the same conformance corpus real EVM
+executed against the standard `ethereum/tests` EVM conformance suite** (GeneralStateTests, now including EEST-generated fixtures), the same conformance corpus real EVM
 clients pass. So when a bytecode-refinement proof says "the EVM model computes X", the claim *this model is
 the EVM* is backed by the cross-client test corpus, not by our say-so.
 

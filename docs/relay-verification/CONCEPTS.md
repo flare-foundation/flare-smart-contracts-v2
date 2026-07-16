@@ -22,7 +22,18 @@
 5. [What is k-induction?](#5-what-is-k-induction)
 6. [What is psAt? (the prefix sum at the heart of the proofs)](#6-what-is-psat-the-prefix-sum-at-the-heart-of-the-proofs)
 7. [What is a CEX? (counterexamples, and why half the suite celebrates them)](#7-what-is-a-cex-counterexamples-and-why-half-the-suite-celebrates-them)
-- [Candidate topics (not yet written)](#candidate-topics-not-yet-written)
+8. [Formal verification vs testing](#8-formal-verification-vs-testing)
+9. [Symbolic execution](#9-symbolic-execution)
+10. [Bounded vs unbounded proofs](#10-bounded-vs-unbounded-proofs)
+11. [The fidelity ladder (R0-R5)](#11-the-fidelity-ladder-r0-r5)
+12. [Theorem prover (Lean 4)](#12-theorem-prover-lean-4)
+13. ["Hole-free" and `#print axioms`](#13-hole-free-and-print-axioms)
+14. [The two extra axioms (`zeroes_data`, `toByteArray_size`)](#14-the-two-extra-axioms-zeroes_data-tobytearray_size)
+15. [Fuel and fuel-genericity](#15-fuel-and-fuel-genericity)
+16. [Refinement and the simulation relation](#16-refinement-and-the-simulation-relation)
+17. [Uninterpreted functions and the ecrecover boundary](#17-uninterpreted-functions-and-the-ecrecover-boundary)
+18. [Validated semantics (A-EVM)](#18-validated-semantics-a-evm)
+19. [Verified compilation](#19-verified-compilation)
 
 ---
 
@@ -86,6 +97,8 @@ vacuously true. Certora and Kontrol sit on SMT solvers the same way.
 In one line: **an SMT solver is an automated logician that either finds a concrete
 scenario satisfying your constraints or proves none exists — and verification is the
 art of phrasing "is there a bug?" as exactly that question.**
+
+**References:** [SMT-LIB standard](https://smt-lib.org/); de Moura & Bjørner, *Z3: An Efficient SMT Solver*, TACAS 2008 — [Springer](https://link.springer.com/chapter/10.1007/978-3-540-78800-3_24), [z3 source](https://github.com/Z3Prover/z3).
 
 ---
 
@@ -159,6 +172,8 @@ which is precisely the gap a formally verified Yul→EVM compiler (e.g. powdr's)
 Different rungs, opposite compiler-trust profiles — another way stacked layers cover each
 other.
 
+**References:** Solidity docs — [metadata / deterministic builds](https://docs.soliditylang.org/en/latest/metadata.html) and [pragma / compiler version](https://docs.soliditylang.org/en/latest/layout-of-source-files.html); the compiler-trust profile contrast is developed in [verified compilation](#19-verified-compilation).
+
 ---
 
 ## 4. What is KEVM?
@@ -202,6 +217,8 @@ rewriting engine + prover + z3. Lean + EVMYulLean = semantics inside a proof ass
 manual effort, but every proof re-checked by a few-thousand-line kernel. In one line: **K
 gives a validated semantics with heavy automation; Lean gives a validated semantics with a
 minimal trusted kernel.**
+
+**References:** Hildenbrandt et al., *KEVM: A Complete Formal Semantics of the EVM*, CSF 2018 — [paper](https://fsl.cs.illinois.edu/publications/hildenbrandt-saxena-zhu-rodrigues-daian-guth-moore-zhang-park-rosu-2018-csf.html); the executable semantics ([Jello Paper](https://jellopaper.org/)); the [K framework](https://kframework.org/); Kontrol ([Runtime Verification](https://docs.runtimeverification.com/kontrol)).
 
 ---
 
@@ -247,6 +264,8 @@ beyond). k-induction/Kontrol = base + symbolic step ⟹ unbounded, *if* you find
 (the creative act). Proof assistant/Lean = the same induction with the glue checked too, and
 invariants strengthened with arbitrary mathematics rather than what an SMT solver happens to
 swallow.
+
+**References:** Sheeran, Singh, Stålmarck, *Checking Safety Properties Using Induction and a SAT-Solver*, FMCAD 2000 — [Springer](https://doi.org/10.1007/3-540-40922-X_8); the not-inductive / counterexample-to-induction (CTI) idea — Bradley, *IC3*, VMCAI 2011 — [Springer](https://doi.org/10.1007/978-3-642-18275-4_7).
 
 ---
 
@@ -318,21 +337,198 @@ trade: SMT tools hand you automatic counterexamples when you're wrong; Lean hand
 certainty when you're right. The suite uses each where it shines — the bounded rungs carry
 the anti-vacuity controls, the Lean rung carries the axiom audit.
 
+**References:** the assert-the-negation reduction (a satisfying model = a counterexample) — de Moura & Bjørner, *Satisfiability Modulo Theories: Introduction and Applications*, CACM 2011 — [ACM](https://dl.acm.org/doi/10.1145/1995376.1995394); the anti-vacuity discipline is enforced by [`verify_fv.py`](../../test-forge/fv/verify_fv.py).
+
 ---
 
-## Candidate topics (not yet written)
+## 8. Formal verification vs testing
 
-Concepts from the engagement that deserve the same treatment, roughly in dependency order:
+**Testing asks "does it work on these inputs?"; formal verification asks "does it work on *all* inputs?" — and proves the answer.** A unit test runs the code on one concrete scenario; a fuzzer runs thousands of random ones. Both *sample* the input space, so — in Dijkstra's famous line — "program testing can be used to show the presence of bugs, but never to show their absence." Formal verification instead makes a mathematical statement about *every* input at once and discharges it with a proof, so a pass means "no input breaks this, anywhere," not "no input we tried broke this."
 
-- **Formal verification vs testing** — trying inputs vs proving over all inputs.
-- **Symbolic execution** — what Halmos actually does with the bytecode; path conditions.
-- **Bounded vs unbounded proofs** — loop unrolling, why ∀N needs induction, the R2→R3 barrier.
-- **Theorem prover (Lean 4)** — interactive proof vs automatic SMT; what the kernel checks.
-- **"Hole-free" and `#print axioms`** — what the axiom audit certifies; `sorry`/`sorryAx`/`native_decide`.
-- **Uninterpreted functions & the ecrecover boundary** — what MC-2 assumes, what determinism buys.
-- **The fidelity ladder (R0–R5)** — one page, the two barriers (induction, assembly).
-- **Validated semantics (A-EVM)** — what "EVMYulLean is validated" means; execution-spec suites vs Yul tests.
-- **Fuel and fuel-genericity** — why the interpreter takes a step budget and why proofs quantify over it.
-- **Refinement / simulation relation** — how an abstract theorem transfers to the real machine.
-- **The two extra axioms** (`zeroes_data`, `toByteArray_size`) — why they exist, why they're harmless, how they discharge.
-- **Verified compilation** (powdr's Yul→EVM compiler) — what `compile_correct` would buy: closing the solc-backend trust gap.
+The catch is scope: a proof is only about what you actually stated, under the assumptions you actually made. "Verified" is never unconditional — it is "*this* property, under *these* assumptions, for all inputs in *this* range." That is why this engagement pairs every result with an explicit scope (input coverage × object fidelity, the [fidelity ladder](#11-the-fidelity-ladder-r0-r5)) and an assumption register (L10): the value is in the *precision* of the claim, not a blanket "it's correct."
+
+The two are complementary, not rivals. The 59 Foundry tests (R0/R1) pin concrete behaviours and guard against regressions cheaply; the FV suites (R2–R4) prove the security-critical accounting over all inputs. Tests catch the mistake you can imagine; verification catches the one you can't — and they reinforce each other here, since the same `Relay.t.sol` harness that runs as tests is the substrate Halmos executes symbolically.
+
+**In one line:** testing explores, verification proves — a good stack uses testing for breadth of behaviours and verification for depth of guarantee on the parts that must never break.
+
+**References:** Dijkstra, *Notes on Structured Programming* (EWD249, ~1970) — [EWD archive](https://www.cs.utexas.edu/~EWD/transcriptions/EWD02xx/EWD249/EWD249.html).
+
+---
+
+## 9. Symbolic execution
+
+**Run the program on *unknowns* instead of values, and you explore all executions at once.** Concrete execution feeds `v = 27, r = 0x1c…` and follows one path. Symbolic execution feeds *symbols* (`v`, `r` as logical variables) and, at every branch that depends on them, forks — exploring both sides and accumulating a **path condition**, the constraints that must hold to reach that branch. Each leaf is one path with its condition; an [SMT solver](#1-what-is-an-smt-solver) then asks, per path, "is there an input satisfying this condition that also violates the assertion?" (a [counterexample](#7-what-is-a-cex-counterexamples-and-why-half-the-suite-celebrates-them)).
+
+That is exactly what **Halmos** (a16z; Python, z3 by default) does to `relay()`: the `check_` function's parameters become symbols and it walks the compiled EVM opcode by opcode, forking at each symbolic branch. Because it *executes the real bytecode* rather than a reconstruction, it sees the hand-written assembly exactly as deployed — no storage model to break (contrast the Certora wall, C-1).
+
+The fundamental limit is **path explosion**: a loop over a symbolic condition forks unboundedly, so symbolic executors **unroll loops to a fixed bound** ([bounded vs unbounded](#10-bounded-vs-unbounded-proofs)). Hence Halmos results are "all inputs up to K≤3 signatures," and the `--loop` bound is load-bearing — set too low, the accepting iteration is silently truncated and proofs pass vacuously (the anti-vacuity controls are the tripwire).
+
+**References:** King, *Symbolic Execution and Program Testing*, CACM 1976 (the canonical reference; the technique was developed concurrently by several groups) — [ACM](https://dl.acm.org/doi/10.1145/360248.360252); Cadar, Dunbar, Engler, *KLEE*, OSDI 2008 — [USENIX](https://www.usenix.org/conference/osdi-08/klee-unassisted-and-automatic-generation-high-coverage-tests-complex); Cadar & Sen, *Symbolic Execution … Three Decades Later*, CACM 2013 (path explosion) — [ACM](https://dl.acm.org/doi/10.1145/2408776.2408795); Halmos — [github.com/a16z/halmos](https://github.com/a16z/halmos).
+
+---
+
+## 10. Bounded vs unbounded proofs
+
+**"For all inputs up to size K" and "for all inputs, any size" are different theorems — and the gap between them is a barrier no solver crosses on its own.** A bounded proof unrolls every loop a fixed number of times and proves the property for that shape; it is exhaustive *within the bound* (all inputs, not samples) but silent beyond it — this is **bounded model checking** and what Halmos does. An unbounded proof holds for every size, which requires an **inductive argument** ("if it holds after k signatures, it holds after k+1") — and induction is precisely what an SMT solver cannot invent unaided.
+
+This is the engagement's **induction barrier (R2 → R3)**. Below it: Halmos, exhaustive to K≤3 signatures / N≤5 voters on the real bytecode. Crossing it needs a tool that does induction — Kontrol via [k-induction](#5-what-is-k-induction) (∀K on a model), and Lean via ordinary mathematical induction (∀N ∀K, `RelaySigLoop.threshold_sound`).
+
+Why keep the bounded proofs once the unbounded ones exist? Fidelity. The unbounded proofs run on a *model* or an *abstract algorithm*; the bounded ones run on the *deployed bytecode*. Each covers the other's weakness — the point of the [two-tools bridge](#2-why-two-symbolic-tools-the-bounded-model-fidelity-bridge): bounded-real-bytecode + unbounded-model + a bridge tying them = confidence neither delivers alone.
+
+**In one line:** bounded = "checked to the horizon"; unbounded = "checked past every horizon" — and getting past the horizon costs an induction the solver can't supply.
+
+**References:** Biere, Cimatti, Clarke, Zhu, *Symbolic Model Checking without BDDs*, TACAS 1999 (BMC) — [Springer](https://link.springer.com/chapter/10.1007/3-540-49059-0_14); and the [k-induction](#5-what-is-k-induction) entry for crossing to unbounded.
+
+---
+
+## 11. The fidelity ladder (R0-R5)
+
+**One picture organizing the whole engagement: rungs of increasing confidence along *two* axes at once — what you reason about, and over how many inputs.**
+
+| Rung | Object | Coverage | Tool |
+|---|---|---|---|
+| R0 | deployed bytecode | a few concrete inputs | Foundry tests |
+| R1 | deployed bytecode | random inputs | Foundry fuzzing |
+| R2 | deployed bytecode | all inputs to a bound | Halmos |
+| R3 | a *model* | all inputs, unbounded | Kontrol/KEVM, Certora |
+| R4 | a *validated EVM semantics* running the loop | all inputs, unbounded | Lean + EVMYulLean |
+| R5 | the whole `relay()` on the validated semantics | all inputs, unbounded | Lean + EVMYulLean |
+
+Higher is not strictly "better" — each rung trades one axis for the other. R2 has perfect object fidelity (real bytecode) but bounded coverage; R3 has unbounded coverage on a reconstructed model. The craft is putting each property on the rung matching its risk, and letting rungs cover each other's gaps.
+
+Two **barriers** separate the rungs, and naming them is half the value: the **induction barrier (R2→R3)** — bounded → unbounded, needs [induction](#10-bounded-vs-unbounded-proofs); and the **assembly barrier (R3→R4)** — a model reconstructed from Solidity structure can silently diverge from hand-written assembly, whereas a [validated EVM semantics](#18-validated-semantics-a-evm) cannot. The engagement's convergent finding is that two independent unbounded tools (Kontrol at symbolic-N, Certora at storage) hit the *same* assembly barrier — the signal to climb to R4.
+
+Above R5 sits an explicit **ceiling**: byte-perfect end-to-end verification *including the cryptography and exact memory* — permanently out of reach (the crypto is [MC-2](#17-uninterpreted-functions-and-the-ecrecover-boundary), irreducible), and named as the residual rather than pretended away.
+
+**References:** the ladder is this engagement's own framing — see [L2 §2.2](02-strategy-and-the-fidelity-ladder.md); it is a two-axis refinement of the classic fidelity/assurance-level idea.
+
+---
+
+## 12. Theorem prover (Lean 4)
+
+**Where an SMT solver *searches* for a proof automatically, a theorem prover *checks* a proof you construct — and checks it with a tiny, trustworthy core.** In Lean 4 you build a proof term (by hand, or via tactics that assemble it) and Lean's **kernel** — a few thousand lines — verifies it type-checks. Nothing is believed unless the kernel accepts it. That is a different trust model from the SMT tools: Halmos/Kontrol trust a large solver + executor; Lean trusts only its kernel (plus the semantics you state the theorem against).
+
+The trade is automation vs. reach. SMT is push-button but bounded and undecidable-in-general (it can time out or say "unknown"); Lean needs a human to guide the proof but can express *anything* — arbitrary induction, quantifiers, custom mathematics — with no bound. That is why the unbounded ∀N ∀K accounting soundness lives in Lean (`RelaySigLoop.threshold_sound`), and why the bytecode refinement (R4b) runs the deployed loop against **EVMYulLean**, a Lean formalization of the EVM, to get an unbounded guarantee on a [validated](#18-validated-semantics-a-evm) machine model.
+
+Two ideas make Lean results auditable and are their own entries: [hole-free / `#print axioms`](#13-hole-free-and-print-axioms) (what the proof rests on) and [refinement](#16-refinement-and-the-simulation-relation) (how an abstract theorem transfers onto the real machine).
+
+**In one line:** an SMT solver answers "is there a proof?" by searching; a theorem prover answers "is *this* a proof?" by checking — and the smaller the checker, the more the "yes" is worth.
+
+**References:** de Moura & Ullrich, *The Lean 4 Theorem Prover and Programming Language*, CADE-28 2021 — [PDF](https://leanprover.github.io/papers/lean4.pdf); *Theorem Proving in Lean 4* — [book](https://leanprover.github.io/theorem_proving_in_lean4/).
+
+---
+
+## 13. "Hole-free" and `#print axioms`
+
+**A machine-checked proof can still secretly rest on a gap or an unproven assumption — Lean's `#print axioms` is the X-ray that shows exactly what it rests on, and "hole-free" is the clean bill of health.** Every Lean theorem depends on some set of axioms; `#print axioms my_theorem` lists them (transitively, across every lemma it uses). The engagement's bar: that list must be a subset of Lean's three standard foundational axioms —
+
+`propext` (propositional extensionality), `Classical.choice` (choice), `Quot.sound` (soundness of quotients)
+
+— which are domain-neutral (accepting them is accepting ordinary classical mathematics; mathlib rests on the same three), **with nothing else**. In particular:
+
+- **No `sorryAx`.** The decisive one: `sorryAx` appears if *any* proof in the dependency tree contains a `sorry` (a hole) or otherwise failed. Its absence certifies the proof is *complete* — no gaps, no admitted lemmas.
+- **No `Lean.ofReduceBool`.** This is the axiom `native_decide` introduces — it trusts the Lean *compiler* to evaluate a decision procedure in native code, enlarging the trusted base beyond the kernel (external checkers can't re-verify it). Deliberately avoided; the proofs reduce inside the kernel. (The exact name of the compiler-trusting axiom varies by tactic/Lean version; `native_decide` → `Lean.ofReduceBool` is the case that matters here.)
+
+"Hole-free" = passes exactly this audit. It is not a vibe — it is a mechanical check, enforced in CI by `verify_lean.py`, which fails on any `error`, any forbidden token, or any `#print axioms` line outside the allowlist. So a proof that still *builds* but quietly acquired a `sorry` fails the gate, independent of whether Lake reports success. (Two results carry two *extra* constants beyond the standard three — see [the two extra axioms](#14-the-two-extra-axioms-zeroes_data-tobytearray_size); those are documented, minimal, upstream-dischargeable specs, not holes.)
+
+**References:** Lean reference, *Validating a Lean Proof* (axioms, `#print axioms`, `sorryAx`, native-evaluation trust) — [lean-lang.org](https://lean-lang.org/doc/reference/latest/ValidatingProofs/); *Theorem Proving in Lean 4* — Axioms and Computation — [book](https://leanprover.github.io/theorem_proving_in_lean4/axioms_and_computation.html).
+
+---
+
+## 14. The two extra axioms (`zeroes_data`, `toByteArray_size`)
+
+**Two results in the Lean development list one or two constants beyond the standard three — and the honest thing is to say exactly what they are, why they're harmless, and how they'd be removed.** They are *not* `sorry`s and *not* domain assumptions about Relay; they are minimal specifications of two low-level facts in the upstream EVMYulLean library:
+
+- **`zeroes_data`** — the spec of an `opaque` FFI symbol (`memset_zero`): freshly-allocated memory reads back as zeroes. Opaque because it is implemented in native code the kernel can't unfold; the axiom states the one property of it the proofs need.
+- **`toByteArray_size`** — a `private` upstream bound: serializing a 256-bit word yields exactly 32 bytes.
+
+Both are **true, both verified, both reducible to theorems** by a one-line upstream change (un-`private`-ing a lemma / turning the `opaque` into a `def`) — the exact patches and the verified discharge proofs are archived in [`AXIOM_DISCHARGE.md`](../../test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md), so they are reproducible, not anecdotal. They are also *scoped*: they appear only on results that use the memory-*write* round-trip (`mstore`/`mload`), and the accounting capstones (`relay_loop_sound`, the threshold-soundness results) do not carry them at all.
+
+Why keep them rather than patch upstream? Pinning. The proofs check against a fixed EVMYulLean commit; carrying two documented, discharge-ready specs is more honest and more stable than maintaining a local fork. If NethermindEth merges the patches, the list collapses to the pure three. This is the whole engagement's philosophy in miniature: name the residual precisely, show it's dischargeable, don't hide it inside a `native_decide`.
+
+**References:** the discharge patches + verified proofs — [`AXIOM_DISCHARGE.md`](../../test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md); the upstream semantics — [NethermindEth/EVMYulLean](https://github.com/NethermindEth/EVMYulLean); and the [hole-free](#13-hole-free-and-print-axioms) entry for the bar these sit against.
+
+---
+
+## 15. Fuel and fuel-genericity
+
+**To define an EVM interpreter as a *total* mathematical function, you give it a "fuel" budget — a maximum number of steps — so it always terminates; the trick is then proving your theorem for *every* budget at once.** A real interpreter loops until the program halts, but an unbounded loop is not a definition a proof assistant will accept as total. The standard fix (also called a *clock* or *step counter*): pass a natural-number `fuel` that decrements each step; at `fuel = 0` the interpreter returns `OutOfFuel`. Now it is total by structural recursion on `fuel`, hence definable.
+
+The hazard is that a theorem proved at one specific fuel value says nothing about others — it could be an artefact of running out of budget at just the right moment. **Fuel-genericity** is the discipline of stating and proving effects for a *symbolic* fuel (`fuel + 130`, for arbitrary `fuel`), so the result holds for every sufficiently-large budget — i.e., for any real execution that actually completes. The literal loop-body model (`body_effL` and up in `RelayBodyEff.lean`) is proved fuel-generically: each statement's effect is established at symbolic fuel and the pieces compose without ever pinning a concrete budget.
+
+Two clarifications. "Fuel" here is a *definitional* device, not the EVM's gas — the proofs are about functional behaviour, not gas accounting. And fuel is related to but *distinct* from **step-indexing** (a semantic technique for logical relations over recursive types, due to Appel & McAllester); both use a decreasing nat index for well-foundedness, but they are different constructs.
+
+**References:** Owens, Myreen, Kumar, Tan, *Functional Big-Step Semantics*, ESOP 2016 (the clock/fuel total-interpreter idiom) — [PDF](https://www.cse.chalmers.se/~myreen/esop16.pdf); Appel & McAllester, *An Indexed Model of Recursive Types*, ACM TOPLAS 2001 (step-indexing, the distinct relative) — [ACM](https://doi.org/10.1145/504709.504712).
+
+---
+
+## 16. Refinement and the simulation relation
+
+**Rather than prove the hard property directly on the messy real machine, prove it once on a clean abstract model, prove the machine *refines* the model, and compose — the property transfers for free.** As a diagram:
+
+```
+abstract model   ⊨  PROPERTY          (the math: induction is easy here)
+concrete system  ⊑  abstract model     (refinement: the machine matches the model)
+─────────────────────────────────────
+concrete system  ⊨  PROPERTY           (by composition)
+```
+
+The `⊑` is witnessed by a **simulation relation** `R` tying concrete states to abstract ones: whenever the concrete machine steps, the abstract model can take a matching step preserving `R`, so the abstract trace mirrors the real one — and any property of the abstract trace holds of the real one.
+
+This is the backbone of R4. The abstract proof (`RelaySigLoop.threshold_sound`) establishes "accept ⟹ enough distinct weight" on a clean algorithm where [induction](#10-bounded-vs-unbounded-proofs) is trivial; the bytecode refinement then shows EVMYulLean's execution of the deployed loop refines that algorithm (the relation ties the loop's memory/locals to the abstract `(weight, nextUnusedIndex, …)`) and transfers the theorem onto the validated machine. Splitting the work this way is what keeps each half tractable: the two enemies (unboundedness and the real machine) are fought *once each*, separately, instead of both at once. The bounded [bridge](#2-why-two-symbolic-tools-the-bounded-model-fidelity-bridge) (`RelayModelBridgeFV`) is the cheap cousin — it checks the relation's key invariant (`psAt`) on the real bytecode at K≤3 without a full simulation argument.
+
+**References:** Klein et al., *seL4: Formal Verification of an OS Kernel*, SOSP 2009 (the landmark refinement proof) — [ACM](https://doi.org/10.1145/1629575.1629596); simulation is due to Milner and coinductive bisimulation to Park — Sangiorgi, *On the Origins of Bisimulation and Coinduction*, TOPLAS 2009 — [PDF](https://www.cs.unibo.it/~sangio/DOC_public/history_bis_coind.pdf).
+
+---
+
+## 17. Uninterpreted functions and the ecrecover boundary
+
+**Some things can't be proven inside an EVM proof — the cryptography chief among them — so you model them as a black box that is *consistent* but otherwise unknown: an *uninterpreted function*.** In SMT this is the theory **EUF** (equality with uninterpreted functions): a function symbol with no definition, constrained *only* by congruence — `x = y ⟹ f(x) = f(y)`. That is exactly **determinism** (same inputs ⟹ same output) and it is the *sole* guarantee. A property proved with `f` left uninterpreted holds *whatever `f` actually computes*, because the prover is free to pick any behaviour consistent with congruence. (The flip side: it is an over-approximation, so it can raise *spurious* counterexamples the real function wouldn't — which is why tools sometimes add axioms, see below.)
+
+`ecrecover` (the ECDSA-recovery precompile at `0x01`) is the canonical case. No tool here — Halmos, Kontrol, Lean — proves elliptic-curve cryptography; all model `ecrecover` as uninterpreted. That draws a precise line between what is *proven* (the on-chain **accounting** — acceptance requires enough distinct authorized weight, no double-count, *for every possible set of recovered signers*) and what is *assumed* (that a valid signature identifies its signer — non-forgeability). Those assumptions are the ledger's **MC-2**, and they are irreducible: proving them would be proving the cryptography, circular at the EVM level. `keccak256` is modeled the same way — but note a subtlety the ledger's shorthand glosses: "uninterpreted" alone gives only determinism; *injectivity/no-collision* (MC-1) is an **added** modelling axiom, and it is an idealization — real Keccak-256 is collision-*resistant* (collisions exist but are infeasible to find), not literally injective.
+
+There is a second, subtler boundary — **OP-1**: the *operational ABI* of the call, not the crypto. On a bad signature the `ecrecover` `staticcall` returns *success* with **empty** return data and a **stale** output buffer (the `CALL` opcode pushes `1` regardless), so the contract must check `returndatasize() == 32` and `recovered != 0`. That is discharged separately by real-EVM regression + symbolic tests, not assumed.
+
+**In one line:** uninterpreted = "I promise nothing about what it computes, only that it's a function" — precisely strong enough to verify the logic *around* the cryptography while honestly assuming the cryptography itself.
+
+**References:** EUF / congruence — [SMT theories notes (CMU 15-414)](https://www.cs.cmu.edu/~15414/s24/lectures/17-smt-theories.pdf); modelling crypto as uninterpreted/assumed — [Certora hashing model](https://docs.certora.com/en/latest/docs/prover/approx/hashing.html); the `ecrecover` ABI — Ethereum Yellow Paper App. E — [paper](https://ethereum.github.io/yellowpaper/paper.pdf) and [execution-specs `ecrecover.py`](https://github.com/ethereum/execution-specs/blob/master/src/ethereum/forks/prague/vm/precompiled_contracts/ecrecover.py).
+
+---
+
+## 18. Validated semantics (A-EVM)
+
+**An R4 proof is only as trustworthy as the EVM model it runs against — so the model itself must be *validated*, and "validated" has a precise, honest meaning here.** The proofs use **EVMYulLean**, NethermindEth's formalization of the EVM (and Yul) in Lean 4. The assumption "EVMYulLean *is* the EVM" is ledger item **A-EVM** — permanent and irreducible (you cannot prove a model equals the real thing; you can only cross-check it), but *hardenable* by validation.
+
+The honest nuance is that A-EVM has **two halves of different strength**:
+
+- The **opcode / memory layer** the proofs lean on (the shared `step` dispatch, `MachineState`) sits on the path EVMYulLean validates by running the **standard `ethereum/tests` EVM conformance suite** (GeneralStateTests, which now include EEST-generated fixtures) — the same family of cross-client tests every production client is held to. Strong evidence.
+- The **Yul control-flow layer** (`Yul.exec` / `loop` / fuel) that actually drives the R4b proofs is Yul-specific and validated separately, by Yul semantic tests rather than the execution-conformance suite. Weaker evidence — and named as such rather than folded into the stronger claim.
+
+"Validated" also means "validated *at the pinned commit*." Two directions harden A-EVM further: cross-validating the Yul layer against an independent Lean Yul semantics (e.g. powdr's — see [verified compilation](#19-verified-compilation)), and upstreaming the two [axiom patches](#14-the-two-extra-axioms-zeroes_data-tobytearray_size).
+
+**In one line:** A-EVM is where the proof meets reality — unprovable by nature, but validated against the same conformance tests as real clients, with the weaker Yul half flagged, not hidden.
+
+**References:** [NethermindEth/EVMYulLean](https://github.com/NethermindEth/EVMYulLean) (formal EVM+Yul in Lean 4; conformance harness runs `ethereum/tests`); the standard suites — [ethereum/tests](https://github.com/ethereum/tests) and the EEST framework, now under [ethereum/execution-specs](https://github.com/ethereum/execution-specs) (the `execution-spec-tests` repo was archived and migrated in 2025).
+
+---
+
+## 19. Verified compilation
+
+**The deployed contract is *bytecode*, but the R4 Lean proofs reason about *Yul* — and the step from Yul to bytecode is done by solc, which nobody has verified. A verified compiler would close exactly that gap.** The classic precedent is **CompCert** (Xavier Leroy, INRIA): a formally verified C compiler, proved in Coq, carrying a machine-checked *semantic-preservation* theorem (the generated assembly behaves as the source's semantics prescribe, for programs with defined behaviour). "Verified compilation" means a compiler shipping such a theorem.
+
+Where the gap sits in *this* stack — and the trust profiles are *opposite* per rung:
+
+- **R2 (Halmos)** runs the real bytecode, so solc is *inside* the verified object: a miscompilation of a checked property would surface as a counterexample. No compiler trust needed — but bounded.
+- **R4b (Lean)** models the Yul IR and *trusts* solc's Yul→bytecode backend to emit faithful bytes. Unbounded — but the backend is an unverified step.
+
+A verified Yul→EVM compiler is the missing bridge for R4b: restate the Yul-level results against the verified compiler's input semantics, push them through its correctness theorem, and the unbounded guarantee lands on the *bytecode* with the compiler no longer trusted. **powdr Labs** published exactly such a compiler in Lean 4 (2026) with a `compile_correct` theorem (a gas-conditioned forward-simulation / semantic-preservation statement). It is not usable here yet — its Yul coverage doesn't include the assembly features `relay()` uses (mstore/calldatacopy/staticcall/keccak256/objects), there is no optimizer, and there's a Lean-toolchain gap — so it is tracked as a watch item. Tellingly, even a peer verified-contract compiler, **Verity** (LFG Labs, Lean 4), currently punts this same Yul→bytecode step to unverified, pinned solc — powdr is targeting precisely the gap nobody else closes.
+
+**In one line:** we prove things about Yul and trust solc to compile it faithfully; a verified compiler would let us *prove* the compilation too, retiring the last silent step between the theorem and the deployed bytes.
+
+**References:** Leroy, *Formal verification of a realistic compiler* (CompCert), CACM 2009 — [PDF](https://xavierleroy.org/publi/compcert-CACM.pdf); powdr's verified Yul→EVM compiler — [blog](https://www.powdr.org/blog/yul-compiler), [powdr-labs/yul-compiler](https://github.com/powdr-labs/yul-compiler); Verity — [veritylang.com](https://veritylang.com/), [TRUST_ASSUMPTIONS.md](https://github.com/lfglabs-dev/verity/blob/main/TRUST_ASSUMPTIONS.md).
+
+---
+
+## Notes
+
+All seeded concepts are now drafted (entries 1–19). When adding a new one: append it at the bottom, add its line to the index, link it from its first load-bearing mention in the ladder docs (see the "Linked from" note at the top), keep the cross-references between entries current, and — where a claim is externally checkable — cite a primary source and verify the prose against it.

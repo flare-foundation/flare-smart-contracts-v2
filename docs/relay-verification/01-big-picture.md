@@ -52,7 +52,7 @@ it; this core is the spine.
 Suppose you built a coin-sorting machine and want confidence it never miscounts. There is a *ladder* of
 increasingly strong ways to gain that confidence:
 
-1. **Try some coins (testing).** Feed known batches, check totals. Cheap; only tells you about the batches
+1. **Try some coins ([testing](CONCEPTS.md#8-formal-verification-vs-testing)).** Feed known batches, check totals. Cheap; only tells you about the batches
    you tried.
 2. **Try lots of random coins (fuzzing).** Thousands of random batches. Better coverage; still no
    guarantee — the one adversarial batch may never come up.
@@ -159,7 +159,7 @@ hole-free literal chain, capstone `relay_loop_sound_literal_derived_tight`, in
 > masked weight read, the tally and the accept gate — so the **loop mechanism, the data layer, and the body's
 > memory plumbing** are all captured (the literal chain `relay_loop_sound_literal_derived_tight`; the earlier
 > masked-read `relay_loop_sound` remains as the simpler corroborating statement — L7 §7.3). What is still
-> abstracted is only the *cryptography*: the `ecrecover` precompile (invoked via `staticcall`) is uninterpreted
+> abstracted is only the *cryptography*: the `ecrecover` precompile (invoked via `staticcall`) is [uninterpreted](CONCEPTS.md#17-uninterpreted-functions-and-the-ecrecover-boundary)
 > by design, so the ecrecover facts (a valid signature recovers to the registered voter) plus the no-double-count
 > discipline are stated hypotheses (`IterPremiseT`/`ValidRun`), and successful execution/acceptance remains
 > explicit in the capstones. The signature-specific accounting is

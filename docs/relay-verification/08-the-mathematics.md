@@ -224,7 +224,7 @@ step the available fuel is a *symbolic* `3m+10`, not a concrete number, and EVMY
 lemma** of the form "if `exec f s = r` then `exec (f+1) s = r`" (fuel monotonicity). Without it, you
 seemingly cannot reduce `exec` at a symbolic fuel.
 
-**The device (fuel-genericity).** You do not need monotonicity. Prove each statement's effect at fuel
+**The device ([fuel-genericity](CONCEPTS.md#15-fuel-and-fuel-genericity)).** You do not need monotonicity. Prove each statement's effect at fuel
 `fuel + K`, where `fuel` is a *universally quantified variable* and `K` is the *exact concrete* number
 of recursion layers that statement consumes (here `K = 7` for a single assignment block, `6` for the
 condition). The simplifier, unfolding the definition of `exec`/`eval`, peels off exactly `K` successor

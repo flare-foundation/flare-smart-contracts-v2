@@ -9,7 +9,7 @@
 
 ## 4.1 What Halmos is, and why it is the bounded floor *on the real bytecode*
 
-Halmos runs the compiled contract with **symbolic** inputs: instead of one concrete calldata, it explores
+Halmos runs the compiled contract with **[symbolic](CONCEPTS.md#9-symbolic-execution)** inputs: instead of one concrete calldata, it explores
 *all* calldata at once via an [SMT solver](CONCEPTS.md#1-what-is-an-smt-solver), reporting any input that violates an `assert`. Crucially it
 **executes the actual bytecode** — it does not reconstruct a model from Solidity structure — so it is
 **immune to the assembly barrier** (Enemy 2): Relay's hand-rolled storage is just bytecode being run.
@@ -25,7 +25,7 @@ bytes, checkable via the on-chain metadata/source verification); deployment-bake
 the harness's — usually symbolic — constructor config, so proofs quantify over configurations. Note the
 trust profile: at this rung **solc is inside the verified object** (we check its *output*; a miscompilation
 of a checked property within bound would surface as a counterexample) — the inverse of R4b, which models
-the Yul IR and *trusts* solc's Yul→bytecode backend (L7 §7.4).
+the Yul IR and *trusts* solc's Yul→bytecode backend (L7 §7.4; [verified compilation](CONCEPTS.md#19-verified-compilation)).
 
 Its limit is the **induction barrier** (Enemy 1): loops are unrolled to a fixed depth, so coverage is
 bounded — here **K ≤ 3 signatures** and **N ≤ 5 voters**. Within that bound the guarantee is exhaustive

@@ -101,19 +101,19 @@ deployment artifact, and byte-compares the generated optimized Yul with the comm
 
 ## 3. Reading a Lean proof (`lean/…`)
 
-The R4 proofs are in [Lean 4](lean/) and are checked against **EVMYulLean** (NethermindEth's Lean
-formalization of EVM/Yul, itself validated against the Ethereum execution-spec tests). Two entry points:
+The R4 proofs are in [Lean 4](lean/) (a [theorem prover](../../docs/relay-verification/CONCEPTS.md#12-theorem-prover-lean-4)) and are checked against **EVMYulLean** (NethermindEth's Lean
+formalization of EVM/Yul, itself validated against the standard `ethereum/tests` EVM conformance suite, incl. EEST-generated fixtures). Two entry points:
 
 - [`lean/RelaySigLoop.lean`](lean/RelaySigLoop.lean) — the abstract `∀N ∀K` accounting proof, pure `ℕ`/`List`,
   no EVM. Readable by any mathematician: `threshold_sound` says *accept ⟹ total registered weight > threshold*.
 - [`lean/bytecode-refinement/`](lean/bytecode-refinement/) — the same soundness lifted onto a loop executed by
   the *validated EVM semantics*, for all N. See its [`README.md`](lean/bytecode-refinement/README.md).
 
-**"Hole-free" is a precise claim, and you can check it yourself.** Every declared audited result has a
+**"[Hole-free](../../docs/relay-verification/CONCEPTS.md#13-hole-free-and-print-axioms)" is a precise claim, and you can check it yourself.** Every declared audited result has a
 `#print axioms` directive. A proof is trusted when that list is a subset of
 `[propext, Classical.choice, Quot.sound]` — Lean's three standard
 axioms — with **no `sorryAx`** (no gaps) and **no `Lean.ofReduceBool`** (no `native_decide`). Two proofs add
-`zeroes_data` / `toByteArray_size`: these are *documented, upstream-dischargeable specs* (an `opaque` FFI
+`zeroes_data` / `toByteArray_size`: these are *[documented, upstream-dischargeable specs](../../docs/relay-verification/CONCEPTS.md#14-the-two-extra-axioms-zeroes_data-tobytearray_size)* (an `opaque` FFI
 symbol and a `private` bound), not semantic assumptions — the file headers explain each, and the exact
 upstream patches + verified discharge proofs are archived in
 [`lean/bytecode-refinement/AXIOM_DISCHARGE.md`](lean/bytecode-refinement/AXIOM_DISCHARGE.md). To re-check:
