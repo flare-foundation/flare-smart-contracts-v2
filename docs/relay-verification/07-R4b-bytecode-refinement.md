@@ -94,7 +94,7 @@ qualified local declarations because the data and window namespaces each declare
 
 **The simulation-relation capstone `relay_loop_sound` (the accounting core of `R`).** Composing the EVM
 accumulation with the abstract accounting — `bridge` identifies the masked-read sum with the abstract
-loop's accumulated weight (`sigLoop`, the in-file restatement of [`RelaySigLoop.loop`](../../test-forge/fv/lean/RelaySigLoop.lean#L62)), and the abstract
+loop's accumulated weight (`sigLoop`, the in-file restatement of [`RelaySigLoop.loop`](../../test-forge/fv/lean/RelaySigLoop.lean#L63)), and the abstract
 `threshold_sound` is restated in-file too (so one `lake env lean` checks the whole chain):
 
 > **∀N: if the deployed signature loop accepts (final weight > threshold), the total registered voting weight
@@ -217,7 +217,7 @@ All results are hole-free and CI-gated with the loop proofs by `verify_lean.py` 
 Two boundaries are documented, neither touching the core accounting soundness: the exec-level `.CALL` wiring
 (`primCall`/`callDispatcher`, the fuel-carrying analog of `sstore_eff`; value conservation is also Halmos-covered
 at bounded scope by `RelayVerifyFeeFV`), and reconciling the loop model's D3 deviation (accept → `return` vs. the
-deployed break→write→return) so the accept-write folds into the composition. Full walk: [L9 §G.5](09-the-formal-detail.md).
+deployed break→write→return) so the accept-write folds into the composition. Full walk: [L9 §F.5](09-the-formal-detail.md).
 
 ---
 

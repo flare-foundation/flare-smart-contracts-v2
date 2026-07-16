@@ -370,7 +370,7 @@ lemmas need only `[propext, Quot.sound]`), inheriting the same upstream-discharg
 The last four rows are the **R5** breadth extension — the same literal, validated-EVM method applied beyond the
 signature loop to the rest of `relay()` (mode dispatch, storage/accept-write, the dispatch → loop → accept
 composition, and fee conservation). All hole-free; R5 adds coverage, not a new soundness fact. Full walk:
-[L9 §G.5](09-the-formal-detail.md).
+[L9 §F.5](09-the-formal-detail.md).
 
 **Next:** [L9 — The formal detail](09-the-formal-detail.md): the verbatim Lean, every tactic, the
 EVMYulLean API, the gotchas, and the axiom audit.

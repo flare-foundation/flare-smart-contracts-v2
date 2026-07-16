@@ -34,7 +34,7 @@ This review is ordered by **how much attention each deserves**, not severity alo
 Read this first, so the residuals are not mistaken for the whole picture. On the real compiled bytecode and/or
 a [validated EVM semantics](CONCEPTS.md#18-validated-semantics-a-evm), the following are machine-checked:
 
-- **Threshold soundness & no-double-count** — the [`RelaySigLoop.threshold_sound`](../../test-forge/fv/lean/RelaySigLoop.lean#L101) capstone (∀N∀K) and its contrapositive; lifted onto the deployed 17-statement loop body with real masked memory reads (R4b), corroborated bounded on real bytecode (`RelaySigFV`, `RelaySigParamFV`) and tied to the ∀K model by `RelayModelBridgeFV`.
+- **Threshold soundness & no-double-count** — the [`RelaySigLoop.threshold_sound`](../../test-forge/fv/lean/RelaySigLoop.lean#L102) capstone (∀N∀K) and its contrapositive; lifted onto the deployed 17-statement loop body with real masked memory reads (R4b), corroborated bounded on real bytecode (`RelaySigFV`, `RelaySigParamFV`) and tied to the ∀K model by `RelayModelBridgeFV`.
 - **The `ecrecover` guard triad** rejects the empty-return / stale-buffer failure mode and zero signer (`RelayEcrecoverSymbolicFV`, `RelayEcrecoverABI.t.sol`); canonical-ECDSA (`RelayCanonicalityFV`).
 - **The whole `relay()` epoch-decision matrix**, threshold consistency, access control, constructor fail-closure, governance-nonce replay protection, Merkle & random binding, and fee conservation (the Halmos suite, bounded).
 - **Cross-transaction storage invariants** — nonce/epoch monotonicity, setter immutability, hash/root write-once — for every function except `relay()` itself (Certora, C-1 discharged 2026-07), plus per-sequence forms on the real bytecode.

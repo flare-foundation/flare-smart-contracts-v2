@@ -340,8 +340,7 @@ halmos --contract RelaySigParamFV
 python3 test-forge/fv/verify_fv.py --loop 2
 ```
 
-Expected: the gate prints the per-check table and `[fv] OK — all proofs hold and every reachability
-control is live`.
+Expected: the gate prints the per-check table and `[fv] OK - exact proof inventory holds and every reachability control has a valid witness.`.
 
 ---
 

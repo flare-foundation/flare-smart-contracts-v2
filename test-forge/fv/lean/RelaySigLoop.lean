@@ -19,8 +19,9 @@
     • `omega`  — a decision procedure for linear integer arithmetic; it discharges the numeric "glue".
     • `xs.getD i d`  — the i-th element of list `xs`, or the default `d` if `i` is out of range.
     • `simp only [lemmas]` / `rw [lemma]`  — rewrite the goal using the named equations.
-  The trust check: the `#print axioms` at the very bottom must be `[propext, Classical.choice, Quot.sound]`
-  (Lean's three standard axioms) with no `sorryAx` — that certifies the proof is complete and gap-free.
+  The trust check: the `#print axioms` at the very bottom must be `[propext, Quot.sound]`
+  (a subset of Lean's three standard axioms — this proof doesn't even need `Classical.choice`) with no
+  `sorryAx` — that certifies the proof is complete and gap-free.
 -/
 set_option linter.unusedVariables false
 

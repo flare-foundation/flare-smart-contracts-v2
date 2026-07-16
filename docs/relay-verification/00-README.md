@@ -55,7 +55,7 @@ then extends in **breadth** to the rest of `relay()` (**R5**, all hole-free): th
 (`dispatch_routes_verify`), the storage round-trip and accept-write (`sstore_sload` / `sstore_reads_back`), the
 end-to-end **dispatch → loop → accept** composition (`relay_dispatch_loop_accept`), and fee conservation
 (`fee_conservation` / `transfer_conservation`) — coverage over the core loop soundness, not a new soundness fact
-(L7 §7.5, L9 §G.5). The residual trusted surface
+(L7 §7.5, L9 §F.5). The residual trusted surface
 is small and named — exactly the ecrecover boundary (MC-2/OP-1), stated per-iteration as `IterPremiseT`:
 cryptography (`ecrecover`/`keccak`), the operational ABI of each boundary call, a trusted signing-policy setter,
 and the per-iteration *selection/validity* those external calls determine (which voter each signature recovers to,

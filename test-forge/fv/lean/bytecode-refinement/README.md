@@ -122,7 +122,7 @@ closes BR-3.
 - `ecrecover` (`0x01`) is the uninterpreted matcher (assumptions MC-2 / OP-1).
 
 Then prove `exec` of the loop preserves `R` with `(weight', nui') = RelaySigLoop.loop w weight nui sigs`,
-and transfer [`RelaySigLoop.threshold_sound`](../RelaySigLoop.lean#L101) through it. **Progress + feasibility (investigated):**
+and transfer [`RelaySigLoop.threshold_sound`](../RelaySigLoop.lean#L102) through it. **Progress + feasibility (investigated):**
 - *Byte-decode layer — ✅ done.* `DataLayer.lean` proves the big-endian round-trip
   (`fromBytesBigEndian_toBytesBigEndian`) about EVMYulLean's real functions, hole-free (reuses EVMYulLean's
   existing `@[simp] fromBytes'_toBytes'`; the padding/bounds lemmas also exist upstream).

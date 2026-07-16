@@ -69,7 +69,7 @@ Two barriers separate the rungs:
 The destination is **R4**, reached for the loop mechanism; **R5 then extends the same literal, validated-EVM
 method to the rest of `relay()`** — mode dispatch, storage/accept-write, the end-to-end composition
 (dispatch → loop → accept), and fee conservation, all hole-free (§2.6; [L7 §7.5](07-R4b-bytecode-refinement.md),
-[L9 §G.5](09-the-formal-detail.md)). R5 adds **breadth**, not a new soundness fact — the accounting soundness
+[L9 §F.5](09-the-formal-detail.md)). R5 adds **breadth**, not a new soundness fact — the accounting soundness
 is already the loop's (R4). What remains permanently out of reach is *byte-perfect end-to-end verification
 including the cryptography (MC-2, irreducible) and the exact memory layout* — the ceiling, fenced as the
 residual in [L10](10-claims-ledger-trust-and-residual.md).
