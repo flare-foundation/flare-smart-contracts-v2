@@ -86,7 +86,7 @@ residual in [L10](10-claims-ledger-trust-and-residual.md).
   barrier*: it unrolls loops to a fixed bound, so coverage is bounded (here K≤3, N≤5). This is why the
   bounded floor of the stack runs on the real bytecode. → [L4](04-R2-bounded-symbolic-halmos.md)
 
-- **Kontrol/KEVM (R3)** proves **∀K** by k-induction — crossing the induction barrier — but on a faithful
+- **Kontrol/KEVM (R3)** proves **∀K** by [k-induction](CONCEPTS.md#5-what-is-k-induction) ([what is KEVM?](CONCEPTS.md#4-what-is-kevm)) — crossing the induction barrier — but on a faithful
   Solidity *model*, at fixed voter counts N∈{3,5}. **Certora (R3)** targets all-functions/all-sequences
   *storage* invariants. Both meet the *assembly barrier*: Kontrol at full symbolic-N (state-explosive,
   12h/0 proofs), Certora on storage-slot havoc. The successes (Kontrol's ∀K) and the walls are both

@@ -13,11 +13,14 @@ run, and trust everything here.
 
 We prove the same accounting property at increasing fidelity. Foundry runs the **real compiled bytecode** on
 concrete and random inputs (R0/R1). **Halmos** runs that *same* Solidity harness **symbolically** — every
-function argument becomes a logical variable and the SMT solver either proves the assertion for *all* inputs
+function argument becomes a logical variable and the [SMT solver](../../docs/relay-verification/CONCEPTS.md#1-what-is-an-smt-solver) either proves the assertion for *all* inputs
 (in a bounded region) or returns a concrete counterexample (R2). **Kontrol** does symbolic execution at a
 fixed signer count on KEVM (R3). **Lean + EVMYulLean** lifts the argument to a `∀N` theorem against a
 *validated* model of the EVM (R4). Cryptography (`ecrecover`, `keccak`) is never *proved* — it is modeled as
 an **uninterpreted function**, which is the sound, conservative choice (see §5).
+
+New to the vocabulary (SMT, k-induction, CEX, psAt, KEVM)? The plain-words FAQ is
+[`docs/relay-verification/CONCEPTS.md`](../../docs/relay-verification/CONCEPTS.md).
 
 If you read only one thing next, read a small proof end to end:
 [`RelaySigFV.t.sol`](RelaySigFV.t.sol) (Halmos) and [`lean/RelaySigLoop.lean`](lean/RelaySigLoop.lean) (Lean).
@@ -51,7 +54,7 @@ calldata that breaks the property.
    [`../../halmos.toml`](../../halmos.toml). It is a real hazard: it bit this suite once at the default.
 
 2. **The anti-vacuity control.** Because a vacuous pass is worthless, every harness carries a **reachability
-   control** that asserts the *negation* of a reachable event, so Halmos **must refute it with a witness**.
+   control** that asserts the *negation* of a reachable event, so Halmos **must refute it with a [witness](../../docs/relay-verification/CONCEPTS.md#7-what-is-a-cex-counterexamples-and-why-half-the-suite-celebrates-them)**.
    The gate script
    [`verify_fv.py`](verify_fv.py) enforces both halves: every `check_` proof must PASS **and** every
    declared control must produce a **validated counterexample model**. A timeout, stuck path, exception,

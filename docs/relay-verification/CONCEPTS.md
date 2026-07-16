@@ -6,6 +6,12 @@
 > ladder's tutorial track).
 > **Status:** working draft, now maintained in-repo (`docs/relay-verification/`, moved 2026-07-15).
 > Started 2026-07-07. Add new entries at the bottom; keep the index current.
+> **Linked from:** the ladder docs point here at each concept's first load-bearing mention —
+> [L1 §1.3](01-big-picture.md), [L2 §2.3](02-strategy-and-the-fidelity-ladder.md),
+> [L4](04-R2-bounded-symbolic-halmos.md), [L5](05-R3-unbounded-attempts.md),
+> [L6](06-R4a-abstract-proof.md), and the FV suite primer
+> [`test-forge/fv/README.md`](../../test-forge/fv/README.md). When you add an entry, add the link at its
+> first mention in the relevant doc too (and keep the cross-references between entries current).
 
 ## Index
 

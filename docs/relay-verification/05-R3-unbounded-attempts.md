@@ -13,7 +13,7 @@
 `test-forge/fv/kontrol/` — [`RelaySigLoopFV.t.sol`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol), [`RelayRandomMonoFV.t.sol`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol), `run.sh`, `Dockerfile`,
 `foundry.toml`, `README.md`.
 
-Kontrol proves properties by **k-induction** — it discharges a base case and an inductive step whose
+Kontrol proves properties by **[k-induction](CONCEPTS.md#5-what-is-k-induction)** — it discharges a base case and an inductive step whose
 pre-state is *fully symbolic*, so a single step covers every iteration count. This crosses the induction
 barrier in the **K dimension** (the number of signatures / relays), which is the genuinely unbounded one.
 
@@ -22,7 +22,7 @@ barrier in the **K dimension** (the number of signatures / relays), which is the
 controls that must *counterexample* (the same `reach` naming idea as the Halmos suite).
 
 `RelaySigLoopFV` — the signature-loop **weight invariant** `weight ≤ prefixSum(nextUnusedIndex)`, via
-k-induction over a grounded prefix sum (N=3 voter model; re-validated at N=5, ~2.25 h, identical verdicts):
+k-induction over a grounded prefix sum ([`psAt`](CONCEPTS.md#6-what-is-psat-the-prefix-sum-at-the-heart-of-the-proofs); N=3 voter model; re-validated at N=5, ~2.25 h, identical verdicts):
 
 | `prove_` function | Kind · verdict | What it establishes |
 |---|---|---|

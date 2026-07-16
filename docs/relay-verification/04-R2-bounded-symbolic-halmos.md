@@ -10,11 +10,11 @@
 ## 4.1 What Halmos is, and why it is the bounded floor *on the real bytecode*
 
 Halmos runs the compiled contract with **symbolic** inputs: instead of one concrete calldata, it explores
-*all* calldata at once via an SMT solver, reporting any input that violates an `assert`. Crucially it
+*all* calldata at once via an [SMT solver](CONCEPTS.md#1-what-is-an-smt-solver), reporting any input that violates an `assert`. Crucially it
 **executes the actual bytecode** — it does not reconstruct a model from Solidity structure — so it is
 **immune to the assembly barrier** (Enemy 2): Relay's hand-rolled storage is just bytecode being run.
 
-**Which bytecode, precisely.** The artifact this repo's toolchain compiles from source — **solc
+**Which bytecode, precisely** ([which bytecode, exactly?](CONCEPTS.md#3-verified-on-the-real-bytecode--which-bytecode-exactly))**.** The artifact this repo's toolchain compiles from source — **solc
 0.8.27+commit.40a35a09, optimizer 200, `evm_version=cancun`** (settings pinned in
 [`foundry.toml`](../../foundry.toml); the solc version pinned by the test base's exact
 `pragma solidity 0.8.27`, which fixes the whole verified compilation unit — Relay.sol's own pragma is
@@ -56,7 +56,7 @@ It prints a per-check table and the summary line, and exits non-zero on any viol
 
 **(b) The anti-vacuity tripwire.** Every property harness pairs each positive proof with a **reachability
 control** that asserts the *negation* of "the interesting thing can happen" and must therefore be refuted
-by a counterexample. If a control ever *passes*, the interesting path is unreachable — the proofs guarding
+by a [counterexample](CONCEPTS.md#7-what-is-a-cex-counterexamples-and-why-half-the-suite-celebrates-them). If a control ever *passes*, the interesting path is unreachable — the proofs guarding
 it have gone **vacuous** — and the gate raises a "VACUITY ALARM" (a hard failure). This is what makes a
 green suite meaningful: it certifies the proofs are not trivially true.
 
@@ -90,7 +90,7 @@ harness drives the real compiled `Relay` or a self-contained model (see §4.4).
 |---------|----------|-------|
 | [`RelaySigFV`](../../test-forge/fv/RelaySigFV.t.sol#L21) | accept ⟹ enough distinct registered weight; **no double-count** (`noDoubleCount_duplicateIndex_cannotAccept`); threshold rejection (`threshold_twoVoters_cannotAccept`) | tight per-prefix |
 | [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L23) | the same, **parametric** at K≤3 on real bytecode: `threshold_1/2/3sig_param`, `noDoubleCount_headDup/tailDup_param` | the **bytecode** side of the loop |
-| [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L31) | the real bytecode obeys the Kontrol model's `psAt` prefix-sum invariant: `bridge_1/2/3sig` | **ties R3's model to the bytecode** at K≤3 |
+| [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L31) | the real bytecode obeys the Kontrol model's [`psAt`](CONCEPTS.md#6-what-is-psat-the-prefix-sum-at-the-heart-of-the-proofs) prefix-sum invariant: `bridge_1/2/3sig` | **ties R3's model to the bytecode** ([the bridge](CONCEPTS.md#2-why-two-symbolic-tools-the-bounded-model-fidelity-bridge)) at K≤3 |
 
 These three are the bounded, real-bytecode counterpart of the unbounded soundness proven at R3 (Kontrol,
 ∀K) and R4 (Lean, ∀N∀K). `RelayModelBridgeFV` is the explicit bridge that justifies trusting the model.

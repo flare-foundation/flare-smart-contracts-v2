@@ -62,7 +62,8 @@ increasingly strong ways to gain that confidence:
 4. **Reason about batches of *every* size (unbounded verification).** Prove, by an argument that does not
    care how many coins there are, correctness for *any* size. This needs **induction** ("correct for n ⟹
    correct for n+1"), which a solver cannot find unaided. This is **Kontrol/KEVM** and **Certora**, on a
-   *model* of the machine.
+   *model* of the machine. (What is [k-induction](CONCEPTS.md#5-what-is-k-induction)? What is
+   [KEVM](CONCEPTS.md#4-what-is-kevm)?)
 5. **Prove it about the *real machine*, for all inputs.** Even an unbounded proof is only as good as the
    description it reasons about. If you proved something of a tidy blueprint but the real machine has
    hand-soldered wiring the blueprint glossed over, the proof may not apply. The strongest result proves

@@ -30,7 +30,7 @@ for any number of voters and any number of signatures.
 
 ## 6.2 The objects (informal)
 
-- **`sumTake(w, k)`** — the prefix sum of the first `k` voter weights (the on-chain `psAt(k)`).
+- **`sumTake(w, k)`** — the prefix sum of the first `k` voter weights (the on-chain [`psAt(k)`](CONCEPTS.md#6-what-is-psat-the-prefix-sum-at-the-heart-of-the-proofs)).
 - **`loop`** — the accounting recursion: each signature adds the weight at its index and advances the
   "next unused index" boundary past it.
 - **`ValidRun`** — the inductive predicate encoding the anti-double-count discipline: signature indices are
