@@ -8,7 +8,7 @@ bytes32 constant TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE = bytes32("TeeAvailabil
 
 interface ITeeAvailabilityCheck {
 
-    enum AvailabilityCheckStatus { OK, OBSOLETE, DOWN }
+    enum AvailabilityCheckStatus { OK, OBSOLETE }
 
     /**
      * State of the TEE machine

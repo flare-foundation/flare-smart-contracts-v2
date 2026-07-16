@@ -363,7 +363,7 @@ contract MachineManagerFacetTest is Test {
     function testToProductionRevertInvalidAvailabilityCheckStatus() public {
         testRegister();
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
-        proof.responseBody.status = ITeeAvailabilityCheck.AvailabilityCheckStatus.DOWN;
+        proof.responseBody.status = ITeeAvailabilityCheck.AvailabilityCheckStatus.OBSOLETE;
         vm.prank(owner);
         vm.expectRevert(ITeeCommonErrors.InvalidAvailabilityCheckStatus.selector);
         flareTeeManager.toProduction(proof);
