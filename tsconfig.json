@@ -22,7 +22,7 @@
     "./typechain-truffle",
     "./typechain-web3",
     "./test",
-    "./scripts/libs",
+    "./scripts",
     "./lib",
     "types"
   ],
