@@ -211,30 +211,30 @@ export interface ChainParameters {
    */
   signingPolicySignNoRewardsDurationBlocks: integer;
 
-    /**
-     * Multiplier applied to node staking weights when computing voter registration weight (e.g. 5).
-     */
-    stakingFactor: integer;
+  /**
+   * Multiplier applied to node staking weights when computing voter registration weight (e.g. 5).
+   */
+  stakingFactor: integer;
 
-    /**
-     * Fee percentage update timelock measured in reward epochs (must be more than 1, e.g. 3).
-     */
-    feePercentageUpdateOffset: integer;
+  /**
+   * Fee percentage update timelock measured in reward epochs (must be more than 1, e.g. 3).
+   */
+  feePercentageUpdateOffset: integer;
 
   /**
    * Default fee percentage, in BIPS (e.g. 20%).
    */
   defaultFeePercentageBIPS: integer;
 
-    /**
-     * Minimum fee percentage value voters can set, in BIPS (e.g. 20%).
-     */
-    minFeeBIPS: integer;
+  /**
+   * Minimum fee percentage value voters can set, in BIPS (e.g. 20%).
+   */
+  minFeeBIPS: integer;
 
-    /**
-     * Indicates whether the P-chain stake is enabled.
-     */
-    pChainStakeEnabled: boolean;
+  /**
+   * Indicates whether the P-chain stake is enabled.
+   */
+  pChainStakeEnabled: boolean;
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // FTSO system settings

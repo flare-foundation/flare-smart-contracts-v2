@@ -121,14 +121,7 @@ export async function redeployContractsTee(
     registeredVoters,
     registrationWeights
   );
-  spewNewContractInfo(
-    contracts,
-    null,
-    VoterRegistry.contractName,
-    `VoterRegistry.sol`,
-    voterRegistry.address,
-    quiet
-  );
+  spewNewContractInfo(contracts, null, VoterRegistry.contractName, `VoterRegistry.sol`, voterRegistry.address, quiet);
 
   const wNatDelegationFee = await WNatDelegationFee.new(
     deployerAccount.address, // tmp address updater
@@ -192,14 +185,8 @@ export async function redeployContractsTee(
   );
 
   await wNatDelegationFee.updateContractAddresses(
-    encodeContractNames([
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEMS_MANAGER
-    ]),
-    [
-      addressUpdater,
-      flareSystemsManager.address
-    ]
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
+    [addressUpdater, flareSystemsManager.address]
   );
 
   // switch to production mode
