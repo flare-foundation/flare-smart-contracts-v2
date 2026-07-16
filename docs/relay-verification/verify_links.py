@@ -141,7 +141,14 @@ PLAIN_RE = re.compile(r"(?<!\[)`([\w.]+)`(?!\]\()")
 
 
 def resolve(base_dir: Path, target: str) -> str | None:
-    """Resolve a doc-relative link target to a repo-relative posix path (None if outside/missing)."""
+    """Resolve a doc-relative link target to a repo-relative posix path (None if outside/missing).
+
+    External links (any URL with a scheme — http(s)://, mailto:, etc.) are out of scope for this
+    repo-internal gate and return None, so a permalink like
+    `https://github.com/…/contracts.go#L196-L225` is left untouched rather than being mistaken for a
+    repo path (pathlib would otherwise fold it into a bogus in-repo path and flag it "dangling")."""
+    if "://" in target or target.startswith("mailto:"):
+        return None
     p = (base_dir / target).resolve()
     try:
         return p.relative_to(REPO).as_posix()

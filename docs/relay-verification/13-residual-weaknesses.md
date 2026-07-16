@@ -47,7 +47,7 @@ The residuals below are the *complement* of this list.
 
 Low severity for the most part, but **live** — a maintainer or integrator should internalize each.
 
-**T1-a · The `returndatasize() == 32` ecrecover guard is the highest-blast-radius line** — `Relay.sol:1305-1307`. *Class: regression risk.* The ecrecover output slot is pre-seeded with the attacker's `r` (the 67-byte `calldatacopy` at `Relay.sol:1245`), and on a bad signature precompile `0x01` returns *success with empty data and leaves that buffer untouched*. Remove or weaken this check and an attacker forges a "valid" signature by placing a target voter's address in the `r` field → threshold bypass. **Proven load-bearing today** (`RelayEcrecoverSymbolicFV` over all stale-buffer contents + the on-EVM regression), so not a current weakness — but the line that must survive every future edit. Two residual sub-gaps: the whole-`relay()` Halmos runs use a *total* built-in `0x01` that cannot exercise the empty-return mode (only the dedicated harness does), and "reviewed pattern == deployed bytes" rests on the assembly review. Ledger [OP-1](10-claims-ledger-trust-and-residual.md).
+**T1-a · The `returndatasize() == 32` ecrecover guard is the highest-blast-radius line** — `Relay.sol:1305-1307`. *Class: regression risk.* The ecrecover output slot is pre-seeded with the attacker's `r` (the 67-byte `calldatacopy` at `Relay.sol:1245`), and on a bad signature precompile `0x01` returns *success with empty data and leaves that buffer untouched*. Remove or weaken this check and an attacker forges a "valid" signature by placing a target voter's address in the `r` field → threshold bypass. **Proven load-bearing today** (`RelayEcrecoverSymbolicFV` over all stale-buffer contents + the on-EVM regression), so not a current weakness — but the line that must survive every future edit. Two residual sub-gaps: the whole-`relay()` Halmos runs use a *total* built-in `0x01` that cannot exercise the empty-return mode (only the dedicated harness does), and "reviewed pattern == deployed bytes" rests on the assembly review. Ledger [OP-1](10-claims-ledger-trust-and-residual.md). The guard's client-side assumption is **cross-checked against the deployed precompile source** in [§13.8](#138-appendix--op-1-cross-checked-against-the-deployed-client-ecrecover-precompile).
 
 **T1-b · `verifyCustomSignature()` is an unbound public signature oracle** — `Relay.sol:465-470` (review item **L-3**). *Class: deferred (doc-only).* It forwards the caller's raw `_messageHash` with **no chain-id / contract / nonce binding** (the RLY-02 domain-binding was added to `governanceFeeSetup` only). A third-party integrator using it for authorization can have the same quorum signatures **replayed** against an identical-policy Relay on another chain/deployment. The only mitigation is a NatSpec "callers MUST domain-separate" note — the risk is *exported to third parties the Relay team cannot control*. The strongest documentation-only residual; worth weighing even though it is by-decision.
 
@@ -124,6 +124,64 @@ None is required for soundness; each removes a documented footgun at low cost:
 2. **Validate `messageFinalizationWindowInRewardEpochs`** in the constructor (`Relay.sol:266`), matching the RLY-11 duration-bound treatment.
 3. **Add a quality-aware getter to `FtsoProxy`** (RLY-12) so V1 consumers can read the `isSecureRandom` flag, or document the migration path more forcefully.
 4. **Strengthen the `verifyCustomSignature` domain-separation guidance** (L-3) — or, if feasible, bind `address(this)`/chain-id into the custom-signature digest as RLY-02 did for `governanceFeeSetup`.
+
+---
+
+## 13.8 Appendix — OP-1 cross-checked against the deployed client (`ecrecover` precompile)
+
+T1-a's guard is load-bearing *only because of* a specific low-level behaviour of the `ecrecover` precompile
+(ledger [OP-1](10-claims-ledger-trust-and-residual.md)). That behaviour is a property of the **client**, not
+of `Relay.sol` — so it was cross-checked directly against the exact precompile source the Flare node runs
+(2026-07-16). Verdict: **the OP-1 assumption as-assumed == as-implemented.**
+
+**Provenance — where the code actually is.** `ecrecover` is *not* in go-flare's own tree. The C-chain EVM
+(`coreth`) carries no `core/vm/contracts.go`; it imports the EVM and pins it in `coreth/go.mod`:
+[`github.com/ava-labs/libevm v1.13.15-0.20251016142715-1bccf4f2ddb2`](https://github.com/flare-foundation/go-flare/blob/1a2d11b6fb0cb730fe15aaa9bbb2772ddf65bcb5/coreth/go.mod#L20)
+→ **libevm commit [`1bccf4f2ddb2`](https://github.com/ava-labs/libevm/tree/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d)**. `coreth` does **not** override `0x01` (it carries only the
+standard precompile test vectors, e.g. `coreth/core/vm/testdata/precompiles/ecRecover.json`). All links below
+are permalinks to that pinned commit.
+
+**The decisive code** (verbatim, at the pin):
+
+- [`contracts.go` L49](https://github.com/ava-labs/libevm/blob/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d/core/vm/contracts.go#L49) — `0x01 → &ecrecover{}`, registered in every fork map ([L49](https://github.com/ava-labs/libevm/blob/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d/core/vm/contracts.go#L49)/[L58](https://github.com/ava-labs/libevm/blob/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d/core/vm/contracts.go#L58)/[L71](https://github.com/ava-labs/libevm/blob/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d/core/vm/contracts.go#L71)/[L85](https://github.com/ava-labs/libevm/blob/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d/core/vm/contracts.go#L85)/[L99](https://github.com/ava-labs/libevm/blob/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d/core/vm/contracts.go#L99)).
+- [`contracts.go` L196-225 — `ecrecover.Run`](https://github.com/ava-labs/libevm/blob/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d/core/vm/contracts.go#L196-L225):
+
+  ```go
+  if !allZero(input[32:63]) || !crypto.ValidateSignatureValues(v, r, s, false) {
+      return nil, nil          // bad v / out-of-range r,s  → empty output, NO error
+  }
+  ...
+  pubKey, err := crypto.Ecrecover(input[:32], sig)
+  if err != nil { return nil, nil }                    // unrecoverable → empty output, NO error
+  return common.LeftPadBytes(crypto.Keccak256(pubKey[1:])[12:], 32), nil   // 32 bytes on success
+  ```
+- [`contracts.go` L178-187 — `RunPrecompiledContract`](https://github.com/ava-labs/libevm/blob/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d/core/vm/contracts.go#L178-L187): errors **only** on `ErrOutOfGas`; otherwise passes `Run`'s `(output, err)` straight through — so `(nil, nil)` stays a success with empty output.
+- [`instructions.go` L748-774 — `opStaticCall`](https://github.com/ava-labs/libevm/blob/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d/core/vm/instructions.go#L748-L774): on `err == nil` pushes success `temp.SetOne()`, copies the return via `scope.Memory.Set(retOffset, retSize, ret)`, and sets `interpreter.returnData = ret`.
+- [`memory.go` L35-45 — `Memory.Set`](https://github.com/ava-labs/libevm/blob/1bccf4f2ddb28ff440f9e24f46506a2e98ad2a0d/core/vm/memory.go#L35-L45): `copy(m.store[offset:offset+size], value)` with **no pre-zeroing** — an empty `value` copies **0 bytes**, leaving the output region's prior contents intact.
+
+| OP-1 assumption | Evidence (pinned client source) | Verdict |
+|---|---|---|
+| ecrecover is precompile `0x01` | `contracts.go` L49 (+ all fork maps) | ✅ met |
+| does not revert on a bad signature | `Run` returns `nil,nil` (L209/L220); `RunPrecompiledContract` errors only on gas (L178-187) | ✅ met |
+| success with **empty** return data (`returndatasize()==0`) | `ret == nil`; `interpreter.returnData = ret` (`instructions.go` L748-774) | ✅ met |
+| **leaves the output buffer unmodified** (stale-read hazard) | `Memory.Set` copies `min(size, len(ret))=0` bytes, no memset (`memory.go` L44) | ✅ met |
+| CALL success flag = 1 even on a bad sig | `temp.SetOne()` on `err==nil` (`instructions.go`) | ✅ met |
+| 32 bytes only on valid recovery | `LeftPadBytes(…, 32)` (`contracts.go` L224) | ✅ met |
+| s-malleable (looser than the EIP-2 tx rule) | `ValidateSignatureValues(v, r, s, false)` — `homestead=false` (`contracts.go` L207) | ✅ met — matches the ledger note that Relay adds its own low-`s`/`v` check (RLY-16) |
+
+**The chain end-to-end:** a bad signature → `Run` returns `(nil, nil)` → the precompile call *succeeds* with
+empty return → `opStaticCall`'s `Memory.Set` copies **nothing** into the 32-byte output region → that region
+still holds the attacker's `r` (pre-seeded by Relay's `calldatacopy` at `Relay.sol:1245`) → and
+`RETURNDATASIZE` is `0`. So `Relay.sol`'s `require(returndatasize() == 32)` (`Relay.sol:1305-1307`) is exactly
+what stands between "empty return / stale buffer" and a forged-signature acceptance — and the client behaviour
+it depends on is confirmed present.
+
+**Scope & caveat.** This verifies the *operational ABI and control flow* — precisely what OP-1 asserts. It does
+**not** verify the elliptic-curve math inside `crypto.Ecrecover` / libsecp256k1; that is the cryptographic
+hardness assumption **MC-2** ([§13.3](#133-tier-2--irreducible-trust-boundaries-by-design)), separate and
+irreducible. The check is against go-flare `main` (HEAD `1a2d11b6`) → libevm `1bccf4f2ddb2`; the `ecrecover`
+logic is byte-stable across geth/coreth/libevm history, but to bind it to the *deployed* binary it should be
+re-confirmed against the exact go-flare **release tag** the Flare/Songbird validators run.
 
 ---
 

@@ -491,7 +491,7 @@ There is a second, subtler boundary — **OP-1**: the *operational ABI* of the c
 
 **In one line:** uninterpreted = "I promise nothing about what it computes, only that it's a function" — precisely strong enough to verify the logic *around* the cryptography while honestly assuming the cryptography itself.
 
-**References:** EUF / congruence — [SMT theories notes (CMU 15-414)](https://www.cs.cmu.edu/~15414/s24/lectures/17-smt-theories.pdf); modelling crypto as uninterpreted/assumed — [Certora hashing model](https://docs.certora.com/en/latest/docs/prover/approx/hashing.html); the `ecrecover` ABI — Ethereum Yellow Paper App. E — [paper](https://ethereum.github.io/yellowpaper/paper.pdf) and [execution-specs `ecrecover.py`](https://github.com/ethereum/execution-specs/blob/master/src/ethereum/forks/prague/vm/precompiled_contracts/ecrecover.py).
+**References:** EUF / congruence — [SMT theories notes (CMU 15-414)](https://www.cs.cmu.edu/~15414/s24/lectures/17-smt-theories.pdf); modelling crypto as uninterpreted/assumed — [Certora hashing model](https://docs.certora.com/en/latest/docs/prover/approx/hashing.html); the `ecrecover` ABI — Ethereum Yellow Paper App. E — [paper](https://ethereum.github.io/yellowpaper/paper.pdf) and [execution-specs `ecrecover.py`](https://github.com/ethereum/execution-specs/blob/master/src/ethereum/forks/prague/vm/precompiled_contracts/ecrecover.py); the same ABI is cross-checked against the actual client Flare runs in [L13 §13.8](13-residual-weaknesses.md#138-appendix--op-1-cross-checked-against-the-deployed-client-ecrecover-precompile).
 
 ---
 
