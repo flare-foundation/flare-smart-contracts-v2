@@ -83,9 +83,14 @@ discharged deeper. Read only as deep as you need.
 | **L10** | [`10-claims-ledger-trust-and-residual.md`](10-claims-ledger-trust-and-residual.md) | **audit core** | Every claim → tool → rung → proven/assumed → evidence. The trust chain. What is **not** claimed. |
 | **L11** | [`11-reproducibility.md`](11-reproducibility.md) | **repro core** | Every tool, version, command, expected output, per rung. |
 | **L12** | [`12-lessons.md`](12-lessons.md) | tutorial | The transferable method for verifying assembly-heavy contracts. |
+| **L13** | [`13-residual-weaknesses.md`](13-residual-weaknesses.md) | **audit core** | Proof-grounded review of what could still go wrong — residual weaknesses & attack surface, tiered by attention. |
 
-**Fast paths.** Auditor: L2 → L10 → L11, then drill into any rung (L3–L9). Mathematician: L8 → L9 (then
-L10 §residual). Engineer reproducing: L11, with each rung doc alongside. Newcomer: L1 → L2 → onward.
+Two companions sit alongside the numbered ladder: [`CHECKPOINT.md`](CHECKPOINT.md) (the raw engagement log)
+and [`CONCEPTS.md`](CONCEPTS.md) (plain-words FAQ for the concepts used throughout).
+
+**Fast paths.** Auditor: L2 → L10 → **L13** → L11, then drill into any rung (L3–L9). Mathematician: L8 → L9
+(then L10 §residual). Engineer reproducing: L11, with each rung doc alongside. Newcomer: L1 → L2 → onward.
+Security reviewer: **L13** (residual weaknesses) → L10 (the formal register behind it).
 
 ---
 

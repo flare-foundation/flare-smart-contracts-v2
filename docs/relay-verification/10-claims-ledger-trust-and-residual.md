@@ -160,6 +160,11 @@ The residual splits into assumptions that are **permanent** (irreducible, or a d
 boundary — pushing them is not "more verification") and ones that are **addressable** by further work.
 Status reflects the current tree.
 
+> For a reader-facing, tiered walk-through of these residuals *as weaknesses / attack surface* — what each
+> would mean if it went wrong, which are code-local vs. trust boundaries vs. coverage gaps, and a few cheap
+> hardening suggestions — see **[L13 — Residual weaknesses & attack surface](13-residual-weaknesses.md)**. This
+> section remains the formal register behind it.
+
 | Assumption(s) | Class | Status / cost |
 |---------------|-------|---------------|
 | **MC-1, MC-2** (keccak / ECDSA hardness) | Permanent — irreducible | leave; cannot be proven unconditionally |
