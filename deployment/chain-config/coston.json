@@ -469,17 +469,14 @@
     "teeOwnersPPM": 100000,
     "teeOperationFees": [
         {"opType": "F_REG", "opCommand": "TEE_ATTESTATION", "feeWei": "1"},
-        {"opType": "F_REG", "opCommand": "TO_PAUSE_FOR_UPGRADE", "feeWei": "1"},
-        {"opType": "F_REG", "opCommand": "REPLICATE_FROM", "feeWei": "1"},
         {"opType": "F_WALLET", "opCommand": "KEY_GENERATE", "feeWei": "1"},
         {"opType": "F_WALLET", "opCommand": "KEY_DELETE", "feeWei": "1"},
         {"opType": "F_WALLET", "opCommand": "KEY_DATA_PROVIDER_RESTORE", "feeWei": "1"},
-        {"opType": "F_WALLET", "opCommand": "SET_PAUSING_ADDRESSES", "feeWei": "1"},
-        {"opType": "F_WALLET", "opCommand": "RESUME", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_DIRECT_BACKUP", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_DIRECT_RESTORE", "feeWei": "1"},
         {"opType": "F_WALLET", "opCommand": "VRF", "feeWei": "1"},
         {"opType": "F_XRP", "opCommand": "PAY", "feeWei": "1"},
         {"opType": "F_XRP", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_XRP", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
         {"opType": "F_FDC2", "opCommand": "PROVE", "feeWei": "1"}
     ],
     "teePaymentsConfigurations": [

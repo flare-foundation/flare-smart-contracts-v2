@@ -243,26 +243,20 @@
     "teeOwnersPPM": 100000,
     "teeOperationFees": [
         {"opType": "F_REG", "opCommand": "TEE_ATTESTATION", "feeWei": "1"},
-        {"opType": "F_REG", "opCommand": "TO_PAUSE_FOR_UPGRADE", "feeWei": "1"},
-        {"opType": "F_REG", "opCommand": "REPLICATE_FROM", "feeWei": "1"},
         {"opType": "F_WALLET", "opCommand": "KEY_GENERATE", "feeWei": "1"},
         {"opType": "F_WALLET", "opCommand": "KEY_DELETE", "feeWei": "1"},
         {"opType": "F_WALLET", "opCommand": "KEY_DATA_PROVIDER_RESTORE", "feeWei": "1"},
-        {"opType": "F_WALLET", "opCommand": "SET_PAUSING_ADDRESSES", "feeWei": "1"},
-        {"opType": "F_WALLET", "opCommand": "RESUME", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_DIRECT_BACKUP", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_DIRECT_RESTORE", "feeWei": "1"},
         {"opType": "F_WALLET", "opCommand": "VRF", "feeWei": "1"},
         {"opType": "F_XRP", "opCommand": "PAY", "feeWei": "1"},
         {"opType": "F_XRP", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_XRP", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
         {"opType": "F_BTC", "opCommand": "PAY", "feeWei": "1"},
         {"opType": "F_BTC", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_BTC", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
         {"opType": "F_DOGE", "opCommand": "PAY", "feeWei": "1"},
         {"opType": "F_DOGE", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_DOGE", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
         {"opType": "F_EVM", "opCommand": "PAY", "feeWei": "1"},
         {"opType": "F_EVM", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_EVM", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
         {"opType": "F_FDC2", "opCommand": "PROVE", "feeWei": "1"}
     ],
     "teePaymentsConfigurations": [
@@ -274,7 +268,8 @@
     "fdc2RequestFees": [
         {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1"},
         {"attestationType": "PMWPaymentStatus", "source": "testXRP", "feeWei": "1"},
-        {"attestationType": "PMWMultisigAccountConfigured", "source": "testXRP", "feeWei": "1"}
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "PMWFeeProof", "source": "testXRP", "feeWei": "1"}
     ],
     "fdc2InflationConfigurations": []
 }
