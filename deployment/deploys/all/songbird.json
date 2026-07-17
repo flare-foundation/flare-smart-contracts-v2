@@ -18,14 +18,16 @@
     "contractName": "VoterRegistry.sol",
     "addresses": [
       "0x16EdaECC2D3713C3A94CCd1FFCd2589cfb7Ee9e0",
-      "0x31B9EC65C731c7D973a33Ef3FC83B653f540dC8D"
+      "0x31B9EC65C731c7D973a33Ef3FC83B653f540dC8D",
+      "0xd23FAE88c09e6A77dD9eFcc29D6bBC55D2e74310"
     ]
   },
   {
     "name": "FlareSystemsCalculator",
     "contractName": "FlareSystemsCalculator.sol",
     "addresses": [
-      "0x126FAeEc75601dA3354c0b5Cc0b60C85fCbC3A5e"
+      "0x126FAeEc75601dA3354c0b5Cc0b60C85fCbC3A5e",
+      "0x31a5B8E7ca6dFC7B963f5D029F0884ef19E53A24"
     ]
   },
   {
@@ -57,7 +59,8 @@
     "name": "WNatDelegationFee",
     "contractName": "WNatDelegationFee.sol",
     "addresses": [
-      "0x3499a6D765640F8D35538cF0a292BcA38504353C"
+      "0x3499a6D765640F8D35538cF0a292BcA38504353C",
+      "0xd38Bc34139159a95ab5DcC0D259C7e428E2F9F16"
     ]
   },
   {
@@ -349,7 +352,8 @@
     "name": "VoterPreRegistry",
     "contractName": "VoterPreRegistry.sol",
     "addresses": [
-      "0x9Ba9A142FD5B2953667B03dB40D1d77c83F225a2"
+      "0x9Ba9A142FD5B2953667B03dB40D1d77c83F225a2",
+      "0xD8957603dE539118898BA2C321a1001d062Be7Ae"
     ]
   },
   {
