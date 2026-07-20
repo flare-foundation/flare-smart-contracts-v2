@@ -156,16 +156,18 @@ export async function deployFlareTeeManager(
   const OperationFeesFacet = hre.artifacts.require("OperationFeesFacet");
   const operationFeesFacet = await OperationFeesFacet.at(flareTeeManager.address);
 
-  // Set operation fees
-  const operationTypes: string[] = [];
-  const operationCommands: string[] = [];
-  const operationFees: string[] = [];
-  for (const teeOperationFee of parameters.teeOperationFees) {
-    operationTypes.push(hre.web3.utils.utf8ToHex(teeOperationFee.opType).padEnd(66, "0"));
-    operationCommands.push(hre.web3.utils.utf8ToHex(teeOperationFee.opCommand).padEnd(66, "0"));
-    operationFees.push(teeOperationFee.feeWei);
+  // Set operation fees (skip when none are configured; unset ops fall back to the default fee)
+  if (parameters.teeOperationFees.length > 0) {
+    const operationTypes: string[] = [];
+    const operationCommands: string[] = [];
+    const operationFees: string[] = [];
+    for (const teeOperationFee of parameters.teeOperationFees) {
+      operationTypes.push(hre.web3.utils.utf8ToHex(teeOperationFee.opType).padEnd(66, "0"));
+      operationCommands.push(hre.web3.utils.utf8ToHex(teeOperationFee.opCommand).padEnd(66, "0"));
+      operationFees.push(teeOperationFee.feeWei);
+    }
+    await operationFeesFacet.setOperationFees(operationTypes, operationCommands, operationFees);
   }
-  await operationFeesFacet.setOperationFees(operationTypes, operationCommands, operationFees);
 
   // Add system supported platforms
   await extensionManager.addSystemSupportedPlatforms(

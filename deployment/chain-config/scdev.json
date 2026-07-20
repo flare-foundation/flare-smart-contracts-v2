@@ -263,7 +263,7 @@
         {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "testXRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}]}
     ],
     "teePaymentsUtxoConfigurations": [],
-    "fdc2MinThresholdBIPS": 3000,
+    "fdc2MinThresholdBIPS": 4000,
     "fdc2DefaultNumberOfTees": 2,
     "fdc2RequestFees": [
         {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1"},
