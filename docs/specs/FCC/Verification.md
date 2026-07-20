@@ -39,7 +39,17 @@ If everything checks, `Verification.extendAvailability(proof)` updates the valid
 - `endTs = proof.header.timestamp + availabilityCheckValidityDurationSeconds` — typically a few hours.
 - `lastSigningPolicyId = proof.responseBody.lastSigningPolicyId` — the signing policy the machine last attested to; its freshness is bounded by `signingPolicyValidityDurationInRewardEpochs` (see `Verification.isSigningPolicyValid`).
 
-A machine with an expired availability check (`endTs < block.timestamp`, or a `lastSigningPolicyId` that has fallen outside `signingPolicyValidityDurationInRewardEpochs` of the current reward epoch) can be permissionlessly suspended by anyone via `MachineManagerFacet.pause(teeId)` (see [Machine Lifecycle / Pausing](./MachineLifecycle.md#pausing)) — this is what keeps the network of attested machines fresh: TEE owners must re-attest periodically or risk being suspended.
+A machine whose availability check has expired (`endTs < block.timestamp`) can be permissionlessly suspended by anyone via `MachineManagerFacet.pause(teeId)` (see [Machine Lifecycle / Pausing](./MachineLifecycle.md#pausing)) — this is what keeps the network of attested machines fresh: TEE owners must re-attest periodically or risk being suspended. `pause` consults **only** `endTs`, not `lastSigningPolicyId`; a machine whose stored signing policy has gone stale can no longer re-attest (see the horizon below), so its `endTs` lapses on its own and it becomes suspendable through this same expiry path.
+
+### Signing-policy freshness horizon
+
+Every availability-check proof for a non-`INITIALIZED` machine is validated against the machine's **stored** `lastSigningPolicyId` (the value set by the last successful `extendAvailability`): `Verification._validateResponseBody` rejects the proof unless `storedLastSigningPolicyId + signingPolicyValidityDurationInRewardEpochs ≥ currentRewardEpochId`. This gate runs on both `confirmAvailability` (staying live) and `toProduction` (recovering from `PAUSED` / `SUSPENDED`), and the stored value is advanced only *after* a proof passes.
+
+Consequence: **a machine that stays offline (`PAUSED` / `SUSPENDED`) longer than `signingPolicyValidityDurationInRewardEpochs` reward epochs can never return to `PRODUCTION`.** Once `currentRewardEpochId` passes `storedLastSigningPolicyId + signingPolicyValidityDurationInRewardEpochs`, the gate rejects every proof — including an otherwise-valid, freshly-signed one — and there is no path to advance the stored value (it is written only by a passing proof). The revert surfaces as the generic `InvalidResponseData`. The `teeId` is permanently retired — it cannot be reused, re-provisioned, or re-registered (`register` rejects an already-registered `teeId`, and `unban → PAUSED → toProduction` hits this same gate). The only way back into service is to **deploy an entirely new TEE machine** — a new instance with its own key, hence a new `teeId` — and register it fresh via the `INITIALIZED` path (which anchors to a current signing policy under the current cosigners).
+
+This is intentional, not a liveness bug. While offline a machine is not relayed the intermediate signing policies; past the horizon the keys behind its last-known policies are assumed potentially compromised, so letting it "catch up" could allow a forged policy chain (signed with those compromised keys) to capture the TEE even though it presents a fresh, valid policy on-chain. `signingPolicyValidityDurationInRewardEpochs` is therefore also an operational signal: if TEEs are paused/offline beyond this window, wallet (PMW) owners should rotate keys off them rather than expect them to recover.
+
+Enforcement is implicit — a stale machine simply fails to re-attest — so the point at which it actually drops out of the active views can lag the signing-policy staleness by up to one `availabilityCheckValidityDurationSeconds` (it keeps its last valid `endTs` until then). This holds only while that window is shorter than the horizon; see the configuration invariant under [Verification settings](#verification-settings).
 
 ## System state verification
 
@@ -82,10 +92,12 @@ Three governance-tunable durations live in `Verification.State`:
 | Setting | Default | What it bounds |
 |---------|---------|----------------|
 | `availabilityCheckValidityDurationSeconds` | A few hours | How long an availability-check proof keeps the machine valid before re-attestation is needed. |
-| `signingPolicyValidityDurationInRewardEpochs` | A few reward epochs | How many reward epochs after attestation a machine remains valid (independent of the seconds-based bound). |
+| `signingPolicyValidityDurationInRewardEpochs` | A few reward epochs | How many reward epochs after attestation a machine remains valid — the [signing-policy horizon](#signing-policy-freshness-horizon) that gates re-attestation and recovery (independent of the seconds-based bound). |
 | `challengeValidityDurationSeconds` | Short (minutes) | How long a fresh challenge can be answered before it expires and a new one must be requested. |
 
 Set at diamond init (`FlareTeeManagerInit.init`) and updatable by governance via `VerificationFacet`.
+
+**Configuration invariant.** Keep `availabilityCheckValidityDurationSeconds ≤ signingPolicyValidityDurationInRewardEpochs × (reward-epoch length)`. The time-based window (`endTs`) is what removes a stale machine from service; the signing-policy horizon is what blocks its recovery. The design relies on the time window lapsing *before* the epoch horizon, so a machine can never be simultaneously "still time-valid" and "signing-policy-stale". If `availabilityCheckValidityDurationSeconds` were set longer than the horizon, a machine could keep a valid `endTs` — staying in the active views and selectable — after it can no longer re-attest, and would be un-removable via `pause` until that `endTs` finally lapsed. This relationship is **not enforced on-chain**: `updateSettings` bounds the two independently (`availabilityCheckValidityDurationSeconds ∈ [1h, 365d]`, `signingPolicyValidityDurationInRewardEpochs ∈ [1, 100]`), and the reward-epoch length lives in `FlareSystemsManager` — so governance must preserve it. Production values honor it with margin: on Flare/Songbird `availabilityCheckValidityDurationSeconds` = one reward epoch (302400s) against a 10-epoch horizon; on Coston/Coston2 it is one reward epoch (6h) against a 100-epoch horizon.
 
 ## What the verification layer does *not* do
 

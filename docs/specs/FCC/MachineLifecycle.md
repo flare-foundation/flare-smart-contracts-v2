@@ -76,6 +76,7 @@ Validation:
 
 - For `INITIALIZED` and `PAUSED`, only the owner may call. For `SUSPENDED`, anyone may call (the network reviving a stalled machine).
 - `(codeHash, platform)` must still be supported (a version disabled mid-life forces a longer recovery path).
+- For `PAUSED` / `SUSPENDED`, the machine's last-attested signing policy must still be within the [signing-policy horizon](./Verification.md#signing-policy-freshness-horizon): a machine offline longer than `signingPolicyValidityDurationInRewardEpochs` reward epochs can **never** return to `PRODUCTION` (recovery reverts `InvalidResponseData`). Its `teeId` is permanently retired — the owner must deploy and register an entirely new TEE machine (new key, new `teeId`).
 - The proof's `responseBody.status == OK` and the proof's timestamp ≥ `lastStatusChangeTs` (rejects stale proofs).
 - `Verification.verifyAvailabilityCheckProof(teeMachine, oldStatus, _proof)` validates the TEE machine's signature(s) over the response and matches it against the stored challenge.
 - For `INITIALIZED → PRODUCTION`, this is the first time the machine binds to a signing policy: `state.initialSigningPolicyId = _proof.responseBody.initialSigningPolicyId`. That policy ID is **immutable** thereafter — it's how the system knows when a machine pre-existed a given signing policy (and thus shouldn't be trusted for messages from earlier policies).
