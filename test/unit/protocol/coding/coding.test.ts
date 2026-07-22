@@ -25,8 +25,11 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
   const rewardEpochId = Math.floor((votingRoundId - firstRewardEpochVotingRoundId) / rewardEpochDurationInEpochs);
   let signingPolicyData: ISigningPolicy;
   let newSigningPolicyData: ISigningPolicy;
+  // RLY-23: signed relay digests are chain-bound; set in before().
+  let chainId: number;
 
   before(async () => {
+    chainId = await web3.eth.getChainId();
     accountAddresses = (await ethers.getSigners()).map(x => x.address);
     signingPolicyData = defaultTestSigningPolicy(
       accountAddresses,
@@ -94,7 +97,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
       merkleRoot,
     } as IProtocolMessageMerkleRoot;
 
-    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
     const signatures = await generateSignatures(
       accountPrivateKeys,
       messageHash,
@@ -133,7 +136,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
       isSecureRandom: true,
       merkleRoot,
     } as IProtocolMessageMerkleRoot;
-    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
     const signatures = await generateSignatures(accountPrivateKeys, messageHash, N / 2 + 1);
 
     const randomNumber = ethers.hexlify(ethers.randomBytes(32));

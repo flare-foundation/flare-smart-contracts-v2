@@ -41,6 +41,11 @@ export async function redeployRelay(
 
   const nextRewardEpochId = (await flareSystemsManager.getCurrentRewardEpochId()).toNumber() + 1;
   const startVotingRoundId = await flareSystemsManager.getStartVotingRoundId(nextRewardEpochId);
+  // RLY-23 MIGRATION NOTE: the new Relay stores/verifies CHAIN-BOUND policy hashes
+  // (keccak256(chainid ‖ contentHash)). If `oldRelay` predates RLY-23, its getter returns the bare
+  // content hash and the value below MUST be wrapped once with chainBoundHash(hash, chainId)
+  // (scripts/libs/protocol/ChainDomain.ts) before deployment; if `oldRelay` is already RLY-23,
+  // the value is already chain-bound and must NOT be wrapped again. Decide at cutover time.
   const signingPolicyHash = await oldRelay.toSigningPolicyHash(nextRewardEpochId);
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: nextRewardEpochId,

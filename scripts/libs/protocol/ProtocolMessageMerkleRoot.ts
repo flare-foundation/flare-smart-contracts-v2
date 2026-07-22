@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import { chainBoundHash } from "./ChainDomain";
 
 export interface IProtocolMessageMerkleRoot {
   protocolId: number;
@@ -106,8 +107,14 @@ export namespace ProtocolMessageMerkleRoot {
   }
 
 
-  export function hash(message: IProtocolMessageMerkleRoot): string {
-    return ethers.keccak256(encode(message));
+  /**
+   * The digest voters sign for a protocol message (before the EIP-191 prefix is applied by the
+   * signing routine). Since RLY-23 it is chain-bound: keccak256(chainId ‖ keccak256(encode(message))).
+   * @param message
+   * @param chainId chain id of the network the target Relay is deployed on
+   */
+  export function hash(message: IProtocolMessageMerkleRoot, chainId: number | bigint): string {
+    return chainBoundHash(ethers.keccak256(encode(message)), chainId);
   }
   /**
    * Provides string representation of protocol message merkle root.

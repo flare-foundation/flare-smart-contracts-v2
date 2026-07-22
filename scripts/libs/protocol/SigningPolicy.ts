@@ -1,6 +1,7 @@
 
 
 import { ethers } from "ethers";
+import { chainBoundHash } from "./ChainDomain";
 
 export interface ISigningPolicy {
   rewardEpochId: number;
@@ -145,20 +146,22 @@ export namespace SigningPolicy {
   }
 
   /**
-   * Calculates signing policy hash from encoded signing policy
-   * It is done by padding byte array with 0 bytes to a multiple of 32 and then
-   * Sequentially hashing 32-byte chunks with keccak256
+   * Calculates signing policy hash from encoded signing policy.
+   * The content hash is obtained by padding the byte array with 0 bytes to a multiple of 32 and
+   * sequentially hashing 32-byte chunks with keccak256; since RLY-23 the result is chain-bound:
+   * keccak256(chainId ‖ contentHash) — this is what the Relay contract stores and verifies.
    * @param signingPolicy
+   * @param chainId chain id of the network the target Relay is deployed on
    * @returns
    */
-  export function hashEncoded(signingPolicy: string) {
+  export function hashEncoded(signingPolicy: string, chainId: number | bigint) {
     const signingPolicyInternal = signingPolicy.startsWith("0x") ? signingPolicy.slice(2) : signingPolicy;
     const splitted = signingPolicyInternal.match(/.{1,64}/g)!.map(x => x.padEnd(64, "0"));
     let hash: string = ethers.keccak256("0x" + splitted[0] + splitted[1]);
     for (let i = 2; i < splitted.length; i++) {
       hash = ethers.keccak256("0x" + hash.slice(2) + splitted[i])!;
     }
-    return hash;
+    return chainBoundHash(hash, chainId);
   }
 
   /**
@@ -171,12 +174,13 @@ export namespace SigningPolicy {
     return signingPolicy;
   }
   /**
-   * Calculates signing policy hash from signing policy object
+   * Calculates the (RLY-23 chain-bound) signing policy hash from signing policy object.
    * @param signingPolicy
+   * @param chainId chain id of the network the target Relay is deployed on
    * @returns
    */
-  export function hash(signingPolicy: ISigningPolicy) {
-    return SigningPolicy.hashEncoded(SigningPolicy.encode(signingPolicy));
+  export function hash(signingPolicy: ISigningPolicy, chainId: number | bigint) {
+    return SigningPolicy.hashEncoded(SigningPolicy.encode(signingPolicy), chainId);
   }
 
   /**

@@ -92,7 +92,8 @@ export async function provideRandomNumberForInitialRewardEpoch(
           ["tuple(uint32,uint256,bool)"],
           [[votingRoundId, random[0], true]]));
         const messageData: IProtocolMessageMerkleRoot = { protocolId: parameters.ftsoProtocolId, votingRoundId: votingRoundId, isSecureRandom: true, merkleRoot: merkleRoot };
-        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+        const chainId = await web3.eth.getChainId();
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
         const signatures = await generateSignatures([initialVoterPrivateKey], messageHash, 1);
 
         const relayMessage = {

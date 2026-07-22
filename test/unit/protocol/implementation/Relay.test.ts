@@ -199,6 +199,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   let signers: SignerWithAddress[];
   const accountPrivateKeys = (config.networks.hardhat.accounts as HardhatNetworkAccountConfig[]).map(x => x.privateKey);
   let relay: RelayInstance;
+  // RLY-23: policy hashes and signed message digests are chain-bound; set in before().
+  let chainId: number;
   const selector = ethers.keccak256(ethers.toUtf8Bytes("relay()")).slice(0, 10);
   const N = 100;
   const singleWeight = 500;
@@ -222,7 +224,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   const firstVotingRoundInRewardEpoch = (rewardEpochId: number) => firstRewardEpochVotingRoundId + rewardEpochDurationInVotingEpochs * rewardEpochId;
 
   const prepareFullData = async (signingPolicyData: ISigningPolicy, newSigningPolicyData: ISigningPolicy) => {
-    const localHash = SigningPolicy.hash(newSigningPolicyData);
+    const localHash = SigningPolicy.hash(newSigningPolicyData, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -240,6 +242,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
   before(async () => {
     // accounts = loadAccounts(web3);
+    chainId = await web3.eth.getChainId();
     signers = (await ethers.getSigners()) as unknown as SignerWithAddress[];
     signingPolicyData = defaultTestSigningPolicy(
       signers.map(x => x.address),
@@ -249,7 +252,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     signingPolicyData.rewardEpochId = rewardEpochId;
     signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
     const signingPolicy = SigningPolicy.encode(signingPolicyData);
-    const localHash = SigningPolicy.hashEncoded(signingPolicy);
+    const localHash = SigningPolicy.hashEncoded(signingPolicy, chainId);
 
     const relayInitialConfig: RelayInitialConfig = {
       initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -297,7 +300,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
   it("Should relay a message for random number generating protocol", async () => {
     const { randomNumberResult, relayData } = prepareDataWithRandom(messageData, 100);
-    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
     const signatures = await generateSignatures(
       accountPrivateKeys,
       messageHash,
@@ -360,7 +363,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   it("Should relay a message for non random number generating protocol", async () => {
     messageData.protocolId++;
     messageData.isSecureRandom = false;
-    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
     const signatures = await generateSignatures(
       accountPrivateKeys,
       messageHash,
@@ -413,7 +416,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId++;
 
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -443,7 +446,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     newMessageData.protocolId = randomNumberProtocolId + 1; // non-random protocol
     newMessageData.votingRoundId++;
     newMessageData.merkleRoot = ethers.ZeroHash;
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
     const signatures = await generateSignatures(accountPrivateKeys, messageHash, N / 2 + 1);
     const relayMessage = {
       signingPolicy: signingPolicyData,
@@ -463,7 +466,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   it("Should fail to relay a message due to non increasing signature indices", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId++;
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -494,7 +497,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId++;
 
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -576,7 +579,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const relayInitialConfig: RelayInitialConfig = {
       initialRewardEpochId: newSigningPolicyData.rewardEpochId,
       startingVotingRoundIdForInitialRewardEpochId: newSigningPolicyData.startVotingRoundId,
-      initialSigningPolicyHash: SigningPolicy.hashEncoded(signingPolicy),
+      initialSigningPolicyHash: SigningPolicy.hashEncoded(signingPolicy, chainId),
       randomNumberProtocolId: randomNumberProtocolId,
       firstVotingRoundStartTs: firstVotingRoundStartSec,
       votingEpochDurationSeconds: votingRoundDurationSec,
@@ -670,7 +673,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs; // shift to next reward epoch
     const { relayData } = prepareDataWithRandom(newMessageData, 100);
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
 
     const signatureObjects = await generateSignatures(
       accountPrivateKeys,
@@ -710,7 +713,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   it("Should fail to relay a message with old signing policy and less then 20%+ more weight", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = firstVotingRoundInRewardEpoch(signingPolicyData.rewardEpochId + 1) + 5;//votingRoundId + rewardEpochDurationInVotingEpochs + 1; // shift to next reward epoch
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -744,7 +747,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     newSigningPolicyDataRelayed.threshold = Math.round(newSigningPolicyDataRelayed.threshold / 2);
     newSigningPolicyDataRelayed.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch) + 10;  // create a delay
 
-    const localHash = SigningPolicy.hash(newSigningPolicyDataRelayed);
+    const localHash = SigningPolicy.hash(newSigningPolicyDataRelayed, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -778,7 +781,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
   it("Should relay several signing policies and fail relaying a too old message", async () => {
     const signingPolicy = SigningPolicy.encode(signingPolicyData);
-    const localHash0 = SigningPolicy.hashEncoded(signingPolicy);
+    const localHash0 = SigningPolicy.hashEncoded(signingPolicy, chainId);
 
     const relayInitialConfig: RelayInitialConfig = {
       initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -808,7 +811,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       newSigningPolicyDataRelayed.rewardEpochId = newRewardEpoch;
       newSigningPolicyDataRelayed.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
 
-      const localHash = SigningPolicy.hash(newSigningPolicyDataRelayed);
+      const localHash = SigningPolicy.hash(newSigningPolicyDataRelayed, chainId);
 
       const signatures = await generateSignatures(
         accountPrivateKeys,
@@ -845,7 +848,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId++;
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
     const signatures = await generateSignatures(
       accountPrivateKeys,
       messageHash,
@@ -874,7 +877,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   it("Should fail to relay an already relayed message by old signing policy with a new signing policy", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs; // shift to next reward epoch
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
 
     const newSigningPolicyData = { ...signingPolicyData };
     const newRewardEpoch = newSigningPolicyData.rewardEpochId + 1;
@@ -915,7 +918,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     // newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs - 1; // shift to next reward epoch
     newMessageData.votingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch) + 12;
     const { relayData } = prepareDataWithRandom(newMessageData, 100);
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
 
     newSigningPolicyData.rewardEpochId = newRewardEpoch;
     newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
@@ -968,7 +971,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = firstVotingRoundInRewardEpoch(signingPolicyData.rewardEpochId + 1) + 9; // new startingVotingRoundId is on +10
     const { relayData } = prepareDataWithRandom(newMessageData, 100);
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -1013,7 +1016,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   it("Should fail to relay a message with old signing policy when a new was initialized and votingRoundId is over startingVotingRoundId", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = firstVotingRoundInRewardEpoch(signingPolicyData.rewardEpochId + 1) + 10; // new startingVotingRoundId is on +10
-    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -1095,7 +1098,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
-    const localHash = SigningPolicy.hash(newSigningPolicyData);
+    const localHash = SigningPolicy.hash(newSigningPolicyData, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -1130,7 +1133,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
-    const localHash = SigningPolicy.hash(newSigningPolicyData);
+    const localHash = SigningPolicy.hash(newSigningPolicyData, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -1167,7 +1170,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const weightSum = newSigningPolicyData.weights.reduce((a, b) => a + b, 0);
     newSigningPolicyData.threshold = Math.ceil(weightSum / 2);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
-    const localHash = SigningPolicy.hash(newSigningPolicyData);
+    const localHash = SigningPolicy.hash(newSigningPolicyData, chainId);
     const signatures = await generateSignaturesEncoded(
       accountPrivateKeys,
       localHash,
@@ -1198,7 +1201,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const weightSum = newSigningPolicyData.weights.reduce((a, b) => a + b, 0);
     newSigningPolicyData.threshold = Math.ceil(weightSum / 2);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
-    const localHash = SigningPolicy.hash(newSigningPolicyData);
+    const localHash = SigningPolicy.hash(newSigningPolicyData, chainId);
     const signatures = await generateSignaturesEncoded(
       accountPrivateKeys,
       localHash,
@@ -1219,7 +1222,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   it("Should fail to relay a message due to message already relayed", async () => {
     // "Already relayed"
 
-    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -1249,7 +1252,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1297,7 +1300,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1329,7 +1332,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig2: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1350,7 +1353,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1387,7 +1390,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1417,7 +1420,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1445,7 +1448,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1491,7 +1494,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hashEncoded(signingPolicy),
+        initialSigningPolicyHash: SigningPolicy.hashEncoded(signingPolicy, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1516,7 +1519,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
       newSigningPolicyData.threshold = Math.round(newSigningPolicyData.threshold / 2);
       newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch) + 10;  // create a delay
-      const localHash = SigningPolicy.hash(newSigningPolicyData);
+      const localHash = SigningPolicy.hash(newSigningPolicyData, chainId);
 
       const signatures = await generateSignatures(
         accountPrivateKeys,
@@ -1552,7 +1555,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig2: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1573,7 +1576,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1639,7 +1642,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig2: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1660,7 +1663,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1784,7 +1787,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       signingPolicyData.rewardEpochId = rewardEpochId;
       signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
       const signingPolicy = SigningPolicy.encode(signingPolicyData);
-      const localHash = SigningPolicy.hashEncoded(signingPolicy);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy, chainId);
 
       const relayInitialConfig: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -1822,7 +1825,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const specificVotingRoundId = newMessageData.votingRoundId + 5;
       newMessageData.votingRoundId = specificVotingRoundId;
       newMessageData.protocolId = randomNumberProtocolId + 1; // non-random number protocol
-      let messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+      let messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
       let signatures = await generateSignatures(
         accountPrivateKeys,
         messageHash,
@@ -1852,7 +1855,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
       newMessageData.protocolId = 17;
 
-      messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+      messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
       signatures = await generateSignatures(
         accountPrivateKeys,
         messageHash,
@@ -1890,7 +1893,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const signingPolicyData = defaultTestSigningPolicy(signers.map(x => x.address), N, singleWeight);
       signingPolicyData.rewardEpochId = rewardEpochId;
       signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
-      const localHash = SigningPolicy.hashEncoded(SigningPolicy.encode(signingPolicyData));
+      const localHash = SigningPolicy.hashEncoded(SigningPolicy.encode(signingPolicyData), chainId);
       const relayInitialConfig: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
@@ -1923,7 +1926,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       return {
         initialRewardEpochId: sp.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: sp.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hashEncoded(SigningPolicy.encode(sp)),
+        initialSigningPolicyHash: SigningPolicy.hashEncoded(SigningPolicy.encode(sp), chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -1975,7 +1978,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       signingPolicyData.rewardEpochId = rewardEpochId;
       signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
       const signingPolicy = SigningPolicy.encode(signingPolicyData);
-      const localHash = SigningPolicy.hashEncoded(signingPolicy);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy, chainId);
 
       const relayInitialConfig: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -2005,7 +2008,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       newMessageData.votingRoundId = 0;
       newMessageData.isSecureRandom = false;
       newMessageData.protocolId = 1;
-      const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+      const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
       const signatures = await generateSignatures(
         accountPrivateKeys,
         messageHash,
@@ -2054,14 +2057,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       signingPolicyData.rewardEpochId = rewardEpochId;
       signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
       const signingPolicy = SigningPolicy.encode(signingPolicyData);
-      const localHash = SigningPolicy.hashEncoded(signingPolicy);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy, chainId);
 
       async function relayNewSigningPolicy(newRewardEpochId: number, relayAddress: string) {
         const prevSigningPolicyData = { ...signingPolicyData };
         prevSigningPolicyData.rewardEpochId = newRewardEpochId - 1;
         const newSigningPolicyDataRelayed = { ...signingPolicyData };
         newSigningPolicyDataRelayed.rewardEpochId = newRewardEpochId;
-        const localHash = SigningPolicy.hash(newSigningPolicyDataRelayed);
+        const localHash = SigningPolicy.hash(newSigningPolicyDataRelayed, chainId);
         const signatures = await generateSignatures(
           accountPrivateKeys,
           localHash,
@@ -2102,7 +2105,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         constants.ZERO_ADDRESS
       );
 
-      const chainId = await web3.eth.getChainId();
+      // chainId: the file-level value (set in before()) is used both for the RLY-23 digest
+      // binding above and for the RelayGovernanceConfig.chainId field below.
 
       const NEW_FEE = "1000";
       const newRelayGovernanceConfig: RelayGovernanceConfig = {
@@ -2123,7 +2127,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         newMessageData.votingRoundId = votingRoundId;
         newMessageData.isSecureRandom = false;
         newMessageData.protocolId = protocolId;
-        const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+        const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
         const signatures = await generateSignatures(
           accountPrivateKeys,
           messageHash,
@@ -2210,7 +2214,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       signingPolicyData.rewardEpochId = rewardEpochId;
       signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
       const signingPolicy = SigningPolicy.encode(signingPolicyData);
-      const localHash = SigningPolicy.hashEncoded(signingPolicy);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy, chainId);
 
       const relayInitialConfig: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -2251,7 +2255,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         const { randomNumberResult, relayData } = prepareDataWithRandom(newMessageData, 100 + i);
         hashes.set(startVotingRoundId + i, newMessageData.merkleRoot);
         randomNumbers.set(startVotingRoundId + i, randomNumberResult.value);
-        const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+        const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
         const signatures = await generateSignatures(
           accountPrivateKeys,
           messageHash,
@@ -2306,7 +2310,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const relayInitialConfig1: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -2493,13 +2497,13 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const newSigningPolicyData = { ...signingPolicyData };
       const newRewardEpoch = newSigningPolicyData.rewardEpochId + 1;
       newSigningPolicyData.rewardEpochId = newRewardEpoch;
-      const newSigningPolicyHash = SigningPolicy.hash(newSigningPolicyData);
+      const newSigningPolicyHash = SigningPolicy.hash(newSigningPolicyData, chainId);
 
 
       const relayInitialConfigOldFlare: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
         startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData),
+        initialSigningPolicyHash: SigningPolicy.hash(signingPolicyData, chainId),
         randomNumberProtocolId: randomNumberProtocolId,
         firstVotingRoundStartTs: firstVotingRoundStartSec,
         votingEpochDurationSeconds: votingRoundDurationSec,
@@ -2643,7 +2647,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           votingRoundIdAndProtocolIdToMerkleRoot.set(`${votingRoundIdBase + votingRoundOffset}-${protocolId}`, newMessageData.merkleRoot);
           votingRoundIdAndProtocolIdExampleLeaf.set(`${votingRoundIdBase + votingRoundOffset}-${protocolId}`, leaf);
           votingRoundIdAndProtocolIdExampleProof.set(`${votingRoundIdBase + votingRoundOffset}-${protocolId}`, proof);
-          const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+          const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
           const signatures = await generateSignatures(
             accountPrivateKeys,
             messageHash,
@@ -2781,7 +2785,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       };
 
       const { relayData } = prepareDataWithRandom(messageData, 100);
-      const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+      const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
       const signatures = await generateSignatures(
         accountPrivateKeys,
         messageHash,

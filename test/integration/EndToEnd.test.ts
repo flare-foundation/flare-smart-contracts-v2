@@ -84,8 +84,9 @@ async function setMockStakingData(verifierMock: MockContractInstance, pChainStak
     return data;
 }
 
-function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
-    return SigningPolicy.hash(signingPolicy);
+// RLY-23: the signing-policy hash the Relay stores/verifies is chain-bound.
+function getSigningPolicyHash(signingPolicy: ISigningPolicy, chainId: number): string {
+    return SigningPolicy.hash(signingPolicy, chainId);
 }
 
 // RLY-03: the random-number protocol now requires a trailer (random number + Merkle proof)
@@ -172,6 +173,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     const FTSO_PROTOCOL_ID = 100;
     const REWARD_MANAGER_ID = 0;
 
+    // RLY-23: signed relay digests and stored policy hashes are chain-bound; set in before().
+    let chainId: number;
     let wNat: WNatInstance;
     let pChainStakeMirror: PChainStakeMirrorInstance;
     let governanceVotePower: GovernanceVotePowerInstance;
@@ -249,6 +252,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     const INITIAL_NUMBER_OF_VOTERS = 100;
 
     before(async () => {
+        chainId = await web3.eth.getChainId();
         pChainStakeMirror = await PChainStakeMirror.new(
             accounts[0],
             accounts[0],
@@ -359,7 +363,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         const relayInitialConfig: RelayInitialConfig = {
             initialRewardEpochId: initialSigningPolicy.rewardEpochId,
             startingVotingRoundIdForInitialRewardEpochId: initialSigningPolicy.startVotingRoundId,
-            initialSigningPolicyHash: getSigningPolicyHash(initialSigningPolicy),
+            initialSigningPolicyHash: getSigningPolicyHash(initialSigningPolicy, chainId),
             randomNumberProtocolId: FTSO_PROTOCOL_ID,
             firstVotingRoundStartTs: firstVotingRoundStartTs,
             votingEpochDurationSeconds: VOTING_EPOCH_DURATION_SEC,
@@ -380,7 +384,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         const relayInitialConfig2: RelayInitialConfig = {
             initialRewardEpochId: initialSigningPolicy.rewardEpochId,
             startingVotingRoundIdForInitialRewardEpochId: initialSigningPolicy.startVotingRoundId,
-            initialSigningPolicyHash: getSigningPolicyHash(initialSigningPolicy),
+            initialSigningPolicyHash: getSigningPolicyHash(initialSigningPolicy, chainId),
             randomNumberProtocolId: FTSO_PROTOCOL_ID,
             firstVotingRoundStartTs: firstVotingRoundStartTs,
             votingEpochDurationSeconds: VOTING_EPOCH_DURATION_SEC,
@@ -642,7 +646,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         // tree, set messageData.merkleRoot to its root and spread the trailer into the relay message.
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isSecureRandom: quality, merkleRoot: "" };
         const { relayData } = prepareDataWithRandom(messageData, RANDOM_ROOT);
-        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
         const signatures = await generateSignatures(privateKeys.slice(INITIAL_NUMBER_OF_VOTERS, INITIAL_NUMBER_OF_VOTERS + 51).map(x => x.privateKey), messageHash, 51);
 
         const relayMessage = {
@@ -710,7 +714,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         const _startingVotingRoundIdForLastInitializedRewardEpoch = result[1];
         expect(_lastInitializedRewardEpoch.toString()).to.equal("1");
         expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(startVotingRoundId.toString());
-        expect(await relay.toSigningPolicyHash(1)).to.be.equal(getSigningPolicyHash(newSigningPolicy));
+        expect(await relay.toSigningPolicyHash(1)).to.be.equal(getSigningPolicyHash(newSigningPolicy, chainId));
     });
 
     it("Should sign new signing policy and relay it", async () => {
@@ -817,7 +821,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isSecureRandom: quality, merkleRoot: "" };
         const { relayData, feedProof } = prepareDataWithRandomAndFeed(messageData, RANDOM_ROOT3, feed);
         feedMerkleProof = feedProof!;
-        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
 
         const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
 
@@ -894,7 +898,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         // RLY-03: add the random trailer; the relayed value RANDOM_ROOT2 becomes reward epoch 2's seed.
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isSecureRandom: quality, merkleRoot: "" };
         const { relayData } = prepareDataWithRandom(messageData, RANDOM_ROOT2);
-        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
 
         const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
 

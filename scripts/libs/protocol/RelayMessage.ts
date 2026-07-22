@@ -1,4 +1,3 @@
-import { ethers } from "ethers";
 import { ECDSASignatureWithIndex, IECDSASignatureWithIndex } from "./ECDSASignatureWithIndex";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "./ProtocolMessageMerkleRoot";
 import { ISigningPolicy, SigningPolicy } from "./SigningPolicy";
@@ -31,11 +30,16 @@ export namespace RelayMessage {
    * - threshold is met
    * @param message
    * @param verify
+   * @param chainId chain id of the network the target Relay is deployed on
+   *                (RLY-23 chain-domain binding; required when verify is true)
    * @returns
    */
-  export function encode(message: IRelayMessage, verify = false): string {
+  export function encode(message: IRelayMessage, verify = false, chainId?: number | bigint): string {
     if (!message) {
       throw Error("Relay message is undefined");
+    }
+    if (verify && chainId === undefined) {
+      throw Error("chainId is required when verify is true (RLY-23 chain-domain binding)");
     }
     if (!message.signingPolicy) {
       throw Error("Invalid relay message: no signing policy");
@@ -58,14 +62,16 @@ export namespace RelayMessage {
       const encodedMessage = ProtocolMessageMerkleRoot.encode(message.protocolMessageMerkleRoot);
       encoded += encodedMessage.slice(2);
       if(verify) {
-        hashToSign = ethers.keccak256(encodedMessage);
+        // RLY-23: voters sign the chain-bound digest keccak256(chainId ‖ keccak256(message)).
+        hashToSign = ProtocolMessageMerkleRoot.hash(message.protocolMessageMerkleRoot, chainId!);
       }
     } else {
       encoded += "00";  // protocolId == 0 indicates new signing policy
       const encodedNewSigningPolicy = SigningPolicy.encode(message.newSigningPolicy!);
       encoded += encodedNewSigningPolicy.slice(2);
       if(verify) {
-        hashToSign = SigningPolicy.hashEncoded(encodedNewSigningPolicy);
+        // RLY-23: the signed (and stored) signing-policy hash is chain-bound.
+        hashToSign = SigningPolicy.hashEncoded(encodedNewSigningPolicy, chainId!);
       }
     }
     let lastObservedIndex = -1;

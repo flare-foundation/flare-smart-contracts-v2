@@ -243,10 +243,12 @@ export async function deployContracts(
   );
   spewNewContractInfo(contracts, null, "FtsoRewardManager", `FtsoRewardManagerProxy.sol`, ftsoRewardManagerProxy.address, quiet);
 
+  // RLY-23: the initial signing-policy hash must be bound to the chain this Relay is deployed on.
+  const relayChainId = await web3.eth.getChainId();
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: initialSigningPolicy.rewardEpochId,
     startingVotingRoundIdForInitialRewardEpochId: initialSigningPolicy.startVotingRoundId,
-    initialSigningPolicyHash: SigningPolicy.hash(initialSigningPolicy),
+    initialSigningPolicyHash: SigningPolicy.hash(initialSigningPolicy, relayChainId),
     randomNumberProtocolId: parameters.ftsoProtocolId,
     firstVotingRoundStartTs: firstVotingRoundStartTs.toNumber(),
     votingEpochDurationSeconds: parameters.votingEpochDurationSeconds,
