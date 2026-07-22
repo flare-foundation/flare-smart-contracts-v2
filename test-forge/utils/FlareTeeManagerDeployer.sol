@@ -373,7 +373,7 @@ library FlareTeeManagerDeployer {
 
         // 16: ExtensionGovernanceFacet
         {
-            bytes4[] memory s = new bytes4[](7);
+            bytes4[] memory s = new bytes4[](8);
             s[0] = IExtensionGovernance.setNewTeeGovernance.selector;
             s[1] = IExtensionGovernance.getLatestTeeGovernanceHash.selector;
             s[2] = IExtensionGovernance.getTeeGovernanceThreshold.selector;
@@ -381,6 +381,7 @@ library FlareTeeManagerDeployer {
             s[4] = IExtensionGovernance.getTeeGovernance.selector;
             s[5] = IExtensionGovernance.getLatestTeeGovernance.selector;
             s[6] = IExtensionGovernance.isGovernanceHashValid.selector;
+            s[7] = IExtensionGovernance.setNewTeeGovernanceSafe.selector;
             cuts[14] = IDiamond.FacetCut(
                 address(new ExtensionGovernanceFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -388,7 +389,7 @@ library FlareTeeManagerDeployer {
 
         // 17: MachinePathManagerFacet
         {
-            bytes4[] memory s = new bytes4[](12);
+            bytes4[] memory s = new bytes4[](15);
             s[0] = IMachinePathManager.createNewMachinePathList.selector;
             s[1] = IMachinePathManager.addMachinePaths.selector;
             s[2] = IMachinePathManager.finalizeMachinePathList.selector;
@@ -401,6 +402,9 @@ library FlareTeeManagerDeployer {
             s[9] = IMachinePathManager.getMachinePathList.selector;
             s[10] = IMachinePathManager.getMachinePathListSignatureCount.selector;
             s[11] = IMachinePathManager.getMachinePathListMessageHash.selector;
+            s[12] = IMachinePathManager.approveMachinePathList.selector;
+            s[13] = IMachinePathManager.getMachinePathListApprovals.selector;
+            s[14] = IMachinePathManager.isMachinePathListSafeApproved.selector;
             cuts[15] = IDiamond.FacetCut(
                 address(new MachinePathManagerFacet()), IDiamond.FacetCutAction.Add, s
             );

@@ -1918,6 +1918,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     const governance = await flareTeeManager.getTeeGovernance(0, governanceHash);
     expect(governance[0]).to.be.deep.equal(teeGovernanceSigners);
     expect(governance[1].toNumber()).to.be.equal(teeGovernanceSignersThreshold);
+    expect(governance[2]).to.be.equal(constants.ZERO_ADDRESS); // plain (non-Safe) governance
     expect(await flareTeeManager.getTeeGovernanceThreshold(0, governanceHash)).to.be.equal(
       teeGovernanceSignersThreshold
     );

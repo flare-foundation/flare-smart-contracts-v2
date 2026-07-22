@@ -5,6 +5,7 @@ import { IMachinePathManager, TEE_MACHINE_PATH_LIST } from "../../userInterfaces
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
+import { ISafeMinimal } from "../interface/ISafeMinimal.sol";
 import { MachinePathManager } from "../library/MachinePathManager.sol";
 import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
@@ -103,7 +104,6 @@ contract MachinePathManagerFacet is IMachinePathManager {
     {
         MachinePathManager.MachinePathList storage pathList = MachinePathManager.list(_extensionId, _nonce);
         require(pathList.messageHash != bytes32(0), ListNotFinalized());
-        require(!pathList.listSigned, ListAlreadySigned());
 
         address signer = ECDSA.recover(
             MessageHashUtils.toEthSignedMessageHash(pathList.messageHash),
@@ -134,26 +134,66 @@ contract MachinePathManagerFacet is IMachinePathManager {
         assembly { mstore(counted, countedLen) }
         emit MachinePathListSignatureAdded(_extensionId, _nonce, signer, counted);
 
-        // Activation: list is signed when every involved governance has reached its threshold.
-        // Then it is promoted to "active" iff its nonce strictly exceeds the current active nonce
-        // (which is monotonically true here since nonces are strictly increasing per extension).
-        bool allMet = true;
+        _activateWhenFullySigned(_extensionId, _nonce, pathList);
+    }
+
+    /// @inheritdoc IMachinePathManager
+    function approveMachinePathList(
+        uint256 _extensionId,
+        uint256 _nonce,
+        bytes32 _messageHash
+    )
+        external
+    {
+        MachinePathManager.MachinePathList storage pathList = MachinePathManager.list(_extensionId, _nonce);
+        require(pathList.messageHash != bytes32(0), ListNotFinalized());
+        require(_messageHash == pathList.messageHash, MessageHashMismatch());
+
+        bytes32[] memory hashes = pathList.involvedGovernanceHashes.values();
+        // Phase 1: match the caller against the involved governances' registered Safe addresses,
+        // rejecting unrecognized callers without any external call.
+        bool anySafeMatch = false;
         for (uint256 i = 0; i < hashes.length; i++) {
-            uint64 threshold =
-                ExtensionGovernance.getTeeGovernanceThreshold(_extensionId, hashes[i]);
-            if (pathList.signatureCount[hashes[i]] < threshold) {
-                allMet = false;
+            if (ExtensionGovernance.getTeeGovernanceSafeAddress(_extensionId, hashes[i]) == msg.sender) {
+                anySafeMatch = true;
                 break;
             }
         }
-        if (allMet) {
-            pathList.listSigned = true;
-            emit MachinePathListSigned(_extensionId, _nonce);
-            MachinePathManager.State storage state = MachinePathManager.getState();
-            if (_nonce > state.extensionActiveListNonce[_extensionId]) {
-                state.extensionActiveListNonce[_extensionId] = _nonce;
+        require(anySafeMatch, UnrecognizedSigner());
+
+        // Phase 2: mark Safe-approved every involved snapshot the caller Safe's live quorum can
+        // still cover (one Safe call represents threshold-many owner confirmations). The flags are
+        // a satisfaction path independent of the ECDSA signature counts, which stay untouched.
+        // Repeat approvals — including after activation — are idempotent (no per-signer dedup is
+        // needed here, a contract can never produce the ECDSA signature the dedup exists for) and
+        // each appends a fresh Approval entry for relays. Snapshots the live quorum can no longer
+        // satisfy are skipped — they can still be covered by direct snapshot-owner signatures via
+        // `signMachinePathList`.
+        uint256 liveThreshold = ISafeMinimal(msg.sender).getThreshold();
+        bytes32[] memory satisfied = new bytes32[](hashes.length);
+        uint256 satisfiedLen;
+        for (uint256 i = 0; i < hashes.length; i++) {
+            if (
+                ExtensionGovernance.getTeeGovernanceSafeAddress(_extensionId, hashes[i]) == msg.sender &&
+                ExtensionGovernance.isSnapshotSatisfiable(
+                    _extensionId, hashes[i], ISafeMinimal(msg.sender), liveThreshold
+                )
+            ) {
+                pathList.safeApproved[hashes[i]] = true;
+                satisfied[satisfiedLen] = hashes[i];
+                satisfiedLen++;
             }
         }
+        require(satisfiedLen > 0, SafeGovernanceStale());
+
+        pathList.approvals.push(Approval(msg.sender, uint64(block.number)));
+
+        // Shrink the `satisfied` array to its actual length before emitting.
+        // solhint-disable-next-line no-inline-assembly
+        assembly { mstore(satisfied, satisfiedLen) }
+        emit MachinePathListApproved(_extensionId, _nonce, msg.sender, satisfied);
+
+        _activateWhenFullySigned(_extensionId, _nonce, pathList);
     }
 
     /// @inheritdoc IMachinePathManager
@@ -253,9 +293,73 @@ contract MachinePathManagerFacet is IMachinePathManager {
         return MachinePathManager.list(_extensionId, _nonce).signatureCount[_governanceHash];
     }
 
+    /// @inheritdoc IMachinePathManager
+    function getMachinePathListApprovals(
+        uint256 _extensionId,
+        uint256 _nonce
+    )
+        external view
+        returns (Approval[] memory _approvals)
+    {
+        _approvals = MachinePathManager.list(_extensionId, _nonce).approvals;
+    }
+
+    /// @inheritdoc IMachinePathManager
+    function isMachinePathListSafeApproved(
+        uint256 _extensionId,
+        uint256 _nonce,
+        bytes32 _governanceHash
+    )
+        external view
+        returns (bool)
+    {
+        return MachinePathManager.list(_extensionId, _nonce).safeApproved[_governanceHash];
+    }
+
     // =========================================================================
     // Private helpers
     // =========================================================================
+
+    /**
+     * Shared activation tail of both approval paths: the list is fully signed when every involved
+     * governance has signed off — its ECDSA signature count reached its threshold, or its Safe
+     * approved it — and is then promoted to "active" iff its nonce strictly exceeds the current
+     * active nonce (which is monotonically true here since nonces are strictly increasing per
+     * extension). Activation is a one-shot transition: signatures and approvals may keep
+     * accumulating afterwards (evidence collection for off-chain verifiers), but this function
+     * returns early once the list is signed, so MachinePathListSigned fires at most once.
+     */
+    function _activateWhenFullySigned(
+        uint256 _extensionId,
+        uint256 _nonce,
+        MachinePathManager.MachinePathList storage _pathList
+    )
+        private
+    {
+        if (_pathList.listSigned) {
+            return;
+        }
+        bytes32[] memory hashes = _pathList.involvedGovernanceHashes.values();
+        bool fullySigned = true;
+        for (uint256 i = 0; i < hashes.length; i++) {
+            if (_pathList.safeApproved[hashes[i]]) {
+                continue;
+            }
+            uint64 threshold = ExtensionGovernance.getTeeGovernanceThreshold(_extensionId, hashes[i]);
+            if (_pathList.signatureCount[hashes[i]] < threshold) {
+                fullySigned = false;
+                break;
+            }
+        }
+        if (fullySigned) {
+            _pathList.listSigned = true;
+            emit MachinePathListSigned(_extensionId, _nonce);
+            MachinePathManager.State storage state = MachinePathManager.getState();
+            if (_nonce > state.extensionActiveListNonce[_extensionId]) {
+                state.extensionActiveListNonce[_extensionId] = _nonce;
+            }
+        }
+    }
 
     function _getMachinePaths(
         uint256 _extensionId,

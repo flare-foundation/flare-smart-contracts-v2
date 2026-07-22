@@ -39,6 +39,12 @@ library MachinePathManager {
         /// keccak256(abi.encode(...)), set on finalize -> enables signing
         bytes32 messageHash;
         bool listSigned;
+        /// msg.sender approvals (Safe-backed governances). Appended field — mapping values are
+        /// append-safe (see the header note).
+        IMachinePathManager.Approval[] approvals;
+        /// Per-governance Safe-approval flags — an alternative satisfaction path that never
+        /// touches `signatureCount`. Appended field — mapping values are append-safe.
+        mapping(bytes32 governanceHash => bool) safeApproved;
     }
 
     /// @custom:storage-location erc7201:tee.MachinePathManager.State

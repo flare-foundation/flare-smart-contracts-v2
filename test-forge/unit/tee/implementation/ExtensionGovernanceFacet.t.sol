@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
+import { MockSafe } from "../../../mock/MockSafe.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IExtensionGovernance } from "../../../../contracts/userInterfaces/tee/IExtensionGovernance.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
@@ -199,12 +200,13 @@ contract ExtensionGovernanceFacetTest is Test {
         flareTeeManager.setNewTeeGovernance(extensionId, signers, 1);
 
         bytes32 governanceHash = flareTeeManager.getLatestTeeGovernanceHash(extensionId);
-        (address[] memory returnedSigners, uint64 returnedThreshold) =
+        (address[] memory returnedSigners, uint64 returnedThreshold, address returnedSafe) =
             flareTeeManager.getTeeGovernance(extensionId, governanceHash);
 
         assertEq(returnedSigners[0], signers[0]);
         assertEq(returnedSigners[1], signers[1]);
         assertEq(returnedThreshold, 1);
+        assertEq(returnedSafe, address(0));
     }
 
     // =========================================================================
@@ -227,11 +229,14 @@ contract ExtensionGovernanceFacetTest is Test {
 
         address[] memory returnedSigners;
         uint64 returnedThreshold;
-        (returnedSigners, returnedThreshold) = flareTeeManager.getLatestTeeGovernance(extensionId);
+        address returnedSafe;
+        (returnedSigners, returnedThreshold, returnedSafe) =
+            flareTeeManager.getLatestTeeGovernance(extensionId);
 
         assertEq(returnedSigners[0], signers[0]);
         assertEq(returnedSigners[1], signers[1]);
         assertEq(returnedThreshold, 2);
+        assertEq(returnedSafe, address(0));
     }
 
     // =========================================================================
@@ -258,5 +263,151 @@ contract ExtensionGovernanceFacetTest is Test {
                 extensionId, flareTeeManager.getLatestTeeGovernanceHash(extensionId)
             )
         );
+    }
+
+    // =========================================================================
+    // setNewTeeGovernanceSafe
+    // =========================================================================
+
+    function testSetNewTeeGovernanceSafeRevertOnlyExtensionOwner() public {
+        MockSafe safe = new MockSafe(signers, 1);
+        vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+    }
+
+    function testSetNewTeeGovernanceSafe() public {
+        MockSafe safe = new MockSafe(signers, 2);
+        bytes32 governanceHash = _safeGovernanceHash(address(safe), signers, 2);
+
+        vm.expectEmit();
+        emit IExtensionGovernance.NewTeeSafeGovernanceSet(
+            extensionId, governanceHash, address(safe), signers, 2
+        );
+        vm.prank(realOwnerExtension1);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+
+        assertEq(flareTeeManager.getLatestTeeGovernanceHash(extensionId), governanceHash);
+        assertTrue(flareTeeManager.isGovernanceHashValid(extensionId, governanceHash));
+        assertTrue(flareTeeManager.isTeeGovernanceSigner(extensionId, governanceHash, signers[0]));
+        assertTrue(flareTeeManager.isTeeGovernanceSigner(extensionId, governanceHash, signers[1]));
+        assertFalse(flareTeeManager.isTeeGovernanceSigner(extensionId, governanceHash, address(safe)));
+
+        (address[] memory returnedSigners, uint64 returnedThreshold, address returnedSafe) =
+            flareTeeManager.getTeeGovernance(extensionId, governanceHash);
+        assertEq(returnedSigners.length, 2);
+        assertEq(returnedSigners[0], signers[0]);
+        assertEq(returnedSigners[1], signers[1]);
+        assertEq(returnedThreshold, 2);
+        assertEq(returnedSafe, address(safe));
+
+        (returnedSigners, returnedThreshold, returnedSafe) =
+            flareTeeManager.getLatestTeeGovernance(extensionId);
+        assertEq(returnedSigners.length, 2);
+        assertEq(returnedThreshold, 2);
+        assertEq(returnedSafe, address(safe));
+    }
+
+    function testSetNewTeeGovernanceSafeRepointsLatest() public {
+        MockSafe safe = new MockSafe(signers, 1);
+        bytes32 safeGovernanceHash = _safeGovernanceHash(address(safe), signers, 1);
+
+        vm.startPrank(realOwnerExtension1);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+        // Point latest elsewhere, then re-point back to the (already recorded) Safe governance.
+        flareTeeManager.setNewTeeGovernance(extensionId, signers, 2);
+        assertEq(flareTeeManager.getLatestTeeGovernanceHash(extensionId), keccak256(abi.encode(signers, 2)));
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+        vm.stopPrank();
+
+        assertEq(flareTeeManager.getLatestTeeGovernanceHash(extensionId), safeGovernanceHash);
+        (address[] memory returnedSigners, uint64 returnedThreshold, address returnedSafe) =
+            flareTeeManager.getTeeGovernance(extensionId, safeGovernanceHash);
+        assertEq(returnedSigners.length, 2);
+        assertEq(returnedThreshold, 1);
+        assertEq(returnedSafe, address(safe));
+    }
+
+    function testSetNewTeeGovernanceSafeRotationChangesHash() public {
+        MockSafe safe = new MockSafe(signers, 1);
+        vm.prank(realOwnerExtension1);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+        bytes32 oldHash = flareTeeManager.getLatestTeeGovernanceHash(extensionId);
+
+        address[] memory rotated = new address[](2);
+        rotated[0] = signers[0];
+        rotated[1] = makeAddr("rotatedSigner");
+        safe.setOwners(rotated);
+
+        vm.prank(realOwnerExtension1);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+        bytes32 newHash = flareTeeManager.getLatestTeeGovernanceHash(extensionId);
+
+        assertNotEq(newHash, oldHash);
+        assertEq(newHash, _safeGovernanceHash(address(safe), rotated, 1));
+        // Both snapshots stay recorded and immutable.
+        assertTrue(flareTeeManager.isGovernanceHashValid(extensionId, oldHash));
+        assertTrue(flareTeeManager.isTeeGovernanceSigner(extensionId, oldHash, signers[1]));
+        assertFalse(flareTeeManager.isTeeGovernanceSigner(extensionId, newHash, signers[1]));
+    }
+
+    function testSetNewTeeGovernanceSafeRevertNoSigners() public {
+        MockSafe safe = new MockSafe(new address[](0), 1);
+        vm.expectRevert(IExtensionGovernance.NoSigners.selector);
+        vm.prank(realOwnerExtension1);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+    }
+
+    function testSetNewTeeGovernanceSafeRevertInvalidThreshold() public {
+        MockSafe safe = new MockSafe(signers, 0);
+        vm.startPrank(realOwnerExtension1);
+        vm.expectRevert(ITeeCommonErrors.InvalidThreshold.selector);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+        safe.setThreshold(3);
+        vm.expectRevert(ITeeCommonErrors.InvalidThreshold.selector);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+        vm.stopPrank();
+    }
+
+    function testSetNewTeeGovernanceSafeRevertSignerAlreadyExists() public {
+        address[] memory duplicated = new address[](2);
+        duplicated[0] = signers[0];
+        duplicated[1] = signers[0];
+        MockSafe safe = new MockSafe(duplicated, 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IExtensionGovernance.SignerAlreadyExists.selector, signers[0])
+        );
+        vm.prank(realOwnerExtension1);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+    }
+
+    function testSetNewTeeGovernanceSafeRevertInvalidSigner() public {
+        address[] memory withZero = new address[](2);
+        withZero[0] = signers[0];
+        withZero[1] = address(0);
+        MockSafe safe = new MockSafe(withZero, 1);
+        vm.expectRevert(IExtensionGovernance.InvalidSigner.selector);
+        vm.prank(realOwnerExtension1);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+    }
+
+    function testSetNewTeeGovernanceSafeRevertNonContract() public {
+        vm.expectRevert();
+        vm.prank(realOwnerExtension1);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, makeAddr("notAContract"));
+    }
+
+    // =========================================================================
+    // Test helpers
+    // =========================================================================
+
+    function _safeGovernanceHash(
+        address _safe,
+        address[] memory _owners,
+        uint64 _threshold
+    )
+        private view
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(address(flareTeeManager), _safe, _owners, _threshold));
     }
 }

@@ -10,12 +10,31 @@ import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
  *      identified by a content-derived `governanceHash`. Once a hash has been recorded, its
  *      signers and threshold are immutable; re-calling setNewTeeGovernance with the same
  *      (signers, threshold) tuple only updates the latest-hash pointer.
+ *
+ *      Two governance flavors exist, discriminated by the `_safe` value returned from the getters:
+ *      - plain (`setNewTeeGovernance`): caller-supplied signer set;
+ *        `governanceHash = keccak256(abi.encode(signers, threshold))`, `safe == address(0)`.
+ *      - Safe-backed (`setNewTeeGovernanceSafe`): signer set snapshotted live from a Safe multisig;
+ *        `governanceHash = keccak256(abi.encode(teeManager, safe, owners, threshold))`,
+ *        where `teeManager` is the FlareTeeManager diamond address. The Safe itself approves machine
+ *        path lists via `IMachinePathManager.approveMachinePathList`.
+ *      The preimage shapes cannot collide: the plain preimage begins with the ABI array-offset
+ *      word (0x40), the Safe-backed one with the diamond address. A future preimage change would
+ *      introduce a versioned domain tag as its first word.
  */
 interface IExtensionGovernance is ITeeCommonErrors {
 
     event NewTeeGovernanceSet(
         uint256 indexed extensionId,
         bytes32 indexed governanceHash,
+        address[] signers,
+        uint64 signersThreshold
+    );
+
+    event NewTeeSafeGovernanceSet(
+        uint256 indexed extensionId,
+        bytes32 indexed governanceHash,
+        address safe,
         address[] signers,
         uint64 signersThreshold
     );
@@ -38,6 +57,32 @@ interface IExtensionGovernance is ITeeCommonErrors {
         uint256 _extensionId,
         address[] calldata _signers,
         uint64 _signersThreshold
+    )
+        external;
+
+    /**
+     * Sets new Safe-backed TEE governance for the extension. The signer set and threshold are read
+     * live from the Safe contract (`getOwners()` / `getThreshold()`), so they are chain-attested at
+     * registration time rather than caller-supplied. The resulting governance hash commits to every
+     * anchor an off-chain verifier needs:
+     * `keccak256(abi.encode(address(teeManager), _safe, owners, threshold))`.
+     * The owners are stored as an ordinary signer set, so they may also sign machine path lists
+     * individually via `IMachinePathManager.signMachinePathList`; the Safe itself approves lists
+     * via `IMachinePathManager.approveMachinePathList`.
+     * Re-calling with a Safe whose (owners, threshold) snapshot was already recorded only re-points
+     * the latest-hash pointer, mirroring `setNewTeeGovernance`. After the Safe rotates owners or
+     * changes its threshold, call this again to register the new snapshot (new hash) and re-register
+     * machines to bind it.
+     * Emits NewTeeSafeGovernanceSet.
+     * @param _extensionId The id of the extension.
+     * @param _safe The Safe multisig contract. Its owners must be non-empty, unique and non-zero,
+     *      and its threshold must satisfy 0 < threshold <= owners.length (a genuine Safe guarantees
+     *      all of this; it is validated defensively since the address is only claimed to be a Safe).
+     * Can only be called by the extension owner.
+     */
+    function setNewTeeGovernanceSafe(
+        uint256 _extensionId,
+        address _safe
     )
         external;
 
@@ -83,8 +128,9 @@ interface IExtensionGovernance is ITeeCommonErrors {
      * Returns the governance for the given governance hash.
      * @param _extensionId The id of the extension.
      * @param _governanceHash The governance hash.
-     * @return _signers The governance signers.
+     * @return _signers The governance signers (the Safe owners' snapshot for Safe-backed governance).
      * @return _signersThreshold The governance signers threshold.
+     * @return _safe The Safe address for Safe-backed governance, `address(0)` for plain governance.
      */
     function getTeeGovernance(
         uint256 _extensionId,
@@ -93,14 +139,17 @@ interface IExtensionGovernance is ITeeCommonErrors {
         external view
         returns (
             address[] memory _signers,
-            uint64 _signersThreshold
+            uint64 _signersThreshold,
+            address _safe
         );
 
     /**
      * Returns the latest governance.
      * @param _extensionId The id of the extension.
-     * @return _signers The latest governance signers.
+     * @return _signers The latest governance signers (the Safe owners' snapshot for Safe-backed
+     *      governance).
      * @return _signersThreshold The latest governance signers threshold.
+     * @return _safe The Safe address for Safe-backed governance, `address(0)` for plain governance.
      */
     function getLatestTeeGovernance(
         uint256 _extensionId
@@ -108,7 +157,8 @@ interface IExtensionGovernance is ITeeCommonErrors {
         external view
         returns (
             address[] memory _signers,
-            uint64 _signersThreshold
+            uint64 _signersThreshold,
+            address _safe
         );
 
     /**

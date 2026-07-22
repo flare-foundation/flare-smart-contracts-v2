@@ -2,6 +2,7 @@
 pragma solidity ^0.8.35;
 
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
+import { ISafeMinimal } from "../interface/ISafeMinimal.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
@@ -16,6 +17,9 @@ library ExtensionGovernance {
     struct TeeGovernanceData {
         EnumerableSet.AddressSet signers;
         uint64 signersThreshold;
+        /// The Safe multisig backing this governance; `address(0)` for plain governance.
+        /// Appended field — mapping values are append-safe.
+        address safeAddress;
     }
 
     struct TeeExtensionGovernanceState {
@@ -75,6 +79,58 @@ library ExtensionGovernance {
         _threshold = getState().extensionStates[_extensionId]
             .governanceHashToTeeGovernance[_governanceHash].signersThreshold;
         require(_threshold > 0, ITeeCommonErrors.InvalidGovernanceHash());
+    }
+
+    /**
+     * Returns the Safe multisig backing the given governance, or `address(0)` for plain governance
+     * (and for unrecorded hashes).
+     */
+    function getTeeGovernanceSafeAddress(
+        uint256 _extensionId,
+        bytes32 _governanceHash
+    )
+        internal view
+        returns (address)
+    {
+        return getState().extensionStates[_extensionId]
+            .governanceHashToTeeGovernance[_governanceHash].safeAddress;
+    }
+
+    /**
+     * Returns true iff a quorum of `_safe`'s live owners can still satisfy the snapshot recorded
+     * under `_governanceHash`: the live threshold must not be below the snapshot threshold, and at
+     * least `snapshotThreshold` snapshot signers must still be live owners of `_safe` (checked by
+     * staticcalling `isOwner` per stored signer, early-exiting once the threshold is reached — the
+     * stored set is unique by construction, so no duplicate handling is needed). Advisory only:
+     * a rogue Safe can misreport ownership; off-chain verifiers recover the actual owner
+     * signatures from the Safe transaction.
+     */
+    function isSnapshotSatisfiable(
+        uint256 _extensionId,
+        bytes32 _governanceHash,
+        ISafeMinimal _safe,
+        uint256 _liveThreshold
+    )
+        internal view
+        returns (bool)
+    {
+        TeeGovernanceData storage teeGov = getState().extensionStates[_extensionId]
+            .governanceHashToTeeGovernance[_governanceHash];
+        uint256 snapshotThreshold = teeGov.signersThreshold;
+        if (snapshotThreshold == 0 || _liveThreshold < snapshotThreshold) {
+            return false;
+        }
+        uint256 stillOwners = 0;
+        uint256 signerCount = teeGov.signers.length();
+        for (uint256 i = 0; i < signerCount; i++) {
+            if (_safe.isOwner(teeGov.signers.at(i))) {
+                stillOwners++;
+                if (stillOwners >= snapshotThreshold) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     function getState()
