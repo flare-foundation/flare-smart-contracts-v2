@@ -59,6 +59,11 @@ contract VrfFacet is IVrf {
             keyId: _keyId,
             nonce: _nonce
         });
+        // Dispatch with the wallet's cosigners (like every other wallet-key op): a VRF key created
+        // with a cosigner set must have its VRF instructions carry those cosigners, otherwise the
+        // TEE node rejects them. A wallet with no cosigners yields an empty set / zero threshold.
+        (address[] memory cosigners, uint64 cosignersThreshold) =
+            WalletManager.getWalletCosignersAndThreshold(_walletId);
         _instructionId = Instructions.sendInstructions(
             bytes32(0),
             teeIds,
@@ -66,8 +71,8 @@ contract VrfFacet is IVrf {
                 WALLET_OP_TYPE,
                 VRF,
                 abi.encode(message),
-                new address[](0),
-                0,
+                cosigners,
+                cosignersThreshold,
                 _claimBackAddress
             )
         );

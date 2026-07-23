@@ -2,6 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
+import { Vm } from "forge-std/Vm.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IVrf } from "../../../../contracts/userInterfaces/tee/IVrf.sol";
@@ -82,6 +83,20 @@ contract VrfTestWalletInit {
         WalletKeyManager.KeyDefinition storage keyDef = keys.keyDefinitions[_keyId];
         for (uint256 i = 0; i < _teeIds.length; i++) {
             keyDef.teeIds.push(_teeIds[i]);
+        }
+    }
+
+    function initWalletCosigners(
+        bytes32 _walletId,
+        address[] calldata _cosigners,
+        uint64 _cosignersThreshold
+    )
+        external
+    {
+        WalletManager.TeeWalletState storage wallet = WalletManager.getState().wallets[_walletId];
+        wallet.cosignersThreshold = _cosignersThreshold;
+        for (uint256 i = 0; i < _cosigners.length; i++) {
+            wallet.cosigners.push(_cosigners[i]);
         }
     }
 }
@@ -247,6 +262,46 @@ contract VrfFacetTest is Test {
         assertTrue(returnedId != bytes32(0));
     }
 
+    // A VRF key on a wallet WITH cosigners must dispatch its VRF instruction carrying those
+    // cosigners; previously the contract hard-coded an empty set, so such keys could never be used
+    // (the TEE node rejects a VRF instruction whose cosigners don't match the key's).
+    function testRequestVrfForwardsWalletCosigners() public {
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = teeId;
+        _setupHappyPath(teeIds);
+
+        address[] memory walletCosigners = new address[](2);
+        walletCosigners[0] = makeAddr("cosignerA");
+        walletCosigners[1] = makeAddr("cosignerB");
+        _initWalletCosigners(walletId, walletCosigners, 2);
+
+        vm.recordLogs();
+        vm.prank(authAddress);
+        flareTeeManager.requestVrf{value: 1000 * 1}(walletId, keyId, nonce, address(0));
+
+        bytes32 sig = keccak256(
+            // solhint-disable-next-line max-line-length
+            "TeeInstructionsSent(uint256,bytes32,uint32,(address,address,string)[],bytes32,bytes32,bytes,address[],uint64,address,uint256)"
+        );
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bool found;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] != sig) {
+                continue;
+            }
+            (, , , , address[] memory cosigners, uint64 cosignersThreshold, , ) = abi.decode(
+                logs[i].data,
+                (IMachineManager.TeeMachine[], bytes32, bytes32, bytes, address[], uint64, address, uint256)
+            );
+            assertEq(cosigners.length, 2, "VRF instruction must carry the wallet cosigners");
+            assertEq(cosigners[0], walletCosigners[0]);
+            assertEq(cosigners[1], walletCosigners[1]);
+            assertEq(cosignersThreshold, 2);
+            found = true;
+        }
+        assertTrue(found, "TeeInstructionsSent not emitted");
+    }
+
     function testRequestVrfWithClaimBackAddress() public {
         address claimBack = makeAddr("claimBack");
         address[] memory teeIds = new address[](1);
@@ -405,6 +460,20 @@ contract VrfFacetTest is Test {
             emptyCuts,
             address(walletInit),
             abi.encodeCall(VrfTestWalletInit.initWalletKey, (_walletId, _keyId, _teeIds))
+        );
+    }
+
+    function _initWalletCosigners(
+        bytes32 _walletId,
+        address[] memory _cosigners,
+        uint64 _cosignersThreshold
+    ) internal {
+        IDiamond.FacetCut[] memory emptyCuts = new IDiamond.FacetCut[](0);
+        vm.prank(governance);
+        IDiamondCut(address(flareTeeManager)).diamondCut(
+            emptyCuts,
+            address(walletInit),
+            abi.encodeCall(VrfTestWalletInit.initWalletCosigners, (_walletId, _cosigners, _cosignersThreshold))
         );
     }
 

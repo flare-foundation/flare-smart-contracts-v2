@@ -158,7 +158,7 @@ The two paths coexist — neither replaces the other. They share the restore-sid
 [`VrfFacet`](../../../contracts/tee/facets/VrfFacet.sol) wraps a separate flow for producing **Verifiable Random Function** outputs from a TEE-held key:
 
 1. A user submits a VRF request — a seed, a target wallet, a key type — via the facet.
-2. The facet emits a `(F_WALLET, "VRF")` instruction.
+2. The facet emits a `(F_WALLET, "VRF")` instruction, carrying the **wallet's cosigner set and threshold** (like every other wallet-key op). A VRF key created under a cosigner threshold therefore has its VRF instructions authorized by those cosigners; a wallet with no cosigners dispatches an empty set.
 3. The TEE produces a VRF output using its key and the seed; emits a proof.
 4. The off-chain layer relays the proof back; consumer contracts verify it using [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) (a stand-alone contract outside the diamond, deployed directly with no proxy).
 
