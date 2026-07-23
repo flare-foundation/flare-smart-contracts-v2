@@ -504,7 +504,8 @@
     "contractName": "MachineManagerFacet.sol",
     "addresses": [
       "0x28E0140B94974198e2d96bdE0b3190A93f22c9f0",
-      "0xF40B9a2e70EE96042217F10D94A4B1eDf13096a8"
+      "0xF40B9a2e70EE96042217F10D94A4B1eDf13096a8",
+      "0xcf8314683C69a29cdC0d7BFF6C28297fB6e2E8df"
     ]
   },
   {
@@ -543,7 +544,8 @@
     "contractName": "WalletManagerFacet.sol",
     "addresses": [
       "0xCf77a93ade70c1D519D19CF9BAd9ec7dfc0765aA",
-      "0xcbf21163bC2A47E8a0FF69cC006C94684bC8Dc9b"
+      "0xcbf21163bC2A47E8a0FF69cC006C94684bC8Dc9b",
+      "0x799fCDf684DC56B512aBBAd141EF31Db8Bfc8873"
     ]
   },
   {
@@ -551,7 +553,8 @@
     "contractName": "WalletKeyManagerFacet.sol",
     "addresses": [
       "0xe036B7d737f8ADfAB20D491e676649710EF26806",
-      "0x9Aeb4C3959Ba15464241F7b8daf38Ac2Fa1Cca13"
+      "0x9Aeb4C3959Ba15464241F7b8daf38Ac2Fa1Cca13",
+      "0x10B3e86624C6dE8685E8F9f0AF7Aa10EB271668F"
     ]
   },
   {
@@ -567,7 +570,8 @@
     "contractName": "WalletBackupManagerFacet.sol",
     "addresses": [
       "0x081043EFF151609b5Acf50BA3E2e994eBd5E5109",
-      "0x9391Caba91a99590C87F421A0C3Fb5E92d36DCb4"
+      "0x9391Caba91a99590C87F421A0C3Fb5E92d36DCb4",
+      "0xADa1B13dAC426C8A57Ab026C14Aa1fF8e58Fe0D4"
     ]
   },
   {
@@ -575,7 +579,8 @@
     "contractName": "VrfFacet.sol",
     "addresses": [
       "0xB78215f1587f9F96Ee51532a879246621e55aC35",
-      "0x90c2210E899db9f27Eb713aF5acF97226DD7cEa1"
+      "0x90c2210E899db9f27Eb713aF5acF97226DD7cEa1",
+      "0xcd4400FB00FB8BC53f2f7c647F0adBf72508F620"
     ]
   },
   {
@@ -671,14 +676,8 @@
     "contractName": "TeePayments.sol",
     "addresses": [
       "0xaEd46b1Ef1a8346E1f1fdbac015f5A7bAe81d81B",
-      "0xA8b8E5174C2a389ba115cE8C4Ac508374aEBC957"
-    ]
-  },
-  {
-    "name": "TeePayments_F_XRP",
-    "contractName": "TeePaymentsProxy.sol",
-    "addresses": [
-      "0xD02384dcbA8bBb42E4E8b417b8542410AE0CF484"
+      "0xA8b8E5174C2a389ba115cE8C4Ac508374aEBC957",
+      "0x91550b4eB4EfB45F8eb2978D6b29d26Ac8D30FE2"
     ]
   },
   {
@@ -717,21 +716,24 @@
     "name": "ExtensionGovernanceFacet",
     "contractName": "ExtensionGovernanceFacet.sol",
     "addresses": [
-      "0x8756eF3d5e491c101DC703bf1AeaB1123988dD1B"
+      "0x8756eF3d5e491c101DC703bf1AeaB1123988dD1B",
+      "0x94B53AA5194415F22d0b4eB20B87883606174288"
     ]
   },
   {
     "name": "MachinePathManagerFacet",
     "contractName": "MachinePathManagerFacet.sol",
     "addresses": [
-      "0x2Fc4E122BC234f56a0D05aa24d8CE7c28cD25141"
+      "0x2Fc4E122BC234f56a0D05aa24d8CE7c28cD25141",
+      "0xDAF04fdE681fc9DA86476BED61252F6099D921B6"
     ]
   },
   {
     "name": "WalletProjectPauseFacet",
     "contractName": "WalletProjectPauseFacet.sol",
     "addresses": [
-      "0xc2333fa57d96BeFceB1A45e53C52C533d28eFc74"
+      "0xc2333fa57d96BeFceB1A45e53C52C533d28eFc74",
+      "0x4EdCDf43106817443e6DA80BEA7E6a037bA76245"
     ]
   },
   {
@@ -773,6 +775,7 @@
     "name": "TeePayments",
     "contractName": "TeePaymentsProxy.sol",
     "addresses": [
+      "0xD02384dcbA8bBb42E4E8b417b8542410AE0CF484",
       "0x86CB3e2dA1a4Ec30e2Ff2E5bA1A2D5ff9C9D44f4"
     ]
   },

@@ -322,7 +322,7 @@
   {
     "name": "MachineManagerFacet",
     "contractName": "MachineManagerFacet.sol",
-    "address": "0xF40B9a2e70EE96042217F10D94A4B1eDf13096a8"
+    "address": "0xcf8314683C69a29cdC0d7BFF6C28297fB6e2E8df"
   },
   {
     "name": "VerificationFacet",
@@ -342,12 +342,12 @@
   {
     "name": "WalletManagerFacet",
     "contractName": "WalletManagerFacet.sol",
-    "address": "0xcbf21163bC2A47E8a0FF69cC006C94684bC8Dc9b"
+    "address": "0x799fCDf684DC56B512aBBAd141EF31Db8Bfc8873"
   },
   {
     "name": "WalletKeyManagerFacet",
     "contractName": "WalletKeyManagerFacet.sol",
-    "address": "0x9Aeb4C3959Ba15464241F7b8daf38Ac2Fa1Cca13"
+    "address": "0x10B3e86624C6dE8685E8F9f0AF7Aa10EB271668F"
   },
   {
     "name": "WalletProjectManagerFacet",
@@ -357,12 +357,12 @@
   {
     "name": "WalletBackupManagerFacet",
     "contractName": "WalletBackupManagerFacet.sol",
-    "address": "0x9391Caba91a99590C87F421A0C3Fb5E92d36DCb4"
+    "address": "0xADa1B13dAC426C8A57Ab026C14Aa1fF8e58Fe0D4"
   },
   {
     "name": "VrfFacet",
     "contractName": "VrfFacet.sol",
-    "address": "0x90c2210E899db9f27Eb713aF5acF97226DD7cEa1"
+    "address": "0xcd4400FB00FB8BC53f2f7c647F0adBf72508F620"
   },
   {
     "name": "ExternalAddressesFacet",
@@ -372,17 +372,17 @@
   {
     "name": "ExtensionGovernanceFacet",
     "contractName": "ExtensionGovernanceFacet.sol",
-    "address": "0x8756eF3d5e491c101DC703bf1AeaB1123988dD1B"
+    "address": "0x94B53AA5194415F22d0b4eB20B87883606174288"
   },
   {
     "name": "MachinePathManagerFacet",
     "contractName": "MachinePathManagerFacet.sol",
-    "address": "0x2Fc4E122BC234f56a0D05aa24d8CE7c28cD25141"
+    "address": "0xDAF04fdE681fc9DA86476BED61252F6099D921B6"
   },
   {
     "name": "WalletProjectPauseFacet",
     "contractName": "WalletProjectPauseFacet.sol",
-    "address": "0xc2333fa57d96BeFceB1A45e53C52C533d28eFc74"
+    "address": "0x4EdCDf43106817443e6DA80BEA7E6a037bA76245"
   },
   {
     "name": "MachineEmergencyPauseFacet",
@@ -462,7 +462,7 @@
   {
     "name": "TeePaymentsImplementation",
     "contractName": "TeePayments.sol",
-    "address": "0xA8b8E5174C2a389ba115cE8C4Ac508374aEBC957"
+    "address": "0x91550b4eB4EfB45F8eb2978D6b29d26Ac8D30FE2"
   },
   {
     "name": "TeePayments",

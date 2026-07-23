@@ -1,5 +1,5 @@
 {
-  "diamond": "0x0000000000000000000000000000000000000000",
+  "diamond": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE",
   "facets": [
     "DiamondGovernanceFacet",
     "DiamondLoupeFacet",
@@ -22,20 +22,5 @@
   ],
   "deleteAllOldMethods": false,
   "deleteSelectorSigs": [],
-  "init": {
-    "contract": "FlareTeeManagerInit",
-    "method": "init",
-    "args": [
-      "0x1000000000000000000000000000000000000007",
-      "0x99E0770aa23CAA9071B6112208297E7a8d8F8a4A",
-      "0x99E0770aa23CAA9071B6112208297E7a8d8F8a4A",
-      "21600",
-      "100",
-      "600",
-      "1000",
-      true,
-      "7200"
-    ]
-  },
-  "execute": false
+  "execute": true
 }
