@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { Relay } from "../../../../contracts/protocol/implementation/Relay.sol";
+import { RelayMainDeployed } from "../../../../contracts/mock/RelayMainDeployed.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
 import { RelayTestBase } from "./Relay.t.sol";
@@ -46,6 +47,78 @@ contract RelayChainDomainTest is RelayTestBase {
         if (!ok) {
             assembly { revert(add(ret, 0x20), mload(ret)) }
         }
+    }
+
+    function relayToLegacy(RelayMainDeployed r, bytes calldata rm) external {
+        (bool ok, bytes memory ret) = address(r).call(rm);
+        if (!ok) {
+            assembly { revert(add(ret, 0x20), mload(ret)) }
+        }
+    }
+
+    function _legacySignedHash(bytes memory content) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(content)));
+    }
+
+    function _legacyPolicyRelay(bytes memory oldPolicy, bytes memory newPolicy)
+        internal view returns (bytes memory)
+    {
+        return abi.encodePacked(
+            RelayMainDeployed.relay.selector,
+            oldPolicy,
+            uint8(0),
+            newPolicy,
+            _signatures(_legacySignedHash(newPolicy), _firstK(3))
+        );
+    }
+
+    function _policyStruct(uint24 epoch, uint32 startVotingRoundId)
+        internal view returns (IIRelay.SigningPolicy memory sp)
+    {
+        sp.rewardEpochId = epoch;
+        sp.startVotingRoundId = startVotingRoundId;
+        sp.threshold = THRESHOLD;
+        sp.seed = SEED;
+        sp.voters = voters;
+        sp.weights = weights;
+    }
+
+    function _legacyMessageRelay(bytes memory signerPolicy, uint32 votingRoundId, bytes32 root)
+        internal view returns (bytes memory)
+    {
+        bytes memory message = _protocolMessage(3, votingRoundId, false, root);
+        return abi.encodePacked(
+            RelayMainDeployed.relay.selector,
+            signerPolicy,
+            message,
+            _signatures(_legacySignedHash(message), _firstK(3))
+        );
+    }
+
+    function _chainBoundMessageRelay(bytes memory signerPolicy, uint32 votingRoundId, bytes32 root)
+        internal view returns (bytes memory)
+    {
+        bytes memory message = _protocolMessage(3, votingRoundId, false, root);
+        return abi.encodePacked(
+            Relay.relay.selector,
+            signerPolicy,
+            message,
+            _signatures(_ethSignedHash(message), _firstK(3))
+        );
+    }
+
+    function _chainBoundPolicyRelay(bytes memory currentPolicy, bytes memory newPolicy)
+        internal view returns (bytes memory)
+    {
+        bytes32 signedHash = _chainBound(_signingPolicyContentHash(newPolicy));
+        signedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", signedHash));
+        return abi.encodePacked(
+            Relay.relay.selector,
+            currentPolicy,
+            uint8(0),
+            newPolicy,
+            _signatures(signedHash, _firstK(3))
+        );
     }
 
     // The stored hash is exactly keccak256(chainid ‖ contentHash): checked via a setter-mode
@@ -152,6 +225,74 @@ contract RelayChainDomainTest is RelayTestBase {
         assertTrue(ok1, "first deployment should accept");
         assertTrue(ok2, "second deployment should accept the same message");
         assertTrue(relay.isFinalized(3, START_VOTING_ROUND_ID) && second.isFinalized(3, START_VOTING_ROUND_ID));
+    }
+
+    // Full legacy-to-RLY-23 migration using the exact Relay implementation deployed on main.
+    // The legacy Relay stores bare policy hashes and verifies bare message hashes. The new Relay
+    // must wrap the legacy hash exactly once when it is seeded at the cutover boundary.
+    function test_migration_fromMainRelay_wrapsLegacyHashAndPreservesLiveRelay() public {
+        vm.chainId(FLARE_CHAIN_ID);
+
+        bytes memory policy2 = _buildSigningPolicy(
+            uint24(REWARD_EPOCH_ID + 1), START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION, THRESHOLD, SEED
+        );
+        bytes memory policy3 = _buildSigningPolicy(
+            uint24(REWARD_EPOCH_ID + 2), START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION, THRESHOLD, SEED
+        );
+
+        // This is the deployed/main contract, not a reduced compatibility stub. Flare uses the
+        // trusted signing-policy setter mode; relay-mode migration and fee-message migration are
+        // deliberately out of scope here.
+        RelayMainDeployed oldRelay = new RelayMainDeployed(
+            _initialConfig(_signingPolicyContentHash(policy)), address(this), IRelay(address(0))
+        );
+
+        // Populate realistic pre-cutover history: two policies installed by the trusted setter
+        // and one legacy-format message finalized under each active policy.
+        (bool ok,) = address(oldRelay).call(_legacyMessageRelay(policy, START_VOTING_ROUND_ID, keccak256("old-1")));
+        assertTrue(ok, "legacy message under policy 1 failed");
+        oldRelay.setSigningPolicy(_policyStruct(REWARD_EPOCH_ID + 1, START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION));
+        (ok,) = address(oldRelay).call(_legacyMessageRelay(policy2, START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION, keccak256("old-2")));
+        assertTrue(ok, "legacy message under policy 2 failed");
+        oldRelay.setSigningPolicy(_policyStruct(REWARD_EPOCH_ID + 2, START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION));
+
+        bytes32 legacyHash = oldRelay.toSigningPolicyHash(REWARD_EPOCH_ID + 2);
+        assertEq(legacyHash, _signingPolicyContentHash(policy3), "main Relay must expose the bare legacy hash");
+
+        // This is the migration operation: the new Relay is seeded with the legacy hash wrapped
+        // once for the live chain. Its compatibility checks also consume the exact old Relay.
+        IRelay.RelayInitialConfig memory migratedConfig = _initialConfig(_chainBound(legacyHash));
+        migratedConfig.initialRewardEpochId = REWARD_EPOCH_ID + 2;
+        migratedConfig.startingVotingRoundIdForInitialRewardEpochId =
+            START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION;
+        Relay migrated = new Relay(migratedConfig, address(this), IRelay(address(oldRelay)));
+
+        bytes memory postCutover = _chainBoundMessageRelay(
+            policy3,
+            START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION,
+            keccak256("new-1")
+        );
+        (ok,) = address(migrated).call(postCutover);
+        assertTrue(ok, "migrated Relay rejected the first chain-bound message");
+        assertTrue(
+            migrated.isFinalized(3, START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION),
+            "migrated Relay did not finalize the post-cutover message"
+        );
+
+        // The format transition is intentional: the pre-RLY-23 deployment cannot consume the
+        // chain-bound digest, even though it has the same voters and policy content.
+        vm.expectRevert("Wrong signature");
+        this.relayToLegacy(oldRelay, postCutover);
+
+        // Data providers signing a policy for the RLY-23 contract cannot use that policy-relay
+        // message on the deployed/main contract. Flare runs both contracts in trusted-setter
+        // mode, so the old contract rejects the mode before it can process the chain-bound
+        // signatures; policy changes must go through the setter instead.
+        bytes memory policy4 = _buildSigningPolicy(
+            uint24(REWARD_EPOCH_ID + 3), START_VOTING_ROUND_ID + 3 * REWARD_EPOCH_DURATION, THRESHOLD, SEED
+        );
+        vm.expectRevert("Sign policy relay disabled");
+        this.relayToLegacy(oldRelay, _chainBoundPolicyRelay(policy3, policy4));
     }
 
     // Fork behavior (runtime chainid, EIP-1344): if the chain id changes under an existing
