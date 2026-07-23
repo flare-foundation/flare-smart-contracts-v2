@@ -814,28 +814,34 @@ contract MachinePathManagerFacetTest is Test {
         // from the snapshot owners.
         (address o1, uint256 k1) = makeAddrAndKey("ownerU1");
         (address o2, uint256 k2) = makeAddrAndKey("ownerU2");
-        address[] memory owners = new address[](2);
-        owners[0] = o1;
-        owners[1] = o2;
-        (MockSafe safe, bytes32 govHashOld, address teeOld,) = _setupSafeGovernance(owners, 2, "Uold");
-        safe.setOwners(_makeOwners("Unew", 2));
-        (bytes32 govHashNew, address teeNew,) = _registerSafeGovernance(safe, "Unew");
+        uint256 nonce;
+        bytes32 hash;
+        // Scope the setup locals in a block so they are freed before the signing calls below; keeps
+        // the coverage build (optimizer + viaIR off) under the EVM stack limit.
+        {
+            address[] memory owners = new address[](2);
+            owners[0] = o1;
+            owners[1] = o2;
+            (MockSafe safe, bytes32 govHashOld, address teeOld,) = _setupSafeGovernance(owners, 2, "Uold");
+            safe.setOwners(_makeOwners("Unew", 2));
+            (bytes32 govHashNew, address teeNew,) = _registerSafeGovernance(safe, "Unew");
 
-        uint256 nonce = _newFinalizedList(teeOld, teeNew);
-        bytes32 hash = _listMessageHash(extensionId, nonce);
+            nonce = _newFinalizedList(teeOld, teeNew);
+            hash = _listMessageHash(extensionId, nonce);
 
-        // Only the satisfiable (current) snapshot is marked approved; the stale one is skipped.
-        vm.expectEmit();
-        emit IMachinePathManager.MachinePathListApproved(
-            extensionId, nonce, address(safe), _h1(govHashNew)
-        );
-        vm.prank(address(safe));
-        flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
+            // Only the satisfiable (current) snapshot is marked approved; the stale one is skipped.
+            vm.expectEmit();
+            emit IMachinePathManager.MachinePathListApproved(
+                extensionId, nonce, address(safe), _h1(govHashNew)
+            );
+            vm.prank(address(safe));
+            flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
 
-        assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
-        assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashNew));
-        assertFalse(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashOld));
-        assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashOld), 0);
+            assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+            assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashNew));
+            assertFalse(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashOld));
+            assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashOld), 0);
+        }
 
         // Snapshot owners bridge the old governance with direct signatures.
         flareTeeManager.signMachinePathList(extensionId, nonce, _sign(hash, k1));
