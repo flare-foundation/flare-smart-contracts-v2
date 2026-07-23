@@ -98,11 +98,16 @@ contract TeePayments is TeePaymentsBase, ITeePayments {
         uint64 _paymentId,
         PaymentInstruction[] calldata _paymentInstructions,
         ReissueFeeParams calldata _reissueFeeParams,
+        bool _startNew,
         address _claimBackAddress
     )
         external payable
         returns (bool _finalized)
     {
+        // Account-model reissue is a standalone, single-payment reissue with no multi-call
+        // replacement state, so `_startNew` is meaningless as `false`; require the caller to pass
+        // `true` (matches the shared flag's "begin a fresh reissue" meaning).
+        require(_startNew, StartNewRequired());
         require(_paymentInstructions.length == 1, InvalidPaymentInstructionCount());
         require(
             _paymentInstructions.length == _reissueFeeParams.maxFeePerPayment.length &&

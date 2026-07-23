@@ -78,6 +78,10 @@ interface ITeePaymentsBase is ITeePaymentsModel {
      * @param _batchPaymentId The first payment id of the batch to be reissued.
      * @param _paymentInstructions List of the payment instructions.
      * @param _reissueFeeParams The fee parameters for the reissue.
+     * @param _startNew UTXO model: `true` begins a fresh replacement attempt from the batch's first
+     * payment (`_batchPaymentId`); `false` continues the active replacement attempt from where it
+     * left off. Account model: must be `true` (each reissue is a standalone, single-payment reissue);
+     * `false` reverts `StartNewRequired`.
      * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * @return _finalized Whether the batch reissue is now finalized. Always true for the account model;
      * for the UTXO model, true once the whole batch has been reissued (the replacement-ready event is emitted).
@@ -88,6 +92,7 @@ interface ITeePaymentsBase is ITeePaymentsModel {
         uint64 _batchPaymentId,
         PaymentInstruction[] calldata _paymentInstructions,
         ReissueFeeParams calldata _reissueFeeParams,
+        bool _startNew,
         address _claimBackAddress
     )
         external payable

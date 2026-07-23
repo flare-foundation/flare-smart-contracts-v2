@@ -34,6 +34,9 @@ interface ITeePayments is ITeePaymentsBase {
     );
 
     error InvalidPaymentInstructionCount();
+    /// Account-model reissue is always a fresh, single-payment reissue, so `reissue` must be called
+    /// with `startNew == true`; `false` reverts this.
+    error StartNewRequired();
 
     /**
      * Method for adding the PMW multisig account to the wallet.

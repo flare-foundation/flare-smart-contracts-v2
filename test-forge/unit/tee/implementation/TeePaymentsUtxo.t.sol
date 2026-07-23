@@ -629,7 +629,7 @@ contract TeePaymentsUtxoTest is Test {
         chunk1[0] = instr1;
         vm.roll(1000);
         vm.prank(authorizationAddress);
-        bool finalized1 = teePayments.reissue{value: 50}(account, 1, chunk1, _reissueFee(50), address(0));
+        bool finalized1 = teePayments.reissue{value: 50}(account, 1, chunk1, _reissueFee(50), true, address(0));
         assertFalse(finalized1, "first chunk must not finalize the batch reissue");
 
         // Move to block 1001 and reissue chunk 2 (payment 2) — finalizes the replacement.
@@ -645,8 +645,59 @@ contract TeePaymentsUtxoTest is Test {
         vm.expectEmit();
         emit ITeePaymentsUtxo.UtxoReplacementReady(walletId, accountHash, 1, 1, 1, 2, expectedBlocks);
         vm.prank(authorizationAddress);
-        bool finalized2 = teePayments.reissue{value: 50}(account, 1, chunk2, _reissueFee(50), address(0));
+        bool finalized2 = teePayments.reissue{value: 50}(account, 1, chunk2, _reissueFee(50), false, address(0));
         assertTrue(finalized2, "second chunk completes and finalizes the batch reissue");
+    }
+
+    // Continuing a chunked reissue of a batch of IDENTICAL payments works: continue is keyed on the
+    // startNew flag, not on payment content, so a continuation is no longer misread as a restart.
+    function testReissueContinuesIdenticalBatch() public {
+        _addAccount(2);
+        vm.prank(walletOwner);
+        teePayments.setBatchSettings(account, 2, 300);
+
+        // Two byte-identical payments fill batch #1 (batchPaymentId 1).
+        ITeePaymentsBase.PaymentInstruction memory instr = _instruction(bytes32("same"));
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, instr, address(0)); // paymentId 1
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, instr, address(0)); // paymentId 2 -> closes batch
+
+        ITeePaymentsBase.PaymentInstruction[] memory chunk = new ITeePaymentsBase.PaymentInstruction[](1);
+        chunk[0] = instr;
+
+        // Chunk 1: start a fresh replacement.
+        vm.prank(authorizationAddress);
+        assertFalse(
+            teePayments.reissue{value: 50}(account, 1, chunk, _reissueFee(50), true, address(0)),
+            "first identical chunk must not finalize"
+        );
+
+        // Chunk 2: continue. Previously (content-based discriminator) this restarted and never
+        // advanced; now startNew=false continues from nextPaymentId and finalizes.
+        vm.prank(authorizationAddress);
+        assertTrue(
+            teePayments.reissue{value: 50}(account, 1, chunk, _reissueFee(50), false, address(0)),
+            "second identical chunk continues and finalizes"
+        );
+    }
+
+    // Continuing when there is no active replacement reverts.
+    function testReissueRevertNoActiveReplacement() public {
+        _addAccount(2);
+        vm.prank(walletOwner);
+        teePayments.setBatchSettings(account, 2, 300);
+        ITeePaymentsBase.PaymentInstruction memory instr = _instruction(bytes32("r1"));
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, instr, address(0));
+        vm.prank(authorizationAddress);
+        teePayments.pay{value: 100}(account, instr, address(0));
+
+        ITeePaymentsBase.PaymentInstruction[] memory chunk = new ITeePaymentsBase.PaymentInstruction[](1);
+        chunk[0] = instr;
+        vm.prank(authorizationAddress);
+        vm.expectRevert(ITeePaymentsUtxo.NoActiveReplacement.selector);
+        teePayments.reissue{value: 50}(account, 1, chunk, _reissueFee(50), false, address(0));
     }
 
     function testGetPaymentFeePay() public {

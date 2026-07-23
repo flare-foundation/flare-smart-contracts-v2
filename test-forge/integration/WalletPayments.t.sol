@@ -576,6 +576,7 @@ contract WalletPaymentsTest is Test {
         teePayments.reissue{value: 50}(
             account1, 5, instructions,
             ITeePaymentsBase.ReissueFeeParams(reissueFees, factorsBIPSPerPayment, delaysSeconds),
+            true,
             address(0)
         );
     }
@@ -642,6 +643,7 @@ contract WalletPaymentsTest is Test {
         teePayments.reissue{value: 60}(
             account1, 1, instructions,
             ITeePaymentsBase.ReissueFeeParams(reissueFees, factorsBIPSPerPayment, delaysSeconds),
+            true,
             address(0)
         );
     }

@@ -356,9 +356,25 @@ contract TeePaymentsTest is Test {
             paymentId,
             instructions,
             _emptyReissueFeeParams(),
+            true,
             address(0)
         );
         assertTrue(finalized, "account reissue always finalizes");
+    }
+
+    // Account reissue is single-shot: startNew must be true; false reverts.
+    function testReissueRevertStartNewRequired() public {
+        _addAccount();
+        ITeePaymentsBase.PaymentInstruction memory instruction = _createPaymentInstruction(bytes32("ref1"));
+        vm.prank(authorizationAddress);
+        uint64 paymentId = teePayments.pay{value: fee}(pmwMultisigAccount, instruction, address(0));
+
+        ITeePaymentsBase.PaymentInstruction[] memory instructions = new ITeePaymentsBase.PaymentInstruction[](1);
+        instructions[0] = instruction;
+        vm.expectRevert(ITeePayments.StartNewRequired.selector);
+        vm.prank(authorizationAddress);
+        teePayments.reissue{value: fee}(
+            pmwMultisigAccount, paymentId, instructions, _emptyReissueFeeParams(), false, address(0));
     }
 
     function testReissueRevertInvalidCount() public {
@@ -368,7 +384,8 @@ contract TeePaymentsTest is Test {
         instructions[1] = _createPaymentInstruction(bytes32("ref2"));
         vm.expectRevert(ITeePayments.InvalidPaymentInstructionCount.selector);
         vm.prank(authorizationAddress);
-        teePayments.reissue{value: fee}(pmwMultisigAccount, 1, instructions, _emptyReissueFeeParams(), address(0));
+        teePayments.reissue{value: fee}(
+            pmwMultisigAccount, 1, instructions, _emptyReissueFeeParams(), true, address(0));
     }
 
     function testReissueRevertHashMismatch() public {
@@ -383,7 +400,7 @@ contract TeePaymentsTest is Test {
         vm.expectRevert(ITeePaymentsBase.PaymentHashMismatch.selector);
         vm.prank(authorizationAddress);
         teePayments.reissue{value: fee}(
-            pmwMultisigAccount, paymentId, instructions, _emptyReissueFeeParams(), address(0));
+            pmwMultisigAccount, paymentId, instructions, _emptyReissueFeeParams(), true, address(0));
     }
 
     //// misc ////

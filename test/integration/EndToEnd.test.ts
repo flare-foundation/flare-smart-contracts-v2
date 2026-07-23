@@ -2799,6 +2799,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         },
       ],
       { maxFeePerPayment: [10000], factorsBIPSPerPayment: [[]], delaysSeconds: [] },
+      true, // startNew — account model requires it
       constants.ZERO_ADDRESS,
       { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[0] }
     );
@@ -2844,6 +2845,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       ],
       // Empty factors + delays => no fee-schedule override, falls back to DEFAULT_FEE_SCHEDULE.
       { maxFeePerPayment: [5000000], factorsBIPSPerPayment: [], delaysSeconds: [] },
+      true, // startNew — first replacement attempt for this batch
       constants.ZERO_ADDRESS,
       { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[1] }
     );

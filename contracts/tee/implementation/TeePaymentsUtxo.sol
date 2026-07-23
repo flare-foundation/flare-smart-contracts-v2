@@ -182,6 +182,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         uint64 _batchPaymentId,
         ITeePaymentsBase.PaymentInstruction[] calldata _paymentInstructions,
         ITeePaymentsBase.ReissueFeeParams calldata _reissueFeeParams,
+        bool _startNew,
         address _claimBackAddress
     )
         external payable
@@ -201,7 +202,7 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
             _batchRecordForReissue(accountHash, _account.sourceId, state, _batchPaymentId);
         uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         ReplacementAttempt storage replacement =
-            _replacementAttempt(accountHash, walletId, _batchPaymentId, _paymentInstructions[0], currentRewardEpochId);
+            _replacementAttempt(accountHash, walletId, _batchPaymentId, _startNew, currentRewardEpochId);
         uint64 firstPaymentId = replacement.nextPaymentId;
         _checkPaymentRange(_batchPaymentId, firstPaymentId, _paymentInstructions.length, batch.paymentCount);
 
@@ -587,14 +588,16 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         bytes32 _accountHash,
         bytes32 _walletId,
         uint64 _batchPaymentId,
-        ITeePaymentsBase.PaymentInstruction calldata _firstPaymentInstruction,
+        bool _startNew,
         uint24 _currentRewardEpochId
     )
         internal
         returns (ReplacementAttempt storage _replacement)
     {
         _replacement = activeReplacements[_accountHash][_batchPaymentId];
-        if (_paymentInstructionMatches(_accountHash, _batchPaymentId, _firstPaymentInstruction)) {
+        if (_startNew) {
+            // Fresh replacement attempt: reset to the batch's first payment. Overwrites any active
+            // (non-finalized) attempt — the caller has explicitly chosen to restart from the top.
             uint64 replacementId = ++replacementCounters[_accountHash][_batchPaymentId];
             _replacement.id = replacementId;
             _replacement.nextPaymentId = _batchPaymentId;
@@ -612,6 +615,8 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
             );
             return _replacement;
         }
+        // Continue the active attempt from its stored `nextPaymentId`. A rolled reward epoch forces a
+        // fresh attempt (`_startNew == true`) rather than a cross-epoch continuation.
         require(_replacement.id != 0 && !_replacement.finalized, NoActiveReplacement());
         require(_replacement.rewardEpochId == _currentRewardEpochId, ReissueRewardEpochChanged());
         // The first instruction's hash is validated against `nextPaymentId` by the send loop (i == 0,
@@ -805,17 +810,6 @@ contract TeePaymentsUtxo is TeePaymentsBase, IITeePaymentsUtxo {
         returns (uint64)
     {
         return states[_accountHash].nextPaymentId;
-    }
-
-    function _paymentInstructionMatches(
-        bytes32 _accountHash,
-        uint64 _paymentId,
-        ITeePaymentsBase.PaymentInstruction calldata _paymentInstruction
-    )
-        internal view
-        returns (bool)
-    {
-        return paymentHashes[_accountHash][_paymentId] == _getPaymentHash(_paymentInstruction, _paymentId);
     }
 
     function _isBatchFull(
