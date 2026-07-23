@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Script, console2} from "forge-std/Script.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {IDiamond} from "../../contracts/diamond/interfaces/IDiamond.sol";
 import {IDiamondCut} from "../../contracts/diamond/interfaces/IDiamondCut.sol";
@@ -145,12 +146,9 @@ contract ExecuteTeeManagerDiamondCut is Script {
     )
         internal
     {
-        // Create output directory if it doesn't exist
-        string[] memory mkdirCmd = new string[](3);
-        mkdirCmd[0] = "mkdir";
-        mkdirCmd[1] = "-p";
-        mkdirCmd[2] = string.concat("deployment/output-internal/", network);
-        vm.ffi(mkdirCmd);
+        // Create output directory if it doesn't exist. Use vm.createDir instead of `mkdir -p` via
+        // ffi so it works on every OS (forge's ffi can't spawn a POSIX `mkdir` on Windows).
+        vm.createDir(string.concat("deployment/output-internal/", network), true);
 
         bytes memory out = _buildCutData(
             _diamond, _facetAddrs, _facetNames, _initAddress, _configPath
@@ -183,7 +181,7 @@ contract ExecuteTeeManagerDiamondCut is Script {
         // 3. call TS script via tsx which outputs ABI-encoded bytes
         bool hasInitAddr = _initAddress != address(0);
         uint256 len =
-            3 /*npx tsx script*/ +
+            4 /*node --import tsx script*/ +
             2 /*diamond*/ +
             2 /*facets-file*/ +
             2 /*loupe-file*/ +
@@ -191,7 +189,10 @@ contract ExecuteTeeManagerDiamondCut is Script {
             (hasInitAddr ? 2 : 0);
         string[] memory cmd = new string[](len);
         uint256 k = 0;
-        cmd[k++] = "npx"; cmd[k++] = "tsx"; cmd[k++] = "deployment/utils/build-cut.ts";
+        // Spawn `node --import tsx <script>` rather than `npx tsx <script>`: forge's ffi launches a
+        // real executable and cannot run the `npx`/.cmd shim on Windows. Requires tsx as a devDependency.
+        cmd[k++] = "node"; cmd[k++] = "--import"; cmd[k++] = "tsx";
+        cmd[k++] = "deployment/utils/build-cut.ts";
         cmd[k++] = "--diamond"; cmd[k++] = _addrToString(_diamond);
         cmd[k++] = "--facets-file"; cmd[k++] = facetsPath;
         cmd[k++] = "--loupe-file"; cmd[k++] = loupePath;
@@ -240,14 +241,15 @@ contract ExecuteTeeManagerDiamondCut is Script {
             "deployment/output-internal/", network, "/",
             "decoded-", configFileName, ".json"
         );
-        string[] memory prettyCmd = new string[](7);
-        prettyCmd[0] = "npx";
-        prettyCmd[1] = "tsx";
-        prettyCmd[2] = "deployment/utils/format-cut.ts";
-        prettyCmd[3] = "--encoded-path";
-        prettyCmd[4] = encodedPath;
-        prettyCmd[5] = "--output-path";
-        prettyCmd[6] = outputPath;
+        string[] memory prettyCmd = new string[](8);
+        prettyCmd[0] = "node";
+        prettyCmd[1] = "--import";
+        prettyCmd[2] = "tsx";
+        prettyCmd[3] = "deployment/utils/format-cut.ts";
+        prettyCmd[4] = "--encoded-path";
+        prettyCmd[5] = encodedPath;
+        prettyCmd[6] = "--output-path";
+        prettyCmd[7] = outputPath;
         vm.ffi(prettyCmd);
         string memory prettyJson = vm.readFile(outputPath);
         console2.log("---- Diamond cut not executed. Data for manual execution: ----");
@@ -304,13 +306,20 @@ contract ExecuteTeeManagerDiamondCut is Script {
     )
         internal
     {
-        string[] memory cmd = new string[](6);
-        cmd[0] = "npx";
-        cmd[1] = "tsx";
-        cmd[2] = "deployment/utils/update-facet-address.ts";
-        cmd[3] = _contractsFilePath;
-        cmd[4] = _facetName;
-        cmd[5] = _addrToString(_facetAddress);
+        // In a dry run (forge script without --broadcast) any facet deployed above is a *simulated*
+        // CREATE address that never lands on-chain, so it must not overwrite the deploys registry.
+        // Only persist addresses when actually broadcasting.
+        if (vm.isContext(VmSafe.ForgeContext.ScriptDryRun)) {
+            return;
+        }
+        string[] memory cmd = new string[](7);
+        cmd[0] = "node";
+        cmd[1] = "--import";
+        cmd[2] = "tsx";
+        cmd[3] = "deployment/utils/update-facet-address.ts";
+        cmd[4] = _contractsFilePath;
+        cmd[5] = _facetName;
+        cmd[6] = _addrToString(_facetAddress);
         vm.ffi(cmd);
     }
 
