@@ -67,9 +67,9 @@ State transitions:
 
 The wallet's key admin set (admins are who can recover the wallet if all TEEs fail) is configured during the `CREATED` phase, before the wallet is initialized:
 
-1. Owner calls `setAdmins(walletId, adminsPublicKeys[], adminsThreshold)` — only valid while the wallet is `CREATED`. Public keys must be valid and de-duplicated, and `adminsThreshold` must be in `(0, n]`. Emits `WalletAdminsSet`.
+1. Owner calls `setAdmins(walletId, adminsPublicKeys[], adminsThreshold)` — only valid while the wallet is `CREATED`. Public keys must be valid and de-duplicated, `adminsThreshold` must be in `(0, n]`, and at most `MAX_WALLET_ADMINS` (50, hardcoded) admins can be set. Emits `WalletAdminsSet`.
 2. Each admin calls `confirmAdmin(walletId)` from the address derived from their public key. Emits `WalletAdminConfirmed`.
-3. (Optionally) the owner sets cosigners via `setCosigners(walletId, cosigners[], cosignersThreshold)` and each cosigner calls `confirmCosigner(walletId)`.
+3. (Optionally) the owner sets cosigners via `setCosigners(walletId, cosigners[], cosignersThreshold)` and each cosigner calls `confirmCosigner(walletId)`. At most `MAX_WALLET_COSIGNERS` (50, hardcoded) cosigners can be set.
 4. `closeWalletInitialization(walletId)` requires that admins are set and every admin and cosigner has confirmed; it transitions the wallet to `INITIALIZED` and **locks the admin and cosigner sets** — they cannot be changed afterwards.
 
 There is no on-chain method to rotate the admin set after `closeWalletInitialization`.

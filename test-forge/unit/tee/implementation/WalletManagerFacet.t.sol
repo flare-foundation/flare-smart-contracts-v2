@@ -4,7 +4,11 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
+import {
+    IWalletManager,
+    MAX_WALLET_ADMINS,
+    MAX_WALLET_COSIGNERS
+} from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { IWalletProjectPause } from "../../../../contracts/userInterfaces/tee/IWalletProjectPause.sol";
 import { IWalletKeyManager, TEE_KEY_EXISTENCE } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
 import { SignedPayload } from "../../../../contracts/utils/lib/SignedPayload.sol";
@@ -276,6 +280,19 @@ contract WalletManagerFacetTest is Test {
         flareTeeManager.setAdmins(walletId, admins, 1);
     }
 
+    // too many admins (limit checked before key validation, so dummy keys suffice)
+    function testSetAdminsRevertTooManyAdmins() public {
+        testCreateWallet();
+        PublicKey[] memory admins = new PublicKey[](MAX_WALLET_ADMINS + 1);
+        for (uint256 i = 0; i < admins.length; i++) {
+            admins[i] = PublicKey(bytes32(i + 1), bytes32(i + 1));
+        }
+
+        vm.prank(projectOwner);
+        vm.expectRevert(IWalletManager.TooManyAdmins.selector);
+        flareTeeManager.setAdmins(walletId, admins, 1);
+    }
+
     function testSetAdmins() public returns (PublicKey[] memory) {
         testCreateWallet();
         PublicKey[] memory admins = new PublicKey[](2);
@@ -399,6 +416,33 @@ contract WalletManagerFacetTest is Test {
 
         vm.expectRevert(ITeeCommonErrors.OnlyOwner.selector);
         flareTeeManager.setCosigners(walletId, cosigners, 1);
+    }
+
+    // too many cosigners
+    function testSetCosignersRevertTooManyCosigners() public {
+        testCreateWallet();
+        address[] memory cosigners = new address[](MAX_WALLET_COSIGNERS + 1);
+        for (uint256 i = 0; i < cosigners.length; i++) {
+            cosigners[i] = address(uint160(i + 1));
+        }
+
+        vm.prank(projectOwner);
+        vm.expectRevert(IWalletManager.TooManyCosigners.selector);
+        flareTeeManager.setCosigners(walletId, cosigners, 1);
+    }
+
+    // exactly the maximum number of cosigners is allowed
+    function testSetCosignersMaxAllowed() public {
+        testCreateWallet();
+        address[] memory cosigners = new address[](MAX_WALLET_COSIGNERS);
+        for (uint256 i = 0; i < cosigners.length; i++) {
+            cosigners[i] = address(uint160(i + 1));
+        }
+
+        vm.prank(projectOwner);
+        flareTeeManager.setCosigners(walletId, cosigners, 1);
+        (address[] memory _cosigners, ) = flareTeeManager.getWalletCosignersAndThreshold(walletId);
+        assertEq(_cosigners.length, MAX_WALLET_COSIGNERS);
     }
 
     function testSetCosigners() public returns (address[] memory) {

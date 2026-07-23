@@ -6,6 +6,11 @@ import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 bytes32 constant WALLET_OP_TYPE = bytes32("F_WALLET");
 
+// Maximum number of admins that can be set on a wallet.
+uint256 constant MAX_WALLET_ADMINS = 50;
+// Maximum number of cosigners that can be set on a wallet.
+uint256 constant MAX_WALLET_COSIGNERS = 50;
+
 /**
  * @title IWalletManager
  * @notice Public interface for the WalletManagerFacet.
@@ -66,6 +71,8 @@ interface IWalletManager is ITeeCommonErrors {
     error NotEnoughKeys();
     error InvalidAdminPublicKey(PublicKey publicKey);
     error InvalidAdmin();
+    error TooManyAdmins();
+    error TooManyCosigners();
 
     /**
      * Creates the wallet for the project.
@@ -82,6 +89,7 @@ interface IWalletManager is ITeeCommonErrors {
 
     /**
      * Sets the wallet admins.
+     * At most MAX_WALLET_ADMINS admins can be set.
      * Emits WalletAdminsSet event.
      * @param _walletId The wallet id.
      * @param _adminsPublicKeys The wallet admins public keys.
@@ -108,6 +116,7 @@ interface IWalletManager is ITeeCommonErrors {
 
     /**
      * Sets the wallet cosigners.
+     * At most MAX_WALLET_COSIGNERS cosigners can be set.
      * Emits WalletCosignersSet event.
      * @param _walletId The wallet id.
      * @param _cosigners The wallet cosigners.

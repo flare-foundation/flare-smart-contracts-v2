@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.35;
 
-import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
+import {
+    IWalletManager,
+    MAX_WALLET_ADMINS,
+    MAX_WALLET_COSIGNERS
+} from "../../userInterfaces/tee/IWalletManager.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
 import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
 import { WalletManager } from "../library/WalletManager.sol";
@@ -52,6 +56,7 @@ contract WalletManagerFacet is IWalletManager {
     {
         require(_adminsPublicKeys.length >= _adminsThreshold, NotEnoughAdmins());
         require(_adminsThreshold > 0, InvalidAdminsThreshold());
+        require(_adminsPublicKeys.length <= MAX_WALLET_ADMINS, TooManyAdmins());
         for (uint256 i = 0; i < _adminsPublicKeys.length; i++) {
             PublicKey calldata pk = _adminsPublicKeys[i];
             require(PublicKeyUtils.isPublicKeyValid(pk), InvalidAdminPublicKey(pk));
@@ -108,6 +113,7 @@ contract WalletManagerFacet is IWalletManager {
             _cosigners.length >= _cosignersThreshold && (_cosigners.length == 0 || _cosignersThreshold > 0),
             InvalidCosignersThreshold()
         );
+        require(_cosigners.length <= MAX_WALLET_COSIGNERS, TooManyCosigners());
         WalletManager.TeeWalletState storage wallet = WalletManager.getState().wallets[_walletId];
         WalletManager.checkWalletStatus(wallet.status, WalletStatus.CREATED);
         for (uint256 i = 0; i < _cosigners.length; i++) {
