@@ -13,6 +13,53 @@
 
 ---
 
+## ⭐ 2026-07-23 — RLY-23 CHAIN-DOMAIN BINDING landed + FV re-baselined
+
+New hardening finding **RLY-23** (beyond the original audit set): the `relay()` signature paths bound no
+chain/deployment identifier, so a voter quorum's signatures minted on one network were valid bearer
+credentials on any other network's Relay with an overlapping policy (Flare↔Songbird cross-chain replay;
+`relay()` is permissionless + roots write-once ⇒ first-writer poisoning). **Fix:** bind both the stored
+signing-policy hash and every signed message digest to `keccak256(chainid ‖ hash)` via the runtime `CHAINID`
+opcode, at three wrap sites (`calculateSigningPolicyHash` tail, the Mode≥1 message-hash line,
+`_initializeSigningPolicy`). Runtime (not deploy-time) chainid ⇒ a chain-id-changing fork fails closed.
+Committed `4fe4f634` (contract + off-chain libs + deploy scripts + `RelayChainDomain.t.sol`), then extended by
+`463d150c` (legacy-migration A/B: `contracts/mock/RelayMainDeployed.sol` + an 8th chain-domain test), then
+the FV re-baseline in a follow-up pass (this checkpoint, uncommitted):
+
+- **Halmos gate — GREEN, 89/89** (60 proofs + 29 controls, 0 violations) re-run from `./.venv-halmos` against
+  the new bytecode. The accounting proofs are digest-agnostic (the digest is an opaque input); no new check
+  added. A *symbolic* cross-chain-rejection proof is intentionally omitted — under uninterpreted `ecrecover`
+  the solver can forge recovery to any voter under any digest, so cross-chain resistance is cryptographic and
+  correctly stays at R0 (concrete, real ECDSA).
+- **Artifact parity** — optimized-Yul snapshot `relay_ir_optimized.yul` regenerated with pinned solc 0.8.27
+  (validated forge-version-independent: forge 1.5 and 1.7.1 emit identical `.iropt`; committed & generated
+  agree on the `var_leaf` naming convention). Deployment/verification semantic bytecode hashes are computed at
+  gate time (no committed constant), so nothing else to update.
+- **Certora** — munged tree re-derived (`munge.sh`, self-verified: exactly the 2 visibility changes); storage
+  invariants are hash-construction-agnostic, so the run matrix pattern is unchanged (cloud re-run pending, off-CI).
+- **Lean — GREEN** (9 files, 165 axiom audits, hole-free) re-run against a freshly-built pinned EVMYulLean.
+  No proof file edited: the wrap lands in the pre-loop setup region (inside the explicit `hsetup` boundary);
+  the 17-statement loop body is byte-unchanged, shifted +4 IR lines. Updated the stale Yul line-number
+  citations (1563-1610 → 1567-1614; 1584 → 1588) in `RelayLoopLiteral.lean`/`RelayBodyEff.lean` (comments;
+  proofs verify unchanged).
+- **Docs** — `docs/relay-fixes.md` RLY-23 section + table row + status (Foundry +8 to 67, full tree 947); L2
+  executive table; L4 (`RelayPolicyHashFV` now symbolically covers the policy-hash chain wrap); L7 (setup-region
+  RLY-23 note); L10 ledger (rows 15/15b/15c: chain-binding *structure* proven at R2, cross-chain *rejection* at
+  R0); L13 T1-b (cross-chain half closed, same-chain residual remains); 03 inventory; `verify_links.py --fix`.
+  CHECKPOINT (this banner + historical §3 annotation).
+
+**Resume point:** all four local gates green (Halmos 89/89, Lean 9-file, doc-links, munge self-verify);
+once committed+pushed, CI on `relay-fix-3` (`test-fv-halmos` incl. artifact parity, `test-fv-lean`,
+`test-doc-links`) should be green — watch the first `test-fv-lean` run (clones+builds EVMYulLean) and the
+artifact-parity step (needs pinned forge 1.7.1, which local 1.5 can't certify — snapshot validated
+forge-version-independent). Off-CI confirmations left: the **Certora cloud** re-run (munge is ready) and the
+**Kontrol** Docker re-run (harness unaffected — the digest is a free symbol in the loop model). The RLY-23
+coordinated cutover (validators + all deployments + off-chain libs sign the new digest at a reward-epoch
+boundary) is a deployment-time action, out of repo scope. **These FV-rebaseline changes are uncommitted** —
+staged for inspection, per the commit-only-when-asked rule.
+
+---
+
 ## ⭐ 2026-07-05 — ENGAGEMENT MATERIALLY COMPLETE + RECORDED NEXT STEPS (not started)
 
 Both goals are materially complete on `relay-fix-3` (MR !135), everything committed + pushed:
@@ -256,8 +303,11 @@ Research anchors requested:
 - **Mode 2** `protocolId > 1` (L766-906, 1219-1382): publish **Merkle root** for (protocolId, votingRoundId); random-number protocol updates `stateData` + `isSecureRandomMap`; emits `ProtocolMessageRelayed`.
 - **Custom-signature** `protocolId == 1` (L801-817, 1229-1236): returns `(merkleRoot, rewardEpochId)`; **does NOT persist anything**. Used by `verifyCustomSignature()` (L428) and `governanceFeeSetup()` (L438).
 
-**Signature verification core (L1108-1388):**
+**Signature verification core (L1108-1388):** *(historical line numbers; predates RLY-23.)*
 - Prefixed hash `keccak256("\x19Ethereum Signed Message:\n32" ‖ messageHash)` built in slot 0 (L1110-1112).
+  **Post-RLY-23 (2026-07-23):** `messageHash` is now the chain-bound digest `keccak256(chainid ‖ keccak256(message))`
+  (and the signing-policy hash is `keccak256(chainid ‖ contentFold)`); the prefix step is otherwise unchanged. See
+  the top ⭐ banner and `docs/relay-fixes.md` RLY-23.
 - Loop over `numberOfSignatures`; each signature is 67 bytes = `v(1) ‖ r(32) ‖ s(32) ‖ index(2)`.
 - `index` bounds-checked (`index < numberOfVoters`) and forced **strictly increasing** (`nextUnusedIndex`) ⇒ no double-count, neutralizes malleability.
 - `ecrecover` via `staticcall(0x01,…)`; checks `returndatasize()==32`; compares recovered addr to policy `voters[index]`; accumulates `weights[index]`.

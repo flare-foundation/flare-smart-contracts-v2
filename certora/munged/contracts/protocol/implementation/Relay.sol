@@ -237,6 +237,9 @@ contract Relay is IIRelay {
         require(_initialConfig.rewardEpochDurationInVotingEpochs > 0, "reward epoch duration zero");
         require(_initialConfig.votingEpochDurationSeconds > 0, "voting epoch duration zero");
         // L-4: a zero initial signing-policy hash would brick the initial epoch (no relay message could match).
+        // RLY-23: the supplied hash must already be chain-bound — keccak256(chainid ‖ contentHash) for THIS
+        // chain — matching what relay()/setSigningPolicy store and verify. A content hash (or a hash bound to
+        // another chain) fails closed: no relay message can ever match it. Deploy scripts wrap on migration.
         require(_initialConfig.initialSigningPolicyHash != bytes32(0), "initial signing policy hash zero");
         require(
             _initialConfig.firstRewardEpochStartVotingRoundId +
@@ -442,6 +445,11 @@ contract Relay is IIRelay {
                 }
             }
         }
+        // RLY-23: chain-domain binding — the stored signing-policy hash commits to this
+        // chain: keccak256(block.chainid ‖ contentHash). Signatures over policies (and, via the
+        // analogous wrap in relay(), over protocol messages) minted for another network are
+        // thereby rejected even under a fully overlapping voter set.
+        currentHash = keccak256(abi.encodePacked(block.chainid, currentHash));
         toSigningPolicyHashPrivate[_signingPolicy.rewardEpochId] = currentHash;
         stateData.lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
         startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy.startVotingRoundId;
@@ -599,6 +607,13 @@ contract Relay is IIRelay {
                     mstore(_memPos, keccak256(_memPos, 64))
                     _policyHash := mload(_memPos)
                 }
+                // RLY-23: chain-domain binding — the signing-policy hash commits to this
+                // chain: keccak256(chainid ‖ contentHash). Reuses the two scratch slots
+                // this function already owns. Runtime chainid() (not a deploy-time value)
+                // so a chain-id-changing fork fails closed.
+                mstore(_memPos, chainid())
+                mstore(add(_memPos, M_1), _policyHash)
+                _policyHash := keccak256(_memPos, 64)
             }
 
             function extractVotingRoundIdFromMessage(
@@ -1000,6 +1015,12 @@ contract Relay is IIRelay {
 
                 // Prepare the message hash into slot M_1
                 mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, MESSAGE_BYTES))
+                // RLY-23: chain-domain binding — the signed digest commits to this chain:
+                // M_1 <- keccak256(chainid ‖ keccak256(message)). Slot M_0 (the spent
+                // message bytes) is safe to reuse as scratch: this is the last statement
+                // of the block and the accept path re-reads the message from calldata.
+                mstore(memPtrGP0, chainid())
+                mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, 64))
             }
 
             // protocolId == 0 means we are relaying new signing policy (Mode 1)

@@ -896,7 +896,7 @@ open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral in
 set_option maxHeartbeats 4000000 in
 /-- **Full literal loop-body effect (brick 36).** Chains all seventeen statements of the
     deployed signature-verification loop body `bodyL` (transliterated from
-    `relay_ir_optimized.yul:1563-1610`) through the EVMYulLean interpreter's real
+    `relay_ir_optimized.yul:1567-1614`) through the EVMYulLean interpreter's real
     `exec`/`eval` semantics, threading genuine `mstore`/`mload`/`calldatacopy` state
     changes. Given the nine guard-condition pass hypotheses (`hg4..hg17`, one per `if`
     that must NOT revert on the advance path) and the two staticcall-produced states

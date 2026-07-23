@@ -219,6 +219,15 @@ Two boundaries are documented, neither touching the core accounting soundness: t
 at bounded scope by `RelayVerifyFeeFV`), and reconciling the loop model's D3 deviation (accept → `return` vs. the
 deployed break→write→return) so the accept-write folds into the composition. Full walk: [L9 §F.5](09-the-formal-detail.md).
 
+**RLY-23 note (chain-domain binding).** The digest the loop verifies against enters the model as an input
+(`prefixedHash` in memory), and the RLY-23 chain-binding keccaks (`keccak256(chainid ‖ ·)` for the policy hash
+and the message hash) live in the **pre-loop setup region** — inside `realSetup`, whose aggregate state
+transition `dispatch_setup_loop_accept` carries as an explicit hypothesis. The literal loop-body model
+(`RelayLoopLiteral`) is therefore **unchanged** — the 17-statement body is byte-identical, shifted +4 IR lines
+(`relay_ir_optimized.yul:1567-1614`). The chain-binding of the stored policy hash is instead pinned at R2 by
+`RelayPolicyHashFV` (it proves the on-chain `keccak256(chainid ‖ contentFold)` equals the oracle for all symbolic
+policies); cross-chain *rejection* is a cryptographic property proved concretely at R0 (`RelayChainDomain.t.sol`).
+
 ---
 
 ## 7.6 Status and reproduce

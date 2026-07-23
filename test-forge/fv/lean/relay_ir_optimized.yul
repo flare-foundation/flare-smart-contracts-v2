@@ -1,12 +1,12 @@
 /// @use-src 0:"contracts/protocol/implementation/Relay.sol", 1:"contracts/protocol/interface/IIRelay.sol", 2:"contracts/userInterfaces/IRelay.sol", 3:"contracts/userInterfaces/LTS/RandomNumberV2Interface.sol"
-object "Relay_2011" {
+object "Relay_2022" {
     code {
         {
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             let _1 := memoryguard(0xe0)
             mstore(64, _1)
             if callvalue() { revert(0, 0) }
-            let programSize := datasize("Relay_2011")
+            let programSize := datasize("Relay_2022")
             let argSize := sub(codesize(), programSize)
             finalize_allocation(_1, argSize)
             codecopy(_1, programSize, argSize)
@@ -15,26 +15,26 @@ object "Relay_2011" {
             {
                 revert(/** @src -1:-1:-1 */ 0, 0)
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             let offset := mload(_1)
             if gt(offset, sub(shl(64, 1), 1))
             {
                 revert(/** @src -1:-1:-1 */ 0, 0)
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             let _3 := add(_1, offset)
             if slt(sub(_2, _3), 0x0180)
             {
                 revert(/** @src -1:-1:-1 */ 0, 0)
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             let memPtr := mload(64)
             let newFreePtr := add(memPtr, 0x0180)
             if or(gt(newFreePtr, sub(shl(64, 1), 1)), lt(newFreePtr, memPtr))
             {
-                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
+                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
                 mstore(4, 0x41)
-                revert(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x24)
+                revert(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x24)
             }
             mstore(64, newFreePtr)
             mstore(memPtr, abi_decode_uint32_fromMemory(_3))
@@ -70,7 +70,7 @@ object "Relay_2011" {
             {
                 revert(/** @src -1:-1:-1 */ 0, 0)
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             let _21 := add(memPtr, 320)
             mstore(_21, value_1)
             let offset_1 := mload(add(_3, 352))
@@ -78,19 +78,19 @@ object "Relay_2011" {
             {
                 revert(/** @src -1:-1:-1 */ 0, 0)
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             let _22 := add(_3, offset_1)
             if iszero(slt(add(_22, 31), _2))
             {
                 revert(/** @src -1:-1:-1 */ 0, 0)
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             let length := mload(_22)
             if gt(length, sub(shl(64, 1), 1))
             {
-                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
+                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
                 mstore(4, 0x41)
-                revert(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x24)
+                revert(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x24)
             }
             let memPtr_1 := mload(64)
             finalize_allocation(memPtr_1, add(shl(5, length), 32))
@@ -102,7 +102,7 @@ object "Relay_2011" {
             {
                 revert(/** @src -1:-1:-1 */ 0, 0)
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             let src := add(_22, 32)
             for { } lt(src, srcEnd) { src := add(src, 64) }
             {
@@ -110,14 +110,14 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let memPtr_2 := mload(64)
                 let newFreePtr_1 := add(memPtr_2, 64)
                 if or(gt(newFreePtr_1, sub(shl(64, 1), 1)), lt(newFreePtr_1, memPtr_2))
                 {
-                    mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
+                    mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
                     mstore(4, 0x41)
-                    revert(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x24)
+                    revert(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x24)
                 }
                 mstore(64, newFreePtr_1)
                 mstore(memPtr_2, abi_decode_uint8_fromMemory(src))
@@ -135,354 +135,354 @@ object "Relay_2011" {
                 revert(/** @src -1:-1:-1 */ 0, 0)
             }
             /// @src 0:2387:2392  "10000"
-            if /** @src 0:10504:10558  "_initialConfig.thresholdIncreaseBIPS >= THRESHOLD_BIPS" */ lt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(mload(/** @src 0:10504:10540  "_initialConfig.thresholdIncreaseBIPS" */ _18), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffff), /** @src 0:2387:2392  "10000" */ 0x2710)
+            if /** @src 0:10504:10558  "_initialConfig.thresholdIncreaseBIPS >= THRESHOLD_BIPS" */ lt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(mload(/** @src 0:10504:10540  "_initialConfig.thresholdIncreaseBIPS" */ _18), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffff), /** @src 0:2387:2392  "10000" */ 0x2710)
             {
-                let memPtr_3 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                let memPtr_3 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                 /// @src 0:2387:2392  "10000"
                 mstore(memPtr_3, shl(229, 4594637))
-                mstore(add(memPtr_3, 4), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                mstore(add(memPtr_3, 4), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                 /// @src 0:2387:2392  "10000"
                 mstore(add(memPtr_3, 36), 28)
                 mstore(add(memPtr_3, 68), "threshold increase too small")
                 revert(memPtr_3, 100)
             }
-            if /** @src 0:10711:10763  "_initialConfig.rewardEpochDurationInVotingEpochs > 0" */ iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(mload(/** @src 0:10711:10759  "_initialConfig.rewardEpochDurationInVotingEpochs" */ _16), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffff))
+            if /** @src 0:10711:10763  "_initialConfig.rewardEpochDurationInVotingEpochs > 0" */ iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(mload(/** @src 0:10711:10759  "_initialConfig.rewardEpochDurationInVotingEpochs" */ _16), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffff))
             /// @src 0:2387:2392  "10000"
             {
-                let memPtr_4 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                let memPtr_4 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                 /// @src 0:2387:2392  "10000"
                 mstore(memPtr_4, shl(229, 4594637))
-                mstore(add(memPtr_4, 4), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                mstore(add(memPtr_4, 4), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                 /// @src 0:2387:2392  "10000"
                 mstore(add(memPtr_4, 36), 26)
                 mstore(add(memPtr_4, 68), "reward epoch duration zero")
                 revert(memPtr_4, 100)
             }
-            if /** @src 0:10812:10857  "_initialConfig.votingEpochDurationSeconds > 0" */ iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:10812:10853  "_initialConfig.votingEpochDurationSeconds" */ _12), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xff))
+            if /** @src 0:10812:10857  "_initialConfig.votingEpochDurationSeconds > 0" */ iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:10812:10853  "_initialConfig.votingEpochDurationSeconds" */ _12), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xff))
             /// @src 0:2387:2392  "10000"
             {
-                let memPtr_5 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                let memPtr_5 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                 /// @src 0:2387:2392  "10000"
                 mstore(memPtr_5, shl(229, 4594637))
-                mstore(add(memPtr_5, 4), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                mstore(add(memPtr_5, 4), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                 /// @src 0:2387:2392  "10000"
                 mstore(add(memPtr_5, 36), 26)
                 mstore(add(memPtr_5, 68), "voting epoch duration zero")
                 revert(memPtr_5, 100)
             }
-            if /** @src 0:11019:11072  "_initialConfig.initialSigningPolicyHash != bytes32(0)" */ iszero(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11019:11058  "_initialConfig.initialSigningPolicyHash" */ _6))
+            if /** @src 0:11355:11408  "_initialConfig.initialSigningPolicyHash != bytes32(0)" */ iszero(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11355:11394  "_initialConfig.initialSigningPolicyHash" */ _6))
             /// @src 0:2387:2392  "10000"
             {
-                let memPtr_6 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                let memPtr_6 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                 /// @src 0:2387:2392  "10000"
                 mstore(memPtr_6, shl(229, 4594637))
-                mstore(add(memPtr_6, 4), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                mstore(add(memPtr_6, 4), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                 /// @src 0:2387:2392  "10000"
-                mstore(add(memPtr_6, 36), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                mstore(add(memPtr_6, 36), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                 /// @src 0:2387:2392  "10000"
                 mstore(add(memPtr_6, 68), "initial signing policy hash zero")
                 revert(memPtr_6, 100)
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
-            let cleaned := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11140:11189  "_initialConfig.firstRewardEpochStartVotingRoundId" */ _14), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)
-            let cleaned_1 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11204:11239  "_initialConfig.initialRewardEpochId" */ memPtr), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
+            let cleaned := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11476:11525  "_initialConfig.firstRewardEpochStartVotingRoundId" */ _14), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)
+            let cleaned_1 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11540:11575  "_initialConfig.initialRewardEpochId" */ memPtr), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)
             /// @src 0:2387:2392  "10000"
-            let product_raw := mul(cleaned_1, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(mload(/** @src 0:11242:11290  "_initialConfig.rewardEpochDurationInVotingEpochs" */ _16), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffff))
+            let product_raw := mul(cleaned_1, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(mload(/** @src 0:11578:11626  "_initialConfig.rewardEpochDurationInVotingEpochs" */ _16), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffff))
             /// @src 0:2387:2392  "10000"
-            let product := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ product_raw, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)
+            let product := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ product_raw, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)
             /// @src 0:2387:2392  "10000"
             if iszero(eq(product, product_raw))
             {
-                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
+                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
                 /// @src 0:2387:2392  "10000"
                 mstore(4, 0x11)
                 revert(/** @src -1:-1:-1 */ 0, /** @src 0:2387:2392  "10000" */ 0x24)
             }
-            let sum := add(cleaned, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ product)
+            let sum := add(cleaned, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ product)
             /// @src 0:2387:2392  "10000"
-            if gt(sum, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)
+            if gt(sum, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)
             /// @src 0:2387:2392  "10000"
             {
-                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
+                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
                 /// @src 0:2387:2392  "10000"
                 mstore(4, 0x11)
                 revert(/** @src -1:-1:-1 */ 0, /** @src 0:2387:2392  "10000" */ 0x24)
             }
-            if /** @src 0:11140:11365  "_initialConfig.firstRewardEpochStartVotingRoundId +..." */ gt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:11140:11365  "_initialConfig.firstRewardEpochStartVotingRoundId +..." */ sum, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff), and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11306:11365  "_initialConfig.startingVotingRoundIdForInitialRewardEpochId" */ _5), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+            if /** @src 0:11476:11701  "_initialConfig.firstRewardEpochStartVotingRoundId +..." */ gt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:11476:11701  "_initialConfig.firstRewardEpochStartVotingRoundId +..." */ sum, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff), and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11642:11701  "_initialConfig.startingVotingRoundIdForInitialRewardEpochId" */ _5), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
             /// @src 0:2387:2392  "10000"
             {
-                let memPtr_7 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                let memPtr_7 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                 /// @src 0:2387:2392  "10000"
                 mstore(memPtr_7, shl(229, 4594637))
-                mstore(add(memPtr_7, 4), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                mstore(add(memPtr_7, 4), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                 /// @src 0:2387:2392  "10000"
                 mstore(add(memPtr_7, 36), 40)
                 mstore(add(memPtr_7, 68), "invalid initial starting voting ")
                 mstore(add(memPtr_7, 100), "round id")
                 revert(memPtr_7, 132)
             }
-            /// @src 0:11441:11499  "initialRewardEpochId = _initialConfig.initialRewardEpochId"
-            mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 160, and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11464:11499  "_initialConfig.initialRewardEpochId" */ memPtr), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
-            /// @src 0:11509:11627  "startingVotingRoundIdForInitialRewardEpochId =..."
-            mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 192, and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11568:11627  "_initialConfig.startingVotingRoundIdForInitialRewardEpochId" */ _5), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
-            let _25 := and(/** @src 0:2387:2392  "10000" */ value1, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
+            /// @src 0:11777:11835  "initialRewardEpochId = _initialConfig.initialRewardEpochId"
+            mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 160, and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11800:11835  "_initialConfig.initialRewardEpochId" */ memPtr), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
+            /// @src 0:11845:11963  "startingVotingRoundIdForInitialRewardEpochId =..."
+            mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 192, and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:11904:11963  "_initialConfig.startingVotingRoundIdForInitialRewardEpochId" */ _5), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
+            let _25 := and(/** @src 0:2387:2392  "10000" */ value1, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
             /// @src 0:2387:2392  "10000"
-            sstore(/** @src 0:11637:11679  "signingPolicySetter = _signingPolicySetter" */ 0x03, /** @src 0:2387:2392  "10000" */ or(and(sload(/** @src 0:11637:11679  "signingPolicySetter = _signingPolicySetter" */ 0x03), /** @src 0:2387:2392  "10000" */ not(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))), /** @src 0:2387:2392  "10000" */ _25))
-            let _26 := mload(/** @src 0:12170:12205  "_initialConfig.initialRewardEpochId" */ memPtr)
+            sstore(/** @src 0:11973:12015  "signingPolicySetter = _signingPolicySetter" */ 0x03, /** @src 0:2387:2392  "10000" */ or(and(sload(/** @src 0:11973:12015  "signingPolicySetter = _signingPolicySetter" */ 0x03), /** @src 0:2387:2392  "10000" */ not(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))), /** @src 0:2387:2392  "10000" */ _25))
+            let _26 := mload(/** @src 0:12506:12541  "_initialConfig.initialRewardEpochId" */ memPtr)
             /// @src 0:2387:2392  "10000"
-            let _27 := sload(/** @src 0:12131:12140  "stateData" */ 0x07)
+            let _27 := sload(/** @src 0:12467:12476  "stateData" */ 0x07)
             /// @src 0:2387:2392  "10000"
-            sstore(/** @src 0:12131:12140  "stateData" */ 0x07, /** @src 0:2387:2392  "10000" */ or(and(_27, not(shl(152, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))), /** @src 0:2387:2392  "10000" */ and(shl(152, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ _26), /** @src 0:2387:2392  "10000" */ shl(152, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))))
-            let cleaned_2 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:12289:12348  "_initialConfig.startingVotingRoundIdForInitialRewardEpochId" */ _5), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)
+            sstore(/** @src 0:12467:12476  "stateData" */ 0x07, /** @src 0:2387:2392  "10000" */ or(and(_27, not(shl(152, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))), /** @src 0:2387:2392  "10000" */ and(shl(152, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ _26), /** @src 0:2387:2392  "10000" */ shl(152, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))))
+            let cleaned_2 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:12625:12684  "_initialConfig.startingVotingRoundIdForInitialRewardEpochId" */ _5), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)
             /// @src 0:2387:2392  "10000"
-            mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(_26, 0xffffffff))
+            mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(_26, 0xffffffff))
             /// @src 0:2387:2392  "10000"
-            mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32, /** @src 0:12215:12237  "startingVotingRoundIds" */ 0x02)
+            mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32, /** @src 0:12551:12573  "startingVotingRoundIds" */ 0x02)
             /// @src 0:2387:2392  "10000"
-            sstore(keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 64), /** @src 0:2387:2392  "10000" */ cleaned_2)
-            let _28 := mload(/** @src 0:12424:12463  "_initialConfig.initialSigningPolicyHash" */ _6)
+            sstore(keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 64), /** @src 0:2387:2392  "10000" */ cleaned_2)
+            let _28 := mload(/** @src 0:12760:12799  "_initialConfig.initialSigningPolicyHash" */ _6)
             /// @src 0:2387:2392  "10000"
-            mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:12385:12420  "_initialConfig.initialRewardEpochId" */ memPtr), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+            mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:12721:12756  "_initialConfig.initialRewardEpochId" */ memPtr), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
             /// @src 0:2387:2392  "10000"
-            mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32, /** @src -1:-1:-1 */ 0)
+            mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32, /** @src -1:-1:-1 */ 0)
             /// @src 0:2387:2392  "10000"
-            sstore(keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 64), /** @src 0:2387:2392  "10000" */ _28)
-            if iszero(/** @src 0:12481:12522  "_initialConfig.randomNumberProtocolId > 1" */ gt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:12481:12518  "_initialConfig.randomNumberProtocolId" */ _8), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xff), 1))
+            sstore(keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 64), /** @src 0:2387:2392  "10000" */ _28)
+            if iszero(/** @src 0:12817:12858  "_initialConfig.randomNumberProtocolId > 1" */ gt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:12817:12854  "_initialConfig.randomNumberProtocolId" */ _8), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xff), 1))
             /// @src 0:2387:2392  "10000"
             {
-                let memPtr_8 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                let memPtr_8 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                 /// @src 0:2387:2392  "10000"
                 mstore(memPtr_8, shl(229, 4594637))
-                mstore(add(memPtr_8, 4), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                mstore(add(memPtr_8, 4), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                 /// @src 0:2387:2392  "10000"
                 mstore(add(memPtr_8, 36), 37)
                 mstore(add(memPtr_8, 68), "random number protocol id must b")
                 mstore(add(memPtr_8, 100), "e > 1")
                 revert(memPtr_8, 132)
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
-            let cleaned_3 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:12609:12646  "_initialConfig.randomNumberProtocolId" */ _8), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xff)
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
+            let cleaned_3 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:12945:12982  "_initialConfig.randomNumberProtocolId" */ _8), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xff)
             /// @src 0:2387:2392  "10000"
-            let _29 := sload(/** @src 0:12131:12140  "stateData" */ 0x07)
+            let _29 := sload(/** @src 0:12467:12476  "stateData" */ 0x07)
             /// @src 0:2387:2392  "10000"
-            let toInsert := and(shl(8, mload(/** @src 0:12692:12730  "_initialConfig.firstVotingRoundStartTs" */ _10)), /** @src 0:2387:2392  "10000" */ 0xffffffff00)
-            let toInsert_1 := and(shl(40, mload(/** @src 0:12779:12820  "_initialConfig.votingEpochDurationSeconds" */ _12)), /** @src 0:2387:2392  "10000" */ 0xff0000000000)
-            let toInsert_2 := and(shl(48, mload(/** @src 0:12877:12926  "_initialConfig.firstRewardEpochStartVotingRoundId" */ _14)), /** @src 0:2387:2392  "10000" */ 0xffffffff000000000000)
-            let toInsert_3 := and(shl(80, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:12982:13030  "_initialConfig.rewardEpochDurationInVotingEpochs" */ _16)), /** @src 0:2387:2392  "10000" */ 0xffff00000000000000000000)
-            let toInsert_4 := and(shl(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 96, mload(/** @src 0:13074:13110  "_initialConfig.thresholdIncreaseBIPS" */ _18)), /** @src 0:2387:2392  "10000" */ 0xffff000000000000000000000000)
-            let toInsert_5 := and(shl(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 192, /** @src 0:2387:2392  "10000" */ mload(/** @src 0:13172:13226  "_initialConfig.messageFinalizationWindowInRewardEpochs" */ _20)), /** @src 0:2387:2392  "10000" */ shl(192, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+            let toInsert := and(shl(8, mload(/** @src 0:13028:13066  "_initialConfig.firstVotingRoundStartTs" */ _10)), /** @src 0:2387:2392  "10000" */ 0xffffffff00)
+            let toInsert_1 := and(shl(40, mload(/** @src 0:13115:13156  "_initialConfig.votingEpochDurationSeconds" */ _12)), /** @src 0:2387:2392  "10000" */ 0xff0000000000)
+            let toInsert_2 := and(shl(48, mload(/** @src 0:13213:13262  "_initialConfig.firstRewardEpochStartVotingRoundId" */ _14)), /** @src 0:2387:2392  "10000" */ 0xffffffff000000000000)
+            let toInsert_3 := and(shl(80, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:13318:13366  "_initialConfig.rewardEpochDurationInVotingEpochs" */ _16)), /** @src 0:2387:2392  "10000" */ 0xffff00000000000000000000)
+            let toInsert_4 := and(shl(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 96, mload(/** @src 0:13410:13446  "_initialConfig.thresholdIncreaseBIPS" */ _18)), /** @src 0:2387:2392  "10000" */ 0xffff000000000000000000000000)
+            let toInsert_5 := and(shl(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 192, /** @src 0:2387:2392  "10000" */ mload(/** @src 0:13508:13562  "_initialConfig.messageFinalizationWindowInRewardEpochs" */ _20)), /** @src 0:2387:2392  "10000" */ shl(192, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
             /// @src 0:2387:2392  "10000"
-            let _30 := or(toInsert_3, and(or(toInsert_2, and(or(toInsert_1, and(or(toInsert, and(or(and(_29, not(0xffffffffffff)), cleaned_3), not(0xffffffff000000000000))), not(0xffff00000000000000000000))), not(0xffff000000000000000000000000))), not(shl(192, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))))
+            let _30 := or(toInsert_3, and(or(toInsert_2, and(or(toInsert_1, and(or(toInsert, and(or(and(_29, not(0xffffffffffff)), cleaned_3), not(0xffffffff000000000000))), not(0xffff00000000000000000000))), not(0xffff000000000000000000000000))), not(shl(192, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))))
             /// @src 0:2387:2392  "10000"
-            sstore(/** @src 0:12131:12140  "stateData" */ 0x07, /** @src 0:2387:2392  "10000" */ or(or(toInsert_4, _30), toInsert_5))
-            /// @src 0:13240:13274  "_signingPolicySetter != address(0)"
-            let _31 := iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _25)
-            /// @src 0:13240:13274  "_signingPolicySetter != address(0)"
+            sstore(/** @src 0:12467:12476  "stateData" */ 0x07, /** @src 0:2387:2392  "10000" */ or(or(toInsert_4, _30), toInsert_5))
+            /// @src 0:13576:13610  "_signingPolicySetter != address(0)"
+            let _31 := iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _25)
+            /// @src 0:13576:13610  "_signingPolicySetter != address(0)"
             let expr := iszero(_31)
-            /// @src 0:13236:13419  "if (_signingPolicySetter != address(0)) {..."
+            /// @src 0:13572:13755  "if (_signingPolicySetter != address(0)) {..."
             if expr
             {
                 /// @src 0:2387:2392  "10000"
-                if iszero(/** @src 0:13298:13335  "_initialConfig.feeConfigs.length == 0" */ iszero(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:13298:13323  "_initialConfig.feeConfigs" */ mload(_23))))
+                if iszero(/** @src 0:13634:13671  "_initialConfig.feeConfigs.length == 0" */ iszero(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:13634:13659  "_initialConfig.feeConfigs" */ mload(_23))))
                 /// @src 0:2387:2392  "10000"
                 {
-                    let memPtr_9 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr_9 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2387:2392  "10000"
                     mstore(memPtr_9, shl(229, 4594637))
-                    mstore(add(memPtr_9, 4), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                    mstore(add(memPtr_9, 4), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                     /// @src 0:2387:2392  "10000"
                     mstore(add(memPtr_9, 36), 17)
                     mstore(add(memPtr_9, 68), "fee cannot be set")
                     revert(memPtr_9, 100)
                 }
-                sstore(/** @src 0:12131:12140  "stateData" */ 0x07, /** @src 0:2387:2392  "10000" */ or(or(toInsert_5, or(toInsert_4, and(_30, not(shl(184, 255))))), shl(184, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 1)))
+                sstore(/** @src 0:12467:12476  "stateData" */ 0x07, /** @src 0:2387:2392  "10000" */ or(or(toInsert_5, or(toInsert_4, and(_30, not(shl(184, 255))))), shl(184, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 1)))
             }
-            let cleaned_4 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:13451:13486  "_initialConfig.feeCollectionAddress" */ _21), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
+            let cleaned_4 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:13787:13822  "_initialConfig.feeCollectionAddress" */ _21), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
             /// @src 0:2387:2392  "10000"
-            sstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 5, /** @src 0:2387:2392  "10000" */ or(and(sload(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 5), /** @src 0:2387:2392  "10000" */ not(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))), /** @src 0:2387:2392  "10000" */ cleaned_4))
-            /// @src 0:13722:13809  "_signingPolicySetter != address(0) || _initialConfig.feeCollectionAddress != address(0)"
+            sstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 5, /** @src 0:2387:2392  "10000" */ or(and(sload(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 5), /** @src 0:2387:2392  "10000" */ not(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))), /** @src 0:2387:2392  "10000" */ cleaned_4))
+            /// @src 0:14058:14145  "_signingPolicySetter != address(0) || _initialConfig.feeCollectionAddress != address(0)"
             let expr_1 := expr
             if _31
             {
-                expr_1 := /** @src 0:13760:13809  "_initialConfig.feeCollectionAddress != address(0)" */ iszero(iszero(cleaned_4))
+                expr_1 := /** @src 0:14096:14145  "_initialConfig.feeCollectionAddress != address(0)" */ iszero(iszero(cleaned_4))
             }
             /// @src 0:2387:2392  "10000"
             if iszero(expr_1)
             {
-                let memPtr_10 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                let memPtr_10 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                 /// @src 0:2387:2392  "10000"
                 mstore(memPtr_10, shl(229, 4594637))
-                mstore(add(memPtr_10, 4), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                mstore(add(memPtr_10, 4), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                 /// @src 0:2387:2392  "10000"
                 mstore(add(memPtr_10, 36), 27)
                 mstore(add(memPtr_10, 68), "fee collection address zero")
                 revert(memPtr_10, 100)
             }
-            /// @src 0:13877:13890  "uint256 i = 0"
+            /// @src 0:14213:14226  "uint256 i = 0"
             let var_i := /** @src -1:-1:-1 */ 0
-            /// @src 0:13872:14160  "for (uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {..."
+            /// @src 0:14208:14496  "for (uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {..."
             for { }
-            /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 1
-            /// @src 0:13877:13890  "uint256 i = 0"
+            /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 1
+            /// @src 0:14213:14226  "uint256 i = 0"
             {
-                /// @src 0:13930:13933  "i++"
-                var_i := /** @src 0:2387:2392  "10000" */ add(/** @src 0:13930:13933  "i++" */ var_i, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 1)
+                /// @src 0:14266:14269  "i++"
+                var_i := /** @src 0:2387:2392  "10000" */ add(/** @src 0:14266:14269  "i++" */ var_i, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 1)
             }
-            /// @src 0:13930:13933  "i++"
+            /// @src 0:14266:14269  "i++"
             {
-                /// @src 0:13896:13921  "_initialConfig.feeConfigs"
+                /// @src 0:14232:14257  "_initialConfig.feeConfigs"
                 let _mpos := mload(_23)
-                /// @src 0:13892:13928  "i < _initialConfig.feeConfigs.length"
-                if iszero(lt(var_i, /** @src 0:2387:2392  "10000" */ mload(/** @src 0:13896:13928  "_initialConfig.feeConfigs.length" */ _mpos)))
-                /// @src 0:13892:13928  "i < _initialConfig.feeConfigs.length"
+                /// @src 0:14228:14264  "i < _initialConfig.feeConfigs.length"
+                if iszero(lt(var_i, /** @src 0:2387:2392  "10000" */ mload(/** @src 0:14232:14264  "_initialConfig.feeConfigs.length" */ _mpos)))
+                /// @src 0:14228:14264  "i < _initialConfig.feeConfigs.length"
                 { break }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                let cleaned_5 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:13968:13996  "_initialConfig.feeConfigs[i]" */ mload(memory_array_index_access_struct_FeeConfig_dyn(_mpos, var_i))), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xff)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                let cleaned_5 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:14304:14332  "_initialConfig.feeConfigs[i]" */ mload(memory_array_index_access_struct_FeeConfig_dyn(_mpos, var_i))), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xff)
                 /// @src 0:2387:2392  "10000"
-                if iszero(/** @src 0:14029:14043  "protocolId > 1" */ gt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ cleaned_5, 1))
+                if iszero(/** @src 0:14365:14379  "protocolId > 1" */ gt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ cleaned_5, 1))
                 /// @src 0:2387:2392  "10000"
                 {
-                    let memPtr_11 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr_11 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2387:2392  "10000"
                     mstore(memPtr_11, shl(229, 4594637))
-                    mstore(add(memPtr_11, /** @src 0:14081:14097  "protocolFeeInWei" */ 0x04), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                    mstore(add(memPtr_11, /** @src 0:14417:14433  "protocolFeeInWei" */ 0x04), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                     /// @src 0:2387:2392  "10000"
                     mstore(add(memPtr_11, 36), 19)
                     mstore(add(memPtr_11, 68), "invalid protocol id")
                     revert(memPtr_11, 100)
                 }
-                let _32 := mload(/** @src 0:14112:14149  "_initialConfig.feeConfigs[i].feeInWei" */ add(/** @src 0:14112:14140  "_initialConfig.feeConfigs[i]" */ mload(memory_array_index_access_struct_FeeConfig_dyn(/** @src 0:14112:14137  "_initialConfig.feeConfigs" */ mload(_23), /** @src 0:14112:14140  "_initialConfig.feeConfigs[i]" */ var_i)), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32))
+                let _32 := mload(/** @src 0:14448:14485  "_initialConfig.feeConfigs[i].feeInWei" */ add(/** @src 0:14448:14476  "_initialConfig.feeConfigs[i]" */ mload(memory_array_index_access_struct_FeeConfig_dyn(/** @src 0:14448:14473  "_initialConfig.feeConfigs" */ mload(_23), /** @src 0:14448:14476  "_initialConfig.feeConfigs[i]" */ var_i)), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32))
                 /// @src 0:2387:2392  "10000"
                 mstore(/** @src -1:-1:-1 */ 0, /** @src 0:2387:2392  "10000" */ cleaned_5)
-                mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32, /** @src 0:14081:14097  "protocolFeeInWei" */ 0x04)
+                mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32, /** @src 0:14417:14433  "protocolFeeInWei" */ 0x04)
                 /// @src 0:2387:2392  "10000"
-                sstore(keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 64), /** @src 0:2387:2392  "10000" */ _32)
+                sstore(keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 64), /** @src 0:2387:2392  "10000" */ _32)
             }
-            /// @src 0:14169:14189  "oldRelay = _oldRelay"
-            mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 128, /** @src 0:14169:14189  "oldRelay = _oldRelay" */ value_2)
-            /// @src 0:14280:15593  "if(oldRelay != IIRelay(address(0))) {..."
-            if /** @src 0:14283:14314  "oldRelay != IIRelay(address(0))" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _24))
-            /// @src 0:14280:15593  "if(oldRelay != IIRelay(address(0))) {..."
+            /// @src 0:14505:14525  "oldRelay = _oldRelay"
+            mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 128, /** @src 0:14505:14525  "oldRelay = _oldRelay" */ value_2)
+            /// @src 0:14616:15929  "if(oldRelay != IIRelay(address(0))) {..."
+            if /** @src 0:14619:14650  "oldRelay != IIRelay(address(0))" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _24))
+            /// @src 0:14616:15929  "if(oldRelay != IIRelay(address(0))) {..."
             {
-                /// @src 0:14356:14389  "signingPolicySetter != address(0)"
-                let _33 := iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ sload(/** @src 0:11637:11679  "signingPolicySetter = _signingPolicySetter" */ 0x03), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))
-                /// @src 0:14356:14437  "signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)"
-                let expr_2 := /** @src 0:14356:14389  "signingPolicySetter != address(0)" */ iszero(_33)
-                /// @src 0:14356:14437  "signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)"
+                /// @src 0:14692:14725  "signingPolicySetter != address(0)"
+                let _33 := iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ sload(/** @src 0:11973:12015  "signingPolicySetter = _signingPolicySetter" */ 0x03), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))
+                /// @src 0:14692:14773  "signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)"
+                let expr_2 := /** @src 0:14692:14725  "signingPolicySetter != address(0)" */ iszero(_33)
+                /// @src 0:14692:14773  "signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)"
                 if expr_2
                 {
-                    /// @src 0:14393:14423  "oldRelay.signingPolicySetter()"
-                    let _34 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                    /// @src 0:14393:14423  "oldRelay.signingPolicySetter()"
+                    /// @src 0:14729:14759  "oldRelay.signingPolicySetter()"
+                    let _34 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                    /// @src 0:14729:14759  "oldRelay.signingPolicySetter()"
                     mstore(_34, /** @src 0:2387:2392  "10000" */ shl(224, 0xa9dbe8ed))
-                    /// @src 0:14393:14423  "oldRelay.signingPolicySetter()"
-                    let _35 := staticcall(gas(), _24, _34, /** @src 0:14081:14097  "protocolFeeInWei" */ 0x04, /** @src 0:14393:14423  "oldRelay.signingPolicySetter()" */ _34, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
-                    /// @src 0:14393:14423  "oldRelay.signingPolicySetter()"
+                    /// @src 0:14729:14759  "oldRelay.signingPolicySetter()"
+                    let _35 := staticcall(gas(), _24, _34, /** @src 0:14417:14433  "protocolFeeInWei" */ 0x04, /** @src 0:14729:14759  "oldRelay.signingPolicySetter()" */ _34, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
+                    /// @src 0:14729:14759  "oldRelay.signingPolicySetter()"
                     if iszero(_35)
                     {
                         /// @src 0:2387:2392  "10000"
-                        let pos := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                        let pos := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                         /// @src 0:2387:2392  "10000"
                         returndatacopy(pos, /** @src -1:-1:-1 */ 0, /** @src 0:2387:2392  "10000" */ returndatasize())
                         revert(pos, returndatasize())
                     }
-                    /// @src 0:14393:14423  "oldRelay.signingPolicySetter()"
+                    /// @src 0:14729:14759  "oldRelay.signingPolicySetter()"
                     let expr_3 := /** @src -1:-1:-1 */ 0
-                    /// @src 0:14393:14423  "oldRelay.signingPolicySetter()"
+                    /// @src 0:14729:14759  "oldRelay.signingPolicySetter()"
                     if _35
                     {
-                        let _36 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32
-                        /// @src 0:14393:14423  "oldRelay.signingPolicySetter()"
-                        if gt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32, /** @src 0:14393:14423  "oldRelay.signingPolicySetter()" */ returndatasize()) { _36 := returndatasize() }
+                        let _36 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32
+                        /// @src 0:14729:14759  "oldRelay.signingPolicySetter()"
+                        if gt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32, /** @src 0:14729:14759  "oldRelay.signingPolicySetter()" */ returndatasize()) { _36 := returndatasize() }
                         finalize_allocation(_34, _36)
                         /// @src 0:2387:2392  "10000"
-                        if slt(sub(/** @src 0:14393:14423  "oldRelay.signingPolicySetter()" */ add(_34, _36), /** @src 0:2387:2392  "10000" */ _34), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                        if slt(sub(/** @src 0:14729:14759  "oldRelay.signingPolicySetter()" */ add(_34, _36), /** @src 0:2387:2392  "10000" */ _34), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                         /// @src 0:2387:2392  "10000"
                         {
-                            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                            /// @src 0:397:84701  "contract Relay is IIRelay {..."
                             revert(/** @src -1:-1:-1 */ 0, 0)
                         }
-                        /// @src 0:14393:14423  "oldRelay.signingPolicySetter()"
-                        expr_3 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ abi_decode_address_fromMemory(/** @src 0:2387:2392  "10000" */ _34)
+                        /// @src 0:14729:14759  "oldRelay.signingPolicySetter()"
+                        expr_3 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ abi_decode_address_fromMemory(/** @src 0:2387:2392  "10000" */ _34)
                     }
-                    /// @src 0:14356:14437  "signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)"
-                    expr_2 := /** @src 0:14393:14437  "oldRelay.signingPolicySetter() != address(0)" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:14393:14437  "oldRelay.signingPolicySetter() != address(0)" */ expr_3, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))))
+                    /// @src 0:14692:14773  "signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)"
+                    expr_2 := /** @src 0:14729:14773  "oldRelay.signingPolicySetter() != address(0)" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:14729:14773  "oldRelay.signingPolicySetter() != address(0)" */ expr_3, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))))
                 }
-                /// @src 0:14355:14541  "(signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)) ||..."
+                /// @src 0:14691:14877  "(signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)) ||..."
                 let expr_4 := expr_2
                 if iszero(expr_2)
                 {
-                    /// @src 0:14459:14540  "signingPolicySetter == address(0) && oldRelay.signingPolicySetter() == address(0)"
+                    /// @src 0:14795:14876  "signingPolicySetter == address(0) && oldRelay.signingPolicySetter() == address(0)"
                     let expr_5 := _33
                     if _33
                     {
-                        /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                        let cleaned_6 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 128), sub(shl(160, 1), 1))
-                        /// @src 0:14496:14526  "oldRelay.signingPolicySetter()"
-                        let _37 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                        /// @src 0:14496:14526  "oldRelay.signingPolicySetter()"
+                        /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                        let cleaned_6 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 128), sub(shl(160, 1), 1))
+                        /// @src 0:14832:14862  "oldRelay.signingPolicySetter()"
+                        let _37 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                        /// @src 0:14832:14862  "oldRelay.signingPolicySetter()"
                         mstore(_37, /** @src 0:2387:2392  "10000" */ shl(224, 0xa9dbe8ed))
-                        /// @src 0:14496:14526  "oldRelay.signingPolicySetter()"
-                        let _38 := staticcall(gas(), cleaned_6, _37, /** @src 0:14081:14097  "protocolFeeInWei" */ 0x04, /** @src 0:14496:14526  "oldRelay.signingPolicySetter()" */ _37, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
-                        /// @src 0:14496:14526  "oldRelay.signingPolicySetter()"
+                        /// @src 0:14832:14862  "oldRelay.signingPolicySetter()"
+                        let _38 := staticcall(gas(), cleaned_6, _37, /** @src 0:14417:14433  "protocolFeeInWei" */ 0x04, /** @src 0:14832:14862  "oldRelay.signingPolicySetter()" */ _37, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
+                        /// @src 0:14832:14862  "oldRelay.signingPolicySetter()"
                         if iszero(_38)
                         {
                             /// @src 0:2387:2392  "10000"
-                            let pos_1 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                            let pos_1 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                             /// @src 0:2387:2392  "10000"
                             returndatacopy(pos_1, /** @src -1:-1:-1 */ 0, /** @src 0:2387:2392  "10000" */ returndatasize())
                             revert(pos_1, returndatasize())
                         }
-                        /// @src 0:14496:14526  "oldRelay.signingPolicySetter()"
+                        /// @src 0:14832:14862  "oldRelay.signingPolicySetter()"
                         let expr_6 := /** @src -1:-1:-1 */ 0
-                        /// @src 0:14496:14526  "oldRelay.signingPolicySetter()"
+                        /// @src 0:14832:14862  "oldRelay.signingPolicySetter()"
                         if _38
                         {
-                            let _39 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32
-                            /// @src 0:14496:14526  "oldRelay.signingPolicySetter()"
-                            if gt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32, /** @src 0:14496:14526  "oldRelay.signingPolicySetter()" */ returndatasize()) { _39 := returndatasize() }
+                            let _39 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32
+                            /// @src 0:14832:14862  "oldRelay.signingPolicySetter()"
+                            if gt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32, /** @src 0:14832:14862  "oldRelay.signingPolicySetter()" */ returndatasize()) { _39 := returndatasize() }
                             finalize_allocation(_37, _39)
                             /// @src 0:2387:2392  "10000"
-                            if slt(sub(/** @src 0:14496:14526  "oldRelay.signingPolicySetter()" */ add(_37, _39), /** @src 0:2387:2392  "10000" */ _37), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                            if slt(sub(/** @src 0:14832:14862  "oldRelay.signingPolicySetter()" */ add(_37, _39), /** @src 0:2387:2392  "10000" */ _37), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                             /// @src 0:2387:2392  "10000"
                             {
-                                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                                 revert(/** @src -1:-1:-1 */ 0, 0)
                             }
-                            /// @src 0:14496:14526  "oldRelay.signingPolicySetter()"
-                            expr_6 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ abi_decode_address_fromMemory(/** @src 0:2387:2392  "10000" */ _37)
+                            /// @src 0:14832:14862  "oldRelay.signingPolicySetter()"
+                            expr_6 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ abi_decode_address_fromMemory(/** @src 0:2387:2392  "10000" */ _37)
                         }
-                        /// @src 0:14459:14540  "signingPolicySetter == address(0) && oldRelay.signingPolicySetter() == address(0)"
-                        expr_5 := /** @src 0:14496:14540  "oldRelay.signingPolicySetter() == address(0)" */ iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:14496:14540  "oldRelay.signingPolicySetter() == address(0)" */ expr_6, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))
+                        /// @src 0:14795:14876  "signingPolicySetter == address(0) && oldRelay.signingPolicySetter() == address(0)"
+                        expr_5 := /** @src 0:14832:14876  "oldRelay.signingPolicySetter() == address(0)" */ iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:14832:14876  "oldRelay.signingPolicySetter() == address(0)" */ expr_6, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))
                     }
-                    /// @src 0:14355:14541  "(signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)) ||..."
+                    /// @src 0:14691:14877  "(signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)) ||..."
                     expr_4 := expr_5
                 }
                 /// @src 0:2387:2392  "10000"
                 if iszero(expr_4)
                 {
-                    let memPtr_12 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr_12 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2387:2392  "10000"
                     mstore(memPtr_12, shl(229, 4594637))
-                    mstore(add(memPtr_12, /** @src 0:14081:14097  "protocolFeeInWei" */ 0x04), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                    mstore(add(memPtr_12, /** @src 0:14417:14433  "protocolFeeInWei" */ 0x04), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                     /// @src 0:2387:2392  "10000"
                     mstore(add(memPtr_12, 36), 22)
                     mstore(add(memPtr_12, 68), "old relay incompatible")
                     revert(memPtr_12, 100)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                let cleaned_7 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 128), sub(shl(160, 1), 1))
-                /// @src 0:14884:14904  "oldRelay.stateData()"
-                let _40 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                /// @src 0:14884:14904  "oldRelay.stateData()"
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                let cleaned_7 := and(/** @src 0:2387:2392  "10000" */ mload(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 128), sub(shl(160, 1), 1))
+                /// @src 0:15220:15240  "oldRelay.stateData()"
+                let _40 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                /// @src 0:15220:15240  "oldRelay.stateData()"
                 mstore(_40, /** @src 0:2387:2392  "10000" */ shl(225, 0x0f47d9b5))
-                /// @src 0:14884:14904  "oldRelay.stateData()"
-                let _41 := staticcall(gas(), cleaned_7, _40, /** @src 0:14081:14097  "protocolFeeInWei" */ 0x04, /** @src 0:14884:14904  "oldRelay.stateData()" */ _40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 352)
-                /// @src 0:14884:14904  "oldRelay.stateData()"
+                /// @src 0:15220:15240  "oldRelay.stateData()"
+                let _41 := staticcall(gas(), cleaned_7, _40, /** @src 0:14417:14433  "protocolFeeInWei" */ 0x04, /** @src 0:15220:15240  "oldRelay.stateData()" */ _40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 352)
+                /// @src 0:15220:15240  "oldRelay.stateData()"
                 if iszero(_41)
                 {
                     /// @src 0:2387:2392  "10000"
-                    let pos_2 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let pos_2 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2387:2392  "10000"
                     returndatacopy(pos_2, /** @src -1:-1:-1 */ 0, /** @src 0:2387:2392  "10000" */ returndatasize())
                     revert(pos_2, returndatasize())
@@ -491,99 +491,99 @@ object "Relay_2011" {
                 let expr_component_1 := 0
                 let expr_component_2 := 0
                 let expr_component_3 := 0
-                /// @src 0:14884:14904  "oldRelay.stateData()"
+                /// @src 0:15220:15240  "oldRelay.stateData()"
                 if _41
                 {
-                    let _42 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 352
-                    /// @src 0:14884:14904  "oldRelay.stateData()"
-                    if gt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _42, /** @src 0:14884:14904  "oldRelay.stateData()" */ returndatasize()) { _42 := returndatasize() }
+                    let _42 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 352
+                    /// @src 0:15220:15240  "oldRelay.stateData()"
+                    if gt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _42, /** @src 0:15220:15240  "oldRelay.stateData()" */ returndatasize()) { _42 := returndatasize() }
                     finalize_allocation(_40, _42)
                     /// @src 0:2387:2392  "10000"
-                    if slt(sub(/** @src 0:14884:14904  "oldRelay.stateData()" */ add(_40, _42), /** @src 0:2387:2392  "10000" */ _40), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 352)
+                    if slt(sub(/** @src 0:15220:15240  "oldRelay.stateData()" */ add(_40, _42), /** @src 0:2387:2392  "10000" */ _40), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 352)
                     /// @src 0:2387:2392  "10000"
                     {
-                        /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                        /// @src 0:397:84701  "contract Relay is IIRelay {..."
                         revert(/** @src -1:-1:-1 */ 0, 0)
                     }
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     pop(abi_decode_uint8_fromMemory(/** @src 0:2387:2392  "10000" */ _40))
-                    let value1_1 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ abi_decode_uint32_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32))
+                    let value1_1 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ abi_decode_uint32_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32))
                     /// @src 0:2387:2392  "10000"
-                    let value2 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ abi_decode_uint8_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 64))
+                    let value2 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ abi_decode_uint8_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 64))
                     /// @src 0:2387:2392  "10000"
-                    let value3 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ abi_decode_uint32_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 96))
+                    let value3 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ abi_decode_uint32_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 96))
                     /// @src 0:2387:2392  "10000"
-                    let value4 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ abi_decode_uint16_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 128))
-                    pop(abi_decode_uint16_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 160)))
-                    pop(abi_decode_uint32_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 192)))
+                    let value4 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ abi_decode_uint16_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 128))
+                    pop(abi_decode_uint16_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 160)))
+                    pop(abi_decode_uint32_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 192)))
                     /// @src 0:2387:2392  "10000"
-                    pop(abi_decode_bool_fromMemory(add(_40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 224)))
-                    pop(abi_decode_uint32_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 256)))
+                    pop(abi_decode_bool_fromMemory(add(_40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 224)))
+                    pop(abi_decode_uint32_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 256)))
                     /// @src 0:2387:2392  "10000"
-                    pop(abi_decode_bool_fromMemory(add(_40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 288)))
-                    pop(abi_decode_uint32_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 320)))
-                    /// @src 0:14884:14904  "oldRelay.stateData()"
+                    pop(abi_decode_bool_fromMemory(add(_40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 288)))
+                    pop(abi_decode_uint32_fromMemory(/** @src 0:2387:2392  "10000" */ add(_40, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 320)))
+                    /// @src 0:15220:15240  "oldRelay.stateData()"
                     expr_component := value1_1
                     expr_component_1 := value2
                     expr_component_2 := value3
                     expr_component_3 := value4
                 }
                 /// @src 0:2387:2392  "10000"
-                let _43 := sload(/** @src 0:12131:12140  "stateData" */ 0x07)
+                let _43 := sload(/** @src 0:12467:12476  "stateData" */ 0x07)
                 /// @src 0:2387:2392  "10000"
-                if iszero(/** @src 0:14943:15003  "stateData.firstVotingRoundStartTs == firstVotingRoundStartTs" */ eq(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ shr(8, _43), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff), and(/** @src 0:14943:15003  "stateData.firstVotingRoundStartTs == firstVotingRoundStartTs" */ expr_component, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)))
+                if iszero(/** @src 0:15279:15339  "stateData.firstVotingRoundStartTs == firstVotingRoundStartTs" */ eq(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ shr(8, _43), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff), and(/** @src 0:15279:15339  "stateData.firstVotingRoundStartTs == firstVotingRoundStartTs" */ expr_component, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)))
                 /// @src 0:2387:2392  "10000"
                 {
-                    let memPtr_13 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr_13 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2387:2392  "10000"
                     mstore(memPtr_13, shl(229, 4594637))
-                    mstore(add(memPtr_13, /** @src 0:14081:14097  "protocolFeeInWei" */ 0x04), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                    mstore(add(memPtr_13, /** @src 0:14417:14433  "protocolFeeInWei" */ 0x04), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                     /// @src 0:2387:2392  "10000"
                     mstore(add(memPtr_13, 36), 14)
                     mstore(add(memPtr_13, 68), "wrong start ts")
                     revert(memPtr_13, 100)
                 }
-                if iszero(/** @src 0:15090:15170  "stateData.rewardEpochDurationInVotingEpochs == rewardEpochDurationInVotingEpochs" */ eq(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ shr(80, _43), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffff), and(/** @src 0:15090:15170  "stateData.rewardEpochDurationInVotingEpochs == rewardEpochDurationInVotingEpochs" */ expr_component_3, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffff)))
+                if iszero(/** @src 0:15426:15506  "stateData.rewardEpochDurationInVotingEpochs == rewardEpochDurationInVotingEpochs" */ eq(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ shr(80, _43), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffff), and(/** @src 0:15426:15506  "stateData.rewardEpochDurationInVotingEpochs == rewardEpochDurationInVotingEpochs" */ expr_component_3, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffff)))
                 /// @src 0:2387:2392  "10000"
                 {
-                    let memPtr_14 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr_14 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2387:2392  "10000"
                     mstore(memPtr_14, shl(229, 4594637))
-                    mstore(add(memPtr_14, /** @src 0:14081:14097  "protocolFeeInWei" */ 0x04), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                    mstore(add(memPtr_14, /** @src 0:14417:14433  "protocolFeeInWei" */ 0x04), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                     /// @src 0:2387:2392  "10000"
                     mstore(add(memPtr_14, 36), 27)
                     mstore(add(memPtr_14, 68), "wrong reward epoch duration")
                     revert(memPtr_14, 100)
                 }
-                if iszero(/** @src 0:15270:15352  "stateData.firstRewardEpochStartVotingRoundId == firstRewardEpochStartVotingRoundId" */ eq(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ shr(48, _43), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff), and(/** @src 0:15270:15352  "stateData.firstRewardEpochStartVotingRoundId == firstRewardEpochStartVotingRoundId" */ expr_component_2, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)))
+                if iszero(/** @src 0:15606:15688  "stateData.firstRewardEpochStartVotingRoundId == firstRewardEpochStartVotingRoundId" */ eq(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ shr(48, _43), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff), and(/** @src 0:15606:15688  "stateData.firstRewardEpochStartVotingRoundId == firstRewardEpochStartVotingRoundId" */ expr_component_2, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)))
                 /// @src 0:2387:2392  "10000"
                 {
-                    let memPtr_15 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr_15 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2387:2392  "10000"
                     mstore(memPtr_15, shl(229, 4594637))
-                    mstore(add(memPtr_15, /** @src 0:14081:14097  "protocolFeeInWei" */ 0x04), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                    mstore(add(memPtr_15, /** @src 0:14417:14433  "protocolFeeInWei" */ 0x04), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                     /// @src 0:2387:2392  "10000"
                     mstore(add(memPtr_15, 36), 30)
                     mstore(add(memPtr_15, 68), "wrong first reward epoch start")
                     revert(memPtr_15, 100)
                 }
-                if iszero(/** @src 0:15455:15521  "stateData.votingEpochDurationSeconds == votingEpochDurationSeconds" */ eq(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ shr(40, _43), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xff), and(/** @src 0:15455:15521  "stateData.votingEpochDurationSeconds == votingEpochDurationSeconds" */ expr_component_1, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xff)))
+                if iszero(/** @src 0:15791:15857  "stateData.votingEpochDurationSeconds == votingEpochDurationSeconds" */ eq(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:2387:2392  "10000" */ shr(40, _43), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xff), and(/** @src 0:15791:15857  "stateData.votingEpochDurationSeconds == votingEpochDurationSeconds" */ expr_component_1, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xff)))
                 /// @src 0:2387:2392  "10000"
                 {
-                    let memPtr_16 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr_16 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2387:2392  "10000"
                     mstore(memPtr_16, shl(229, 4594637))
-                    mstore(add(memPtr_16, /** @src 0:14081:14097  "protocolFeeInWei" */ 0x04), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
+                    mstore(add(memPtr_16, /** @src 0:14417:14433  "protocolFeeInWei" */ 0x04), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
                     /// @src 0:2387:2392  "10000"
                     mstore(add(memPtr_16, 36), 27)
                     mstore(add(memPtr_16, 68), "wrong voting epoch duration")
                     revert(memPtr_16, 100)
                 }
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             let _44 := mload(64)
-            let _45 := datasize("Relay_2011_deployed")
-            codecopy(_44, dataoffset("Relay_2011_deployed"), _45)
+            let _45 := datasize("Relay_2022_deployed")
+            codecopy(_44, dataoffset("Relay_2022_deployed"), _45)
             setimmutable(_44, "332", mload(128))
             setimmutable(_44, "335", mload(160))
             setimmutable(_44, "338", mload(192))
@@ -594,9 +594,9 @@ object "Relay_2011" {
             let newFreePtr := add(memPtr, and(add(size, 31), not(31)))
             if or(gt(newFreePtr, sub(shl(64, 1), 1)), lt(newFreePtr, memPtr))
             {
-                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
+                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
                 mstore(4, 0x41)
-                revert(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x24)
+                revert(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x24)
             }
             mstore(64, newFreePtr)
         }
@@ -625,7 +625,7 @@ object "Relay_2011" {
         {
             if iszero(lt(index, mload(baseRef)))
             {
-                mstore(0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
+                mstore(0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(224, 0x4e487b71))
                 /// @src 0:2387:2392  "10000"
                 mstore(4, 0x32)
                 revert(0, 0x24)
@@ -639,10 +639,10 @@ object "Relay_2011" {
         }
     }
     /// @use-src 0:"contracts/protocol/implementation/Relay.sol", 4:"dependencies/@openzeppelin-contracts-5.4.0/utils/cryptography/Hashes.sol", 5:"dependencies/@openzeppelin-contracts-5.4.0/utils/cryptography/MerkleProof.sol"
-    object "Relay_2011_deployed" {
+    object "Relay_2022_deployed" {
         code {
             {
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 mstore(64, 128)
                 if iszero(lt(calldatasize(), 4))
                 {
@@ -701,7 +701,7 @@ object "Relay_2011" {
                 }
                 revert(0, 0)
             }
-            function abi_decode_uint256_15035() -> value
+            function abi_decode_uint256_15127() -> value
             { value := calldataload(4) }
             function abi_decode_uint256() -> value
             { value := calldataload(36) }
@@ -717,9 +717,9 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value := calldataload(4)
                 let ret := fun_toSigningPolicyHash(value)
                 let memPos := mload(64)
@@ -784,9 +784,9 @@ object "Relay_2011" {
                 if callvalue() { revert(0, 0) }
                 if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
                 let _1 := sload(/** @src 0:9226:9252  "StateData public stateData" */ 7)
-                let ret := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ extract_from_storage_value_offsett_bool(_1)
+                let ret := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ extract_from_storage_value_offsett_bool(_1)
                 /// @src 0:9226:9252  "StateData public stateData"
-                let ret_1 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ extract_from_storage_value_offset_24t_uint32(_1)
+                let ret_1 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ extract_from_storage_value_offset_24t_uint32(_1)
                 let memPos := mload(64)
                 return(memPos, sub(abi_encode_uint8_uint32_uint8_uint32_uint16_uint16_uint32_bool_uint32_bool_uint32(memPos, and(_1, 0xff), and(shr(8, _1), 0xffffffff), and(shr(40, _1), 0xff), and(shr(48, _1), 0xffffffff), and(shr(80, _1), 0xffff), and(shr(96, _1), 0xffff), and(shr(112, _1), 0xffffffff), and(shr(144, _1), 0xff), and(shr(152, _1), 0xffffffff), ret, ret_1), memPos))
             }
@@ -802,12 +802,12 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value := calldataload(4)
                 let value_1 := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value_1 := calldataload(36)
                 let ret := fun_isFinalized(value, value_1)
                 let memPos := mload(64)
@@ -826,7 +826,7 @@ object "Relay_2011" {
             {
                 if callvalue() { revert(0, 0) }
                 if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
-                let value := and(sload(/** @src 0:8782:8825  "address payable public feeCollectionAddress" */ 5), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
+                let value := and(sload(/** @src 0:8782:8825  "address payable public feeCollectionAddress" */ 5), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
                 let memPos := mload(64)
                 mstore(memPos, value)
                 return(memPos, 32)
@@ -838,12 +838,12 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value := calldataload(4)
                 let value_1 := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value_1 := calldataload(36)
                 let ret := fun_merkleRoots(value, value_1)
                 let memPos := mload(64)
@@ -855,7 +855,7 @@ object "Relay_2011" {
                 if callvalue() { revert(0, 0) }
                 if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
                 let memPos := mload(64)
-                mstore(memPos, and(/** @src 0:9819:9887  "uint32 public immutable startingVotingRoundIdForInitialRewardEpochId" */ loadimmutable("338"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+                mstore(memPos, and(/** @src 0:9819:9887  "uint32 public immutable startingVotingRoundIdForInitialRewardEpochId" */ loadimmutable("338"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
                 return(memPos, 32)
             }
             function external_fun_governanceFeeNonce()
@@ -863,7 +863,7 @@ object "Relay_2011" {
                 if callvalue() { revert(0, 0) }
                 if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
                 let _1 := sload(/** @src 0:9356:9389  "uint256 public governanceFeeNonce" */ 8)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let memPos := mload(64)
                 mstore(memPos, _1)
                 return(memPos, 32)
@@ -883,172 +883,172 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let offset := calldataload(4)
                 if gt(offset, 0xffffffffffffffff)
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value0, value1 := abi_decode_bytes_calldata(add(4, offset), calldatasize())
                 let offset_1 := calldataload(36)
                 if gt(offset_1, 0xffffffffffffffff)
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let _1 := add(4, offset_1)
                 if slt(add(sub(calldatasize(), offset_1), not(3)), 128)
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:22515:22578  "require(signingPolicySetter == address(0), \"fee cannot be set\")"
-                require_helper_stringliteral_59e4(/** @src 0:22523:22556  "signingPolicySetter == address(0)" */ iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(cleanup_address_payable(sload(/** @src 0:22523:22542  "signingPolicySetter" */ 0x03)), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))))
-                /// @src 0:22596:22611  "_config.chainId"
+                /// @src 0:23283:23346  "require(signingPolicySetter == address(0), \"fee cannot be set\")"
+                require_helper_stringliteral_59e4(/** @src 0:23291:23324  "signingPolicySetter == address(0)" */ iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(cleanup_address_payable(sload(/** @src 0:23291:23310  "signingPolicySetter" */ 0x03)), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))))
+                /// @src 0:23364:23379  "_config.chainId"
                 let value := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                value := calldataload(/** @src 0:22596:22611  "_config.chainId" */ add(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ offset_1, 36))
-                /// @src 0:22588:22647  "require(_config.chainId == block.chainid, \"wrong chain id\")"
-                require_helper_stringliteral_0424(/** @src 0:22596:22628  "_config.chainId == block.chainid" */ eq(value, /** @src 0:22615:22628  "block.chainid" */ chainid()))
-                /// @src 0:22665:22688  "_config.descriptionHash"
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                value := calldataload(/** @src 0:23364:23379  "_config.chainId" */ add(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ offset_1, 36))
+                /// @src 0:23356:23415  "require(_config.chainId == block.chainid, \"wrong chain id\")"
+                require_helper_stringliteral_0424(/** @src 0:23364:23396  "_config.chainId == block.chainid" */ eq(value, /** @src 0:23383:23396  "block.chainid" */ chainid()))
+                /// @src 0:23433:23456  "_config.descriptionHash"
                 let value_1 := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value_1 := calldataload(_1)
-                /// @src 0:22657:22747  "require(_config.descriptionHash == keccak256(\"RelayGovernance\"), \"wrong description hash\")"
-                require_helper_stringliteral_88b2(/** @src 0:22665:22720  "_config.descriptionHash == keccak256(\"RelayGovernance\")" */ eq(value_1, /** @src 0:22692:22720  "keccak256(\"RelayGovernance\")" */ 0xba90a7502e1d792c42ae7da5cf5982d831ebf2254fd5919818faf046187d95d2))
-                /// @src 0:23022:23056  "abi.encode(_config, address(this))"
-                let expr_mpos := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                /// @src 0:23022:23056  "abi.encode(_config, address(this))"
-                let _2 := add(expr_mpos, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
-                /// @src 0:23022:23056  "abi.encode(_config, address(this))"
-                let _3 := sub(abi_encode_struct_RelayGovernanceConfig_calldata_address(_2, _1, /** @src 0:23050:23054  "this" */ address()), /** @src 0:23022:23056  "abi.encode(_config, address(this))" */ expr_mpos)
+                /// @src 0:23425:23515  "require(_config.descriptionHash == keccak256(\"RelayGovernance\"), \"wrong description hash\")"
+                require_helper_stringliteral_88b2(/** @src 0:23433:23488  "_config.descriptionHash == keccak256(\"RelayGovernance\")" */ eq(value_1, /** @src 0:23460:23488  "keccak256(\"RelayGovernance\")" */ 0xba90a7502e1d792c42ae7da5cf5982d831ebf2254fd5919818faf046187d95d2))
+                /// @src 0:23790:23824  "abi.encode(_config, address(this))"
+                let expr_mpos := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                /// @src 0:23790:23824  "abi.encode(_config, address(this))"
+                let _2 := add(expr_mpos, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
+                /// @src 0:23790:23824  "abi.encode(_config, address(this))"
+                let _3 := sub(abi_encode_struct_RelayGovernanceConfig_calldata_address(_2, _1, /** @src 0:23818:23822  "this" */ address()), /** @src 0:23790:23824  "abi.encode(_config, address(this))" */ expr_mpos)
                 mstore(expr_mpos, add(_3, not(31)))
                 finalize_allocation(expr_mpos, _3)
-                /// @src 0:22974:23058  "_verifyCustomSignature(_relayMessage, keccak256(abi.encode(_config, address(this))))"
-                let expr := fun_verifyCustomSignature(value0, value1, /** @src 0:23012:23057  "keccak256(abi.encode(_config, address(this)))" */ keccak256(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _2, mload(/** @src 0:23012:23057  "keccak256(abi.encode(_config, address(this)))" */ expr_mpos)))
-                /// @src 0:23356:23392  "stateData.lastInitializedRewardEpoch"
-                let _4 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ extract_from_storage_value_offsett_uint32(sload(/** @src 0:23356:23365  "stateData" */ 0x07))
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                let _5 := and(/** @src 0:23356:23415  "stateData.lastInitializedRewardEpoch == returnRewardEpochId" */ _4, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)
-                /// @src 0:23356:23556  "stateData.lastInitializedRewardEpoch == returnRewardEpochId ||..."
-                let expr_1 := /** @src 0:23356:23415  "stateData.lastInitializedRewardEpoch == returnRewardEpochId" */ eq(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _5, /** @src 0:23356:23415  "stateData.lastInitializedRewardEpoch == returnRewardEpochId" */ expr)
-                /// @src 0:23356:23556  "stateData.lastInitializedRewardEpoch == returnRewardEpochId ||..."
+                /// @src 0:23742:23826  "_verifyCustomSignature(_relayMessage, keccak256(abi.encode(_config, address(this))))"
+                let expr := fun_verifyCustomSignature(value0, value1, /** @src 0:23780:23825  "keccak256(abi.encode(_config, address(this)))" */ keccak256(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _2, mload(/** @src 0:23780:23825  "keccak256(abi.encode(_config, address(this)))" */ expr_mpos)))
+                /// @src 0:24124:24160  "stateData.lastInitializedRewardEpoch"
+                let _4 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ extract_from_storage_value_offsett_uint32(sload(/** @src 0:24124:24133  "stateData" */ 0x07))
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                let _5 := and(/** @src 0:24124:24183  "stateData.lastInitializedRewardEpoch == returnRewardEpochId" */ _4, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)
+                /// @src 0:24124:24324  "stateData.lastInitializedRewardEpoch == returnRewardEpochId ||..."
+                let expr_1 := /** @src 0:24124:24183  "stateData.lastInitializedRewardEpoch == returnRewardEpochId" */ eq(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _5, /** @src 0:24124:24183  "stateData.lastInitializedRewardEpoch == returnRewardEpochId" */ expr)
+                /// @src 0:24124:24324  "stateData.lastInitializedRewardEpoch == returnRewardEpochId ||..."
                 if iszero(expr_1)
                 {
-                    /// @src 0:23432:23555  "stateData.lastInitializedRewardEpoch > 0 &&..."
-                    let expr_2 := /** @src 0:23432:23472  "stateData.lastInitializedRewardEpoch > 0" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _5))
-                    /// @src 0:23432:23555  "stateData.lastInitializedRewardEpoch > 0 &&..."
+                    /// @src 0:24200:24323  "stateData.lastInitializedRewardEpoch > 0 &&..."
+                    let expr_2 := /** @src 0:24200:24240  "stateData.lastInitializedRewardEpoch > 0" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _5))
+                    /// @src 0:24200:24323  "stateData.lastInitializedRewardEpoch > 0 &&..."
                     if expr_2
                     {
-                        expr_2 := /** @src 0:23492:23555  "stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId" */ eq(cleanup_from_storage_uint32(/** @src 0:23492:23532  "stateData.lastInitializedRewardEpoch - 1" */ checked_sub_uint32(_4)), /** @src 0:23492:23555  "stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId" */ expr)
+                        expr_2 := /** @src 0:24260:24323  "stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId" */ eq(cleanup_from_storage_uint32(/** @src 0:24260:24300  "stateData.lastInitializedRewardEpoch - 1" */ checked_sub_uint32(_4)), /** @src 0:24260:24323  "stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId" */ expr)
                     }
-                    /// @src 0:23356:23556  "stateData.lastInitializedRewardEpoch == returnRewardEpochId ||..."
+                    /// @src 0:24124:24324  "stateData.lastInitializedRewardEpoch == returnRewardEpochId ||..."
                     expr_1 := expr_2
                 }
-                /// @src 0:23335:23604  "require(..."
+                /// @src 0:24103:24372  "require(..."
                 require_helper_stringliteral_524a(expr_1)
-                /// @src 0:23722:23735  "_config.nonce"
+                /// @src 0:24490:24503  "_config.nonce"
                 let value_2 := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                value_2 := calldataload(/** @src 0:23722:23735  "_config.nonce" */ add(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ offset_1, /** @src 0:23722:23735  "_config.nonce" */ 68))
-                /// @src 0:23714:23774  "require(_config.nonce > governanceFeeNonce, \"nonce too low\")"
-                require_helper_stringliteral_6b1b(/** @src 0:23722:23756  "_config.nonce > governanceFeeNonce" */ gt(value_2, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sload(/** @src 0:23738:23756  "governanceFeeNonce" */ 0x08)))
-                /// @src 0:23784:23818  "governanceFeeNonce = _config.nonce"
-                update_storage_value_offsett_uint256_to_uint256(/** @src 0:23805:23818  "_config.nonce" */ value_2)
-                /// @src 0:23914:23927  "uint256 i = 0"
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                value_2 := calldataload(/** @src 0:24490:24503  "_config.nonce" */ add(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ offset_1, /** @src 0:24490:24503  "_config.nonce" */ 68))
+                /// @src 0:24482:24542  "require(_config.nonce > governanceFeeNonce, \"nonce too low\")"
+                require_helper_stringliteral_6b1b(/** @src 0:24490:24524  "_config.nonce > governanceFeeNonce" */ gt(value_2, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sload(/** @src 0:24506:24524  "governanceFeeNonce" */ 0x08)))
+                /// @src 0:24552:24586  "governanceFeeNonce = _config.nonce"
+                update_storage_value_offsett_uint256_to_uint256(/** @src 0:24573:24586  "_config.nonce" */ value_2)
+                /// @src 0:24682:24695  "uint256 i = 0"
                 let var_i := /** @src -1:-1:-1 */ 0
-                /// @src 0:23933:23954  "_config.newFeeConfigs"
-                let _6 := add(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ offset_1, /** @src 0:23933:23954  "_config.newFeeConfigs" */ 100)
-                /// @src 0:23909:24294  "for (uint256 i = 0; i < _config.newFeeConfigs.length; i++) {..."
+                /// @src 0:24701:24722  "_config.newFeeConfigs"
+                let _6 := add(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ offset_1, /** @src 0:24701:24722  "_config.newFeeConfigs" */ 100)
+                /// @src 0:24677:25062  "for (uint256 i = 0; i < _config.newFeeConfigs.length; i++) {..."
                 for { }
-                /** @src 0:24071:24072  "1" */ 0x01
-                /// @src 0:23914:23927  "uint256 i = 0"
+                /** @src 0:24839:24840  "1" */ 0x01
+                /// @src 0:24682:24695  "uint256 i = 0"
                 {
-                    /// @src 0:23963:23966  "i++"
-                    var_i := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:23963:23966  "i++" */ var_i, /** @src 0:24071:24072  "1" */ 0x01)
+                    /// @src 0:24731:24734  "i++"
+                    var_i := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:24731:24734  "i++" */ var_i, /** @src 0:24839:24840  "1" */ 0x01)
                 }
-                /// @src 0:23963:23966  "i++"
+                /// @src 0:24731:24734  "i++"
                 {
-                    /// @src 0:23933:23954  "_config.newFeeConfigs"
+                    /// @src 0:24701:24722  "_config.newFeeConfigs"
                     let expr_offset, expr_length := access_calldata_tail_array_struct_FeeConfig_calldata_dyn_calldata(_1, _6)
-                    /// @src 0:23929:23961  "i < _config.newFeeConfigs.length"
-                    if iszero(lt(var_i, /** @src 0:23933:23961  "_config.newFeeConfigs.length" */ expr_length))
-                    /// @src 0:23929:23961  "i < _config.newFeeConfigs.length"
+                    /// @src 0:24697:24729  "i < _config.newFeeConfigs.length"
+                    if iszero(lt(var_i, /** @src 0:24701:24729  "_config.newFeeConfigs.length" */ expr_length))
+                    /// @src 0:24697:24729  "i < _config.newFeeConfigs.length"
                     { break }
-                    /// @src 0:24001:24022  "_config.newFeeConfigs"
+                    /// @src 0:24769:24790  "_config.newFeeConfigs"
                     let expr_offset_1, expr_length_1 := access_calldata_tail_array_struct_FeeConfig_calldata_dyn_calldata(_1, _6)
-                    /// @src 0:24001:24036  "_config.newFeeConfigs[i].protocolId"
-                    let expr_3 := read_from_calldatat_uint8(/** @src 0:24001:24025  "_config.newFeeConfigs[i]" */ calldata_array_index_access_struct_FeeConfig_calldata_dyn_calldata(expr_offset_1, expr_length_1, var_i))
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                    let _7 := and(/** @src 0:24058:24072  "protocolId > 1" */ expr_3, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xff)
-                    /// @src 0:24050:24096  "require(protocolId > 1, \"invalid protocol id\")"
-                    require_helper_stringliteral_44e5(/** @src 0:24058:24072  "protocolId > 1" */ gt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _7, /** @src 0:24071:24072  "1" */ 0x01))
-                    /// @src 0:24141:24162  "_config.newFeeConfigs"
+                    /// @src 0:24769:24804  "_config.newFeeConfigs[i].protocolId"
+                    let expr_3 := read_from_calldatat_uint8(/** @src 0:24769:24793  "_config.newFeeConfigs[i]" */ calldata_array_index_access_struct_FeeConfig_calldata_dyn_calldata(expr_offset_1, expr_length_1, var_i))
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                    let _7 := and(/** @src 0:24826:24840  "protocolId > 1" */ expr_3, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xff)
+                    /// @src 0:24818:24864  "require(protocolId > 1, \"invalid protocol id\")"
+                    require_helper_stringliteral_44e5(/** @src 0:24826:24840  "protocolId > 1" */ gt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _7, /** @src 0:24839:24840  "1" */ 0x01))
+                    /// @src 0:24909:24930  "_config.newFeeConfigs"
                     let expr_offset_2, expr_length_2 := access_calldata_tail_array_struct_FeeConfig_calldata_dyn_calldata(_1, _6)
-                    /// @src 0:24141:24174  "_config.newFeeConfigs[i].feeInWei"
-                    let _8 := add(/** @src 0:24141:24165  "_config.newFeeConfigs[i]" */ calldata_array_index_access_struct_FeeConfig_calldata_dyn_calldata(expr_offset_2, expr_length_2, var_i), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
-                    /// @src 0:24141:24174  "_config.newFeeConfigs[i].feeInWei"
+                    /// @src 0:24909:24942  "_config.newFeeConfigs[i].feeInWei"
+                    let _8 := add(/** @src 0:24909:24933  "_config.newFeeConfigs[i]" */ calldata_array_index_access_struct_FeeConfig_calldata_dyn_calldata(expr_offset_2, expr_length_2, var_i), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
+                    /// @src 0:24909:24942  "_config.newFeeConfigs[i].feeInWei"
                     let value_3 := /** @src -1:-1:-1 */ 0
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     value_3 := calldataload(_8)
-                    sstore(/** @src 0:24110:24138  "protocolFeeInWei[protocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint8(expr_3), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ value_3)
-                    /// @src 0:24234:24255  "_config.newFeeConfigs"
+                    sstore(/** @src 0:24878:24906  "protocolFeeInWei[protocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint8(expr_3), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ value_3)
+                    /// @src 0:25002:25023  "_config.newFeeConfigs"
                     let expr_offset_3, expr_length_3 := access_calldata_tail_array_struct_FeeConfig_calldata_dyn_calldata(_1, _6)
-                    /// @src 0:24234:24267  "_config.newFeeConfigs[i].feeInWei"
-                    let _9 := add(/** @src 0:24234:24258  "_config.newFeeConfigs[i]" */ calldata_array_index_access_struct_FeeConfig_calldata_dyn_calldata(expr_offset_3, expr_length_3, var_i), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 32)
-                    /// @src 0:24234:24267  "_config.newFeeConfigs[i].feeInWei"
+                    /// @src 0:25002:25035  "_config.newFeeConfigs[i].feeInWei"
+                    let _9 := add(/** @src 0:25002:25026  "_config.newFeeConfigs[i]" */ calldata_array_index_access_struct_FeeConfig_calldata_dyn_calldata(expr_offset_3, expr_length_3, var_i), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 32)
+                    /// @src 0:25002:25035  "_config.newFeeConfigs[i].feeInWei"
                     let value_4 := /** @src -1:-1:-1 */ 0
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     value_4 := calldataload(_9)
-                    /// @src 0:24193:24283  "RelayGovernanceFeeConfigured(protocolId, _config.newFeeConfigs[i].feeInWei, _config.nonce)"
-                    let _10 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                    /// @src 0:24193:24283  "RelayGovernanceFeeConfigured(protocolId, _config.newFeeConfigs[i].feeInWei, _config.nonce)"
+                    /// @src 0:24961:25051  "RelayGovernanceFeeConfigured(protocolId, _config.newFeeConfigs[i].feeInWei, _config.nonce)"
+                    let _10 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                    /// @src 0:24961:25051  "RelayGovernanceFeeConfigured(protocolId, _config.newFeeConfigs[i].feeInWei, _config.nonce)"
                     log2(_10, sub(abi_encode_uint256_uint256(_10, value_4, value_2), _10), 0x56e557c678d8c60ad61135f4d764031042d94e83074d43cad2dd56a0194759c8, _7)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 return(/** @src -1:-1:-1 */ 0, 0)
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             function external_fun_initialRewardEpochId()
             {
                 if callvalue() { revert(0, 0) }
                 if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
                 let memPos := mload(64)
-                mstore(memPos, and(/** @src 0:9716:9760  "uint32 public immutable initialRewardEpochId" */ loadimmutable("335"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+                mstore(memPos, and(/** @src 0:9716:9760  "uint32 public immutable initialRewardEpochId" */ loadimmutable("335"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
                 return(memPos, 32)
             }
-            function mapping_index_access_mapping_uint256_uint256_of_uint256_15098(key) -> dataSlot
+            function mapping_index_access_mapping_uint256_uint256_of_uint256_15190(key) -> dataSlot
             {
                 mstore(0, key)
                 mstore(0x20, 0)
                 dataSlot := keccak256(0, 0x40)
             }
-            function mapping_index_access_mapping_uint256_uint256_of_uint256_15099(key) -> dataSlot
+            function mapping_index_access_mapping_uint256_uint256_of_uint256_15191(key) -> dataSlot
             {
                 mstore(0, key)
-                mstore(0x20, /** @src 0:77578:77596  "merkleRootsPrivate" */ 0x01)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                mstore(0x20, /** @src 0:79308:79326  "merkleRootsPrivate" */ 0x01)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 dataSlot := keccak256(0, 0x40)
             }
-            function mapping_index_access_mapping_uint256_uint256_of_uint256_15104(key) -> dataSlot
+            function mapping_index_access_mapping_uint256_uint256_of_uint256_15196(key) -> dataSlot
             {
                 mstore(0, key)
-                mstore(0x20, /** @src 0:75648:75664  "protocolFeeInWei" */ 0x04)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                mstore(0x20, /** @src 0:77378:77394  "protocolFeeInWei" */ 0x04)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 dataSlot := keccak256(0, 0x40)
             }
-            function mapping_index_access_mapping_uint256_uint256_of_uint256_15177(key) -> dataSlot
+            function mapping_index_access_mapping_uint256_uint256_of_uint256_15269(key) -> dataSlot
             {
                 mstore(0, key)
-                mstore(0x20, /** @src 0:79895:79916  "toRandomNumberPrivate" */ 0x09)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                mstore(0x20, /** @src 0:81625:81646  "toRandomNumberPrivate" */ 0x09)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 dataSlot := keccak256(0, 0x40)
             }
-            function mapping_index_access_mapping_uint256_uint256_of_uint256_15179(key) -> dataSlot
+            function mapping_index_access_mapping_uint256_uint256_of_uint256_15271(key) -> dataSlot
             {
                 mstore(0, key)
-                mstore(0x20, /** @src 0:79973:79990  "isSecureRandomMap" */ 0x06)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                mstore(0x20, /** @src 0:81703:81720  "isSecureRandomMap" */ 0x06)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 dataSlot := keccak256(0, 0x40)
             }
             function mapping_index_access_mapping_uint256_uint256_of_uint256(slot, key) -> dataSlot
@@ -1064,14 +1064,14 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value := calldataload(4)
-                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ value)
+                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ value)
                 mstore(32, /** @src 0:8472:8543  "mapping(uint256 rewardEpochId => uint256) public startingVotingRoundIds" */ 2)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                let _1 := sload(keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x40))
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                let _1 := sload(keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x40))
                 let memPos := mload(0x40)
                 mstore(memPos, _1)
                 return(memPos, 32)
@@ -1084,8 +1084,8 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                let value0 := abi_decode_uint256_15035()
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                let value0 := abi_decode_uint256_15127()
                 let value1 := abi_decode_uint256()
                 let value2 := abi_decode_bytes32()
                 let offset := calldataload(100)
@@ -1093,23 +1093,23 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 if iszero(slt(add(offset, 35), calldatasize()))
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let length := calldataload(add(4, offset))
                 if gt(length, 0xffffffffffffffff)
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 if gt(add(add(offset, shl(5, length)), 36), calldatasize())
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let ret := fun_verify(value0, value1, value2, add(offset, 36), length)
                 let memPos := mload(64)
                 return(memPos, sub(abi_encode_bool(memPos, ret), memPos))
@@ -1122,8 +1122,8 @@ object "Relay_2011" {
             }
             function finalize_allocation(memPtr, size)
             {
-                let newFreePtr := add(memPtr, and(add(size, 31), /** @src 0:23022:23056  "abi.encode(_config, address(this))" */ not(31)))
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                let newFreePtr := add(memPtr, and(add(size, 31), /** @src 0:23790:23824  "abi.encode(_config, address(this))" */ not(31)))
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, memPtr)) { panic_error_0x41() }
                 mstore(64, newFreePtr)
             }
@@ -1171,7 +1171,7 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let src := add(offset, 0x20)
                 for { } lt(src, srcEnd) { src := add(src, 0x20) }
                 {
@@ -1180,7 +1180,7 @@ object "Relay_2011" {
                     {
                         revert(/** @src -1:-1:-1 */ 0, 0)
                     }
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     mstore(dst, value)
                     dst := add(dst, 0x20)
                 }
@@ -1201,7 +1201,7 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let src := add(offset, 0x20)
                 for { } lt(src, srcEnd) { src := add(src, 0x20) }
                 {
@@ -1217,24 +1217,24 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let offset := calldataload(4)
                 if gt(offset, 0xffffffffffffffff)
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 if slt(add(sub(calldatasize(), offset), not(3)), 0xc0)
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value := allocate_memory()
                 mstore(value, abi_decode_uint24(add(4, offset)))
                 mstore(add(value, 32), abi_decode_uint32(add(offset, 36)))
                 mstore(add(value, 64), abi_decode_uint16(add(offset, 68)))
                 let value_1 := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value_1 := calldataload(add(offset, 100))
                 mstore(add(value, 96), value_1)
                 let offset_1 := calldataload(add(offset, 132))
@@ -1242,18 +1242,18 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 mstore(add(value, 128), abi_decode_array_address_dyn(add(add(offset, offset_1), 4), calldatasize()))
                 let offset_2 := calldataload(add(offset, 164))
                 if gt(offset_2, 0xffffffffffffffff)
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 mstore(add(value, 160), abi_decode_array_uint16_dyn(add(add(offset, offset_2), 4), calldatasize()))
-                /// @src 0:15901:15908  "bytes32"
+                /// @src 0:16237:16244  "bytes32"
                 let var := modifier_onlySigningPolicySetter(value)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let memPos := mload(64)
                 return(memPos, sub(abi_encode_bytes32(memPos, var), memPos))
             }
@@ -1261,10 +1261,10 @@ object "Relay_2011" {
             {
                 if callvalue() { revert(0, 0) }
                 if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
-                let value := and(shr(152, sload(/** @src 0:81357:81366  "stateData" */ 0x07)), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)
+                let value := and(shr(152, sload(/** @src 0:83087:83096  "stateData" */ 0x07)), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)
                 mstore(0, value)
-                mstore(0x20, /** @src 0:81476:81498  "startingVotingRoundIds" */ 0x02)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                mstore(0x20, /** @src 0:83206:83228  "startingVotingRoundIds" */ 0x02)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let cleaned := and(sload(keccak256(0, 0x40)), 0xffffffff)
                 let memPos := mload(0x40)
                 mstore(memPos, value)
@@ -1278,13 +1278,13 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value := calldataload(4)
-                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ value)
+                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ value)
                 mstore(32, 4)
-                let _1 := sload(keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x40))
+                let _1 := sload(keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x40))
                 let memPos := mload(0x40)
                 mstore(memPos, _1)
                 return(memPos, 32)
@@ -1296,18 +1296,18 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let offset := calldataload(4)
                 if gt(offset, 0xffffffffffffffff)
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value0, value1 := abi_decode_bytes_calldata(add(4, offset), calldatasize())
                 let value := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value := calldataload(36)
-                let ret := /** @src 0:22292:22343  "_verifyCustomSignature(_relayMessage, _messageHash)" */ fun_verifyCustomSignature(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ value0, value1, value)
+                let ret := /** @src 0:23060:23111  "_verifyCustomSignature(_relayMessage, _messageHash)" */ fun_verifyCustomSignature(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ value0, value1, value)
                 let memPos := mload(64)
                 mstore(memPos, ret)
                 return(memPos, 32)
@@ -1326,9 +1326,9 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value := calldataload(4)
                 let ret, ret_1, ret_2 := fun_getRandomNumberHistorical(value)
                 let memPos := mload(64)
@@ -1338,7 +1338,7 @@ object "Relay_2011" {
             {
                 if callvalue() { revert(0, 0) }
                 if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
-                let value := and(sload(/** @src 0:8618:8652  "address public signingPolicySetter" */ 3), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
+                let value := and(sload(/** @src 0:8618:8652  "address public signingPolicySetter" */ 3), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
                 let memPos := mload(64)
                 mstore(memPos, value)
                 return(memPos, 32)
@@ -1350,13 +1350,13 @@ object "Relay_2011" {
                 {
                     revert(/** @src -1:-1:-1 */ 0, 0)
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                let value0 := abi_decode_uint256_15035()
-                let _1 := sload(/** @src 0:80438:80447  "stateData" */ 0x07)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                let value0 := abi_decode_uint256_15127()
+                let _1 := sload(/** @src 0:82168:82177  "stateData" */ 0x07)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value := and(shr(8, _1), 0xffffffff)
-                if /** @src 0:80424:80471  "_timestamp >= stateData.firstVotingRoundStartTs" */ lt(value0, value)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                if /** @src 0:82154:82201  "_timestamp >= stateData.firstVotingRoundStartTs" */ lt(value0, value)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 {
                     let memPtr := mload(64)
                     mstore(memPtr, shl(229, 4594637))
@@ -1365,10 +1365,10 @@ object "Relay_2011" {
                     mstore(add(memPtr, 68), "before the start")
                     revert(memPtr, 100)
                 }
-                /// @src 0:80510:80556  "_timestamp - stateData.firstVotingRoundStartTs"
-                let expr := checked_sub_uint256(value0, cleanup_from_storage_uint32(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ value))
-                /// @src 0:80502:80596  "return (_timestamp - stateData.firstVotingRoundStartTs) / stateData.votingEpochDurationSeconds"
-                let var := /** @src 0:80509:80596  "(_timestamp - stateData.firstVotingRoundStartTs) / stateData.votingEpochDurationSeconds" */ checked_div_uint256(expr, extract_from_storage_value_offsett_uint8(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ extract_from_storage_value_offset_5t_uint8(_1)))
+                /// @src 0:82240:82286  "_timestamp - stateData.firstVotingRoundStartTs"
+                let expr := checked_sub_uint256(value0, cleanup_from_storage_uint32(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ value))
+                /// @src 0:82232:82326  "return (_timestamp - stateData.firstVotingRoundStartTs) / stateData.votingEpochDurationSeconds"
+                let var := /** @src 0:82239:82326  "(_timestamp - stateData.firstVotingRoundStartTs) / stateData.votingEpochDurationSeconds" */ checked_div_uint256(expr, extract_from_storage_value_offsett_uint8(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ extract_from_storage_value_offset_5t_uint8(_1)))
                 let memPos := mload(64)
                 return(memPos, sub(abi_encode_bytes32(memPos, var), memPos))
             }
@@ -1378,49 +1378,49 @@ object "Relay_2011" {
                 mstore(pos, length)
                 mcopy(add(pos, 0x20), add(value, 0x20), length)
                 mstore(add(add(pos, length), 0x20), /** @src -1:-1:-1 */ 0)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                end := add(add(pos, and(add(length, 31), /** @src 0:23022:23056  "abi.encode(_config, address(this))" */ not(31))), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x20)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                end := add(add(pos, and(add(length, 31), /** @src 0:23790:23824  "abi.encode(_config, address(this))" */ not(31))), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x20)
             }
             function external_fun_relay()
             {
                 if callvalue() { revert(0, 0) }
                 if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
-                /// @src 0:24462:73522  "assembly {..."
+                /// @src 0:25230:75252  "assembly {..."
                 let usr$memPtr := mload(0x40)
                 mstore(add(usr$memPtr, 160), sload(7))
-                if lt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:24462:73522  "assembly {..." */ 15)
+                if lt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:25230:75252  "assembly {..." */ 15)
                 {
-                    usr$revertWithMessage_15055(usr$memPtr)
+                    usr$revertWithMessage_15147(usr$memPtr)
                 }
-                calldatacopy(usr$memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 4, /** @src 0:24462:73522  "assembly {..." */ 11)
+                calldatacopy(usr$memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 4, /** @src 0:25230:75252  "assembly {..." */ 11)
                 let _1 := mload(usr$memPtr)
-                if lt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:24462:73522  "assembly {..." */ add(mul(shr(240, _1), 22), 48))
+                if lt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:25230:75252  "assembly {..." */ add(mul(shr(240, _1), 22), 48))
                 {
-                    usr$revertWithMessage_15056(usr$memPtr)
+                    usr$revertWithMessage(usr$memPtr)
                 }
-                let _2 := usr$calculateSigningPolicyHash_15057(usr$memPtr, add(43, mul(shr(240, _1), 22)))
+                let _2 := usr$calculateSigningPolicyHash_15149(usr$memPtr, add(43, mul(shr(240, _1), 22)))
                 mstore(add(usr$memPtr, 0x40), _2)
                 mstore(usr$memPtr, and(shr(216, _1), 16777215))
-                mstore(add(usr$memPtr, 32), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0)
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(add(usr$memPtr, 32), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0)
+                /// @src 0:25230:75252  "assembly {..."
                 let _3 := sload(keccak256(usr$memPtr, 0x40))
                 mstore(add(usr$memPtr, 96), _3)
                 if iszero(eq(_2, _3))
                 {
-                    usr$revertWithMessage_15058(usr$memPtr)
+                    usr$revertWithMessage_15150(usr$memPtr)
                 }
                 calldatacopy(usr$memPtr, add(mul(shr(240, _1), 22), 47), 1)
                 let usr$protocolId := shr(248, mload(usr$memPtr))
-                let usr$signatureStart := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                /// @src 0:24462:73522  "assembly {..."
+                let usr$signatureStart := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                /// @src 0:25230:75252  "assembly {..."
                 let usr$threshold := and(shr(168, _1), 65535)
                 if iszero(iszero(usr$protocolId))
                 {
                     let usr$memPtrGP0 := mload(0x40)
                     usr$signatureStart := add(mul(shr(240, _1), 22), 85)
-                    if lt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:24462:73522  "assembly {..." */ usr$signatureStart)
+                    if lt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:25230:75252  "assembly {..." */ usr$signatureStart)
                     {
-                        usr$revertWithMessage_15059(usr$memPtrGP0)
+                        usr$revertWithMessage_15151(usr$memPtrGP0)
                     }
                     calldatacopy(usr$memPtrGP0, add(mul(shr(240, _1), 22), 47), 38)
                     let usr$votingRoundId := and(shr(216, mload(usr$memPtrGP0)), 4294967295)
@@ -1430,18 +1430,18 @@ object "Relay_2011" {
                     mstore(add(usr$memPtrGP0, 96), usr$votingRoundId)
                     if iszero(iszero(sload(keccak256(add(usr$memPtrGP0, 96), 0x40))))
                     {
-                        usr$revertWithMessage_15060(usr$memPtrGP0)
+                        usr$revertWithMessage_15152(usr$memPtrGP0)
                     }
                     let _4 := eq(usr$protocolId, 1)
                     if _4
                     {
                         if usr$votingRoundId
                         {
-                            usr$revertWithMessage_15061(usr$memPtrGP0)
+                            usr$revertWithMessage_15153(usr$memPtrGP0)
                         }
                         if extract_from_storage_value_offsett_uint8(shr(208, mload(usr$memPtrGP0)))
                         {
-                            usr$revertWithMessage_15063(usr$memPtrGP0)
+                            usr$revertWithMessage_15155(usr$memPtrGP0)
                         }
                     }
                     let usr$messageRewardEpochId := and(shr(216, _1), 16777215)
@@ -1452,16 +1452,16 @@ object "Relay_2011" {
                     }
                     if lt(usr$messageRewardEpochId, and(shr(216, _1), 16777215))
                     {
-                        usr$revertWithMessage_15064(usr$memPtrGP0)
+                        usr$revertWithMessage_15156(usr$memPtrGP0)
                     }
                     let _6 := mload(add(usr$memPtrGP0, 160))
                     if lt(add(usr$messageRewardEpochId, and(shr(192, _6), 4294967295)), and(shr(152, _6), 4294967295))
                     {
-                        usr$revertWithMessage_15065(usr$memPtrGP0)
+                        usr$revertWithMessage_15157(usr$memPtrGP0)
                     }
                     if and(_5, lt(usr$votingRoundId, and(shr(184, _1), 4294967295)))
                     {
-                        usr$revertWithMessage_15066(usr$memPtrGP0)
+                        usr$revertWithMessage_15158(usr$memPtrGP0)
                     }
                     if gt(usr$messageRewardEpochId, and(shr(216, _1), 16777215))
                     {
@@ -1472,7 +1472,7 @@ object "Relay_2011" {
                             mstore(add(usr$memPtrGP0, 128), 2)
                             if gt(add(usr$votingRoundId, 1), sload(keccak256(add(usr$memPtrGP0, 96), 0x40)))
                             {
-                                usr$revertWithMessage_15068(usr$memPtrGP0)
+                                usr$revertWithMessage_15160(usr$memPtrGP0)
                             }
                         }
                         if eq(usr$lastInitializedRewardEpoch, and(shr(216, _1), 16777215))
@@ -1480,128 +1480,132 @@ object "Relay_2011" {
                             usr$threshold := div(mul(usr$threshold, usr$structValue(mload(add(usr$memPtrGP0, 160)))), 10000)
                         }
                     }
-                    mstore(add(usr$memPtrGP0, 32), keccak256(usr$memPtrGP0, 38))
+                    let _7 := keccak256(usr$memPtrGP0, 38)
+                    let _8 := add(usr$memPtrGP0, 32)
+                    mstore(_8, _7)
+                    mstore(usr$memPtrGP0, chainid())
+                    mstore(_8, keccak256(usr$memPtrGP0, 0x40))
                 }
                 if iszero(usr$protocolId)
                 {
-                    let _7 := mload(0x40)
-                    if iszero(iszero(extract_from_storage_value_offsett_bool(mload(add(_7, 160)))))
+                    let _9 := mload(0x40)
+                    if iszero(iszero(extract_from_storage_value_offsett_bool(mload(add(_9, 160)))))
                     {
-                        usr$revertWithMessage_15071(_7)
+                        usr$revertWithMessage_15163(_9)
                     }
-                    if lt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:24462:73522  "assembly {..." */ add(mul(shr(240, _1), 22), 59))
+                    if lt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:25230:75252  "assembly {..." */ add(mul(shr(240, _1), 22), 59))
                     {
-                        usr$revertWithMessage_15072(mload(0x40))
+                        usr$revertWithMessage_15164(mload(0x40))
                     }
                     calldatacopy(mload(0x40), add(mul(shr(240, _1), 22), 48), 11)
-                    let _8 := mload(0x40)
-                    let _9 := mload(_8)
-                    let _10 := shr(240, _9)
-                    if iszero(_10)
+                    let _10 := mload(0x40)
+                    let _11 := mload(_10)
+                    let _12 := shr(240, _11)
+                    if iszero(_12)
                     {
-                        usr$revertWithMessage_15073(_8)
+                        usr$revertWithMessage_15165(_10)
                     }
-                    if gt(_10, 300)
+                    if gt(_12, 300)
                     {
-                        usr$revertWithMessage_15074(mload(0x40))
+                        usr$revertWithMessage_15166(mload(0x40))
                     }
-                    let _11 := mul(_10, 22)
-                    usr$signatureStart := add(add(mul(shr(240, _1), 22), _11), 91)
-                    if lt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:24462:73522  "assembly {..." */ usr$signatureStart)
+                    let _13 := mul(_12, 22)
+                    usr$signatureStart := add(add(mul(shr(240, _1), 22), _13), 91)
+                    if lt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:25230:75252  "assembly {..." */ usr$signatureStart)
                     {
-                        usr$revertWithMessage_15075(mload(0x40))
+                        usr$revertWithMessage_15167(mload(0x40))
                     }
-                    let usr$newSigningPolicyRewardEpochId := and(shr(216, _9), 16777215)
-                    let _12 := mload(0x40)
-                    let usr$tmpLastInitializedRewardEpochId := extract_from_storage_value_offsett_uint32(mload(add(_12, 160)))
+                    let usr$newSigningPolicyRewardEpochId := and(shr(216, _11), 16777215)
+                    let _14 := mload(0x40)
+                    let usr$tmpLastInitializedRewardEpochId := extract_from_storage_value_offsett_uint32(mload(add(_14, 160)))
                     if iszero(eq(usr$tmpLastInitializedRewardEpochId, and(shr(216, _1), 16777215)))
                     {
-                        usr$revertWithMessage_15077(_12)
+                        usr$revertWithMessage_15169(_14)
                     }
                     if iszero(eq(add(1, usr$tmpLastInitializedRewardEpochId), usr$newSigningPolicyRewardEpochId))
                     {
-                        usr$revertWithMessage_15078(mload(0x40))
+                        usr$revertWithMessage_15170(mload(0x40))
                     }
-                    usr$checkThresholdConsistency(mload(0x40), shr(168, _9), add(mul(shr(240, _1), 22), 48))
-                    let usr$newSigningPolicyHash := usr$calculateSigningPolicyHash(mload(0x40), add(mul(shr(240, _1), 22), 48), add(43, _11))
-                    let _13 := add(mload(0x40), 160)
-                    mstore(_13, usr$assignStruct(mload(_13), usr$newSigningPolicyRewardEpochId))
+                    usr$checkThresholdConsistency(mload(0x40), shr(168, _11), add(mul(shr(240, _1), 22), 48))
+                    let usr$newSigningPolicyHash := usr$calculateSigningPolicyHash(mload(0x40), add(mul(shr(240, _1), 22), 48), add(43, _13))
+                    let _15 := add(mload(0x40), 160)
+                    mstore(_15, usr$assignStruct(mload(_15), usr$newSigningPolicyRewardEpochId))
                     mstore(mload(0x40), usr$newSigningPolicyRewardEpochId)
                     mstore(add(mload(0x40), 32), 2)
-                    let _14 := mload(0x40)
-                    sstore(keccak256(_14, 0x40), and(shr(184, _9), 4294967295))
-                    mstore(_14, usr$newSigningPolicyRewardEpochId)
-                    mstore(add(mload(0x40), 32), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0)
-                    /// @src 0:24462:73522  "assembly {..."
-                    let _15 := mload(0x40)
-                    sstore(keccak256(_15, 0x40), usr$newSigningPolicyHash)
-                    mstore(add(_15, 32), usr$newSigningPolicyHash)
+                    let _16 := mload(0x40)
+                    sstore(keccak256(_16, 0x40), and(shr(184, _11), 4294967295))
+                    mstore(_16, usr$newSigningPolicyRewardEpochId)
+                    mstore(add(mload(0x40), 32), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0)
+                    /// @src 0:25230:75252  "assembly {..."
+                    let _17 := mload(0x40)
+                    sstore(keccak256(_17, 0x40), usr$newSigningPolicyHash)
+                    mstore(add(_17, 32), usr$newSigningPolicyHash)
                     mstore(add(mload(0x40), 96), "SigningPolicyRelayed(uint256)")
-                    log2(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0, 0, /** @src 0:24462:73522  "assembly {..." */ keccak256(add(mload(0x40), 96), 29), usr$newSigningPolicyRewardEpochId)
+                    log2(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0, 0, /** @src 0:25230:75252  "assembly {..." */ keccak256(add(mload(0x40), 96), 29), usr$newSigningPolicyRewardEpochId)
                 }
-                let _16 := add(usr$signatureStart, 2)
-                if lt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:24462:73522  "assembly {..." */ _16)
+                let _18 := add(usr$signatureStart, 2)
+                if lt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:25230:75252  "assembly {..." */ _18)
                 {
-                    usr$revertWithMessage_15080(usr$memPtr)
+                    usr$revertWithMessage_15172(usr$memPtr)
                 }
                 calldatacopy(add(usr$memPtr, 0x40), usr$signatureStart, 2)
-                let _17 := shr(240, mload(add(usr$memPtr, 0x40)))
-                mstore(add(usr$memPtr, 256), _16)
-                if lt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:24462:73522  "assembly {..." */ add(add(usr$signatureStart, mul(_17, 67)), 2))
+                let _19 := shr(240, mload(add(usr$memPtr, 0x40)))
+                mstore(add(usr$memPtr, 256), _18)
+                if lt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ calldatasize(), /** @src 0:25230:75252  "assembly {..." */ add(add(usr$signatureStart, mul(_19, 67)), 2))
                 {
-                    usr$revertWithMessage_15081(usr$memPtr)
+                    usr$revertWithMessage_15173(usr$memPtr)
                 }
                 mstore(usr$memPtr, "0000\x19Ethereum Signed Message:\n32")
-                mstore(usr$memPtr, keccak256(add(usr$memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 4), /** @src 0:24462:73522  "assembly {..." */ 60))
-                let usr$i := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                /// @src 0:24462:73522  "assembly {..."
-                let usr$weight := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                /// @src 0:24462:73522  "assembly {..."
-                let usr$nextUnusedIndex := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr$memPtr, keccak256(add(usr$memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 4), /** @src 0:25230:75252  "assembly {..." */ 60))
+                let usr$i := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                /// @src 0:25230:75252  "assembly {..."
+                let usr$weight := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                /// @src 0:25230:75252  "assembly {..."
+                let usr$nextUnusedIndex := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                /// @src 0:25230:75252  "assembly {..."
                 let usr$memPtrFor := mload(0x40)
-                for { } lt(usr$i, _17) { usr$i := add(usr$i, 1) }
+                for { } lt(usr$i, _19) { usr$i := add(usr$i, 1) }
                 {
-                    mstore(add(usr$memPtrFor, 32), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0)
-                    /// @src 0:24462:73522  "assembly {..."
+                    mstore(add(usr$memPtrFor, 32), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0)
+                    /// @src 0:25230:75252  "assembly {..."
                     calldatacopy(add(usr$memPtrFor, 63), add(add(usr$signatureStart, mul(usr$i, 67)), 2), 67)
                     let usr$index := shr(240, mload(add(usr$memPtrFor, 128)))
                     if gt(add(usr$index, 1), shr(240, _1))
                     {
-                        usr$revertWithMessage_15082(usr$memPtrFor)
+                        usr$revertWithMessage_15174(usr$memPtrFor)
                     }
                     if lt(usr$index, usr$nextUnusedIndex)
                     {
-                        usr$revertWithMessage_15083(usr$memPtrFor)
+                        usr$revertWithMessage_15175(usr$memPtrFor)
                     }
                     usr$nextUnusedIndex := add(usr$index, 1)
-                    let _18 := and(mload(add(usr$memPtrFor, 32)), 0xff)
-                    if iszero(or(eq(_18, 27), eq(_18, 28)))
+                    let _20 := and(mload(add(usr$memPtrFor, 32)), 0xff)
+                    if iszero(or(eq(_20, 27), eq(_20, 28)))
                     {
-                        usr$revertWithMessage_15084(usr$memPtrFor)
+                        usr$revertWithMessage_15176(usr$memPtrFor)
                     }
                     if gt(mload(add(usr$memPtrFor, 96)), 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0)
                     {
-                        usr$revertWithMessage_15085(usr$memPtrFor)
+                        usr$revertWithMessage_15177(usr$memPtrFor)
                     }
                     if iszero(staticcall(not(0), 1, usr$memPtrFor, 128, add(usr$memPtrFor, 0x40), 32))
                     {
-                        usr$revertWithMessage_15086(usr$memPtrFor)
+                        usr$revertWithMessage_15178(usr$memPtrFor)
                     }
                     if iszero(eq(returndatasize(), 32))
                     {
-                        usr$revertWithMessage_15087(usr$memPtrFor)
+                        usr$revertWithMessage_15179(usr$memPtrFor)
                     }
                     if iszero(mload(add(usr$memPtrFor, 0x40)))
                     {
-                        usr$revertWithMessage_15088(usr$memPtrFor)
+                        usr$revertWithMessage_15180(usr$memPtrFor)
                     }
-                    mstore(add(usr$memPtrFor, 96), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0)
-                    /// @src 0:24462:73522  "assembly {..."
+                    mstore(add(usr$memPtrFor, 96), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0)
+                    /// @src 0:25230:75252  "assembly {..."
                     calldatacopy(add(usr$memPtrFor, 106), add(47, mul(usr$index, 22)), 22)
                     if iszero(eq(mload(add(usr$memPtrFor, 0x40)), shr(16, mload(add(usr$memPtrFor, 96)))))
                     {
-                        usr$revertWithMessage_15089(usr$memPtrFor)
+                        usr$revertWithMessage_15181(usr$memPtrFor)
                     }
                     usr$weight := add(usr$weight, and(mload(add(usr$memPtrFor, 96)), 65535))
                     if gt(usr$weight, usr$threshold)
@@ -1609,105 +1613,105 @@ object "Relay_2011" {
                         if iszero(usr$protocolId)
                         {
                             sstore(7, mload(add(usr$memPtrFor, 160)))
-                            return(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0, 0)
+                            return(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0, 0)
                         }
-                        /// @src 0:24462:73522  "assembly {..."
+                        /// @src 0:25230:75252  "assembly {..."
                         if iszero(iszero(usr$protocolId))
                         {
-                            let _19 := add(usr$memPtrFor, 192)
-                            calldatacopy(_19, add(mul(shr(240, _1), 22), 53), 32)
+                            let _21 := add(usr$memPtrFor, 192)
+                            calldatacopy(_21, add(mul(shr(240, _1), 22), 53), 32)
                             if eq(usr$protocolId, 1)
                             {
-                                mstore(usr$memPtrFor, mload(_19))
-                                mstore(add(usr$memPtrFor, 32), and(shl(16, _1), shl(232, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 16777215)))
-                                /// @src 0:24462:73522  "assembly {..."
+                                mstore(usr$memPtrFor, mload(_21))
+                                mstore(add(usr$memPtrFor, 32), and(shl(16, _1), shl(232, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 16777215)))
+                                /// @src 0:25230:75252  "assembly {..."
                                 return(usr$memPtrFor, 35)
                             }
-                            if iszero(mload(_19))
+                            if iszero(mload(_21))
                             {
-                                usr$revertWithMessage_15090(usr$memPtrFor)
+                                usr$revertWithMessage_15182(usr$memPtrFor)
                             }
                             let usr$votingRoundId_1 := usr$extractVotingRoundIdFromMessage(usr$memPtrFor, add(43, mul(shr(240, _1), 22)))
                             mstore(usr$memPtrFor, usr$protocolId)
                             mstore(add(usr$memPtrFor, 32), 1)
                             mstore(add(usr$memPtrFor, 32), keccak256(usr$memPtrFor, 0x40))
                             mstore(usr$memPtrFor, usr$votingRoundId_1)
-                            sstore(keccak256(usr$memPtrFor, 0x40), mload(_19))
-                            let _20 := add(usr$memPtrFor, 160)
-                            if iszero(eq(usr$protocolId, extract_from_storage_value_offsett_uint8(mload(_20))))
+                            sstore(keccak256(usr$memPtrFor, 0x40), mload(_21))
+                            let _22 := add(usr$memPtrFor, 160)
+                            if iszero(eq(usr$protocolId, extract_from_storage_value_offsett_uint8(mload(_22))))
                             {
                                 calldatacopy(usr$memPtrFor, add(mul(shr(240, _1), 22), 47), 6)
-                                let _21 := shr(208, mload(usr$memPtrFor))
-                                mstore(usr$memPtrFor, _21)
-                                mstore(_20, and(_21, 0xff))
+                                let _23 := shr(208, mload(usr$memPtrFor))
+                                mstore(usr$memPtrFor, _23)
+                                mstore(_22, and(_23, 0xff))
                                 mstore(add(usr$memPtrFor, 96), "ProtocolMessageRelayed(uint8,uin")
                                 mstore(add(usr$memPtrFor, 128), "t32,bool,bytes32)")
-                                log3(_20, 0x40, keccak256(add(usr$memPtrFor, 96), 49), usr$protocolId, usr$votingRoundId_1)
-                                return(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0, 0)
+                                log3(_22, 0x40, keccak256(add(usr$memPtrFor, 96), 49), usr$protocolId, usr$votingRoundId_1)
+                                return(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0, 0)
                             }
-                            /// @src 0:24462:73522  "assembly {..."
-                            if eq(usr$protocolId, extract_from_storage_value_offsett_uint8(mload(_20)))
+                            /// @src 0:25230:75252  "assembly {..."
+                            if eq(usr$protocolId, extract_from_storage_value_offsett_uint8(mload(_22)))
                             {
                                 calldatacopy(usr$memPtrFor, add(mul(shr(240, _1), 22), 47), 6)
                                 let usr$isSecure := iszero(iszero(extract_from_storage_value_offsett_uint8(shr(208, mload(usr$memPtrFor)))))
-                                let _22 := add(usr$memPtrFor, 256)
-                                usr$processRandomMerkleProof(usr$memPtrFor, add(mload(_22), mul(_17, 67)), _19, usr$votingRoundId_1, usr$isSecure)
+                                let _24 := add(usr$memPtrFor, 256)
+                                usr$processRandomMerkleProof(usr$memPtrFor, add(mload(_24), mul(_19, 67)), _21, usr$votingRoundId_1, usr$isSecure)
                                 if usr$isSecure
                                 {
                                     usr$setIsSecureRandomBit(add(usr$memPtrFor, 96), usr$votingRoundId_1)
                                 }
-                                let _23 := mload(_20)
-                                if gt(usr$votingRoundId_1, and(shr(112, _23), 4294967295))
+                                let _25 := mload(_22)
+                                if gt(usr$votingRoundId_1, and(shr(112, _25), 4294967295))
                                 {
-                                    sstore(7, usr$assignStruct_15095(usr$assignStruct_15094(_23, usr$votingRoundId_1), usr$isSecure))
+                                    sstore(7, usr$assignStruct_15187(usr$assignStruct_15186(_25, usr$votingRoundId_1), usr$isSecure))
                                 }
-                                mstore(_20, usr$isSecure)
+                                mstore(_22, usr$isSecure)
                                 mstore(add(usr$memPtrFor, 96), "ProtocolMessageRelayed(uint8,uin")
                                 mstore(add(usr$memPtrFor, 128), "t32,bool,bytes32)")
-                                log3(_20, 0x40, keccak256(add(usr$memPtrFor, 96), 49), usr$protocolId, usr$votingRoundId_1)
-                                calldatacopy(_19, add(mload(_22), mul(_17, 67)), 32)
+                                log3(_22, 0x40, keccak256(add(usr$memPtrFor, 96), 49), usr$protocolId, usr$votingRoundId_1)
+                                calldatacopy(_21, add(mload(_24), mul(_19, 67)), 32)
                                 mstore(add(usr$memPtrFor, 224), usr$isSecure)
                                 mstore(add(usr$memPtrFor, 96), "RandomNumberRelayed(uint32,uint2")
                                 mstore(add(usr$memPtrFor, 128), "56,bool)")
-                                log2(_19, 0x40, keccak256(add(usr$memPtrFor, 96), 40), usr$votingRoundId_1)
-                                return(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0, 0)
+                                log2(_21, 0x40, keccak256(add(usr$memPtrFor, 96), 40), usr$votingRoundId_1)
+                                return(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0, 0)
                             }
                         }
-                        /// @src 0:24462:73522  "assembly {..."
-                        usr$revertWithMessage_15096(mload(0x40))
+                        /// @src 0:25230:75252  "assembly {..."
+                        usr$revertWithMessage_15188(mload(0x40))
                     }
                 }
-                /// @src 0:73543:73570  "revert(\"Not enough weight\")"
-                let _24 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:24462:73522  "assembly {..." */ 0x40)
-                /// @src 0:73543:73570  "revert(\"Not enough weight\")"
-                mstore(_24, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:73543:73570  "revert(\"Not enough weight\")"
-                revert(_24, sub(abi_encode_stringliteral_0d64(add(_24, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 4)), /** @src 0:73543:73570  "revert(\"Not enough weight\")" */ _24))
+                /// @src 0:75273:75300  "revert(\"Not enough weight\")"
+                let _26 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:25230:75252  "assembly {..." */ 0x40)
+                /// @src 0:75273:75300  "revert(\"Not enough weight\")"
+                mstore(_26, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:75273:75300  "revert(\"Not enough weight\")"
+                revert(_26, sub(abi_encode_stringliteral_0d64(add(_26, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 4)), /** @src 0:75273:75300  "revert(\"Not enough weight\")" */ _26))
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             function external_fun_getRandomNumber()
             {
                 if callvalue() { revert(0, 0) }
                 if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
-                let _1 := sload(/** @src 0:78756:78765  "stateData" */ 0x07)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                let _1 := sload(/** @src 0:80486:80495  "stateData" */ 0x07)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let value := and(shr(112, _1), 0xffffffff)
                 mstore(0, value)
-                mstore(0x20, /** @src 0:78734:78755  "toRandomNumberPrivate" */ 0x09)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                mstore(0x20, /** @src 0:80464:80485  "toRandomNumberPrivate" */ 0x09)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let _2 := sload(keccak256(0, 0x40))
-                let cleaned := and(/** @src 0:78935:78968  "stateData.randomVotingRoundId + 1" */ checked_add_uint32(value), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)
-                /// @src 0:78848:79020  "_randomTimestamp =..."
-                let var_randomTimestamp := /** @src 0:78879:79020  "stateData.firstVotingRoundStartTs +..." */ checked_add_uint256(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(shr(8, _1), 0xffffffff), /** @src 0:78927:79020  "uint256(stateData.randomVotingRoundId + 1) *..." */ checked_mul_uint256(cleaned, extract_from_storage_value_offsett_uint8(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(shr(40, _1), 0xff))))
+                let cleaned := and(/** @src 0:80665:80698  "stateData.randomVotingRoundId + 1" */ checked_add_uint32(value), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)
+                /// @src 0:80578:80750  "_randomTimestamp =..."
+                let var__randomTimestamp := /** @src 0:80609:80750  "stateData.firstVotingRoundStartTs +..." */ checked_add_uint256(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(shr(8, _1), 0xffffffff), /** @src 0:80657:80750  "uint256(stateData.randomVotingRoundId + 1) *..." */ checked_mul_uint256(cleaned, extract_from_storage_value_offsett_uint8(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(shr(40, _1), 0xff))))
                 let memPos := mload(0x40)
-                return(memPos, sub(abi_encode_uint256_bool_uint256(memPos, _2, and(shr(144, _1), 0xff), var_randomTimestamp), memPos))
+                return(memPos, sub(abi_encode_uint256_bool_uint256(memPos, _2, and(shr(144, _1), 0xff), var__randomTimestamp), memPos))
             }
             function external_fun_oldRelay()
             {
                 if callvalue() { revert(0, 0) }
                 if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
                 let memPos := mload(64)
-                mstore(memPos, and(/** @src 0:9641:9673  "IRelay public immutable oldRelay" */ loadimmutable("332"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))
+                mstore(memPos, and(/** @src 0:9641:9673  "IRelay public immutable oldRelay" */ loadimmutable("332"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))
                 return(memPos, 32)
             }
             function abi_decode_bytes32_fromMemory(headStart, dataEnd) -> value0
@@ -1734,31 +1738,31 @@ object "Relay_2011" {
                     revert(memPtr, 132)
                 }
             }
-            /// @ast-id 1933 @src 0:80651:81054  "function toSigningPolicyHash(uint256 _rewardEpochId) external view returns (bytes32) {..."
+            /// @ast-id 1944 @src 0:82381:82784  "function toSigningPolicyHash(uint256 _rewardEpochId) external view returns (bytes32) {..."
             function fun_toSigningPolicyHash(var_rewardEpochId) -> var
             {
-                /// @src 0:80727:80734  "bytes32"
-                var := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                let _1 := and(/** @src 0:80750:80758  "oldRelay" */ loadimmutable("332"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
-                /// @src 0:80750:80821  "oldRelay != IRelay(address(0)) && _rewardEpochId < initialRewardEpochId"
-                let expr := /** @src 0:80750:80780  "oldRelay != IRelay(address(0))" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _1))
-                /// @src 0:80750:80821  "oldRelay != IRelay(address(0)) && _rewardEpochId < initialRewardEpochId"
+                /// @src 0:82457:82464  "bytes32"
+                var := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                let _1 := and(/** @src 0:82480:82488  "oldRelay" */ loadimmutable("332"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
+                /// @src 0:82480:82551  "oldRelay != IRelay(address(0)) && _rewardEpochId < initialRewardEpochId"
+                let expr := /** @src 0:82480:82510  "oldRelay != IRelay(address(0))" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _1))
+                /// @src 0:82480:82551  "oldRelay != IRelay(address(0)) && _rewardEpochId < initialRewardEpochId"
                 if expr
                 {
-                    expr := /** @src 0:80784:80821  "_rewardEpochId < initialRewardEpochId" */ lt(var_rewardEpochId, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:80801:80821  "initialRewardEpochId" */ loadimmutable("335"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+                    expr := /** @src 0:82514:82551  "_rewardEpochId < initialRewardEpochId" */ lt(var_rewardEpochId, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:82531:82551  "initialRewardEpochId" */ loadimmutable("335"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
                 }
-                /// @src 0:80746:80899  "if (oldRelay != IRelay(address(0)) && _rewardEpochId < initialRewardEpochId) {..."
+                /// @src 0:82476:82629  "if (oldRelay != IRelay(address(0)) && _rewardEpochId < initialRewardEpochId) {..."
                 if expr
                 {
-                    /// @src 0:80844:80888  "oldRelay.toSigningPolicyHash(_rewardEpochId)"
-                    let _2 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                    /// @src 0:80844:80888  "oldRelay.toSigningPolicyHash(_rewardEpochId)"
-                    mstore(_2, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(224, 0x0c85bf07))
-                    /// @src 0:80844:80888  "oldRelay.toSigningPolicyHash(_rewardEpochId)"
+                    /// @src 0:82574:82618  "oldRelay.toSigningPolicyHash(_rewardEpochId)"
+                    let _2 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                    /// @src 0:82574:82618  "oldRelay.toSigningPolicyHash(_rewardEpochId)"
+                    mstore(_2, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(224, 0x0c85bf07))
+                    /// @src 0:82574:82618  "oldRelay.toSigningPolicyHash(_rewardEpochId)"
                     let _3 := staticcall(gas(), _1, _2, sub(abi_encode_bytes32(add(_2, 4), var_rewardEpochId), _2), _2, 32)
                     if iszero(_3) { revert_forward() }
-                    let expr_1 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                    /// @src 0:80844:80888  "oldRelay.toSigningPolicyHash(_rewardEpochId)"
+                    let expr_1 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                    /// @src 0:82574:82618  "oldRelay.toSigningPolicyHash(_rewardEpochId)"
                     if _3
                     {
                         let _4 := 32
@@ -1766,16 +1770,16 @@ object "Relay_2011" {
                         finalize_allocation(_2, _4)
                         expr_1 := abi_decode_bytes32_fromMemory(_2, add(_2, _4))
                     }
-                    /// @src 0:80837:80888  "return oldRelay.toSigningPolicyHash(_rewardEpochId)"
+                    /// @src 0:82567:82618  "return oldRelay.toSigningPolicyHash(_rewardEpochId)"
                     var := expr_1
                     leave
                 }
-                /// @src 0:80908:80988  "require(signingPolicySetter != address(0), \"no access to signing policy hashes\")"
-                require_helper_stringliteral_63a2(/** @src 0:80916:80949  "signingPolicySetter != address(0)" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(cleanup_address_payable(sload(/** @src 0:80916:80935  "signingPolicySetter" */ 0x03)), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))))
-                /// @src 0:80998:81047  "return toSigningPolicyHashPrivate[_rewardEpochId]"
-                var := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sload(/** @src 0:81005:81047  "toSigningPolicyHashPrivate[_rewardEpochId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15098(var_rewardEpochId))
+                /// @src 0:82638:82718  "require(signingPolicySetter != address(0), \"no access to signing policy hashes\")"
+                require_helper_stringliteral_63a2(/** @src 0:82646:82679  "signingPolicySetter != address(0)" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(cleanup_address_payable(sload(/** @src 0:82646:82665  "signingPolicySetter" */ 0x03)), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))))
+                /// @src 0:82728:82777  "return toSigningPolicyHashPrivate[_rewardEpochId]"
+                var := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sload(/** @src 0:82735:82777  "toSigningPolicyHashPrivate[_rewardEpochId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15190(var_rewardEpochId))
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             function abi_decode_t_bool_fromMemory(offset) -> value
             {
                 value := mload(offset)
@@ -1792,31 +1796,31 @@ object "Relay_2011" {
                 mstore(headStart, value0)
                 mstore(add(headStart, 32), value1)
             }
-            /// @ast-id 1679 @src 0:77046:77646  "function isFinalized(uint256 _protocolId, uint256 _votingRoundId)..."
+            /// @ast-id 1690 @src 0:78776:79376  "function isFinalized(uint256 _protocolId, uint256 _votingRoundId)..."
             function fun_isFinalized(var__protocolId, var_votingRoundId) -> var
             {
-                /// @src 0:77151:77155  "bool"
-                var := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                let _1 := and(/** @src 0:77175:77183  "oldRelay" */ loadimmutable("332"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
-                /// @src 0:77175:77270  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
-                let expr := /** @src 0:77175:77205  "oldRelay != IRelay(address(0))" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _1))
-                /// @src 0:77175:77270  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
+                /// @src 0:78881:78885  "bool"
+                var := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                let _1 := and(/** @src 0:78905:78913  "oldRelay" */ loadimmutable("332"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
+                /// @src 0:78905:79000  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
+                let expr := /** @src 0:78905:78935  "oldRelay != IRelay(address(0))" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _1))
+                /// @src 0:78905:79000  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
                 if expr
                 {
-                    expr := /** @src 0:77209:77270  "_votingRoundId < startingVotingRoundIdForInitialRewardEpochId" */ lt(var_votingRoundId, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:77226:77270  "startingVotingRoundIdForInitialRewardEpochId" */ loadimmutable("338"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+                    expr := /** @src 0:78939:79000  "_votingRoundId < startingVotingRoundIdForInitialRewardEpochId" */ lt(var_votingRoundId, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:78956:79000  "startingVotingRoundIdForInitialRewardEpochId" */ loadimmutable("338"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
                 }
-                /// @src 0:77171:77353  "if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {..."
+                /// @src 0:78901:79083  "if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {..."
                 if expr
                 {
-                    /// @src 0:77293:77342  "oldRelay.isFinalized(_protocolId, _votingRoundId)"
-                    let _2 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                    /// @src 0:77293:77342  "oldRelay.isFinalized(_protocolId, _votingRoundId)"
-                    mstore(_2, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(226, 0x0c5eb4cf))
-                    /// @src 0:77293:77342  "oldRelay.isFinalized(_protocolId, _votingRoundId)"
+                    /// @src 0:79023:79072  "oldRelay.isFinalized(_protocolId, _votingRoundId)"
+                    let _2 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                    /// @src 0:79023:79072  "oldRelay.isFinalized(_protocolId, _votingRoundId)"
+                    mstore(_2, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(226, 0x0c5eb4cf))
+                    /// @src 0:79023:79072  "oldRelay.isFinalized(_protocolId, _votingRoundId)"
                     let _3 := staticcall(gas(), _1, _2, sub(abi_encode_uint256_uint256(add(_2, 4), var__protocolId, var_votingRoundId), _2), _2, 32)
                     if iszero(_3) { revert_forward() }
-                    let expr_1 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                    /// @src 0:77293:77342  "oldRelay.isFinalized(_protocolId, _votingRoundId)"
+                    let expr_1 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                    /// @src 0:79023:79072  "oldRelay.isFinalized(_protocolId, _votingRoundId)"
                     if _3
                     {
                         let _4 := 32
@@ -1824,14 +1828,14 @@ object "Relay_2011" {
                         finalize_allocation(_2, _4)
                         expr_1 := abi_decode_bool_fromMemory(_2, add(_2, _4))
                     }
-                    /// @src 0:77286:77342  "return oldRelay.isFinalized(_protocolId, _votingRoundId)"
+                    /// @src 0:79016:79072  "return oldRelay.isFinalized(_protocolId, _votingRoundId)"
                     var := expr_1
                     leave
                 }
-                /// @src 0:77571:77639  "return merkleRootsPrivate[_protocolId][_votingRoundId] != bytes32(0)"
-                var := /** @src 0:77578:77639  "merkleRootsPrivate[_protocolId][_votingRoundId] != bytes32(0)" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ sload(/** @src 0:77578:77625  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256(/** @src 0:77578:77609  "merkleRootsPrivate[_protocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15099(var__protocolId), /** @src 0:77578:77625  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ var_votingRoundId))))
+                /// @src 0:79301:79369  "return merkleRootsPrivate[_protocolId][_votingRoundId] != bytes32(0)"
+                var := /** @src 0:79308:79369  "merkleRootsPrivate[_protocolId][_votingRoundId] != bytes32(0)" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ sload(/** @src 0:79308:79355  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256(/** @src 0:79308:79339  "merkleRootsPrivate[_protocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15191(var__protocolId), /** @src 0:79308:79355  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ var_votingRoundId))))
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             function require_helper_stringliteral_1c79(condition)
             {
                 if iszero(condition)
@@ -1844,31 +1848,31 @@ object "Relay_2011" {
                     revert(memPtr, 100)
                 }
             }
-            /// @ast-id 1726 @src 0:77694:78167  "function merkleRoots(uint256 _protocolId, uint256 _votingRoundId)..."
+            /// @ast-id 1737 @src 0:79424:79897  "function merkleRoots(uint256 _protocolId, uint256 _votingRoundId)..."
             function fun_merkleRoots(var_protocolId, var__votingRoundId) -> var_merkleRoot
             {
-                /// @src 0:77799:77818  "bytes32 _merkleRoot"
-                var_merkleRoot := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                let _1 := and(/** @src 0:77838:77846  "oldRelay" */ loadimmutable("332"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
-                /// @src 0:77838:77933  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
-                let expr := /** @src 0:77838:77868  "oldRelay != IRelay(address(0))" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _1))
-                /// @src 0:77838:77933  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
+                /// @src 0:79529:79548  "bytes32 _merkleRoot"
+                var_merkleRoot := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                let _1 := and(/** @src 0:79568:79576  "oldRelay" */ loadimmutable("332"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
+                /// @src 0:79568:79663  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
+                let expr := /** @src 0:79568:79598  "oldRelay != IRelay(address(0))" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _1))
+                /// @src 0:79568:79663  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
                 if expr
                 {
-                    expr := /** @src 0:77872:77933  "_votingRoundId < startingVotingRoundIdForInitialRewardEpochId" */ lt(var__votingRoundId, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:77889:77933  "startingVotingRoundIdForInitialRewardEpochId" */ loadimmutable("338"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+                    expr := /** @src 0:79602:79663  "_votingRoundId < startingVotingRoundIdForInitialRewardEpochId" */ lt(var__votingRoundId, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:79619:79663  "startingVotingRoundIdForInitialRewardEpochId" */ loadimmutable("338"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
                 }
-                /// @src 0:77834:78016  "if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {..."
+                /// @src 0:79564:79746  "if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {..."
                 if expr
                 {
-                    /// @src 0:77956:78005  "oldRelay.merkleRoots(_protocolId, _votingRoundId)"
-                    let _2 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                    /// @src 0:77956:78005  "oldRelay.merkleRoots(_protocolId, _votingRoundId)"
-                    mstore(_2, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(232, 3752811))
-                    /// @src 0:77956:78005  "oldRelay.merkleRoots(_protocolId, _votingRoundId)"
+                    /// @src 0:79686:79735  "oldRelay.merkleRoots(_protocolId, _votingRoundId)"
+                    let _2 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                    /// @src 0:79686:79735  "oldRelay.merkleRoots(_protocolId, _votingRoundId)"
+                    mstore(_2, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(232, 3752811))
+                    /// @src 0:79686:79735  "oldRelay.merkleRoots(_protocolId, _votingRoundId)"
                     let _3 := staticcall(gas(), _1, _2, sub(abi_encode_uint256_uint256(add(_2, 4), var_protocolId, var__votingRoundId), _2), _2, 32)
                     if iszero(_3) { revert_forward() }
-                    let expr_1 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                    /// @src 0:77956:78005  "oldRelay.merkleRoots(_protocolId, _votingRoundId)"
+                    let expr_1 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                    /// @src 0:79686:79735  "oldRelay.merkleRoots(_protocolId, _votingRoundId)"
                     if _3
                     {
                         let _4 := 32
@@ -1876,16 +1880,16 @@ object "Relay_2011" {
                         finalize_allocation(_2, _4)
                         expr_1 := abi_decode_bytes32_fromMemory(_2, add(_2, _4))
                     }
-                    /// @src 0:77949:78005  "return oldRelay.merkleRoots(_protocolId, _votingRoundId)"
+                    /// @src 0:79679:79735  "return oldRelay.merkleRoots(_protocolId, _votingRoundId)"
                     var_merkleRoot := expr_1
                     leave
                 }
-                /// @src 0:78025:78096  "require(signingPolicySetter != address(0), \"no access to merkle roots\")"
-                require_helper_stringliteral_1c79(/** @src 0:78033:78066  "signingPolicySetter != address(0)" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(cleanup_address_payable(sload(/** @src 0:78033:78052  "signingPolicySetter" */ 0x03)), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))))
-                /// @src 0:78106:78160  "return merkleRootsPrivate[_protocolId][_votingRoundId]"
-                var_merkleRoot := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sload(/** @src 0:78113:78160  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256(/** @src 0:78113:78144  "merkleRootsPrivate[_protocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15099(var_protocolId), /** @src 0:78113:78160  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ var__votingRoundId))
+                /// @src 0:79755:79826  "require(signingPolicySetter != address(0), \"no access to merkle roots\")"
+                require_helper_stringliteral_1c79(/** @src 0:79763:79796  "signingPolicySetter != address(0)" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(cleanup_address_payable(sload(/** @src 0:79763:79782  "signingPolicySetter" */ 0x03)), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))))
+                /// @src 0:79836:79890  "return merkleRootsPrivate[_protocolId][_votingRoundId]"
+                var_merkleRoot := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sload(/** @src 0:79843:79890  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256(/** @src 0:79843:79874  "merkleRootsPrivate[_protocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15191(var_protocolId), /** @src 0:79843:79890  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ var__votingRoundId))
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             function require_helper_stringliteral_59e4(condition)
             {
                 if iszero(condition)
@@ -1932,14 +1936,14 @@ object "Relay_2011" {
                 pos := add(pos, 0x20)
                 let srcPtr := value
                 let i := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 for { } lt(i, length) { i := add(i, 1) }
                 {
                     let value_1 := calldataload(srcPtr)
                     validator_revert_uint8(value_1)
                     mstore(pos, and(value_1, 0xff))
                     let value_2 := /** @src -1:-1:-1 */ 0
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     value_2 := calldataload(add(srcPtr, 0x20))
                     mstore(add(pos, 0x20), value_2)
                     pos := add(pos, 0x40)
@@ -1978,8 +1982,8 @@ object "Relay_2011" {
             }
             function checked_sub_uint32(x) -> diff
             {
-                diff := add(and(x, 0xffffffff), /** @src 0:24462:73522  "assembly {..." */ not(0))
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                diff := add(and(x, 0xffffffff), /** @src 0:25230:75252  "assembly {..." */ not(0))
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 if gt(diff, 0xffffffff) { panic_error_0x11() }
             }
             function require_helper_stringliteral_524a(condition)
@@ -2008,7 +2012,7 @@ object "Relay_2011" {
             }
             function update_storage_value_offsett_uint256_to_uint256(value)
             {
-                sstore(/** @src 0:23738:23756  "governanceFeeNonce" */ 0x08, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ value)
+                sstore(/** @src 0:24506:24524  "governanceFeeNonce" */ 0x08, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ value)
             }
             function access_calldata_tail_array_struct_FeeConfig_calldata_dyn_calldata(base_ref, ptr_to_tail) -> addr, length
             {
@@ -2055,11 +2059,11 @@ object "Relay_2011" {
                 mstore(0x20, 4)
                 dataSlot := keccak256(0, 0x40)
             }
-            function mapping_index_access_mapping_uint256_uint256_of_uint8_15176(key) -> dataSlot
+            function mapping_index_access_mapping_uint256_uint256_of_uint8_15268(key) -> dataSlot
             {
                 mstore(0, and(key, 0xff))
-                mstore(0x20, /** @src 0:79745:79763  "merkleRootsPrivate" */ 0x01)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                mstore(0x20, /** @src 0:81475:81493  "merkleRootsPrivate" */ 0x01)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 dataSlot := keccak256(0, 0x40)
             }
             function require_helper_stringliteral_4ed5(condition)
@@ -2101,7 +2105,7 @@ object "Relay_2011" {
             function array_allocation_size_bytes(length) -> size
             {
                 if gt(length, 0xffffffffffffffff) { panic_error_0x41() }
-                size := add(and(add(length, 31), /** @src 0:23022:23056  "abi.encode(_config, address(this))" */ not(31)), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x20)
+                size := add(and(add(length, 31), /** @src 0:23790:23824  "abi.encode(_config, address(this))" */ not(31)), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x20)
             }
             function extract_returndata() -> data
             {
@@ -2114,7 +2118,7 @@ object "Relay_2011" {
                     finalize_allocation(memPtr, _2)
                     mstore(memPtr, _1)
                     data := memPtr
-                    returndatacopy(add(memPtr, 0x20), /** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ returndatasize())
+                    returndatacopy(add(memPtr, 0x20), /** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ returndatasize())
                 }
             }
             function require_helper_stringliteral_25ad(condition)
@@ -2129,32 +2133,32 @@ object "Relay_2011" {
                     revert(memPtr, 100)
                 }
             }
-            function checked_sub_uint256_15116(y) -> diff
+            function checked_sub_uint256_15208(y) -> diff
             {
-                diff := sub(/** @src 0:20364:20366  "20" */ 0x14, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ y)
-                if gt(diff, /** @src 0:20364:20366  "20" */ 0x14)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                diff := sub(/** @src 0:20700:20702  "20" */ 0x14, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ y)
+                if gt(diff, /** @src 0:20700:20702  "20" */ 0x14)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 { panic_error_0x11() }
             }
-            function checked_sub_uint256_15118(y) -> diff
+            function checked_sub_uint256_15210(y) -> diff
             {
-                diff := sub(/** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ y)
-                if gt(diff, /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                diff := sub(/** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ y)
+                if gt(diff, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 { panic_error_0x11() }
             }
-            function checked_sub_uint256_15121(y) -> diff
+            function checked_sub_uint256_15213(y) -> diff
             {
-                diff := sub(/** @src 0:19593:19594  "2" */ 0x02, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ y)
-                if gt(diff, /** @src 0:19593:19594  "2" */ 0x02)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                diff := sub(/** @src 0:19929:19930  "2" */ 0x02, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ y)
+                if gt(diff, /** @src 0:19929:19930  "2" */ 0x02)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 { panic_error_0x11() }
             }
-            function checked_sub_uint256_15181(y) -> diff
+            function checked_sub_uint256_15273(y) -> diff
             {
-                diff := sub(/** @src 0:80017:80020  "255" */ 0xff, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ y)
-                if gt(diff, /** @src 0:80017:80020  "255" */ 0xff)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                diff := sub(/** @src 0:81747:81750  "255" */ 0xff, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ y)
+                if gt(diff, /** @src 0:81747:81750  "255" */ 0xff)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 { panic_error_0x11() }
             }
             function checked_sub_uint256(x, y) -> diff
@@ -2178,7 +2182,7 @@ object "Relay_2011" {
             {
                 if slt(sub(dataEnd, headStart), 32) { revert(0, 0) }
                 let value := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value := mload(headStart)
                 value0 := value
             }
@@ -2206,70 +2210,70 @@ object "Relay_2011" {
                     revert(memPtr, 100)
                 }
             }
-            /// @ast-id 1637 @src 0:73625:76998  "function verify(uint256 _protocolId, uint256 _votingRoundId, bytes32 _leaf, bytes32[] calldata _proof)..."
-            function fun_verify(var_protocolId, var_votingRoundId, var_leaf, var__proof_offset, var_proof_length) -> var
+            /// @ast-id 1648 @src 0:75355:78728  "function verify(uint256 _protocolId, uint256 _votingRoundId, bytes32 _leaf, bytes32[] calldata _proof)..."
+            function fun_verify(var_protocolId, var_votingRoundId, var_leaf, var_proof_offset, var_proof_length) -> var
             {
-                /// @src 0:73770:73774  "bool"
-                var := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                let _1 := and(/** @src 0:74518:74526  "oldRelay" */ loadimmutable("332"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
-                /// @src 0:74518:74613  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
-                let expr := /** @src 0:74518:74548  "oldRelay != IRelay(address(0))" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _1))
-                /// @src 0:74518:74613  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
+                /// @src 0:75500:75504  "bool"
+                var := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                let _1 := and(/** @src 0:76248:76256  "oldRelay" */ loadimmutable("332"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
+                /// @src 0:76248:76343  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
+                let expr := /** @src 0:76248:76278  "oldRelay != IRelay(address(0))" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _1))
+                /// @src 0:76248:76343  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
                 if expr
                 {
-                    expr := /** @src 0:74552:74613  "_votingRoundId < startingVotingRoundIdForInitialRewardEpochId" */ lt(var_votingRoundId, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:74569:74613  "startingVotingRoundIdForInitialRewardEpochId" */ loadimmutable("338"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+                    expr := /** @src 0:76282:76343  "_votingRoundId < startingVotingRoundIdForInitialRewardEpochId" */ lt(var_votingRoundId, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:76299:76343  "startingVotingRoundIdForInitialRewardEpochId" */ loadimmutable("338"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
                 }
-                /// @src 0:74514:76970  "if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {..."
+                /// @src 0:76244:78700  "if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {..."
                 switch expr
                 case 0 {
-                    /// @src 0:75573:75620  "require(_protocolId > 1, \"invalid protocol id\")"
-                    require_helper_stringliteral_44e5(/** @src 0:75581:75596  "_protocolId > 1" */ gt(var_protocolId, /** @src 0:75595:75596  "1" */ 0x01))
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                    let _2 := sload(/** @src 0:75648:75677  "protocolFeeInWei[_protocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15104(var_protocolId))
-                    /// @src 0:75691:75731  "require(msg.value >= fee, \"too low fee\")"
-                    require_helper_stringliteral_4ed5(/** @src 0:75699:75715  "msg.value >= fee" */ iszero(lt(/** @src 0:75699:75708  "msg.value" */ callvalue(), /** @src 0:75699:75715  "msg.value >= fee" */ _2)))
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                    let _3 := sload(/** @src 0:75841:75888  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256(/** @src 0:75841:75872  "merkleRootsPrivate[_protocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15099(var_protocolId), /** @src 0:75841:75888  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ var_votingRoundId))
-                    /// @src 0:75902:75946  "require(root != bytes32(0), \"not finalized\")"
-                    require_helper_stringliteral(/** @src 0:75910:75928  "root != bytes32(0)" */ iszero(iszero(_3)))
-                    /// @src 0:75960:76073  "require(..."
-                    require_helper_stringliteral_c04c(/** @src 0:75985:76019  "_proof.verifyCalldata(root, _leaf)" */ fun_verifyCalldata(var__proof_offset, var_proof_length, _3, var_leaf))
-                    /// @src 0:76290:76627  "if (fee > 0) {..."
-                    if /** @src 0:76294:76301  "fee > 0" */ iszero(iszero(_2))
-                    /// @src 0:76290:76627  "if (fee > 0) {..."
+                    /// @src 0:77303:77350  "require(_protocolId > 1, \"invalid protocol id\")"
+                    require_helper_stringliteral_44e5(/** @src 0:77311:77326  "_protocolId > 1" */ gt(var_protocolId, /** @src 0:77325:77326  "1" */ 0x01))
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                    let _2 := sload(/** @src 0:77378:77407  "protocolFeeInWei[_protocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15196(var_protocolId))
+                    /// @src 0:77421:77461  "require(msg.value >= fee, \"too low fee\")"
+                    require_helper_stringliteral_4ed5(/** @src 0:77429:77445  "msg.value >= fee" */ iszero(lt(/** @src 0:77429:77438  "msg.value" */ callvalue(), /** @src 0:77429:77445  "msg.value >= fee" */ _2)))
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                    let _3 := sload(/** @src 0:77571:77618  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256(/** @src 0:77571:77602  "merkleRootsPrivate[_protocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15191(var_protocolId), /** @src 0:77571:77618  "merkleRootsPrivate[_protocolId][_votingRoundId]" */ var_votingRoundId))
+                    /// @src 0:77632:77676  "require(root != bytes32(0), \"not finalized\")"
+                    require_helper_stringliteral(/** @src 0:77640:77658  "root != bytes32(0)" */ iszero(iszero(_3)))
+                    /// @src 0:77690:77803  "require(..."
+                    require_helper_stringliteral_c04c(/** @src 0:77715:77749  "_proof.verifyCalldata(root, _leaf)" */ fun_verifyCalldata(var_proof_offset, var_proof_length, _3, var_leaf))
+                    /// @src 0:78020:78357  "if (fee > 0) {..."
+                    if /** @src 0:78024:78031  "fee > 0" */ iszero(iszero(_2))
+                    /// @src 0:78020:78357  "if (fee > 0) {..."
                     {
-                        /// @src 0:76461:76502  "feeCollectionAddress.call{value: fee}(\"\")"
-                        let expr_1596_component := call(gas(), /** @src 0:76461:76486  "feeCollectionAddress.call" */ cleanup_address_payable(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ cleanup_address_payable(sload(/** @src 0:76461:76481  "feeCollectionAddress" */ 0x05))), /** @src 0:76461:76502  "feeCollectionAddress.call{value: fee}(\"\")" */ _2, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0, 0, 0, 0)
-                        /// @src 0:76461:76502  "feeCollectionAddress.call{value: fee}(\"\")"
+                        /// @src 0:78191:78232  "feeCollectionAddress.call{value: fee}(\"\")"
+                        let expr_component := call(gas(), /** @src 0:78191:78216  "feeCollectionAddress.call" */ cleanup_address_payable(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ cleanup_address_payable(sload(/** @src 0:78191:78211  "feeCollectionAddress" */ 0x05))), /** @src 0:78191:78232  "feeCollectionAddress.call{value: fee}(\"\")" */ _2, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0, 0, 0, 0)
+                        /// @src 0:78191:78232  "feeCollectionAddress.call{value: fee}(\"\")"
                         pop(extract_returndata())
-                        /// @src 0:76579:76612  "require(feeOk, \"Transfer failed\")"
-                        require_helper_stringliteral_25ad(expr_1596_component)
+                        /// @src 0:78309:78342  "require(feeOk, \"Transfer failed\")"
+                        require_helper_stringliteral_25ad(expr_component)
                     }
-                    /// @src 0:76657:76672  "msg.value - fee"
-                    let expr_1 := checked_sub_uint256(/** @src 0:75699:75708  "msg.value" */ callvalue(), /** @src 0:76657:76672  "msg.value - fee" */ _2)
-                    /// @src 0:76686:76960  "if (refund > 0) {..."
-                    if /** @src 0:76690:76700  "refund > 0" */ iszero(iszero(expr_1))
-                    /// @src 0:76686:76960  "if (refund > 0) {..."
+                    /// @src 0:78387:78402  "msg.value - fee"
+                    let expr_1 := checked_sub_uint256(/** @src 0:77429:77438  "msg.value" */ callvalue(), /** @src 0:78387:78402  "msg.value - fee" */ _2)
+                    /// @src 0:78416:78690  "if (refund > 0) {..."
+                    if /** @src 0:78420:78430  "refund > 0" */ iszero(iszero(expr_1))
+                    /// @src 0:78416:78690  "if (refund > 0) {..."
                     {
-                        /// @src 0:76800:76834  "msg.sender.call{value: refund}(\"\")"
-                        let expr_1623_component := call(gas(), /** @src 0:76800:76810  "msg.sender" */ caller(), /** @src 0:76800:76834  "msg.sender.call{value: refund}(\"\")" */ expr_1, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0, 0, 0, 0)
-                        /// @src 0:76800:76834  "msg.sender.call{value: refund}(\"\")"
+                        /// @src 0:78530:78564  "msg.sender.call{value: refund}(\"\")"
+                        let expr_component_1 := call(gas(), /** @src 0:78530:78540  "msg.sender" */ caller(), /** @src 0:78530:78564  "msg.sender.call{value: refund}(\"\")" */ expr_1, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0, 0, 0, 0)
+                        /// @src 0:78530:78564  "msg.sender.call{value: refund}(\"\")"
                         pop(extract_returndata())
-                        /// @src 0:76911:76945  "require(refundOk, \"Refund failed\")"
-                        require_helper_stringliteral_940e(expr_1623_component)
+                        /// @src 0:78641:78675  "require(refundOk, \"Refund failed\")"
+                        require_helper_stringliteral_940e(expr_component_1)
                     }
                 }
-                default /// @src 0:74514:76970  "if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {..."
+                default /// @src 0:76244:78700  "if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {..."
                 {
-                    /// @src 0:74915:74953  "oldRelay.protocolFeeInWei(_protocolId)"
-                    let _4 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                    /// @src 0:74915:74953  "oldRelay.protocolFeeInWei(_protocolId)"
-                    mstore(_4, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(224, 0x91e7d42f))
-                    /// @src 0:74915:74953  "oldRelay.protocolFeeInWei(_protocolId)"
+                    /// @src 0:76645:76683  "oldRelay.protocolFeeInWei(_protocolId)"
+                    let _4 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                    /// @src 0:76645:76683  "oldRelay.protocolFeeInWei(_protocolId)"
+                    mstore(_4, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(224, 0x91e7d42f))
+                    /// @src 0:76645:76683  "oldRelay.protocolFeeInWei(_protocolId)"
                     let _5 := staticcall(gas(), _1, _4, sub(abi_encode_bytes32(add(_4, 4), var_protocolId), _4), _4, 32)
                     if iszero(_5) { revert_forward() }
-                    let expr_2 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                    /// @src 0:74915:74953  "oldRelay.protocolFeeInWei(_protocolId)"
+                    let expr_2 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                    /// @src 0:76645:76683  "oldRelay.protocolFeeInWei(_protocolId)"
                     if _5
                     {
                         let _6 := 32
@@ -2277,54 +2281,54 @@ object "Relay_2011" {
                         finalize_allocation(_4, _6)
                         expr_2 := abi_decode_uint256_fromMemory(_4, add(_4, _6))
                     }
-                    /// @src 0:74967:75010  "require(msg.value >= oldFee, \"too low fee\")"
-                    require_helper_stringliteral_4ed5(/** @src 0:74975:74994  "msg.value >= oldFee" */ iszero(lt(/** @src 0:74975:74984  "msg.value" */ callvalue(), /** @src 0:74975:74994  "msg.value >= oldFee" */ expr_2)))
-                    /// @src 0:75034:75108  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
-                    let _7 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                    /// @src 0:75034:75108  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
-                    mstore(_7, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(225, 0x40428355))
-                    /// @src 0:75034:75108  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
-                    let _8 := call(gas(), _1, expr_2, _7, sub(abi_encode_uint256_uint256_bytes32_array_bytes32_dyn_calldata(add(_7, /** @src 0:74915:74953  "oldRelay.protocolFeeInWei(_protocolId)" */ 4), /** @src 0:75034:75108  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)" */ var_protocolId, var_votingRoundId, var_leaf, var__proof_offset, var_proof_length), _7), _7, /** @src 0:74915:74953  "oldRelay.protocolFeeInWei(_protocolId)" */ 32)
-                    /// @src 0:75034:75108  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
+                    /// @src 0:76697:76740  "require(msg.value >= oldFee, \"too low fee\")"
+                    require_helper_stringliteral_4ed5(/** @src 0:76705:76724  "msg.value >= oldFee" */ iszero(lt(/** @src 0:76705:76714  "msg.value" */ callvalue(), /** @src 0:76705:76724  "msg.value >= oldFee" */ expr_2)))
+                    /// @src 0:76764:76838  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
+                    let _7 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                    /// @src 0:76764:76838  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
+                    mstore(_7, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(225, 0x40428355))
+                    /// @src 0:76764:76838  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
+                    let _8 := call(gas(), _1, expr_2, _7, sub(abi_encode_uint256_uint256_bytes32_array_bytes32_dyn_calldata(add(_7, /** @src 0:76645:76683  "oldRelay.protocolFeeInWei(_protocolId)" */ 4), /** @src 0:76764:76838  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)" */ var_protocolId, var_votingRoundId, var_leaf, var_proof_offset, var_proof_length), _7), _7, /** @src 0:76645:76683  "oldRelay.protocolFeeInWei(_protocolId)" */ 32)
+                    /// @src 0:76764:76838  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
                     if iszero(_8) { revert_forward() }
-                    let expr_3 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0
-                    /// @src 0:75034:75108  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
+                    let expr_3 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0
+                    /// @src 0:76764:76838  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
                     if _8
                     {
-                        let _9 := /** @src 0:74915:74953  "oldRelay.protocolFeeInWei(_protocolId)" */ 32
-                        /// @src 0:75034:75108  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
-                        if gt(/** @src 0:74915:74953  "oldRelay.protocolFeeInWei(_protocolId)" */ 32, /** @src 0:75034:75108  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)" */ returndatasize()) { _9 := returndatasize() }
+                        let _9 := /** @src 0:76645:76683  "oldRelay.protocolFeeInWei(_protocolId)" */ 32
+                        /// @src 0:76764:76838  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)"
+                        if gt(/** @src 0:76645:76683  "oldRelay.protocolFeeInWei(_protocolId)" */ 32, /** @src 0:76764:76838  "oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof)" */ returndatasize()) { _9 := returndatasize() }
                         finalize_allocation(_7, _9)
                         expr_3 := abi_decode_bool_fromMemory(_7, add(_7, _9))
                     }
-                    /// @src 0:75122:75166  "require(ok, \"old relay verification failed\")"
+                    /// @src 0:76852:76896  "require(ok, \"old relay verification failed\")"
                     require_helper_stringliteral_fd5d(expr_3)
-                    /// @src 0:75200:75218  "msg.value - oldFee"
-                    let expr_4 := checked_sub_uint256(/** @src 0:74975:74984  "msg.value" */ callvalue(), /** @src 0:75200:75218  "msg.value - oldFee" */ expr_2)
-                    /// @src 0:75232:75518  "if (oldRefund > 0) {..."
-                    if /** @src 0:75236:75249  "oldRefund > 0" */ iszero(iszero(expr_4))
-                    /// @src 0:75232:75518  "if (oldRefund > 0) {..."
+                    /// @src 0:76930:76948  "msg.value - oldFee"
+                    let expr_4 := checked_sub_uint256(/** @src 0:76705:76714  "msg.value" */ callvalue(), /** @src 0:76930:76948  "msg.value - oldFee" */ expr_2)
+                    /// @src 0:76962:77248  "if (oldRefund > 0) {..."
+                    if /** @src 0:76966:76979  "oldRefund > 0" */ iszero(iszero(expr_4))
+                    /// @src 0:76962:77248  "if (oldRefund > 0) {..."
                     {
-                        /// @src 0:75352:75389  "msg.sender.call{value: oldRefund}(\"\")"
-                        let expr_1526_component := call(gas(), /** @src 0:75352:75362  "msg.sender" */ caller(), /** @src 0:75352:75389  "msg.sender.call{value: oldRefund}(\"\")" */ expr_4, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0, 0, 0, 0)
-                        /// @src 0:75352:75389  "msg.sender.call{value: oldRefund}(\"\")"
+                        /// @src 0:77082:77119  "msg.sender.call{value: oldRefund}(\"\")"
+                        let expr_1537_component := call(gas(), /** @src 0:77082:77092  "msg.sender" */ caller(), /** @src 0:77082:77119  "msg.sender.call{value: oldRefund}(\"\")" */ expr_4, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0, 0, 0, 0)
+                        /// @src 0:77082:77119  "msg.sender.call{value: oldRefund}(\"\")"
                         pop(extract_returndata())
-                        /// @src 0:75466:75503  "require(oldRefundOk, \"Refund failed\")"
-                        require_helper_stringliteral_940e(expr_1526_component)
+                        /// @src 0:77196:77233  "require(oldRefundOk, \"Refund failed\")"
+                        require_helper_stringliteral_940e(expr_1537_component)
                     }
-                    /// @src 0:75531:75542  "return true"
-                    var := /** @src 0:75538:75542  "true" */ 0x01
-                    /// @src 0:75531:75542  "return true"
+                    /// @src 0:77261:77272  "return true"
+                    var := /** @src 0:77268:77272  "true" */ 0x01
+                    /// @src 0:77261:77272  "return true"
                     leave
                 }
-                /// @src 0:76980:76991  "return true"
-                var := /** @src 0:76987:76991  "true" */ 0x01
+                /// @src 0:78710:78721  "return true"
+                var := /** @src 0:78717:78721  "true" */ 0x01
             }
             /// @ast-id 351 @src 0:9966:10098  "modifier onlySigningPolicySetter() {..."
             function modifier_onlySigningPolicySetter(var_signingPolicy_mpos) -> _1
             {
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                if iszero(/** @src 0:10019:10052  "msg.sender == signingPolicySetter" */ eq(/** @src 0:10019:10029  "msg.sender" */ caller(), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(sload(/** @src 0:10033:10052  "signingPolicySetter" */ 0x03), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))))
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                if iszero(/** @src 0:10019:10052  "msg.sender == signingPolicySetter" */ eq(/** @src 0:10019:10029  "msg.sender" */ caller(), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(sload(/** @src 0:10033:10052  "signingPolicySetter" */ 0x03), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))))
                 {
                     let memPtr := mload(64)
                     mstore(memPtr, shl(229, 4594637))
@@ -2333,275 +2337,286 @@ object "Relay_2011" {
                     mstore(add(memPtr, 68), "only sign policy setter")
                     revert(memPtr, 100)
                 }
-                /// @src 0:16245:16285  "stateData.lastInitializedRewardEpoch + 1"
-                let expr := checked_add_uint32(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ extract_from_storage_value_offsett_uint32(sload(/** @src 0:16245:16254  "stateData" */ 0x07)))
-                /// @src 0:16224:16364  "require(..."
-                require_helper_stringliteral_d084(/** @src 0:16245:16317  "stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId" */ eq(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:16245:16317  "stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId" */ expr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff), /** @src 0:16245:16317  "stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId" */ cleanup_uint24(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ cleanup_uint24(mload(/** @src 0:16289:16317  "_signingPolicy.rewardEpochId" */ var_signingPolicy_mpos)))))
-                /// @src 0:17218:17282  "require(_signingPolicy.voters.length > 0, \"must be non-trivial\")"
-                require_helper_stringliteral_aacd(/** @src 0:17226:17258  "_signingPolicy.voters.length > 0" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:17226:17247  "_signingPolicy.voters" */ mload(add(var_signingPolicy_mpos, 128))))))
-                /// @src 0:17292:17362  "require(_signingPolicy.voters.length <= MAX_VOTERS, \"too many voters\")"
-                require_helper_stringliteral_d1bc(/** @src 0:17300:17342  "_signingPolicy.voters.length <= MAX_VOTERS" */ iszero(gt(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:17300:17321  "_signingPolicy.voters" */ mload(/** @src 0:17226:17247  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))), /** @src 0:2485:2488  "300" */ 0x012c)))
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                let length := mload(/** @src 0:17380:17401  "_signingPolicy.voters" */ mload(/** @src 0:17226:17247  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128)))
-                /// @src 0:17372:17459  "require(_signingPolicy.voters.length == _signingPolicy.weights.length, \"size mismatch\")"
-                require_helper_stringliteral_6b32(/** @src 0:17380:17441  "_signingPolicy.voters.length == _signingPolicy.weights.length" */ eq(length, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:17412:17434  "_signingPolicy.weights" */ mload(add(var_signingPolicy_mpos, 160)))))
-                /// @src 0:17469:17492  "uint256 totalWeight = 0"
+                /// @src 0:16581:16621  "stateData.lastInitializedRewardEpoch + 1"
+                let expr := checked_add_uint32(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ extract_from_storage_value_offsett_uint32(sload(/** @src 0:16581:16590  "stateData" */ 0x07)))
+                /// @src 0:16560:16700  "require(..."
+                require_helper_stringliteral_d084(/** @src 0:16581:16653  "stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId" */ eq(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:16581:16653  "stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId" */ expr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff), /** @src 0:16581:16653  "stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId" */ cleanup_uint24(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ cleanup_uint24(mload(/** @src 0:16625:16653  "_signingPolicy.rewardEpochId" */ var_signingPolicy_mpos)))))
+                /// @src 0:17554:17618  "require(_signingPolicy.voters.length > 0, \"must be non-trivial\")"
+                require_helper_stringliteral_aacd(/** @src 0:17562:17594  "_signingPolicy.voters.length > 0" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:17562:17583  "_signingPolicy.voters" */ mload(add(var_signingPolicy_mpos, 128))))))
+                /// @src 0:17628:17698  "require(_signingPolicy.voters.length <= MAX_VOTERS, \"too many voters\")"
+                require_helper_stringliteral_d1bc(/** @src 0:17636:17678  "_signingPolicy.voters.length <= MAX_VOTERS" */ iszero(gt(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:17636:17657  "_signingPolicy.voters" */ mload(/** @src 0:17562:17583  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))), /** @src 0:2485:2488  "300" */ 0x012c)))
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                let length := mload(/** @src 0:17716:17737  "_signingPolicy.voters" */ mload(/** @src 0:17562:17583  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128)))
+                /// @src 0:17708:17795  "require(_signingPolicy.voters.length == _signingPolicy.weights.length, \"size mismatch\")"
+                require_helper_stringliteral_6b32(/** @src 0:17716:17777  "_signingPolicy.voters.length == _signingPolicy.weights.length" */ eq(length, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:17748:17770  "_signingPolicy.weights" */ mload(add(var_signingPolicy_mpos, 160)))))
+                /// @src 0:17805:17828  "uint256 totalWeight = 0"
                 let var_totalWeight := /** @src -1:-1:-1 */ 0
-                /// @src 0:17507:17520  "uint256 i = 0"
+                /// @src 0:17843:17856  "uint256 i = 0"
                 let var_i := /** @src -1:-1:-1 */ 0
-                /// @src 0:17502:17627  "for (uint256 i = 0; i < _signingPolicy.weights.length; i++) {..."
+                /// @src 0:17838:17963  "for (uint256 i = 0; i < _signingPolicy.weights.length; i++) {..."
                 for { }
-                /** @src 0:16284:16285  "1" */ 0x01
-                /// @src 0:17507:17520  "uint256 i = 0"
+                /** @src 0:16620:16621  "1" */ 0x01
+                /// @src 0:17843:17856  "uint256 i = 0"
                 {
-                    /// @src 0:17557:17560  "i++"
-                    var_i := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:17557:17560  "i++" */ var_i, /** @src 0:16284:16285  "1" */ 0x01)
+                    /// @src 0:17893:17896  "i++"
+                    var_i := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:17893:17896  "i++" */ var_i, /** @src 0:16620:16621  "1" */ 0x01)
                 }
-                /// @src 0:17557:17560  "i++"
+                /// @src 0:17893:17896  "i++"
                 {
-                    /// @src 0:17526:17548  "_signingPolicy.weights"
-                    let _mpos := mload(/** @src 0:17412:17434  "_signingPolicy.weights" */ add(var_signingPolicy_mpos, 160))
-                    /// @src 0:17522:17555  "i < _signingPolicy.weights.length"
-                    if iszero(lt(var_i, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:17526:17555  "_signingPolicy.weights.length" */ _mpos)))
-                    /// @src 0:17522:17555  "i < _signingPolicy.weights.length"
+                    /// @src 0:17862:17884  "_signingPolicy.weights"
+                    let _mpos := mload(/** @src 0:17748:17770  "_signingPolicy.weights" */ add(var_signingPolicy_mpos, 160))
+                    /// @src 0:17858:17891  "i < _signingPolicy.weights.length"
+                    if iszero(lt(var_i, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:17862:17891  "_signingPolicy.weights.length" */ _mpos)))
+                    /// @src 0:17858:17891  "i < _signingPolicy.weights.length"
                     { break }
-                    /// @src 0:17576:17616  "totalWeight += _signingPolicy.weights[i]"
-                    var_totalWeight := checked_add_uint256(var_totalWeight, cleanup_from_storage_uint16(/** @src 0:17591:17616  "_signingPolicy.weights[i]" */ read_from_memoryt_uint16(memory_array_index_access_uint16_dyn(_mpos, var_i))))
+                    /// @src 0:17912:17952  "totalWeight += _signingPolicy.weights[i]"
+                    var_totalWeight := checked_add_uint256(var_totalWeight, cleanup_from_storage_uint16(/** @src 0:17927:17952  "_signingPolicy.weights[i]" */ read_from_memoryt_uint16(memory_array_index_access_uint16_dyn(_mpos, var_i))))
                 }
-                /// @src 0:17636:17688  "require(totalWeight < 2**16, \"total weight too big\")"
-                require_helper_stringliteral_f10c(/** @src 0:17644:17663  "totalWeight < 2**16" */ lt(var_totalWeight, /** @src 0:17658:17663  "2**16" */ 0x010000))
-                /// @src 0:17719:17778  "uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS)"
-                let expr_1 := checked_mul_uint256_15107(/** @src 0:17719:17752  "uint256(_signingPolicy.threshold)" */ cleanup_from_storage_uint16(/** @src 0:2485:2488  "300" */ cleanup_from_storage_uint16(mload(/** @src 0:17727:17751  "_signingPolicy.threshold" */ add(var_signingPolicy_mpos, 64)))))
-                /// @src 0:17698:17859  "require(..."
-                require_helper_stringliteral_d8d1(/** @src 0:17719:17814  "uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS) >= totalWeight * MIN_THRESHOLD_BIPS" */ iszero(lt(expr_1, /** @src 0:17782:17814  "totalWeight * MIN_THRESHOLD_BIPS" */ checked_mul_uint256_15108(var_totalWeight))))
-                /// @src 0:17890:17949  "uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS)"
-                let expr_2 := checked_mul_uint256_15107(/** @src 0:17890:17923  "uint256(_signingPolicy.threshold)" */ cleanup_from_storage_uint16(/** @src 0:2485:2488  "300" */ cleanup_from_storage_uint16(mload(/** @src 0:17727:17751  "_signingPolicy.threshold" */ add(var_signingPolicy_mpos, 64)))))
-                /// @src 0:17869:18028  "require(..."
-                require_helper_stringliteral_185c(/** @src 0:17890:17985  "uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS) <= totalWeight * MAX_THRESHOLD_BIPS" */ iszero(gt(expr_2, /** @src 0:17953:17985  "totalWeight * MAX_THRESHOLD_BIPS" */ checked_mul_uint256_15110(var_totalWeight))))
-                /// @src 0:18073:18223  "new bytes(..."
-                let expr_mpos := allocate_and_zero_memory_array_bytes(/** @src 0:18096:18213  "SIGNING_POLICY_PREFIX_BYTES +..." */ checked_add_uint256_15112(/** @src 0:18142:18213  "_signingPolicy.voters.length *..." */ checked_mul_uint256_15111(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:18142:18163  "_signingPolicy.voters" */ mload(/** @src 0:17226:17247  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))))))
-                /// @src 0:18234:18251  "Counters memory m"
+                /// @src 0:17972:18024  "require(totalWeight < 2**16, \"total weight too big\")"
+                require_helper_stringliteral_f10c(/** @src 0:17980:17999  "totalWeight < 2**16" */ lt(var_totalWeight, /** @src 0:17994:17999  "2**16" */ 0x010000))
+                /// @src 0:18055:18114  "uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS)"
+                let expr_1 := checked_mul_uint256_15199(/** @src 0:18055:18088  "uint256(_signingPolicy.threshold)" */ cleanup_from_storage_uint16(/** @src 0:2485:2488  "300" */ cleanup_from_storage_uint16(mload(/** @src 0:18063:18087  "_signingPolicy.threshold" */ add(var_signingPolicy_mpos, 64)))))
+                /// @src 0:18034:18195  "require(..."
+                require_helper_stringliteral_d8d1(/** @src 0:18055:18150  "uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS) >= totalWeight * MIN_THRESHOLD_BIPS" */ iszero(lt(expr_1, /** @src 0:18118:18150  "totalWeight * MIN_THRESHOLD_BIPS" */ checked_mul_uint256_15200(var_totalWeight))))
+                /// @src 0:18226:18285  "uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS)"
+                let expr_2 := checked_mul_uint256_15199(/** @src 0:18226:18259  "uint256(_signingPolicy.threshold)" */ cleanup_from_storage_uint16(/** @src 0:2485:2488  "300" */ cleanup_from_storage_uint16(mload(/** @src 0:18063:18087  "_signingPolicy.threshold" */ add(var_signingPolicy_mpos, 64)))))
+                /// @src 0:18205:18364  "require(..."
+                require_helper_stringliteral_185c(/** @src 0:18226:18321  "uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS) <= totalWeight * MAX_THRESHOLD_BIPS" */ iszero(gt(expr_2, /** @src 0:18289:18321  "totalWeight * MAX_THRESHOLD_BIPS" */ checked_mul_uint256_15202(var_totalWeight))))
+                /// @src 0:18409:18559  "new bytes(..."
+                let expr_mpos := allocate_and_zero_memory_array_bytes(/** @src 0:18432:18549  "SIGNING_POLICY_PREFIX_BYTES +..." */ checked_add_uint256_15204(/** @src 0:18478:18549  "_signingPolicy.voters.length *..." */ checked_mul_uint256_15203(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:18478:18499  "_signingPolicy.voters" */ mload(/** @src 0:17562:17583  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))))))
+                /// @src 0:18570:18587  "Counters memory m"
                 let zero_struct_Counters_mpos := /** @src 0:3954:3956  "22" */ allocate_and_zero_memory_struct_struct_Counters()
-                /// @src 0:18567:18588  "_signingPolicy.voters"
-                let _mpos_1 := mload(/** @src 0:17226:17247  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))
-                /// @src 0:18553:18597  "bytes2(uint16(_signingPolicy.voters.length))"
-                let expr_3 := convert_uint16_to_bytes2(/** @src 0:18560:18596  "uint16(_signingPolicy.voters.length)" */ cleanup_from_storage_uint16(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:18567:18595  "_signingPolicy.voters.length" */ _mpos_1)))
-                /// @src 0:18611:18647  "bytes3(_signingPolicy.rewardEpochId)"
-                let expr_4 := convert_uint24_to_bytes3(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ cleanup_uint24(mload(/** @src 0:18618:18646  "_signingPolicy.rewardEpochId" */ var_signingPolicy_mpos)))
-                /// @src 0:18661:18702  "bytes4(_signingPolicy.startVotingRoundId)"
-                let expr_5 := convert_uint32_to_bytes4(/** @src 0:3954:3956  "22" */ cleanup_from_storage_uint32(mload(/** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ add(var_signingPolicy_mpos, 32))))
-                /// @src 0:18716:18748  "bytes2(_signingPolicy.threshold)"
-                let expr_6 := convert_uint16_to_bytes2(/** @src 0:2485:2488  "300" */ cleanup_from_storage_uint16(mload(/** @src 0:17727:17751  "_signingPolicy.threshold" */ add(var_signingPolicy_mpos, 64))))
+                /// @src 0:18903:18924  "_signingPolicy.voters"
+                let _mpos_1 := mload(/** @src 0:17562:17583  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))
+                /// @src 0:18889:18933  "bytes2(uint16(_signingPolicy.voters.length))"
+                let expr_3 := convert_uint16_to_bytes2(/** @src 0:18896:18932  "uint16(_signingPolicy.voters.length)" */ cleanup_from_storage_uint16(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:18903:18931  "_signingPolicy.voters.length" */ _mpos_1)))
+                /// @src 0:18947:18983  "bytes3(_signingPolicy.rewardEpochId)"
+                let expr_4 := convert_uint24_to_bytes3(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ cleanup_uint24(mload(/** @src 0:18954:18982  "_signingPolicy.rewardEpochId" */ var_signingPolicy_mpos)))
+                /// @src 0:18997:19038  "bytes4(_signingPolicy.startVotingRoundId)"
+                let expr_5 := convert_uint32_to_bytes4(/** @src 0:3954:3956  "22" */ cleanup_from_storage_uint32(mload(/** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ add(var_signingPolicy_mpos, 32))))
+                /// @src 0:19052:19084  "bytes2(_signingPolicy.threshold)"
+                let expr_6 := convert_uint16_to_bytes2(/** @src 0:2485:2488  "300" */ cleanup_from_storage_uint16(mload(/** @src 0:18063:18087  "_signingPolicy.threshold" */ add(var_signingPolicy_mpos, 64))))
                 /// @src 0:3954:3956  "22"
-                let _2 := mload(/** @src 0:18778:18797  "_signingPolicy.seed" */ add(var_signingPolicy_mpos, 96))
-                /// @src 0:18813:18846  "bytes20(_signingPolicy.voters[0])"
-                let expr_7 := convert_address_to_bytes20(/** @src 0:18821:18845  "_signingPolicy.voters[0]" */ read_from_memoryt_address(memory_array_index_access_uint16_dyn_15113(_mpos_1)))
-                /// @src 0:18527:18915  "bytes.concat(..."
-                let expr_mpos_1 := bytes_concat_bytes2_bytes3_bytes4_bytes2_bytes32_bytes20_bytes1(expr_3, expr_4, expr_5, expr_6, _2, expr_7, /** @src 0:18860:18905  "bytes1(uint8(_signingPolicy.weights[0] >> 8))" */ convert_uint8_to_bytes1(/** @src 0:18867:18904  "uint8(_signingPolicy.weights[0] >> 8)" */ extract_from_storage_value_offsett_uint8(/** @src 0:18873:18903  "_signingPolicy.weights[0] >> 8" */ shift_right_uint16_uint8(/** @src 0:18873:18898  "_signingPolicy.weights[0]" */ read_from_memoryt_uint16(memory_array_index_access_uint16_dyn_15113(/** @src 0:18873:18895  "_signingPolicy.weights" */ mload(/** @src 0:17412:17434  "_signingPolicy.weights" */ add(var_signingPolicy_mpos, 160))))))))
-                /// @src 0:18926:19072  "for (; m.signingPolicyPos < 64; m.signingPolicyPos++) {..."
+                let _2 := mload(/** @src 0:19114:19133  "_signingPolicy.seed" */ add(var_signingPolicy_mpos, 96))
+                /// @src 0:19149:19182  "bytes20(_signingPolicy.voters[0])"
+                let expr_7 := convert_address_to_bytes20(/** @src 0:19157:19181  "_signingPolicy.voters[0]" */ read_from_memoryt_address(memory_array_index_access_uint16_dyn_15205(_mpos_1)))
+                /// @src 0:18863:19251  "bytes.concat(..."
+                let expr_mpos_1 := bytes_concat_bytes2_bytes3_bytes4_bytes2_bytes32_bytes20_bytes1(expr_3, expr_4, expr_5, expr_6, _2, expr_7, /** @src 0:19196:19241  "bytes1(uint8(_signingPolicy.weights[0] >> 8))" */ convert_uint8_to_bytes1(/** @src 0:19203:19240  "uint8(_signingPolicy.weights[0] >> 8)" */ extract_from_storage_value_offsett_uint8(/** @src 0:19209:19239  "_signingPolicy.weights[0] >> 8" */ shift_right_uint16_uint8(/** @src 0:19209:19234  "_signingPolicy.weights[0]" */ read_from_memoryt_uint16(memory_array_index_access_uint16_dyn_15205(/** @src 0:19209:19231  "_signingPolicy.weights" */ mload(/** @src 0:17748:17770  "_signingPolicy.weights" */ add(var_signingPolicy_mpos, 160))))))))
+                /// @src 0:19262:19408  "for (; m.signingPolicyPos < 64; m.signingPolicyPos++) {..."
                 for { }
-                /** @src 0:16284:16285  "1" */ 0x01
-                /// @src 0:18926:19072  "for (; m.signingPolicyPos < 64; m.signingPolicyPos++) {..."
+                /** @src 0:16620:16621  "1" */ 0x01
+                /// @src 0:19262:19408  "for (; m.signingPolicyPos < 64; m.signingPolicyPos++) {..."
                 {
                     /// @src 0:3954:3956  "22"
-                    mstore(/** @src 0:18958:18976  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256), /** @src 0:18958:18978  "m.signingPolicyPos++" */ increment_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:18958:18976  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256))))
+                    mstore(/** @src 0:19294:19312  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256), /** @src 0:19294:19314  "m.signingPolicyPos++" */ increment_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19294:19312  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256))))
                 }
-                /// @src 0:18958:18978  "m.signingPolicyPos++"
+                /// @src 0:19294:19314  "m.signingPolicyPos++"
                 {
                     /// @src 0:3954:3956  "22"
-                    let _3 := mload(/** @src 0:18958:18976  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256))
-                    /// @src 0:18933:18956  "m.signingPolicyPos < 64"
-                    if iszero(lt(_3, /** @src 0:17727:17751  "_signingPolicy.threshold" */ 64))
-                    /// @src 0:18933:18956  "m.signingPolicyPos < 64"
+                    let _3 := mload(/** @src 0:19294:19312  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256))
+                    /// @src 0:19269:19292  "m.signingPolicyPos < 64"
+                    if iszero(lt(_3, /** @src 0:18063:18087  "_signingPolicy.threshold" */ 64))
+                    /// @src 0:19269:19292  "m.signingPolicyPos < 64"
                     { break }
-                    /// @src 0:19035:19061  "toHash[m.signingPolicyPos]"
+                    /// @src 0:19371:19397  "toHash[m.signingPolicyPos]"
                     let _4 := read_from_memoryt_bytes1(memory_array_index_access_bytes(expr_mpos_1, /** @src 0:3954:3956  "22" */ _3))
-                    let _5 := mload(/** @src 0:18958:18976  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256))
-                    /// @src 0:18994:19061  "signingPolicyBytes[m.signingPolicyPos] = toHash[m.signingPolicyPos]"
-                    mstore8(memory_array_index_access_bytes(expr_mpos, _5), byte(/** @src -1:-1:-1 */ 0, /** @src 0:18994:19061  "signingPolicyBytes[m.signingPolicyPos] = toHash[m.signingPolicyPos]" */ _4))
+                    let _5 := mload(/** @src 0:19294:19312  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256))
+                    /// @src 0:19330:19397  "signingPolicyBytes[m.signingPolicyPos] = toHash[m.signingPolicyPos]"
+                    mstore8(memory_array_index_access_bytes(expr_mpos, _5), byte(/** @src -1:-1:-1 */ 0, /** @src 0:19330:19397  "signingPolicyBytes[m.signingPolicyPos] = toHash[m.signingPolicyPos]" */ _4))
                 }
-                /// @src 0:19082:19121  "bytes32 currentHash = keccak256(toHash)"
-                let var_currentHash := /** @src 0:19104:19121  "keccak256(toHash)" */ keccak256(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:19104:19121  "keccak256(toHash)" */ expr_mpos_1, /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:19104:19121  "keccak256(toHash)" */ expr_mpos_1))
+                /// @src 0:19418:19457  "bytes32 currentHash = keccak256(toHash)"
+                let var_currentHash := /** @src 0:19440:19457  "keccak256(toHash)" */ keccak256(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:19440:19457  "keccak256(toHash)" */ expr_mpos_1, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:19440:19457  "keccak256(toHash)" */ expr_mpos_1))
                 /// @src 0:3954:3956  "22"
                 mstore(zero_struct_Counters_mpos, /** @src -1:-1:-1 */ 0)
                 /// @src 0:3954:3956  "22"
-                mstore(/** @src 0:19159:19170  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32), /** @src 0:16284:16285  "1" */ 0x01)
+                mstore(/** @src 0:19495:19506  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32), /** @src 0:16620:16621  "1" */ 0x01)
                 /// @src 0:3954:3956  "22"
-                mstore(/** @src 0:19184:19196  "m.voterIndex" */ add(zero_struct_Counters_mpos, /** @src 0:17727:17751  "_signingPolicy.threshold" */ 64), /** @src 0:16284:16285  "1" */ 0x01)
+                mstore(/** @src 0:19520:19532  "m.voterIndex" */ add(zero_struct_Counters_mpos, /** @src 0:18063:18087  "_signingPolicy.threshold" */ 64), /** @src 0:16620:16621  "1" */ 0x01)
                 /// @src 0:3954:3956  "22"
-                mstore(/** @src 0:19210:19220  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:18778:18797  "_signingPolicy.seed" */ 96), /** @src -1:-1:-1 */ 0)
-                /// @src 0:19235:21441  "while (m.weightIndex < _signingPolicy.voters.length) {..."
+                mstore(/** @src 0:19546:19556  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:19114:19133  "_signingPolicy.seed" */ 96), /** @src -1:-1:-1 */ 0)
+                /// @src 0:19571:21777  "while (m.weightIndex < _signingPolicy.voters.length) {..."
                 for { }
-                /** @src 0:16284:16285  "1" */ 0x01
-                /// @src 0:19235:21441  "while (m.weightIndex < _signingPolicy.voters.length) {..."
+                /** @src 0:16620:16621  "1" */ 0x01
+                /// @src 0:19571:21777  "while (m.weightIndex < _signingPolicy.voters.length) {..."
                 { }
                 {
                     /// @src 0:3954:3956  "22"
-                    let _6 := mload(/** @src 0:19242:19255  "m.weightIndex" */ zero_struct_Counters_mpos)
-                    /// @src 0:19242:19286  "m.weightIndex < _signingPolicy.voters.length"
-                    if iszero(lt(_6, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:19258:19279  "_signingPolicy.voters" */ mload(/** @src 0:17226:17247  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128)))))
-                    /// @src 0:19242:19286  "m.weightIndex < _signingPolicy.voters.length"
+                    let _6 := mload(/** @src 0:19578:19591  "m.weightIndex" */ zero_struct_Counters_mpos)
+                    /// @src 0:19578:19622  "m.weightIndex < _signingPolicy.voters.length"
+                    if iszero(lt(_6, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:19594:19615  "_signingPolicy.voters" */ mload(/** @src 0:17562:17583  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128)))))
+                    /// @src 0:19578:19622  "m.weightIndex < _signingPolicy.voters.length"
                     { break }
                     /// @src 0:3954:3956  "22"
-                    mstore(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128), /** @src -1:-1:-1 */ 0)
+                    mstore(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128), /** @src -1:-1:-1 */ 0)
                     /// @src 0:3954:3956  "22"
-                    mstore(/** @src 0:19327:19337  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192), /** @src -1:-1:-1 */ 0)
+                    mstore(/** @src 0:19663:19673  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192), /** @src -1:-1:-1 */ 0)
                     /// @src 0:3954:3956  "22"
-                    mstore(/** @src 0:19373:19386  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17412:17434  "_signingPolicy.weights" */ 160), /** @src -1:-1:-1 */ 0)
-                    /// @src 0:19404:21114  "while (..."
+                    mstore(/** @src 0:19709:19722  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17748:17770  "_signingPolicy.weights" */ 160), /** @src -1:-1:-1 */ 0)
+                    /// @src 0:19740:21450  "while (..."
                     for { }
-                    /** @src 0:16284:16285  "1" */ 0x01
-                    /// @src 0:19404:21114  "while (..."
+                    /** @src 0:16620:16621  "1" */ 0x01
+                    /// @src 0:19740:21450  "while (..."
                     { }
                     {
-                        /// @src 0:19428:19488  "m.count < 32 && m.weightIndex < _signingPolicy.voters.length"
-                        let expr_8 := /** @src 0:19428:19440  "m.count < 32" */ lt(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128)), /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32)
-                        /// @src 0:19428:19488  "m.count < 32 && m.weightIndex < _signingPolicy.voters.length"
+                        /// @src 0:19764:19824  "m.count < 32 && m.weightIndex < _signingPolicy.voters.length"
+                        let expr_8 := /** @src 0:19764:19776  "m.count < 32" */ lt(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128)), /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32)
+                        /// @src 0:19764:19824  "m.count < 32 && m.weightIndex < _signingPolicy.voters.length"
                         if expr_8
                         {
                             /// @src 0:3954:3956  "22"
-                            let _7 := mload(/** @src 0:19444:19457  "m.weightIndex" */ zero_struct_Counters_mpos)
-                            /// @src 0:19428:19488  "m.count < 32 && m.weightIndex < _signingPolicy.voters.length"
-                            expr_8 := /** @src 0:19444:19488  "m.weightIndex < _signingPolicy.voters.length" */ lt(_7, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:19460:19481  "_signingPolicy.voters" */ mload(/** @src 0:17226:17247  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))))
+                            let _7 := mload(/** @src 0:19780:19793  "m.weightIndex" */ zero_struct_Counters_mpos)
+                            /// @src 0:19764:19824  "m.count < 32 && m.weightIndex < _signingPolicy.voters.length"
+                            expr_8 := /** @src 0:19780:19824  "m.weightIndex < _signingPolicy.voters.length" */ lt(_7, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:19796:19817  "_signingPolicy.voters" */ mload(/** @src 0:17562:17583  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))))
                         }
-                        /// @src 0:19428:19488  "m.count < 32 && m.weightIndex < _signingPolicy.voters.length"
+                        /// @src 0:19764:19824  "m.count < 32 && m.weightIndex < _signingPolicy.voters.length"
                         if iszero(expr_8) { break }
                         /// @src 0:3954:3956  "22"
-                        let _8 := mload(/** @src 0:19525:19538  "m.weightIndex" */ zero_struct_Counters_mpos)
-                        /// @src 0:19521:21058  "if (m.weightIndex < m.voterIndex) {..."
-                        switch /** @src 0:19525:19553  "m.weightIndex < m.voterIndex" */ lt(_8, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19184:19196  "m.voterIndex" */ add(zero_struct_Counters_mpos, /** @src 0:17727:17751  "_signingPolicy.threshold" */ 64)))
-                        case /** @src 0:19521:21058  "if (m.weightIndex < m.voterIndex) {..." */ 0 {
+                        let _8 := mload(/** @src 0:19861:19874  "m.weightIndex" */ zero_struct_Counters_mpos)
+                        /// @src 0:19857:21394  "if (m.weightIndex < m.voterIndex) {..."
+                        switch /** @src 0:19861:19889  "m.weightIndex < m.voterIndex" */ lt(_8, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19520:19532  "m.voterIndex" */ add(zero_struct_Counters_mpos, /** @src 0:18063:18087  "_signingPolicy.threshold" */ 64)))
+                        case /** @src 0:19857:21394  "if (m.weightIndex < m.voterIndex) {..." */ 0 {
                             /// @src 0:3954:3956  "22"
-                            mstore(/** @src 0:19373:19386  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17412:17434  "_signingPolicy.weights" */ 160), /** @src 0:20364:20379  "20 - m.voterPos" */ checked_sub_uint256_15116(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19210:19220  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:18778:18797  "_signingPolicy.seed" */ 96))))
+                            mstore(/** @src 0:19709:19722  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17748:17770  "_signingPolicy.weights" */ 160), /** @src 0:20700:20715  "20 - m.voterPos" */ checked_sub_uint256_15208(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19546:19556  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:19114:19133  "_signingPolicy.seed" */ 96))))
                             /// @src 0:3954:3956  "22"
-                            let _9 := mload(/** @src 0:19210:19220  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:18778:18797  "_signingPolicy.seed" */ 96))
-                            /// @src 0:20401:20406  "m.pos"
+                            let _9 := mload(/** @src 0:19546:19556  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:19114:19133  "_signingPolicy.seed" */ 96))
+                            /// @src 0:20737:20742  "m.pos"
                             let _10 := add(zero_struct_Counters_mpos, 224)
                             /// @src 0:3954:3956  "22"
                             mstore(_10, _9)
-                            /// @src 0:20510:20531  "_signingPolicy.voters"
-                            let _mpos_2 := mload(/** @src 0:17226:17247  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))
-                            /// @src 0:20494:20587  "uint256(uint160(_signingPolicy.voters[m.voterIndex])) <<..."
-                            let _11 := shift_left_uint256_uint8(/** @src 0:20494:20547  "uint256(uint160(_signingPolicy.voters[m.voterIndex]))" */ cleanup_address_payable(/** @src 0:20502:20546  "uint160(_signingPolicy.voters[m.voterIndex])" */ cleanup_address_payable(/** @src 0:20510:20545  "_signingPolicy.voters[m.voterIndex]" */ read_from_memoryt_address(memory_array_index_access_uint16_dyn(_mpos_2, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19184:19196  "m.voterIndex" */ add(zero_struct_Counters_mpos, /** @src 0:17727:17751  "_signingPolicy.threshold" */ 64)))))))
+                            /// @src 0:20846:20867  "_signingPolicy.voters"
+                            let _mpos_2 := mload(/** @src 0:17562:17583  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))
+                            /// @src 0:20830:20923  "uint256(uint160(_signingPolicy.voters[m.voterIndex])) <<..."
+                            let _11 := shift_left_uint256_uint8_15209(/** @src 0:20830:20883  "uint256(uint160(_signingPolicy.voters[m.voterIndex]))" */ cleanup_address_payable(/** @src 0:20838:20882  "uint160(_signingPolicy.voters[m.voterIndex])" */ cleanup_address_payable(/** @src 0:20846:20881  "_signingPolicy.voters[m.voterIndex]" */ read_from_memoryt_address(memory_array_index_access_uint16_dyn(_mpos_2, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19520:19532  "m.voterIndex" */ add(zero_struct_Counters_mpos, /** @src 0:18063:18087  "_signingPolicy.threshold" */ 64)))))))
                             /// @src 0:3954:3956  "22"
-                            let _12 := mload(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128))
-                            /// @src 0:20631:20904  "if (m.count + m.bytesToTake > 32) {..."
-                            switch /** @src 0:20635:20663  "m.count + m.bytesToTake > 32" */ gt(/** @src 0:20635:20658  "m.count + m.bytesToTake" */ checked_add_uint256(_12, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19373:19386  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17412:17434  "_signingPolicy.weights" */ 160))), /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32)
-                            case /** @src 0:20631:20904  "if (m.count + m.bytesToTake > 32) {..." */ 0 {
+                            let _12 := mload(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128))
+                            /// @src 0:20967:21240  "if (m.count + m.bytesToTake > 32) {..."
+                            switch /** @src 0:20971:20999  "m.count + m.bytesToTake > 32" */ gt(/** @src 0:20971:20994  "m.count + m.bytesToTake" */ checked_add_uint256(_12, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19709:19722  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17748:17770  "_signingPolicy.weights" */ 160))), /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32)
+                            case /** @src 0:20967:21240  "if (m.count + m.bytesToTake > 32) {..." */ 0 {
                                 /// @src 0:3954:3956  "22"
-                                mstore(/** @src 0:19210:19220  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:18778:18797  "_signingPolicy.seed" */ 96), /** @src -1:-1:-1 */ 0)
+                                mstore(/** @src 0:19546:19556  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:19114:19133  "_signingPolicy.seed" */ 96), /** @src -1:-1:-1 */ 0)
                                 /// @src 0:3954:3956  "22"
-                                mstore(/** @src 0:19184:19196  "m.voterIndex" */ add(zero_struct_Counters_mpos, /** @src 0:17727:17751  "_signingPolicy.threshold" */ 64), /** @src 0:20867:20881  "m.voterIndex++" */ increment_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19184:19196  "m.voterIndex" */ add(zero_struct_Counters_mpos, /** @src 0:17727:17751  "_signingPolicy.threshold" */ 64))))
+                                mstore(/** @src 0:19520:19532  "m.voterIndex" */ add(zero_struct_Counters_mpos, /** @src 0:18063:18087  "_signingPolicy.threshold" */ 64), /** @src 0:21203:21217  "m.voterIndex++" */ increment_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19520:19532  "m.voterIndex" */ add(zero_struct_Counters_mpos, /** @src 0:18063:18087  "_signingPolicy.threshold" */ 64))))
                             }
-                            default /// @src 0:20631:20904  "if (m.count + m.bytesToTake > 32) {..."
+                            default /// @src 0:20967:21240  "if (m.count + m.bytesToTake > 32) {..."
                             {
-                                /// @src 0:20707:20719  "32 - m.count"
-                                let _13 := checked_sub_uint256_15118(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128)))
+                                /// @src 0:21043:21055  "32 - m.count"
+                                let _13 := checked_sub_uint256_15210(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128)))
                                 /// @src 0:3954:3956  "22"
-                                mstore(/** @src 0:19373:19386  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17412:17434  "_signingPolicy.weights" */ 160), /** @src 0:3954:3956  "22" */ _13)
-                                mstore(/** @src 0:19210:19220  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:18778:18797  "_signingPolicy.seed" */ 96), /** @src 0:20745:20772  "m.voterPos += m.bytesToTake" */ checked_add_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19210:19220  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:18778:18797  "_signingPolicy.seed" */ 96)), /** @src 0:3954:3956  "22" */ _13))
+                                mstore(/** @src 0:19709:19722  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17748:17770  "_signingPolicy.weights" */ 160), /** @src 0:3954:3956  "22" */ _13)
+                                mstore(/** @src 0:19546:19556  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:19114:19133  "_signingPolicy.seed" */ 96), /** @src 0:21081:21108  "m.voterPos += m.bytesToTake" */ checked_add_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19546:19556  "m.voterPos" */ add(zero_struct_Counters_mpos, /** @src 0:19114:19133  "_signingPolicy.seed" */ 96)), /** @src 0:3954:3956  "22" */ _13))
                             }
-                            mstore(/** @src 0:19327:19337  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192), /** @src 0:20925:21039  "m.nextSlot |= bytes32(..." */ or(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19327:19337  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192)), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shr(/** @src 0:21004:21015  "8 * m.count" */ checked_mul_uint256_15119(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128))), /** @src 0:3954:3956  "22" */ shl(/** @src 0:20988:20997  "8 * m.pos" */ checked_mul_uint256_15119(/** @src 0:3954:3956  "22" */ mload(/** @src 0:20992:20997  "m.pos" */ _10)), /** @src 0:3954:3956  "22" */ _11))))
+                            mstore(/** @src 0:19663:19673  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192), /** @src 0:21261:21375  "m.nextSlot |= bytes32(..." */ or(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19663:19673  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192)), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shr(/** @src 0:21340:21351  "8 * m.count" */ checked_mul_uint256_15211(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128))), /** @src 0:3954:3956  "22" */ shl(/** @src 0:21324:21333  "8 * m.pos" */ checked_mul_uint256_15211(/** @src 0:3954:3956  "22" */ mload(/** @src 0:21328:21333  "m.pos" */ _10)), /** @src 0:3954:3956  "22" */ _11))))
                         }
-                        default /// @src 0:19521:21058  "if (m.weightIndex < m.voterIndex) {..."
+                        default /// @src 0:19857:21394  "if (m.weightIndex < m.voterIndex) {..."
                         {
                             /// @src 0:3954:3956  "22"
-                            mstore(/** @src 0:19373:19386  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17412:17434  "_signingPolicy.weights" */ 160), /** @src 0:19593:19608  "2 - m.weightPos" */ checked_sub_uint256_15121(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19159:19170  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32))))
+                            mstore(/** @src 0:19709:19722  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17748:17770  "_signingPolicy.weights" */ 160), /** @src 0:19929:19944  "2 - m.weightPos" */ checked_sub_uint256_15213(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19495:19506  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32))))
                             /// @src 0:3954:3956  "22"
-                            let _14 := mload(/** @src 0:19159:19170  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32))
-                            /// @src 0:19630:19635  "m.pos"
+                            let _14 := mload(/** @src 0:19495:19506  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32))
+                            /// @src 0:19966:19971  "m.pos"
                             let _15 := add(zero_struct_Counters_mpos, 224)
                             /// @src 0:3954:3956  "22"
                             mstore(_15, _14)
-                            /// @src 0:19769:19791  "_signingPolicy.weights"
-                            let _mpos_3 := mload(/** @src 0:17412:17434  "_signingPolicy.weights" */ add(var_signingPolicy_mpos, 160))
-                            /// @src 0:19725:19845  "uint256(..."
-                            let _16 := shift_left_uint256_uint8_15122(/** @src 0:19725:19833  "uint256(..." */ cleanup_from_storage_uint16(/** @src 0:19769:19806  "_signingPolicy.weights[m.weightIndex]" */ read_from_memoryt_uint16(memory_array_index_access_uint16_dyn(_mpos_3, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19792:19805  "m.weightIndex" */ zero_struct_Counters_mpos)))))
+                            /// @src 0:20105:20127  "_signingPolicy.weights"
+                            let _mpos_3 := mload(/** @src 0:17748:17770  "_signingPolicy.weights" */ add(var_signingPolicy_mpos, 160))
+                            /// @src 0:20061:20181  "uint256(..."
+                            let _16 := shift_left_uint256_uint8(/** @src 0:20061:20169  "uint256(..." */ cleanup_from_storage_uint16(/** @src 0:20105:20142  "_signingPolicy.weights[m.weightIndex]" */ read_from_memoryt_uint16(memory_array_index_access_uint16_dyn(_mpos_3, /** @src 0:3954:3956  "22" */ mload(/** @src 0:20128:20141  "m.weightIndex" */ zero_struct_Counters_mpos)))))
                             /// @src 0:3954:3956  "22"
-                            let _17 := mload(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128))
-                            /// @src 0:19889:20165  "if (m.count + m.bytesToTake > 32) {..."
-                            switch /** @src 0:19893:19921  "m.count + m.bytesToTake > 32" */ gt(/** @src 0:19893:19916  "m.count + m.bytesToTake" */ checked_add_uint256(_17, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19373:19386  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17412:17434  "_signingPolicy.weights" */ 160))), /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32)
-                            case /** @src 0:19889:20165  "if (m.count + m.bytesToTake > 32) {..." */ 0 {
+                            let _17 := mload(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128))
+                            /// @src 0:20225:20501  "if (m.count + m.bytesToTake > 32) {..."
+                            switch /** @src 0:20229:20257  "m.count + m.bytesToTake > 32" */ gt(/** @src 0:20229:20252  "m.count + m.bytesToTake" */ checked_add_uint256(_17, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19709:19722  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17748:17770  "_signingPolicy.weights" */ 160))), /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32)
+                            case /** @src 0:20225:20501  "if (m.count + m.bytesToTake > 32) {..." */ 0 {
                                 /// @src 0:3954:3956  "22"
-                                mstore(/** @src 0:19159:19170  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32), /** @src -1:-1:-1 */ 0)
+                                mstore(/** @src 0:19495:19506  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32), /** @src -1:-1:-1 */ 0)
                                 /// @src 0:3954:3956  "22"
-                                mstore(zero_struct_Counters_mpos, /** @src 0:20127:20142  "m.weightIndex++" */ increment_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:20127:20142  "m.weightIndex++" */ zero_struct_Counters_mpos)))
+                                mstore(zero_struct_Counters_mpos, /** @src 0:20463:20478  "m.weightIndex++" */ increment_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:20463:20478  "m.weightIndex++" */ zero_struct_Counters_mpos)))
                             }
-                            default /// @src 0:19889:20165  "if (m.count + m.bytesToTake > 32) {..."
+                            default /// @src 0:20225:20501  "if (m.count + m.bytesToTake > 32) {..."
                             {
-                                /// @src 0:19965:19977  "32 - m.count"
-                                let _18 := checked_sub_uint256_15118(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128)))
+                                /// @src 0:20301:20313  "32 - m.count"
+                                let _18 := checked_sub_uint256_15210(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128)))
                                 /// @src 0:3954:3956  "22"
-                                mstore(/** @src 0:19373:19386  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17412:17434  "_signingPolicy.weights" */ 160), /** @src 0:3954:3956  "22" */ _18)
-                                mstore(/** @src 0:19159:19170  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32), /** @src 0:20003:20031  "m.weightPos += m.bytesToTake" */ checked_add_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19159:19170  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32)), /** @src 0:3954:3956  "22" */ _18))
+                                mstore(/** @src 0:19709:19722  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17748:17770  "_signingPolicy.weights" */ 160), /** @src 0:3954:3956  "22" */ _18)
+                                mstore(/** @src 0:19495:19506  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32), /** @src 0:20339:20367  "m.weightPos += m.bytesToTake" */ checked_add_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19495:19506  "m.weightPos" */ add(zero_struct_Counters_mpos, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32)), /** @src 0:3954:3956  "22" */ _18))
                             }
-                            mstore(/** @src 0:19327:19337  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192), /** @src 0:20186:20301  "m.nextSlot |= bytes32(..." */ or(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19327:19337  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192)), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shr(/** @src 0:20266:20277  "8 * m.count" */ checked_mul_uint256_15119(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128))), /** @src 0:3954:3956  "22" */ shl(/** @src 0:20250:20259  "8 * m.pos" */ checked_mul_uint256_15119(/** @src 0:3954:3956  "22" */ mload(/** @src 0:20254:20259  "m.pos" */ _15)), /** @src 0:3954:3956  "22" */ _16))))
+                            mstore(/** @src 0:19663:19673  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192), /** @src 0:20522:20637  "m.nextSlot |= bytes32(..." */ or(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19663:19673  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192)), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shr(/** @src 0:20602:20613  "8 * m.count" */ checked_mul_uint256_15211(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128))), /** @src 0:3954:3956  "22" */ shl(/** @src 0:20586:20595  "8 * m.pos" */ checked_mul_uint256_15211(/** @src 0:3954:3956  "22" */ mload(/** @src 0:20590:20595  "m.pos" */ _15)), /** @src 0:3954:3956  "22" */ _16))))
                         }
-                        mstore(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128), /** @src 0:21075:21099  "m.count += m.bytesToTake" */ checked_add_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128)), /** @src 0:3954:3956  "22" */ mload(/** @src 0:19373:19386  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17412:17434  "_signingPolicy.weights" */ 160))))
+                        mstore(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128), /** @src 0:21411:21435  "m.count += m.bytesToTake" */ checked_add_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128)), /** @src 0:3954:3956  "22" */ mload(/** @src 0:19709:19722  "m.bytesToTake" */ add(zero_struct_Counters_mpos, /** @src 0:17748:17770  "_signingPolicy.weights" */ 160))))
                     }
-                    /// @src 0:21127:21431  "if (m.count > 0) {..."
-                    if /** @src 0:21131:21142  "m.count > 0" */ iszero(iszero(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128))))
-                    /// @src 0:21127:21431  "if (m.count > 0) {..."
+                    /// @src 0:21463:21767  "if (m.count > 0) {..."
+                    if /** @src 0:21467:21478  "m.count > 0" */ iszero(iszero(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128))))
+                    /// @src 0:21463:21767  "if (m.count > 0) {..."
                     {
-                        /// @src 0:21186:21223  "bytes.concat(currentHash, m.nextSlot)"
-                        let expr_mpos_2 := bytes_concat_bytes32_bytes32(var_currentHash, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19327:19337  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192)))
-                        /// @src 0:21162:21224  "currentHash = keccak256(bytes.concat(currentHash, m.nextSlot))"
-                        var_currentHash := /** @src 0:21176:21224  "keccak256(bytes.concat(currentHash, m.nextSlot))" */ keccak256(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:21176:21224  "keccak256(bytes.concat(currentHash, m.nextSlot))" */ expr_mpos_2, /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:21176:21224  "keccak256(bytes.concat(currentHash, m.nextSlot))" */ expr_mpos_2))
-                        /// @src 0:21247:21260  "uint256 i = 0"
+                        /// @src 0:21522:21559  "bytes.concat(currentHash, m.nextSlot)"
+                        let expr_mpos_2 := bytes_concat_bytes32_bytes32(var_currentHash, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19663:19673  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192)))
+                        /// @src 0:21498:21560  "currentHash = keccak256(bytes.concat(currentHash, m.nextSlot))"
+                        var_currentHash := /** @src 0:21512:21560  "keccak256(bytes.concat(currentHash, m.nextSlot))" */ keccak256(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:21512:21560  "keccak256(bytes.concat(currentHash, m.nextSlot))" */ expr_mpos_2, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:21512:21560  "keccak256(bytes.concat(currentHash, m.nextSlot))" */ expr_mpos_2))
+                        /// @src 0:21583:21596  "uint256 i = 0"
                         let var_i_1 := /** @src -1:-1:-1 */ 0
-                        /// @src 0:21242:21417  "for (uint256 i = 0; i < m.count; i++) {..."
+                        /// @src 0:21578:21753  "for (uint256 i = 0; i < m.count; i++) {..."
                         for { }
-                        /** @src 0:16284:16285  "1" */ 0x01
-                        /// @src 0:21247:21260  "uint256 i = 0"
+                        /** @src 0:16620:16621  "1" */ 0x01
+                        /// @src 0:21583:21596  "uint256 i = 0"
                         {
-                            /// @src 0:21275:21278  "i++"
-                            var_i_1 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:21275:21278  "i++" */ var_i_1, /** @src 0:16284:16285  "1" */ 0x01)
+                            /// @src 0:21611:21614  "i++"
+                            var_i_1 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:21611:21614  "i++" */ var_i_1, /** @src 0:16620:16621  "1" */ 0x01)
                         }
-                        /// @src 0:21275:21278  "i++"
+                        /// @src 0:21611:21614  "i++"
                         {
-                            /// @src 0:21262:21273  "i < m.count"
-                            if iszero(lt(var_i_1, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19302:19309  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17226:17247  "_signingPolicy.voters" */ 128))))
-                            /// @src 0:21262:21273  "i < m.count"
+                            /// @src 0:21598:21609  "i < m.count"
+                            if iszero(lt(var_i_1, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19638:19645  "m.count" */ add(zero_struct_Counters_mpos, /** @src 0:17562:17583  "_signingPolicy.voters" */ 128))))
+                            /// @src 0:21598:21609  "i < m.count"
                             { break }
                             /// @src 0:3954:3956  "22"
-                            let _19 := mload(/** @src 0:19327:19337  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192))
-                            /// @src 0:21343:21356  "m.nextSlot[i]"
-                            if iszero(lt(var_i_1, /** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ 32))
-                            /// @src 0:21343:21356  "m.nextSlot[i]"
+                            let _19 := mload(/** @src 0:19663:19673  "m.nextSlot" */ add(zero_struct_Counters_mpos, 192))
+                            /// @src 0:21679:21692  "m.nextSlot[i]"
+                            if iszero(lt(var_i_1, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32))
+                            /// @src 0:21679:21692  "m.nextSlot[i]"
                             { panic_error_0x32() }
-                            /// @src 0:21302:21356  "signingPolicyBytes[m.signingPolicyPos] = m.nextSlot[i]"
-                            mstore8(memory_array_index_access_bytes(expr_mpos, /** @src 0:3954:3956  "22" */ mload(/** @src 0:18958:18976  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256))), /** @src 0:21343:21356  "m.nextSlot[i]" */ byte(var_i_1, _19))
+                            /// @src 0:21638:21692  "signingPolicyBytes[m.signingPolicyPos] = m.nextSlot[i]"
+                            mstore8(memory_array_index_access_bytes(expr_mpos, /** @src 0:3954:3956  "22" */ mload(/** @src 0:19294:19312  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256))), /** @src 0:21679:21692  "m.nextSlot[i]" */ byte(var_i_1, _19))
                             /// @src 0:3954:3956  "22"
-                            mstore(/** @src 0:18958:18976  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256), /** @src 0:21378:21398  "m.signingPolicyPos++" */ increment_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:18958:18976  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256))))
+                            mstore(/** @src 0:19294:19312  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256), /** @src 0:21714:21734  "m.signingPolicyPos++" */ increment_uint256(/** @src 0:3954:3956  "22" */ mload(/** @src 0:19294:19312  "m.signingPolicyPos" */ add(zero_struct_Counters_mpos, 256))))
                         }
                     }
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                sstore(/** @src 0:21450:21506  "toSigningPolicyHashPrivate[_signingPolicy.rewardEpochId]" */ mapping_index_access_mapping_uint256_bytes32_of_uint24(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ cleanup_uint24(mload(/** @src 0:21477:21505  "_signingPolicy.rewardEpochId" */ var_signingPolicy_mpos))), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ var_currentHash)
-                let _20 := cleanup_uint24(mload(/** @src 0:21569:21597  "_signingPolicy.rewardEpochId" */ var_signingPolicy_mpos))
-                /// @src 0:21530:21597  "stateData.lastInitializedRewardEpoch = _signingPolicy.rewardEpochId"
-                update_storage_value_offsett_uint32_to_uint32(cleanup_uint24(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _20))
-                sstore(/** @src 0:21607:21659  "startingVotingRoundIds[_signingPolicy.rewardEpochId]" */ mapping_index_access_mapping_uint256_bytes32_of_uint24_15128(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _20), /** @src 0:21607:21695  "startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy.startVotingRoundId" */ cleanup_from_storage_uint32(/** @src 0:3954:3956  "22" */ cleanup_from_storage_uint32(mload(/** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ add(var_signingPolicy_mpos, 32)))))
-                /// @src 0:21748:21776  "_signingPolicy.rewardEpochId"
-                let _21 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ cleanup_uint24(mload(/** @src 0:21748:21776  "_signingPolicy.rewardEpochId" */ var_signingPolicy_mpos))
-                /// @src 0:21790:21823  "_signingPolicy.startVotingRoundId"
-                let _22 := /** @src 0:3954:3956  "22" */ cleanup_from_storage_uint32(mload(/** @src 0:18668:18701  "_signingPolicy.startVotingRoundId" */ add(var_signingPolicy_mpos, 32)))
-                /// @src 0:21837:21861  "_signingPolicy.threshold"
-                let _23 := /** @src 0:2485:2488  "300" */ cleanup_from_storage_uint16(mload(/** @src 0:17727:17751  "_signingPolicy.threshold" */ add(var_signingPolicy_mpos, 64)))
+                /// @src 0:22163:22207  "abi.encodePacked(block.chainid, currentHash)"
+                let expr_mpos_3 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:18063:18087  "_signingPolicy.threshold" */ 64)
+                /// @src 0:22163:22207  "abi.encodePacked(block.chainid, currentHash)"
+                let _20 := add(expr_mpos_3, /** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ 32)
+                /// @src 0:22163:22207  "abi.encodePacked(block.chainid, currentHash)"
+                let _21 := sub(abi_encode_packed_uint256_bytes32(_20, /** @src 0:22180:22193  "block.chainid" */ chainid(), /** @src 0:22163:22207  "abi.encodePacked(block.chainid, currentHash)" */ var_currentHash), expr_mpos_3)
+                mstore(expr_mpos_3, add(_21, /** @src 0:23790:23824  "abi.encode(_config, address(this))" */ not(31)))
+                /// @src 0:22163:22207  "abi.encodePacked(block.chainid, currentHash)"
+                finalize_allocation(expr_mpos_3, _21)
+                /// @src 0:22153:22208  "keccak256(abi.encodePacked(block.chainid, currentHash))"
+                let expr_9 := keccak256(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _20, mload(/** @src 0:22153:22208  "keccak256(abi.encodePacked(block.chainid, currentHash))" */ expr_mpos_3))
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                sstore(/** @src 0:22218:22274  "toSigningPolicyHashPrivate[_signingPolicy.rewardEpochId]" */ mapping_index_access_mapping_uint256_bytes32_of_uint24(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ cleanup_uint24(mload(/** @src 0:22245:22273  "_signingPolicy.rewardEpochId" */ var_signingPolicy_mpos))), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ expr_9)
+                let _22 := cleanup_uint24(mload(/** @src 0:22337:22365  "_signingPolicy.rewardEpochId" */ var_signingPolicy_mpos))
+                /// @src 0:22298:22365  "stateData.lastInitializedRewardEpoch = _signingPolicy.rewardEpochId"
+                update_storage_value_offsett_uint32_to_uint32(cleanup_uint24(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _22))
+                sstore(/** @src 0:22375:22427  "startingVotingRoundIds[_signingPolicy.rewardEpochId]" */ mapping_index_access_mapping_uint256_bytes32_of_uint24_15220(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _22), /** @src 0:22375:22463  "startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy.startVotingRoundId" */ cleanup_from_storage_uint32(/** @src 0:3954:3956  "22" */ cleanup_from_storage_uint32(mload(/** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ add(var_signingPolicy_mpos, 32)))))
+                /// @src 0:22516:22544  "_signingPolicy.rewardEpochId"
+                let _23 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ cleanup_uint24(mload(/** @src 0:22516:22544  "_signingPolicy.rewardEpochId" */ var_signingPolicy_mpos))
+                /// @src 0:22558:22591  "_signingPolicy.startVotingRoundId"
+                let _24 := /** @src 0:3954:3956  "22" */ cleanup_from_storage_uint32(mload(/** @src 0:19004:19037  "_signingPolicy.startVotingRoundId" */ add(var_signingPolicy_mpos, 32)))
+                /// @src 0:22605:22629  "_signingPolicy.threshold"
+                let _25 := /** @src 0:2485:2488  "300" */ cleanup_from_storage_uint16(mload(/** @src 0:18063:18087  "_signingPolicy.threshold" */ add(var_signingPolicy_mpos, 64)))
                 /// @src 0:3954:3956  "22"
-                let _24 := mload(/** @src 0:18778:18797  "_signingPolicy.seed" */ add(var_signingPolicy_mpos, 96))
-                /// @src 0:21908:21929  "_signingPolicy.voters"
-                let _mpos_4 := mload(/** @src 0:17226:17247  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))
-                /// @src 0:21943:21965  "_signingPolicy.weights"
-                let _mpos_5 := mload(/** @src 0:17412:17434  "_signingPolicy.weights" */ add(var_signingPolicy_mpos, 160))
-                /// @src 0:21710:22044  "SigningPolicyInitialized(..."
-                let _25 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:17727:17751  "_signingPolicy.threshold" */ 64)
-                /// @src 0:21710:22044  "SigningPolicyInitialized(..."
-                log2(_25, sub(abi_encode_uint32_uint16_uint256_array_address_dyn_array_uint16_dyn_bytes_uint64(_25, _22, _23, _24, _mpos_4, _mpos_5, expr_mpos, /** @src 0:3954:3956  "22" */ and(/** @src 0:22018:22033  "block.timestamp" */ timestamp(), /** @src 0:3954:3956  "22" */ 0xffffffffffffffff)), /** @src 0:21710:22044  "SigningPolicyInitialized(..." */ _25), 0x91d0280e969157fc6c5b8f952f237b03d934b18534dafcac839075bbc33522f8, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:21710:22044  "SigningPolicyInitialized(..." */ _21, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffff))
+                let _26 := mload(/** @src 0:19114:19133  "_signingPolicy.seed" */ add(var_signingPolicy_mpos, 96))
+                /// @src 0:22676:22697  "_signingPolicy.voters"
+                let _mpos_4 := mload(/** @src 0:17562:17583  "_signingPolicy.voters" */ add(var_signingPolicy_mpos, 128))
+                /// @src 0:22711:22733  "_signingPolicy.weights"
+                let _mpos_5 := mload(/** @src 0:17748:17770  "_signingPolicy.weights" */ add(var_signingPolicy_mpos, 160))
+                /// @src 0:22478:22812  "SigningPolicyInitialized(..."
+                let _27 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:18063:18087  "_signingPolicy.threshold" */ 64)
+                /// @src 0:22478:22812  "SigningPolicyInitialized(..."
+                log2(_27, sub(abi_encode_uint32_uint16_uint256_array_address_dyn_array_uint16_dyn_bytes_uint64(_27, _24, _25, _26, _mpos_4, _mpos_5, expr_mpos, /** @src 0:3954:3956  "22" */ and(/** @src 0:22786:22801  "block.timestamp" */ timestamp(), /** @src 0:3954:3956  "22" */ 0xffffffffffffffff)), /** @src 0:22478:22812  "SigningPolicyInitialized(..." */ _27), 0x91d0280e969157fc6c5b8f952f237b03d934b18534dafcac839075bbc33522f8, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:22478:22812  "SigningPolicyInitialized(..." */ _23, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffff))
                 /// @src 0:10090:10091  "_"
-                _1 := var_currentHash
+                _1 := expr_9
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             function checked_add_uint32(x) -> sum
             {
                 sum := add(and(x, 0xffffffff), 1)
@@ -2636,14 +2651,14 @@ object "Relay_2011" {
             {
                 if iszero(condition)
                 {
-                    let memPtr := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2485:2488  "300"
-                    mstore(memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                    mstore(memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
                     /// @src 0:2485:2488  "300"
                     mstore(add(memPtr, 4), 32)
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     mstore(/** @src 0:2485:2488  "300" */ add(memPtr, 36), 15)
-                    mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:2485:2488  "300" */ memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 68), /** @src 0:2485:2488  "300" */ "too many voters")
+                    mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:2485:2488  "300" */ memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 68), /** @src 0:2485:2488  "300" */ "too many voters")
                     revert(memPtr, 100)
                 }
             }
@@ -2651,40 +2666,40 @@ object "Relay_2011" {
             {
                 if iszero(condition)
                 {
-                    let memPtr := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2485:2488  "300"
-                    mstore(memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                    mstore(memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
                     /// @src 0:2485:2488  "300"
                     mstore(add(memPtr, 4), 32)
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     mstore(/** @src 0:2485:2488  "300" */ add(memPtr, 36), 13)
-                    mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:2485:2488  "300" */ memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 68), /** @src 0:2485:2488  "300" */ "size mismatch")
+                    mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:2485:2488  "300" */ memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 68), /** @src 0:2485:2488  "300" */ "size mismatch")
                     revert(memPtr, 100)
                 }
             }
-            function memory_array_index_access_uint16_dyn_15113(baseRef) -> addr
+            function memory_array_index_access_uint16_dyn_15205(baseRef) -> addr
             {
-                if iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:2485:2488  "300" */ baseRef)) { panic_error_0x32() }
+                if iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:2485:2488  "300" */ baseRef)) { panic_error_0x32() }
                 addr := add(baseRef, 32)
             }
             function memory_array_index_access_uint16_dyn(baseRef, index) -> addr
             {
-                if iszero(lt(index, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:2485:2488  "300" */ baseRef))) { panic_error_0x32() }
+                if iszero(lt(index, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:2485:2488  "300" */ baseRef))) { panic_error_0x32() }
                 addr := add(add(baseRef, shl(5, index)), 32)
             }
             function read_from_memoryt_uint16(ptr) -> returnValue
             {
-                returnValue := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:2485:2488  "300" */ mload(ptr), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffff)
+                returnValue := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:2485:2488  "300" */ mload(ptr), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffff)
             }
             /// @src 0:2485:2488  "300"
-            function checked_add_uint256_15112(y) -> sum
+            function checked_add_uint256_15204(y) -> sum
             {
                 sum := add(/** @src 0:4092:4094  "43" */ 0x2b, /** @src 0:2485:2488  "300" */ y)
                 if gt(/** @src 0:4092:4094  "43" */ 0x2b, /** @src 0:2485:2488  "300" */ sum) { panic_error_0x11() }
             }
-            function checked_add_uint256_15182(x) -> sum
+            function checked_add_uint256_15274(x) -> sum
             {
-                sum := add(x, /** @src 0:79745:79763  "merkleRootsPrivate" */ 0x01)
+                sum := add(x, /** @src 0:81475:81493  "merkleRootsPrivate" */ 0x01)
                 /// @src 0:2485:2488  "300"
                 if gt(x, sum) { panic_error_0x11() }
             }
@@ -2697,45 +2712,45 @@ object "Relay_2011" {
             {
                 if iszero(condition)
                 {
-                    let memPtr := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2485:2488  "300"
-                    mstore(memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                    mstore(memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
                     /// @src 0:2485:2488  "300"
                     mstore(add(memPtr, 4), 32)
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     mstore(/** @src 0:2485:2488  "300" */ add(memPtr, 36), 20)
-                    mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:2485:2488  "300" */ memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 68), /** @src 0:2485:2488  "300" */ "total weight too big")
+                    mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:2485:2488  "300" */ memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 68), /** @src 0:2485:2488  "300" */ "total weight too big")
                     revert(memPtr, 100)
                 }
             }
             /// @src 0:2387:2392  "10000"
-            function checked_mul_uint256_15107(x) -> product
+            function checked_mul_uint256_15199(x) -> product
             {
                 product := mul(x, 0x2710)
                 if iszero(or(iszero(x), eq(0x2710, div(product, x)))) { panic_error_0x11() }
             }
-            function checked_mul_uint256_15108(x) -> product
+            function checked_mul_uint256_15200(x) -> product
             {
                 product := mul(x, /** @src 0:2540:2544  "5000" */ 0x1388)
                 /// @src 0:2387:2392  "10000"
                 if iszero(or(iszero(x), eq(/** @src 0:2540:2544  "5000" */ 0x1388, /** @src 0:2387:2392  "10000" */ div(product, x)))) { panic_error_0x11() }
             }
-            function checked_mul_uint256_15110(x) -> product
+            function checked_mul_uint256_15202(x) -> product
             {
                 product := mul(x, /** @src 0:2596:2600  "6600" */ 0x19c8)
                 /// @src 0:2387:2392  "10000"
                 if iszero(or(iszero(x), eq(/** @src 0:2596:2600  "6600" */ 0x19c8, /** @src 0:2387:2392  "10000" */ div(product, x)))) { panic_error_0x11() }
             }
-            function checked_mul_uint256_15111(x) -> product
+            function checked_mul_uint256_15203(x) -> product
             {
                 product := mul(x, /** @src 0:3954:3956  "22" */ 0x16)
                 /// @src 0:2387:2392  "10000"
                 if iszero(or(iszero(x), eq(/** @src 0:3954:3956  "22" */ 0x16, /** @src 0:2387:2392  "10000" */ div(product, x)))) { panic_error_0x11() }
             }
-            function checked_mul_uint256_15119(y) -> product
+            function checked_mul_uint256_15211(y) -> product
             {
                 product := shl(3, y)
-                if iszero(eq(y, and(y, sub(shl(253, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 1), 1))))
+                if iszero(eq(y, and(y, sub(shl(253, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 1), 1))))
                 /// @src 0:2387:2392  "10000"
                 { panic_error_0x11() }
             }
@@ -2749,14 +2764,14 @@ object "Relay_2011" {
             {
                 if iszero(condition)
                 {
-                    let memPtr := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2540:2544  "5000"
-                    mstore(memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                    mstore(memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
                     /// @src 0:2540:2544  "5000"
                     mstore(add(memPtr, 4), 32)
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     mstore(/** @src 0:2540:2544  "5000" */ add(memPtr, 36), 19)
-                    mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:2540:2544  "5000" */ memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 68), /** @src 0:2540:2544  "5000" */ "too small threshold")
+                    mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:2540:2544  "5000" */ memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 68), /** @src 0:2540:2544  "5000" */ "too small threshold")
                     revert(memPtr, 100)
                 }
             }
@@ -2765,36 +2780,36 @@ object "Relay_2011" {
             {
                 if iszero(condition)
                 {
-                    let memPtr := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                    let memPtr := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                     /// @src 0:2596:2600  "6600"
-                    mstore(memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                    mstore(memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
                     /// @src 0:2596:2600  "6600"
                     mstore(add(memPtr, 4), 32)
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     mstore(/** @src 0:2596:2600  "6600" */ add(memPtr, 36), 17)
-                    mstore(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:2596:2600  "6600" */ memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 68), /** @src 0:2596:2600  "6600" */ "too big threshold")
+                    mstore(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:2596:2600  "6600" */ memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 68), /** @src 0:2596:2600  "6600" */ "too big threshold")
                     revert(memPtr, 100)
                 }
             }
             /// @src 0:3954:3956  "22"
             function allocate_and_zero_memory_array_bytes(length) -> memPtr
             {
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let _1 := array_allocation_size_bytes(length)
                 let memPtr_1 := mload(64)
                 finalize_allocation(memPtr_1, _1)
                 mstore(memPtr_1, length)
                 /// @src 0:3954:3956  "22"
                 memPtr := memPtr_1
-                calldatacopy(add(memPtr_1, 32), calldatasize(), add(array_allocation_size_bytes(length), /** @src 0:23022:23056  "abi.encode(_config, address(this))" */ not(31)))
+                calldatacopy(add(memPtr_1, 32), calldatasize(), add(array_allocation_size_bytes(length), /** @src 0:23790:23824  "abi.encode(_config, address(this))" */ not(31)))
             }
             /// @src 0:3954:3956  "22"
             function allocate_and_zero_memory_struct_struct_Counters() -> memPtr
             {
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 let memPtr_1 := mload(64)
                 let newFreePtr := add(memPtr_1, /** @src 0:3954:3956  "22" */ 288)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, memPtr_1)) { panic_error_0x41() }
                 mstore(64, newFreePtr)
                 /// @src 0:3954:3956  "22"
@@ -2803,7 +2818,7 @@ object "Relay_2011" {
                 /// @src 0:3954:3956  "22"
                 mstore(add(memPtr_1, 32), /** @src -1:-1:-1 */ 0)
                 /// @src 0:3954:3956  "22"
-                mstore(add(memPtr_1, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 64), /** @src -1:-1:-1 */ 0)
+                mstore(add(memPtr_1, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 64), /** @src -1:-1:-1 */ 0)
                 /// @src 0:3954:3956  "22"
                 mstore(add(memPtr_1, 96), /** @src -1:-1:-1 */ 0)
                 /// @src 0:3954:3956  "22"
@@ -2824,17 +2839,17 @@ object "Relay_2011" {
             }
             function convert_uint24_to_bytes3(value) -> converted
             {
-                converted := and(shl(232, value), /** @src 0:24462:73522  "assembly {..." */ shl(232, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 16777215))
+                converted := and(shl(232, value), /** @src 0:25230:75252  "assembly {..." */ shl(232, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 16777215))
             }
             /// @src 0:3954:3956  "22"
             function convert_uint32_to_bytes4(value) -> converted
             {
-                converted := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(shl(224, /** @src 0:3954:3956  "22" */ value), shl(224, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+                converted := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(shl(224, /** @src 0:3954:3956  "22" */ value), shl(224, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
             }
             /// @src 0:3954:3956  "22"
             function read_from_memoryt_address(ptr) -> returnValue
             {
-                returnValue := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:3954:3956  "22" */ mload(ptr), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
+                returnValue := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:3954:3956  "22" */ mload(ptr), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
             }
             /// @src 0:3954:3956  "22"
             function convert_address_to_bytes20(value) -> converted
@@ -2843,7 +2858,7 @@ object "Relay_2011" {
             }
             function shift_right_uint16_uint8(value) -> result
             {
-                result := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(shr(8, /** @src 0:3954:3956  "22" */ value), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xff)
+                result := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(shr(8, /** @src 0:3954:3956  "22" */ value), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xff)
             }
             /// @src 0:3954:3956  "22"
             function convert_uint8_to_bytes1(value) -> converted
@@ -2852,100 +2867,108 @@ object "Relay_2011" {
             }
             function bytes_concat_bytes2_bytes3_bytes4_bytes2_bytes32_bytes20_bytes1(param, param_1, param_2, param_3, param_4, param_5, param_6) -> outPtr
             {
-                outPtr := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                outPtr := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                 /// @src 0:3954:3956  "22"
                 mstore(add(outPtr, 0x20), and(param, shl(240, 65535)))
-                mstore(add(outPtr, 34), and(param_1, /** @src 0:24462:73522  "assembly {..." */ shl(232, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 16777215)))
+                mstore(add(outPtr, 34), and(param_1, /** @src 0:25230:75252  "assembly {..." */ shl(232, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 16777215)))
                 /// @src 0:3954:3956  "22"
-                mstore(add(outPtr, 37), and(param_2, shl(224, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff)))
+                mstore(add(outPtr, 37), and(param_2, shl(224, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff)))
                 /// @src 0:3954:3956  "22"
                 mstore(add(outPtr, 41), and(param_3, shl(240, 65535)))
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                mstore(/** @src 0:3954:3956  "22" */ add(outPtr, 43), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ param_4)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                mstore(/** @src 0:3954:3956  "22" */ add(outPtr, 43), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ param_4)
                 /// @src 0:3954:3956  "22"
                 mstore(add(outPtr, 75), and(param_5, not(0xffffffffffffffffffffffff)))
                 mstore(add(outPtr, 95), and(param_6, shl(248, 255)))
-                mstore(outPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 64)
+                mstore(outPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 64)
                 /// @src 0:3954:3956  "22"
                 finalize_allocation(outPtr, 96)
             }
             function increment_uint256(value) -> ret
             {
-                if eq(value, /** @src 0:24462:73522  "assembly {..." */ not(0))
+                if eq(value, /** @src 0:25230:75252  "assembly {..." */ not(0))
                 /// @src 0:3954:3956  "22"
                 { panic_error_0x11() }
                 ret := add(value, 1)
             }
             function memory_array_index_access_bytes(baseRef, index) -> addr
             {
-                if iszero(lt(index, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:3954:3956  "22" */ baseRef))) { panic_error_0x32() }
+                if iszero(lt(index, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:3954:3956  "22" */ baseRef))) { panic_error_0x32() }
                 addr := add(add(baseRef, index), 32)
             }
             function read_from_memoryt_bytes1(ptr) -> returnValue
             {
                 returnValue := and(mload(ptr), shl(248, 255))
             }
+            function shift_left_uint256_uint8_15209(value) -> result
+            {
+                result := shl(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 96, /** @src 0:3954:3956  "22" */ value)
+            }
             function shift_left_uint256_uint8(value) -> result
             {
-                result := shl(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 96, /** @src 0:3954:3956  "22" */ value)
-            }
-            function shift_left_uint256_uint8_15122(value) -> result
-            {
-                result := shl(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 240, /** @src 0:3954:3956  "22" */ value)
+                result := shl(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 240, /** @src 0:3954:3956  "22" */ value)
             }
             function bytes_concat_bytes32_bytes32(param, param_1) -> outPtr
             {
-                outPtr := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                mstore(/** @src 0:3954:3956  "22" */ add(outPtr, 0x20), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ param)
-                mstore(/** @src 0:3954:3956  "22" */ add(outPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 64), param_1)
+                outPtr := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                mstore(/** @src 0:3954:3956  "22" */ add(outPtr, 0x20), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ param)
+                mstore(/** @src 0:3954:3956  "22" */ add(outPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 64), param_1)
                 /// @src 0:3954:3956  "22"
-                mstore(outPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 64)
+                mstore(outPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 64)
                 /// @src 0:3954:3956  "22"
                 finalize_allocation(outPtr, 96)
             }
+            function abi_encode_packed_uint256_bytes32(pos, value0, value1) -> end
+            {
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                mstore(pos, value0)
+                mstore(/** @src 0:3954:3956  "22" */ add(pos, 32), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ value1)
+                /// @src 0:3954:3956  "22"
+                end := add(pos, 64)
+            }
             function mapping_index_access_mapping_uint256_bytes32_of_uint24(key) -> dataSlot
             {
-                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:3954:3956  "22" */ key, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffff))
+                mstore(/** @src -1:-1:-1 */ 0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:3954:3956  "22" */ key, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffff))
                 /// @src 0:3954:3956  "22"
                 mstore(0x20, /** @src -1:-1:-1 */ 0)
                 /// @src 0:3954:3956  "22"
                 dataSlot := keccak256(/** @src -1:-1:-1 */ 0, /** @src 0:3954:3956  "22" */ 0x40)
             }
-            function mapping_index_access_mapping_uint256_bytes32_of_uint24_15128(key) -> dataSlot
+            function mapping_index_access_mapping_uint256_bytes32_of_uint24_15220(key) -> dataSlot
             {
-                mstore(0, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:3954:3956  "22" */ key, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffff))
+                mstore(0, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:3954:3956  "22" */ key, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffff))
                 /// @src 0:3954:3956  "22"
-                mstore(0x20, /** @src 0:21607:21629  "startingVotingRoundIds" */ 0x02)
+                mstore(0x20, /** @src 0:22375:22397  "startingVotingRoundIds" */ 0x02)
                 /// @src 0:3954:3956  "22"
                 dataSlot := keccak256(0, 0x40)
             }
             function update_storage_value_offsett_uint32_to_uint32(value)
             {
-                let _1 := sload(/** @src 0:16245:16254  "stateData" */ 0x07)
+                let _1 := sload(/** @src 0:16581:16590  "stateData" */ 0x07)
                 /// @src 0:3954:3956  "22"
-                sstore(/** @src 0:16245:16254  "stateData" */ 0x07, /** @src 0:3954:3956  "22" */ or(and(_1, not(shl(152, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))), /** @src 0:3954:3956  "22" */ and(shl(152, value), shl(152, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))))
+                sstore(/** @src 0:16581:16590  "stateData" */ 0x07, /** @src 0:3954:3956  "22" */ or(and(_1, not(shl(152, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))), /** @src 0:3954:3956  "22" */ and(shl(152, value), shl(152, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))))
             }
             /// @src 0:3954:3956  "22"
             function abi_encode_array_uint16_dyn(value, pos) -> end
             {
-                let length := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:3954:3956  "22" */ value)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                let length := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:3954:3956  "22" */ value)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 mstore(pos, length)
                 /// @src 0:3954:3956  "22"
-                pos := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(pos, 0x20)
+                pos := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(pos, 0x20)
                 /// @src 0:3954:3956  "22"
-                let srcPtr := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:3954:3956  "22" */ value, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x20)
+                let srcPtr := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:3954:3956  "22" */ value, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x20)
                 /// @src 0:3954:3956  "22"
                 let i := /** @src -1:-1:-1 */ 0
                 /// @src 0:3954:3956  "22"
                 for { } lt(i, length) { i := add(i, 1) }
                 {
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                    mstore(pos, and(/** @src 0:3954:3956  "22" */ mload(srcPtr), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffff))
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                    mstore(pos, and(/** @src 0:3954:3956  "22" */ mload(srcPtr), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffff))
                     /// @src 0:3954:3956  "22"
-                    pos := add(pos, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x20)
+                    pos := add(pos, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x20)
                     /// @src 0:3954:3956  "22"
-                    srcPtr := add(srcPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0x20)
+                    srcPtr := add(srcPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0x20)
                 }
                 /// @src 0:3954:3956  "22"
                 end := pos
@@ -2957,25 +2980,25 @@ object "Relay_2011" {
             function abi_encode_uint32_uint16_uint256_array_address_dyn_array_uint16_dyn_bytes_uint64(headStart, value0, value1, value2, value3, value4, value5, value6) -> tail
             {
                 let tail_1 := add(headStart, 224)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 mstore(headStart, and(value0, 0xffffffff))
-                mstore(/** @src 0:3954:3956  "22" */ add(headStart, 32), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(value1, 0xffff))
-                mstore(/** @src 0:3954:3956  "22" */ add(headStart, 64), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ value2)
+                mstore(/** @src 0:3954:3956  "22" */ add(headStart, 32), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(value1, 0xffff))
+                mstore(/** @src 0:3954:3956  "22" */ add(headStart, 64), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ value2)
                 /// @src 0:3954:3956  "22"
                 mstore(add(headStart, 96), 224)
                 let pos := tail_1
-                let length := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:3954:3956  "22" */ value3)
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                let length := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:3954:3956  "22" */ value3)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 mstore(tail_1, length)
                 /// @src 0:3954:3956  "22"
-                pos := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:3954:3956  "22" */ headStart, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 256)
+                pos := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:3954:3956  "22" */ headStart, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 256)
                 /// @src 0:3954:3956  "22"
-                let srcPtr := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 0:3954:3956  "22" */ value3, 32)
+                let srcPtr := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 0:3954:3956  "22" */ value3, 32)
                 let i := 0
                 for { } lt(i, length) { i := add(i, 1) }
                 {
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                    mstore(pos, and(/** @src 0:3954:3956  "22" */ mload(srcPtr), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                    mstore(pos, and(/** @src 0:3954:3956  "22" */ mload(srcPtr), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1)))
                     /// @src 0:3954:3956  "22"
                     pos := add(pos, 32)
                     srcPtr := add(srcPtr, 32)
@@ -2986,17 +3009,17 @@ object "Relay_2011" {
                 tail := abi_encode_bytes(value5, tail_2)
                 abi_encode_uint64(value6, add(headStart, 192))
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             function abi_decode_uint256t_boolt_uint256_fromMemory(headStart, dataEnd) -> value0, value1, value2
             {
                 if slt(sub(dataEnd, headStart), 96) { revert(0, 0) }
                 let value := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value := mload(headStart)
                 value0 := value
                 value1 := abi_decode_t_bool_fromMemory(add(headStart, 32))
                 let value_1 := /** @src -1:-1:-1 */ 0
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 value_1 := mload(add(headStart, 64))
                 value2 := value_1
             }
@@ -3012,7 +3035,7 @@ object "Relay_2011" {
                     revert(memPtr, 100)
                 }
             }
-            function checked_div_uint256_15178(x) -> r
+            function checked_div_uint256_15270(x) -> r
             {
                 let _1 := 0
                 _1 := 0
@@ -3034,62 +3057,62 @@ object "Relay_2011" {
                 _1 := 0
                 r := and(x, 255)
             }
-            /// @ast-id 1865 @src 0:79092:80280  "function getRandomNumberHistorical(uint256 _votingRoundId)..."
+            /// @ast-id 1876 @src 0:80822:82010  "function getRandomNumberHistorical(uint256 _votingRoundId)..."
             function fun_getRandomNumberHistorical(var_votingRoundId) -> var_randomNumber, var_isSecureRandom, var_randomTimestamp
             {
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                let _1 := and(/** @src 0:79325:79333  "oldRelay" */ loadimmutable("332"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
-                /// @src 0:79325:79420  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
-                let expr := /** @src 0:79325:79355  "oldRelay != IRelay(address(0))" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _1))
-                /// @src 0:79325:79420  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                let _1 := and(/** @src 0:81055:81063  "oldRelay" */ loadimmutable("332"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sub(shl(160, 1), 1))
+                /// @src 0:81055:81150  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
+                let expr := /** @src 0:81055:81085  "oldRelay != IRelay(address(0))" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _1))
+                /// @src 0:81055:81150  "oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId"
                 if expr
                 {
-                    expr := /** @src 0:79359:79420  "_votingRoundId < startingVotingRoundIdForInitialRewardEpochId" */ lt(var_votingRoundId, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:79376:79420  "startingVotingRoundIdForInitialRewardEpochId" */ loadimmutable("338"), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))
+                    expr := /** @src 0:81089:81150  "_votingRoundId < startingVotingRoundIdForInitialRewardEpochId" */ lt(var_votingRoundId, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:81106:81150  "startingVotingRoundIdForInitialRewardEpochId" */ loadimmutable("338"), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))
                 }
-                /// @src 0:79321:79504  "if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {..."
+                /// @src 0:81051:81234  "if (oldRelay != IRelay(address(0)) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {..."
                 if expr
                 {
-                    /// @src 0:79443:79493  "oldRelay.getRandomNumberHistorical(_votingRoundId)"
-                    let _2 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
-                    /// @src 0:79443:79493  "oldRelay.getRandomNumberHistorical(_votingRoundId)"
-                    mstore(_2, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(227, 0x150fe287))
-                    /// @src 0:79443:79493  "oldRelay.getRandomNumberHistorical(_votingRoundId)"
+                    /// @src 0:81173:81223  "oldRelay.getRandomNumberHistorical(_votingRoundId)"
+                    let _2 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
+                    /// @src 0:81173:81223  "oldRelay.getRandomNumberHistorical(_votingRoundId)"
+                    mstore(_2, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(227, 0x150fe287))
+                    /// @src 0:81173:81223  "oldRelay.getRandomNumberHistorical(_votingRoundId)"
                     let _3 := staticcall(gas(), _1, _2, sub(abi_encode_bytes32(add(_2, 4), var_votingRoundId), _2), _2, 96)
                     if iszero(_3) { revert_forward() }
-                    let expr_component := /** @src 0:79352:79353  "0" */ 0x00
+                    let expr_1803_component := /** @src 0:81082:81083  "0" */ 0x00
+                    let expr_component := 0x00
                     let expr_component_1 := 0x00
-                    let expr_component_2 := 0x00
-                    /// @src 0:79443:79493  "oldRelay.getRandomNumberHistorical(_votingRoundId)"
+                    /// @src 0:81173:81223  "oldRelay.getRandomNumberHistorical(_votingRoundId)"
                     if _3
                     {
                         let _4 := 96
                         if gt(96, returndatasize()) { _4 := returndatasize() }
                         finalize_allocation(_2, _4)
-                        let expr_component_3, expr_component_4, expr_component_5 := abi_decode_uint256t_boolt_uint256_fromMemory(_2, add(_2, _4))
+                        let expr_component_2, expr_component_3, expr_component_4 := abi_decode_uint256t_boolt_uint256_fromMemory(_2, add(_2, _4))
+                        expr_1803_component := expr_component_2
                         expr_component := expr_component_3
                         expr_component_1 := expr_component_4
-                        expr_component_2 := expr_component_5
                     }
-                    /// @src 0:79436:79493  "return oldRelay.getRandomNumberHistorical(_votingRoundId)"
-                    var_randomNumber := expr_component
-                    var_isSecureRandom := expr_component_1
-                    var_randomTimestamp := expr_component_2
+                    /// @src 0:81166:81223  "return oldRelay.getRandomNumberHistorical(_votingRoundId)"
+                    var_randomNumber := expr_1803_component
+                    var_isSecureRandom := expr_component
+                    var_randomTimestamp := expr_component_1
                     leave
                 }
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                let _5 := sload(/** @src 0:79764:79773  "stateData" */ 0x07)
-                /// @src 0:79724:79869  "require(..."
-                require_helper_stringliteral_2275(/** @src 0:79745:79827  "merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId] != bytes32(0)" */ iszero(iszero(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ sload(/** @src 0:79745:79813  "merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256(/** @src 0:79745:79797  "merkleRootsPrivate[stateData.randomNumberProtocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint8_15176(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ extract_from_storage_value_offsett_uint8(_5)), /** @src 0:79745:79813  "merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId]" */ var_votingRoundId)))))
-                /// @src 0:79879:79932  "_randomNumber = toRandomNumberPrivate[_votingRoundId]"
-                var_randomNumber := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sload(/** @src 0:79895:79932  "toRandomNumberPrivate[_votingRoundId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15177(var_votingRoundId))
-                /// @src 0:79942:80106  "_isSecureRandom =..."
-                var_isSecureRandom := /** @src 0:79972:80106  "(isSecureRandomMap[_votingRoundId / 256] >> (255 - _votingRoundId % 256)) & bytes32(uint256(1))..." */ eq(/** @src 0:79972:80067  "(isSecureRandomMap[_votingRoundId / 256] >> (255 - _votingRoundId % 256)) & bytes32(uint256(1))" */ and(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ shr(/** @src 0:80017:80043  "255 - _votingRoundId % 256" */ checked_sub_uint256_15181(/** @src 0:80023:80043  "_votingRoundId % 256" */ mod_uint256(var_votingRoundId)), /** @src 0:397:82971  "contract Relay is IIRelay {..." */ sload(/** @src 0:79973:80012  "isSecureRandomMap[_votingRoundId / 256]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15179(/** @src 0:79991:80011  "_votingRoundId / 256" */ checked_div_uint256_15178(var_votingRoundId)))), /** @src 0:79745:79763  "merkleRootsPrivate" */ 0x01), 0x01)
-                /// @src 0:80147:80180  "stateData.firstVotingRoundStartTs"
-                let _6 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ extract_from_storage_value_offset_1t_uint32(_5)
-                /// @src 0:80203:80221  "_votingRoundId + 1"
-                let expr_1 := checked_add_uint256_15182(var_votingRoundId)
-                /// @src 0:80116:80273  "_randomTimestamp =..."
-                var_randomTimestamp := /** @src 0:80147:80273  "stateData.firstVotingRoundStartTs +..." */ checked_add_uint256(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ and(/** @src 0:80147:80273  "stateData.firstVotingRoundStartTs +..." */ _6, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff), /** @src 0:80195:80273  "uint256(_votingRoundId + 1) *..." */ checked_mul_uint256(expr_1, extract_from_storage_value_offsett_uint8(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ extract_from_storage_value_offset_5t_uint8(_5))))
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                let _5 := sload(/** @src 0:81494:81503  "stateData" */ 0x07)
+                /// @src 0:81454:81599  "require(..."
+                require_helper_stringliteral_2275(/** @src 0:81475:81557  "merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId] != bytes32(0)" */ iszero(iszero(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ sload(/** @src 0:81475:81543  "merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256(/** @src 0:81475:81527  "merkleRootsPrivate[stateData.randomNumberProtocolId]" */ mapping_index_access_mapping_uint256_uint256_of_uint8_15268(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ extract_from_storage_value_offsett_uint8(_5)), /** @src 0:81475:81543  "merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId]" */ var_votingRoundId)))))
+                /// @src 0:81609:81662  "_randomNumber = toRandomNumberPrivate[_votingRoundId]"
+                var_randomNumber := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sload(/** @src 0:81625:81662  "toRandomNumberPrivate[_votingRoundId]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15269(var_votingRoundId))
+                /// @src 0:81672:81836  "_isSecureRandom =..."
+                var_isSecureRandom := /** @src 0:81702:81836  "(isSecureRandomMap[_votingRoundId / 256] >> (255 - _votingRoundId % 256)) & bytes32(uint256(1))..." */ eq(/** @src 0:81702:81797  "(isSecureRandomMap[_votingRoundId / 256] >> (255 - _votingRoundId % 256)) & bytes32(uint256(1))" */ and(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ shr(/** @src 0:81747:81773  "255 - _votingRoundId % 256" */ checked_sub_uint256_15273(/** @src 0:81753:81773  "_votingRoundId % 256" */ mod_uint256(var_votingRoundId)), /** @src 0:397:84701  "contract Relay is IIRelay {..." */ sload(/** @src 0:81703:81742  "isSecureRandomMap[_votingRoundId / 256]" */ mapping_index_access_mapping_uint256_uint256_of_uint256_15271(/** @src 0:81721:81741  "_votingRoundId / 256" */ checked_div_uint256_15270(var_votingRoundId)))), /** @src 0:81475:81493  "merkleRootsPrivate" */ 0x01), 0x01)
+                /// @src 0:81877:81910  "stateData.firstVotingRoundStartTs"
+                let _6 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ extract_from_storage_value_offset_1t_uint32(_5)
+                /// @src 0:81933:81951  "_votingRoundId + 1"
+                let expr_1 := checked_add_uint256_15274(var_votingRoundId)
+                /// @src 0:81846:82003  "_randomTimestamp =..."
+                var_randomTimestamp := /** @src 0:81877:82003  "stateData.firstVotingRoundStartTs +..." */ checked_add_uint256(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ and(/** @src 0:81877:82003  "stateData.firstVotingRoundStartTs +..." */ _6, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff), /** @src 0:81925:82003  "uint256(_votingRoundId + 1) *..." */ checked_mul_uint256(expr_1, extract_from_storage_value_offsett_uint8(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ extract_from_storage_value_offset_5t_uint8(_5))))
             }
             function abi_encode_stringliteral_0d64(headStart) -> tail
             {
@@ -3098,326 +3121,326 @@ object "Relay_2011" {
                 mstore(add(headStart, 64), "Not enough weight")
                 tail := add(headStart, 96)
             }
-            /// @src 0:24462:73522  "assembly {..."
-            function usr$revertWithMessage_15055(usr_memPtr)
+            /// @src 0:25230:75252  "assembly {..."
+            function usr$revertWithMessage_15147(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 28)
                 mstore(add(usr_memPtr, 0x44), "Invalid sign policy metadata")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15056(usr_memPtr)
+            function usr$revertWithMessage(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 26)
                 mstore(add(usr_memPtr, 0x44), "Invalid sign policy length")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15058(usr_memPtr)
+            function usr$revertWithMessage_15150(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 28)
                 mstore(add(usr_memPtr, 0x44), "Signing policy hash mismatch")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15059(usr_memPtr)
+            function usr$revertWithMessage_15151(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 17)
                 mstore(add(usr_memPtr, 0x44), "Too short message")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15060(usr_memPtr)
+            function usr$revertWithMessage_15152(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 15)
                 mstore(add(usr_memPtr, 0x44), "Already relayed")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15061(usr_memPtr)
+            function usr$revertWithMessage_15153(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 20)
                 mstore(add(usr_memPtr, 0x44), "Wrong message format")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15063(usr_memPtr)
+            function usr$revertWithMessage_15155(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 21)
                 mstore(add(usr_memPtr, 0x44), "Wrong message format2")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15064(usr_memPtr)
+            function usr$revertWithMessage_15156(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 30)
                 mstore(add(usr_memPtr, 0x44), "Wrong sign policy reward epoch")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15065(usr_memPtr)
+            function usr$revertWithMessage_15157(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 15)
                 mstore(add(usr_memPtr, 0x44), "Message too old")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15066(usr_memPtr)
+            function usr$revertWithMessage_15158(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 19)
                 mstore(add(usr_memPtr, 0x44), "Delayed sign policy")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15068(usr_memPtr)
+            function usr$revertWithMessage_15160(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 24)
                 mstore(add(usr_memPtr, 0x44), "Must use new sign policy")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15071(usr_memPtr)
+            function usr$revertWithMessage_15163(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 26)
                 mstore(add(usr_memPtr, 0x44), "Sign policy relay disabled")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15072(usr_memPtr)
+            function usr$revertWithMessage_15164(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 23)
                 mstore(add(usr_memPtr, 0x44), "No new sign policy size")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15073(usr_memPtr)
+            function usr$revertWithMessage_15165(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 19)
                 mstore(add(usr_memPtr, 0x44), "must be non-trivial")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15074(usr_memPtr)
+            function usr$revertWithMessage_15166(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 15)
                 mstore(add(usr_memPtr, 0x44), "too many voters")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15075(usr_memPtr)
+            function usr$revertWithMessage_15167(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 30)
                 mstore(add(usr_memPtr, 0x44), "Wrong size for new sign policy")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15077(usr_memPtr)
+            function usr$revertWithMessage_15169(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 24)
                 mstore(add(usr_memPtr, 0x44), "Not with last intialized")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15078(usr_memPtr)
+            function usr$revertWithMessage_15170(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 21)
                 mstore(add(usr_memPtr, 0x44), "Not next reward epoch")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15080(usr_memPtr)
+            function usr$revertWithMessage_15172(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 18)
                 mstore(add(usr_memPtr, 0x44), "No signature count")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15081(usr_memPtr)
+            function usr$revertWithMessage_15173(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 21)
                 mstore(add(usr_memPtr, 0x44), "Not enough signatures")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15082(usr_memPtr)
+            function usr$revertWithMessage_15174(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 18)
                 mstore(add(usr_memPtr, 0x44), "Index out of range")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15083(usr_memPtr)
+            function usr$revertWithMessage_15175(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 18)
                 mstore(add(usr_memPtr, 0x44), "Index out of order")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15084(usr_memPtr)
+            function usr$revertWithMessage_15176(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 5)
                 mstore(add(usr_memPtr, 0x44), "Bad v")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15085(usr_memPtr)
+            function usr$revertWithMessage_15177(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 5)
                 mstore(add(usr_memPtr, 0x44), "Bad s")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15086(usr_memPtr)
+            function usr$revertWithMessage_15178(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 15)
                 mstore(add(usr_memPtr, 0x44), "ecrecover error")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15087(usr_memPtr)
+            function usr$revertWithMessage_15179(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 27)
                 mstore(add(usr_memPtr, 0x44), "ecrecover returned bad data")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15088(usr_memPtr)
+            function usr$revertWithMessage_15180(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 11)
                 mstore(add(usr_memPtr, 0x44), "Zero signer")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15089(usr_memPtr)
+            function usr$revertWithMessage_15181(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 15)
                 mstore(add(usr_memPtr, 0x44), "Wrong signature")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15090(usr_memPtr)
+            function usr$revertWithMessage_15182(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 16)
                 mstore(add(usr_memPtr, 0x44), "zero merkle root")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15096(usr_memPtr)
+            function usr$revertWithMessage_15188(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 24)
                 mstore(add(usr_memPtr, 0x44), "This should never happen")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15184(usr_memPtr)
+            function usr$revertWithMessage_15276(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 20)
                 mstore(add(usr_memPtr, 0x44), "total weight too big")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15185(usr_memPtr)
+            function usr$revertWithMessage_15277(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 19)
                 mstore(add(usr_memPtr, 0x44), "too small threshold")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15186(usr_memPtr)
+            function usr$revertWithMessage_15278(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 17)
                 mstore(add(usr_memPtr, 0x44), "too big threshold")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15187(usr_memPtr)
+            function usr$revertWithMessage_15279(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 16)
                 mstore(add(usr_memPtr, 0x44), "No random number")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage(usr_memPtr)
+            function usr$revertWithMessage_15280(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 22)
                 mstore(add(usr_memPtr, 0x44), "Incorrect merkle proof")
                 revert(usr_memPtr, 0x64)
             }
-            function usr$revertWithMessage_15189(usr_memPtr)
+            function usr$revertWithMessage_15281(usr_memPtr)
             {
-                mstore(usr_memPtr, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                /// @src 0:24462:73522  "assembly {..."
+                mstore(usr_memPtr, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                /// @src 0:25230:75252  "assembly {..."
                 mstore(add(usr_memPtr, 0x04), 0x20)
                 mstore(add(usr_memPtr, 0x24), 27)
                 mstore(add(usr_memPtr, 0x44), "Invalid random number proof")
@@ -3425,15 +3448,15 @@ object "Relay_2011" {
             }
             function usr$assignStruct(usr_structObj, usr$newVal) -> usr_newStructObj
             {
-                usr_newStructObj := or(and(usr_structObj, /** @src 0:3954:3956  "22" */ not(shl(152, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))), /** @src 0:24462:73522  "assembly {..." */ shl(152, usr$newVal))
+                usr_newStructObj := or(and(usr_structObj, /** @src 0:3954:3956  "22" */ not(shl(152, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))), /** @src 0:25230:75252  "assembly {..." */ shl(152, usr$newVal))
             }
-            function usr$assignStruct_15094(usr_structObj, usr$newVal) -> usr_newStructObj
+            function usr$assignStruct_15186(usr_structObj, usr$newVal) -> usr_newStructObj
             {
-                usr_newStructObj := or(and(usr_structObj, not(shl(112, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 0xffffffff))), /** @src 0:24462:73522  "assembly {..." */ shl(112, usr$newVal))
+                usr_newStructObj := or(and(usr_structObj, not(shl(112, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 0xffffffff))), /** @src 0:25230:75252  "assembly {..." */ shl(112, usr$newVal))
             }
-            function usr$assignStruct_15095(usr_structObj, usr$newVal) -> usr_newStructObj
+            function usr$assignStruct_15187(usr_structObj, usr$newVal) -> usr_newStructObj
             {
-                usr_newStructObj := or(and(usr_structObj, not(shl(144, /** @src 0:3954:3956  "22" */ 255))), /** @src 0:24462:73522  "assembly {..." */ shl(144, usr$newVal))
+                usr_newStructObj := or(and(usr_structObj, not(shl(144, /** @src 0:3954:3956  "22" */ 255))), /** @src 0:25230:75252  "assembly {..." */ shl(144, usr$newVal))
             }
             function usr$structValue(usr_structObj) -> usr_val
             {
@@ -3445,8 +3468,8 @@ object "Relay_2011" {
                 if lt(usr$_votingRoundId, usr$firstRewardEpochStartVotingRoundId)
                 {
                     let _1 := mload(0x40)
-                    mstore(_1, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ shl(229, 4594637))
-                    /// @src 0:24462:73522  "assembly {..."
+                    mstore(_1, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ shl(229, 4594637))
+                    /// @src 0:25230:75252  "assembly {..."
                     mstore(add(_1, 0x04), 0x20)
                     mstore(add(_1, 0x24), 23)
                     mstore(add(_1, 0x44), "Invalid voting round id")
@@ -3454,11 +3477,11 @@ object "Relay_2011" {
                 }
                 usr_rewardEpochId := div(sub(usr$_votingRoundId, usr$firstRewardEpochStartVotingRoundId), and(shr(80, usr_stateDataObj), 65535))
             }
-            function usr$calculateSigningPolicyHash_15057(usr_memPos, usr_policyLength) -> usr_policyHash
+            function usr$calculateSigningPolicyHash_15149(usr_memPos, usr_policyLength) -> usr_policyHash
             {
-                calldatacopy(usr_memPos, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 4, /** @src 0:24462:73522  "assembly {..." */ 32)
-                let usr$endPos := add(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ 4, /** @src 0:24462:73522  "assembly {..." */ and(usr_policyLength, /** @src 0:23022:23056  "abi.encode(_config, address(this))" */ not(31)))
-                /// @src 0:24462:73522  "assembly {..."
+                calldatacopy(usr_memPos, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 4, /** @src 0:25230:75252  "assembly {..." */ 32)
+                let usr$endPos := add(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ 4, /** @src 0:25230:75252  "assembly {..." */ and(usr_policyLength, /** @src 0:23790:23824  "abi.encode(_config, address(this))" */ not(31)))
+                /// @src 0:25230:75252  "assembly {..."
                 let usr$pos := 36
                 for { } lt(usr$pos, usr$endPos) { usr$pos := add(usr$pos, 32) }
                 {
@@ -3480,12 +3503,15 @@ object "Relay_2011" {
                     mstore(usr_memPos, _4)
                     usr_policyHash := _4
                 }
+                mstore(usr_memPos, chainid())
+                mstore(add(usr_memPos, 32), usr_policyHash)
+                usr_policyHash := keccak256(usr_memPos, 64)
             }
             function usr$calculateSigningPolicyHash(usr_memPos, usr_calldataPos, usr_policyLength) -> usr_policyHash
             {
                 calldatacopy(usr_memPos, usr_calldataPos, 32)
-                let usr$endPos := add(usr_calldataPos, and(usr_policyLength, /** @src 0:23022:23056  "abi.encode(_config, address(this))" */ not(31)))
-                /// @src 0:24462:73522  "assembly {..."
+                let usr$endPos := add(usr_calldataPos, and(usr_policyLength, /** @src 0:23790:23824  "abi.encode(_config, address(this))" */ not(31)))
+                /// @src 0:25230:75252  "assembly {..."
                 let usr$pos := add(usr_calldataPos, 32)
                 for { } lt(usr$pos, usr$endPos) { usr$pos := add(usr$pos, 32) }
                 {
@@ -3507,6 +3533,9 @@ object "Relay_2011" {
                     mstore(usr_memPos, _4)
                     usr_policyHash := _4
                 }
+                mstore(usr_memPos, chainid())
+                mstore(add(usr_memPos, 32), usr_policyHash)
+                usr_policyHash := keccak256(usr_memPos, 64)
             }
             function usr$extractVotingRoundIdFromMessage(usr_memPtr, usr_signingPolicyLength) -> usr_votingRoundId
             {
@@ -3526,16 +3555,16 @@ object "Relay_2011" {
                 }
                 if gt(usr$totalWeight, 65535)
                 {
-                    usr$revertWithMessage_15184(usr_memPtr)
+                    usr$revertWithMessage_15276(usr_memPtr)
                 }
                 let _1 := mul(and(usr_metadata, 65535), 10000)
                 if lt(_1, mul(usr$totalWeight, 5000))
                 {
-                    usr$revertWithMessage_15185(usr_memPtr)
+                    usr$revertWithMessage_15277(usr_memPtr)
                 }
                 if gt(_1, mul(usr$totalWeight, 6600))
                 {
-                    usr$revertWithMessage_15186(usr_memPtr)
+                    usr$revertWithMessage_15278(usr_memPtr)
                 }
             }
             function usr$setIsSecureRandomBit(usr_memPtr, usr_votingRoundId)
@@ -3550,11 +3579,11 @@ object "Relay_2011" {
                 let _1 := add(usr_proofStart, 32)
                 if lt(calldatasize(), _1)
                 {
-                    usr$revertWithMessage_15187(usr_memPtr)
+                    usr$revertWithMessage_15279(usr_memPtr)
                 }
                 if iszero(iszero(and(sub(calldatasize(), usr_proofStart), 31)))
                 {
-                    usr$revertWithMessage(usr_memPtr)
+                    usr$revertWithMessage_15280(usr_memPtr)
                 }
                 mstore(usr_memPtr, usr_votingRoundId)
                 let _2 := add(usr_memPtr, 32)
@@ -3578,14 +3607,14 @@ object "Relay_2011" {
                 }
                 if iszero(eq(mload(usr_memPtr), mload(usr_memPtrMerkleRoot)))
                 {
-                    usr$revertWithMessage_15189(usr_memPtr)
+                    usr$revertWithMessage_15281(usr_memPtr)
                 }
                 calldatacopy(_3, usr_proofStart, 32)
                 mstore(usr_memPtr, usr_votingRoundId)
                 mstore(_2, 9)
                 sstore(keccak256(usr_memPtr, 64), mload(_3))
             }
-            /// @src 0:397:82971  "contract Relay is IIRelay {..."
+            /// @src 0:397:84701  "contract Relay is IIRelay {..."
             function require_helper_stringliteral_a3dc(condition)
             {
                 if iszero(condition)
@@ -3598,20 +3627,20 @@ object "Relay_2011" {
                     revert(memPtr, 100)
                 }
             }
-            /// @ast-id 2010 @src 0:81541:82969  "function _verifyCustomSignature(..."
+            /// @ast-id 2021 @src 0:83271:84699  "function _verifyCustomSignature(..."
             function fun_verifyCustomSignature(var_relayMessage_offset, var_relayMessage_length, var_messageHash) -> var_rewardEpochId
             {
-                /// @src 0:81848:81881  "address(this).call(_relayMessage)"
-                let _1 := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(64)
+                /// @src 0:83578:83611  "address(this).call(_relayMessage)"
+                let _1 := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(64)
                 calldatacopy(_1, var_relayMessage_offset, var_relayMessage_length)
                 let _2 := add(_1, var_relayMessage_length)
                 mstore(_2, /** @src -1:-1:-1 */ 0)
-                /// @src 0:81848:81881  "address(this).call(_relayMessage)"
-                let expr_1975_component := call(gas(), /** @src 0:81856:81860  "this" */ address(), /** @src -1:-1:-1 */ 0, /** @src 0:81848:81881  "address(this).call(_relayMessage)" */ _1, sub(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ _2, /** @src 0:81848:81881  "address(this).call(_relayMessage)" */ _1), /** @src -1:-1:-1 */ 0, 0)
-                /// @src 0:81848:81881  "address(this).call(_relayMessage)"
+                /// @src 0:83578:83611  "address(this).call(_relayMessage)"
+                let expr_1986_component := call(gas(), /** @src 0:83586:83590  "this" */ address(), /** @src -1:-1:-1 */ 0, /** @src 0:83578:83611  "address(this).call(_relayMessage)" */ _1, sub(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ _2, /** @src 0:83578:83611  "address(this).call(_relayMessage)" */ _1), /** @src -1:-1:-1 */ 0, 0)
+                /// @src 0:83578:83611  "address(this).call(_relayMessage)"
                 let expr_component_mpos := extract_returndata()
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                if iszero(expr_1975_component)
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                if iszero(expr_1986_component)
                 {
                     let memPtr := mload(64)
                     mstore(memPtr, shl(229, 4594637))
@@ -3620,8 +3649,8 @@ object "Relay_2011" {
                     mstore(add(memPtr, 68), "Verification failed")
                     revert(memPtr, 100)
                 }
-                if iszero(/** @src 0:82483:82506  "returnData.length == 35" */ eq(/** @src 0:397:82971  "contract Relay is IIRelay {..." */ mload(/** @src 0:82483:82500  "returnData.length" */ expr_component_mpos), /** @src 0:82504:82506  "35" */ 0x23))
-                /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                if iszero(/** @src 0:84213:84236  "returnData.length == 35" */ eq(/** @src 0:397:84701  "contract Relay is IIRelay {..." */ mload(/** @src 0:84213:84230  "returnData.length" */ expr_component_mpos), /** @src 0:84234:84236  "35" */ 0x23))
+                /// @src 0:397:84701  "contract Relay is IIRelay {..."
                 {
                     let memPtr_1 := mload(64)
                     mstore(memPtr_1, shl(229, 4594637))
@@ -3630,16 +3659,16 @@ object "Relay_2011" {
                     mstore(add(memPtr_1, 68), "Wrong verification data")
                     revert(memPtr_1, 100)
                 }
-                /// @src 0:82665:82850  "assembly {..."
+                /// @src 0:84395:84580  "assembly {..."
                 let var_returnHash := mload(add(expr_component_mpos, 0x20))
-                let var_returnRewardEpochId := shr(232, mload(add(expr_component_mpos, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 64)))
-                /// @src 0:82859:82926  "require(bytes32(returnHash) == _messageHash, \"Invalid config hash\")"
-                require_helper_stringliteral_a3dc(/** @src 0:82867:82902  "bytes32(returnHash) == _messageHash" */ eq(var_returnHash, var_messageHash))
-                /// @src 0:82936:82962  "return returnRewardEpochId"
+                let var_returnRewardEpochId := shr(232, mload(add(expr_component_mpos, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 64)))
+                /// @src 0:84589:84656  "require(bytes32(returnHash) == _messageHash, \"Invalid config hash\")"
+                require_helper_stringliteral_a3dc(/** @src 0:84597:84632  "bytes32(returnHash) == _messageHash" */ eq(var_returnHash, var_messageHash))
+                /// @src 0:84666:84692  "return returnRewardEpochId"
                 var_rewardEpochId := var_returnRewardEpochId
             }
-            /// @ast-id 2527 @src 5:4637:4809  "function verifyCalldata(bytes32[] calldata proof, bytes32 root, bytes32 leaf) internal pure returns (bool) {..."
-            function fun_verifyCalldata(var_proof_offset, var_proof_2510_length, var_root, var_leaf) -> var
+            /// @ast-id 2538 @src 5:4637:4809  "function verifyCalldata(bytes32[] calldata proof, bytes32 root, bytes32 leaf) internal pure returns (bool) {..."
+            function fun_verifyCalldata(var_proof_2521_offset, var_proof_2521_length, var_root, var_leaf) -> var
             {
                 /// @src 5:5324:5351  "bytes32 computedHash = leaf"
                 let var_computedHash := var_leaf
@@ -3647,24 +3676,24 @@ object "Relay_2011" {
                 let var_i := /** @src -1:-1:-1 */ 0
                 /// @src 5:5361:5495  "for (uint256 i = 0; i < proof.length; i++) {..."
                 for { }
-                /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 1
+                /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 1
                 /// @src 5:5366:5379  "uint256 i = 0"
                 {
                     /// @src 5:5399:5402  "i++"
-                    var_i := /** @src 0:397:82971  "contract Relay is IIRelay {..." */ add(/** @src 5:5399:5402  "i++" */ var_i, /** @src 0:397:82971  "contract Relay is IIRelay {..." */ 1)
+                    var_i := /** @src 0:397:84701  "contract Relay is IIRelay {..." */ add(/** @src 5:5399:5402  "i++" */ var_i, /** @src 0:397:84701  "contract Relay is IIRelay {..." */ 1)
                 }
                 /// @src 5:5399:5402  "i++"
                 {
                     /// @src 5:5381:5397  "i < proof.length"
-                    let _1 := iszero(lt(var_i, /** @src 5:5385:5397  "proof.length" */ var_proof_2510_length))
+                    let _1 := iszero(lt(var_i, /** @src 5:5385:5397  "proof.length" */ var_proof_2521_length))
                     /// @src 5:5381:5397  "i < proof.length"
                     if _1 { break }
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
                     _1 := /** @src -1:-1:-1 */ 0
                     /// @src 5:5475:5483  "proof[i]"
                     let value := /** @src -1:-1:-1 */ 0
-                    /// @src 0:397:82971  "contract Relay is IIRelay {..."
-                    value := calldataload(add(var_proof_offset, shl(5, var_i)))
+                    /// @src 0:397:84701  "contract Relay is IIRelay {..."
+                    value := calldataload(add(var_proof_2521_offset, shl(5, var_i)))
                     /// @src 4:605:664  "a < b ? efficientKeccak256(a, b) : efficientKeccak256(b, a)"
                     let expr := /** @src -1:-1:-1 */ 0
                     /// @src 4:605:664  "a < b ? efficientKeccak256(a, b) : efficientKeccak256(b, a)"
@@ -3691,6 +3720,6 @@ object "Relay_2011" {
                 var := /** @src 5:4761:4802  "processProofCalldata(proof, leaf) == root" */ eq(var_computedHash, var_root)
             }
         }
-        data ".metadata" hex"a264697066735822122038f06f786e6e260ecdfe827424af4203af87ffade17082341502a6919b2e2eed64736f6c634300081b0033"
+        data ".metadata" hex"a26469706673582212208bb8035361a51c754b18490061610475cb4e5b482b1cf825ff13d41575549edc64736f6c634300081b0033"
     }
 }

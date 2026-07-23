@@ -5,7 +5,7 @@ open EvmYul EvmYul.Yul EvmYul.Yul.Ast
 # Relay signature loop — the LITERAL body (work in progress: deriving `hcorr`/`hvalid`)
 
 This file transliterates the deployed signature loop's **actual body** — from the committed optimized-IR
-snapshot `../relay_ir_optimized.yul:1563-1610` — into the EVMYulLean Yul AST: both `calldatacopy`s (the
+snapshot `../relay_ir_optimized.yul:1567-1614` — into the EVMYulLean Yul AST: both `calldatacopy`s (the
 67-byte signature record; the 22-byte voter record), the **fixed scratch-slot addressing** (`m+32`…`m+128`),
 the full guard cascade (index range/order, canonical `v`, low-`s`, `staticcall`-success,
 `returndatasize()==32`, non-zero signer, signer==expected), the masked weight accumulation, and the
@@ -54,7 +54,7 @@ def litU (u : EvmYul.UInt256) : Expr := Expr.Lit u
 /-- Variable read. -/
 def V (x : EvmYul.Identifier) : Expr := Expr.Var x
 
-/-- secp256k1n/2 — the EIP-2 low-`s` bound (IR line 1584). -/
+/-- secp256k1n/2 — the EIP-2 low-`s` bound (IR line 1588). -/
 def SECP_HALF : EvmYul.UInt256 :=
   UInt256.ofNat 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
 
@@ -64,7 +64,7 @@ def revert00 : Stmt := Stmt.ExprStmtCall (bc .REVERT [litN 0, litN 0])
 /-- `if cond { revert }` — the guard shape used by every check in the loop. -/
 def guard' (cond : Expr) : Stmt := Stmt.If cond [revert00]
 
-/-! ## The loop, transliterated (IR lines 1563-1610)
+/-! ## The loop, transliterated (IR lines 1567-1614)
 
 Parameters: `m` = `usr$memPtrFor` (loop-invariant free-memory base), `sigStart` = `usr$signatureStart`,
 `nSig` = `_17` (numberOfSignatures), `nVot` = `shr(240,_1)` (numberOfVoters), `thr` = `usr$threshold`. -/

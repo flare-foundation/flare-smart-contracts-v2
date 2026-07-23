@@ -176,7 +176,7 @@ names are in the per-rung docs and the claims ledger ([L10](10-claims-ledger-tru
 
 | Rung | Tool | What it covers | Object | Coverage | Status |
 |------|------|----------------|--------|----------|--------|
-| R0/R1 | Foundry | functional behavior of all modes (incl. signing-policy rotation); coverage 31→59 tests | real bytecode | concrete + fuzz | ✅ green in CI (`test-unit-forge`, `coverage-forge`) |
+| R0/R1 | Foundry | functional behavior of all modes (incl. signing-policy rotation); coverage 31→59 tests in `Relay.t.sol`, +8 RLY-23 chain-domain (incl. legacy migration) in `RelayChainDomain.t.sol` | real bytecode | concrete + fuzz | ✅ green in CI (`test-unit-forge`, `coverage-forge`) |
 | R2 | Halmos | sig/threshold accounting; full `relay()` epoch matrix; access control; lifecycle; Merkle; randomness; fees — 26 harnesses / **89 checks (60 proofs, 29 anti-vacuity controls)** | **real bytecode** | bounded (K≤3, N≤5) | ✅ green in CI (`test-fv-halmos`, gated by [`verify_fv.py`](../../test-forge/fv/verify_fv.py)) |
 | R3 | Kontrol | sig-loop weight invariant; random monotonicity — **∀K** (k-induction) | Solidity **model** | ∀K, N∈{3,5} | ✅ proven (Docker-pinned); full symbolic-N intractable (documented) |
 | R3 | Certora | 5 all-functions storage invariants (nonce/epoch monotonic, setter-immutable, hash/root write-once) | model | ∀ functions & sequences | ✅ **cloud-proven for every function except `relay()`** (legacy codegen; the deployment via-ir codegen also excepts `setSigningPolicy`) — the storage-splitting analysis removed from the loop, 2026-07; `relay()`-vacuity is the narrowed residual (C-1, [L5 §5.2](05-R3-unbounded-attempts.md)) |
