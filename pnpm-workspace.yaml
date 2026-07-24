@@ -19,6 +19,7 @@ allowBuilds:
   bufferutil: false
   core-js-pure: false
   es5-ext: false
+  esbuild: false
   keccak: true
   leveldown: false
   secp256k1: true
