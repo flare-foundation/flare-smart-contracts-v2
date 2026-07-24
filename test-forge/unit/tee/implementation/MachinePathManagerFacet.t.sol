@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { Test } from "forge-std/Test.sol";
+import { Test, stdError } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 import { MockSafe } from "../../../mock/MockSafe.sol";
@@ -729,8 +729,9 @@ contract MachinePathManagerFacetTest is Test {
         bytes32 hash = _listMessageHash(extensionId, nonce);
 
         vm.expectEmit();
+        // MockSafe starts at nonce 1 and pre-increments in exec — the signed nonce is 1.
         emit IMachinePathManager.MachinePathListApproved(
-            extensionId, nonce, address(safe), _h1(govHashS)
+            extensionId, nonce, address(safe), 1, _h1(govHashS)
         );
         vm.expectEmit();
         emit IMachinePathManager.MachinePathListSigned(extensionId, nonce);
@@ -796,7 +797,7 @@ contract MachinePathManagerFacetTest is Test {
 
         vm.expectEmit();
         emit IMachinePathManager.MachinePathListApproved(
-            extensionId, nonce, address(safe), _h2(govHashOld, govHashNew)
+            extensionId, nonce, address(safe), 0, _h2(govHashOld, govHashNew)
         );
         vm.prank(address(safe));
         flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
@@ -832,7 +833,7 @@ contract MachinePathManagerFacetTest is Test {
             // Only the satisfiable (current) snapshot is marked approved; the stale one is skipped.
             vm.expectEmit();
             emit IMachinePathManager.MachinePathListApproved(
-                extensionId, nonce, address(safe), _h1(govHashNew)
+                extensionId, nonce, address(safe), 0, _h1(govHashNew)
             );
             vm.prank(address(safe));
             flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
@@ -892,9 +893,11 @@ contract MachinePathManagerFacetTest is Test {
         assertEq(flareTeeManager.getActiveMachinePathListNonce(extensionId), nonce);
 
         vm.roll(vm.getBlockNumber() + 100);
+        // The refreshed approval carries the newer Safe nonce (5 signed → nonce() reads 6).
+        safe.setNonce(6);
         vm.expectEmit();
         emit IMachinePathManager.MachinePathListApproved(
-            extensionId, nonce, address(safe), _h1(govHashS)
+            extensionId, nonce, address(safe), 5, _h1(govHashS)
         );
         vm.prank(address(safe));
         flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
@@ -903,6 +906,7 @@ contract MachinePathManagerFacetTest is Test {
             flareTeeManager.getMachinePathListApprovals(extensionId, nonce);
         assertEq(approvals.length, 2);
         assertTrue(approvals[1].blockNumber > approvals[0].blockNumber);
+        assertEq(approvals[1].safeNonce, 5);
         assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
         assertEq(flareTeeManager.getActiveMachinePathListNonce(extensionId), nonce);
     }
@@ -1028,7 +1032,7 @@ contract MachinePathManagerFacetTest is Test {
 
         vm.expectEmit();
         emit IMachinePathManager.MachinePathListApproved(
-            extensionId, nonce, address(safe), _h1(govHashS)
+            extensionId, nonce, address(safe), 0, _h1(govHashS)
         );
         vm.prank(address(safe));
         flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
@@ -1047,8 +1051,13 @@ contract MachinePathManagerFacetTest is Test {
         assertEq(flareTeeManager.getMachinePathListApprovals(extensionId, nonce).length, 0);
 
         vm.roll(12345);
-        vm.prank(address(safe));
-        flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
+        safe.setNonce(42);
+        // Realistic path: the Safe executes the approval, incrementing its nonce to 43 before the
+        // inner call — the recorded safeNonce must be the SIGNED nonce, 42.
+        safe.exec(
+            address(flareTeeManager),
+            abi.encodeCall(IMachinePathManager.approveMachinePathList, (extensionId, nonce, hash))
+        );
 
         IMachinePathManager.Approval[] memory approvals =
             flareTeeManager.getMachinePathListApprovals(extensionId, nonce);
@@ -1057,6 +1066,7 @@ contract MachinePathManagerFacetTest is Test {
         // Read the expected block via cheatcode — direct block.number reads are constant-folded
         // under viaIR and go stale across vm.roll.
         assertEq(approvals[0].blockNumber, uint64(vm.getBlockNumber()));
+        assertEq(approvals[0].safeNonce, 42);
 
         // ECDSA signatures are stored separately and stay empty for the approval path.
         (,, Signature[] memory sigs,) = flareTeeManager.getMachinePathList(extensionId, nonce);
@@ -1066,6 +1076,19 @@ contract MachinePathManagerFacetTest is Test {
     function testGetMachinePathListApprovalsRevertInvalidNonce() public {
         vm.expectRevert(ITeeCommonErrors.InvalidNonce.selector);
         flareTeeManager.getMachinePathListApprovals(extensionId, 999);
+    }
+
+    function testApproveMachinePathListRevertZeroSafeNonce() public {
+        // A responder reporting nonce 0 is impossible for a genuine Safe mid-execTransaction (the
+        // nonce is incremented before the inner call); the safeNonce capture underflows.
+        (MockSafe safe,, address teeS1, address teeS2) = _setupSafeGovernance(_makeOwners("S", 2), 2, "S");
+        uint256 nonce = _newFinalizedList(teeS1, teeS2);
+        bytes32 hash = _listMessageHash(extensionId, nonce);
+
+        safe.setNonce(0);
+        vm.prank(address(safe));
+        vm.expectRevert(stdError.arithmeticError);
+        flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
     }
 
     // =========================================================================

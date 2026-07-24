@@ -186,12 +186,24 @@ contract MachinePathManagerFacet is IMachinePathManager {
         }
         require(satisfiedLen > 0, SafeGovernanceStale());
 
-        pathList.approvals.push(Approval(msg.sender, uint64(block.number)));
+        // The Safe increments its nonce inside execTransaction BEFORE making the inner call, so
+        // the nonce the owners signed is nonce() - 1. It is the one SafeTxHash ingredient not
+        // recoverable from the execTransaction calldata; recording it makes the Approval entry a
+        // complete artifact pointer for off-chain verifiers. Underflows (reverts) for a responder
+        // reporting nonce 0 — impossible for a genuine Safe mid-execTransaction. The uint32 cast
+        // truncates silently above 2^32, but each Safe nonce is an executed Safe transaction, so
+        // a genuine Safe cannot get near it (billions of transactions — more than one per block
+        // for centuries); a rogue responder can misreport its nonce regardless of any range
+        // check, and the value is advisory artifact data — a wrong nonce only makes off-chain
+        // artifact reconstruction fail (fail-closed), signatures are verified against the node's
+        // own anchors.
+        uint32 safeNonce = uint32(ISafeMinimal(msg.sender).nonce() - 1);
+        pathList.approvals.push(Approval(msg.sender, uint64(block.number), safeNonce));
 
         // Shrink the `satisfied` array to its actual length before emitting.
         // solhint-disable-next-line no-inline-assembly
         assembly { mstore(satisfied, satisfiedLen) }
-        emit MachinePathListApproved(_extensionId, _nonce, msg.sender, satisfied);
+        emit MachinePathListApproved(_extensionId, _nonce, msg.sender, safeNonce, satisfied);
 
         _activateWhenFullySigned(_extensionId, _nonce, pathList);
     }

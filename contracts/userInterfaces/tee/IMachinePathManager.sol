@@ -31,11 +31,17 @@ interface IMachinePathManager {
     }
 
     /// A msg.sender approval recorded by `approveMachinePathList` (signer = the calling Safe).
-    /// The block number lets relay clients locate the Safe `execTransaction` transaction and
-    /// extract the owner signatures without scanning the chain.
+    /// `blockNumber` lets relay clients locate the Safe `execTransaction` transaction and extract
+    /// the owner signatures and transaction parameters without scanning the chain. `safeNonce` is
+    /// the Safe nonce the owners signed (the Safe's nonce is part of the EIP-712 SafeTxHash but is
+    /// read from Safe storage rather than passed to `execTransaction`, so it is captured here —
+    /// the one SafeTxHash ingredient not recoverable from the transaction calldata).
+    /// Packed into a single storage slot (20 + 8 + 4 = 32 bytes; 2^32 Safe transactions is
+    /// unreachable).
     struct Approval {
         address signer;
         uint64 blockNumber;
+        uint32 safeNonce;
     }
 
     event MachinePathListStarted(
@@ -62,10 +68,13 @@ interface IMachinePathManager {
         bytes32[] countedGovernanceHashes
     );
 
+    /// `safeNonce` is the signed Safe nonce (see `Approval.safeNonce`) — together with the log's
+    /// block number this makes the event a complete artifact pointer for relay clients.
     event MachinePathListApproved(
         uint256 indexed extensionId,
         uint256 indexed nonce,
         address indexed safe,
+        uint32 safeNonce,
         bytes32[] satisfiedGovernanceHashes
     );
 
@@ -189,7 +198,15 @@ interface IMachinePathManager {
      * at least threshold-many distinct snapshot owners from the packed signatures (rejecting
      * approved-hash `v=1` and contract-signature `v=0` entries). Execute the Safe transaction from
      * a non-owner account so all threshold signatures are real ECDSA signatures. The recorded
-     * `Approval.blockNumber` (see `getMachinePathListApprovals`) locates the transaction.
+     * `Approval.blockNumber` (see `getMachinePathListApprovals`) locates the transaction, and
+     * `Approval.safeNonce` supplies the signed Safe nonce — the one SafeTxHash ingredient not
+     * present in the `execTransaction` calldata (captured here as `safe.nonce() - 1`, since the
+     * Safe increments its nonce before making the inner call). Batched execution (e.g. MultiSend,
+     * which runs as a delegatecall to the MultiSend contract) is NOT supported: the approval must
+     * be its own direct Safe transaction, or offline verifiers reject the artifact (`to` /
+     * `operation` mismatch). On-chain the call would still count (msg.sender is the Safe either
+     * way), so submitters must take care — a batched approval is valid on-chain but useless as a
+     * node artifact.
      *
      * When old and new snapshots of the same Safe are involved in one list, the extension owner
      * must coordinate the confirming owners so that they satisfy each involved snapshot's threshold
@@ -335,7 +352,8 @@ interface IMachinePathManager {
      * Returns the msg.sender approvals recorded via `approveMachinePathList`, in submission order
      * (one entry per call — repeat approvals append). Complements the ECDSA `_signatures` returned
      * by `getMachinePathList`: relay clients use each approval's block number to locate the Safe
-     * `execTransaction` transaction and extract the owner signatures forwarded to TEE nodes.
+     * `execTransaction` transaction (owner signatures + transaction parameters) and its safeNonce
+     * to complete the SafeTxHash preimage forwarded to TEE nodes.
      * @param _extensionId The extension id.
      * @param _nonce The list nonce.
      * @return _approvals The recorded approvals.

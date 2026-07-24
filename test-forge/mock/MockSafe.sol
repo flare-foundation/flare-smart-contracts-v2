@@ -9,6 +9,11 @@ pragma solidity ^0.8.35;
  *         (duplicate owners, zero address, zero/huge threshold).
  */
 contract MockSafe {
+    /// Mirrors the real Safe's transaction nonce. Starts at 1 (as if one transaction was already
+    /// executed) so tests that call the diamond via `vm.prank(address(safe))` — simulating being
+    /// inside an execTransaction without going through `exec` — read a nonce >= 1, like a genuine
+    /// Safe mid-execution.
+    uint256 public nonce = 1;
     address[] internal owners;
     uint256 internal threshold;
 
@@ -25,7 +30,13 @@ contract MockSafe {
         threshold = _threshold;
     }
 
+    function setNonce(uint256 _nonce) external {
+        nonce = _nonce;
+    }
+
     function exec(address _target, bytes calldata _data) external returns (bytes memory) {
+        // Mirror the real Safe: the nonce is incremented BEFORE the inner call is made.
+        nonce++;
         (bool success, bytes memory result) = _target.call(_data);
         if (!success) {
             // Bubble up the revert reason.
