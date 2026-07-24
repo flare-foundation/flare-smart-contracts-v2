@@ -24,7 +24,7 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
-cd "$ROOT_DIR"
+cd "$ROOT_DIR" || exit 1
 
 LOG_DIR="${LOG_DIR:-/tmp}"
 NODE_LOG="$LOG_DIR/sim-node.log"
@@ -58,6 +58,7 @@ is_windows() {
 # On Git Bash / MSYS / Cygwin, `taskkill //F //T //PID` kills the full tree
 # including node.exe grandchildren spawned by pnpm; `pkill -P` alone only
 # kills direct children, leaving hardhat running and bound to 8545.
+# shellcheck disable=SC2329
 kill_tree() {
   local pid=$1
   [[ -z "$pid" ]] && return 0
@@ -100,6 +101,7 @@ free_port_8545() {
   return 0
 }
 
+# shellcheck disable=SC2329
 cleanup() {
   local exit_code=$?
   echo
@@ -118,7 +120,7 @@ cleanup() {
     echo "      port 8545 still in use after tree-kill, force-freeing..."
     free_port_8545 || echo "      (still stuck — may need manual cleanup)"
   fi
-  exit $exit_code
+  exit "$exit_code"
 }
 trap cleanup EXIT INT TERM
 

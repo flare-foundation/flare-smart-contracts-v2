@@ -19,7 +19,7 @@ importers:
         version: 6.16.0(bufferutil@4.0.7)(utf-8-validate@6.0.3)
       flare-smart-contracts:
         specifier: git+https://gitlab.com/flarenetwork/flare-smart-contracts.git
-        version: https://gitlab.com/api/v4/projects/flarenetwork%2Fflare-smart-contracts/repository/archive.tar.gz?sha=10b4909f0ef58fc70ae7af8e2e5fad4180f42be8(bufferutil@4.0.7)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@6.0.3)
+        version: https://gitlab.com/flarenetwork/flare-smart-contracts/-/archive/10b4909f0ef58fc70ae7af8e2e5fad4180f42be8/flare-smart-contracts-10b4909f0ef58fc70ae7af8e2e5fad4180f42be8.tar.gz(bufferutil@4.0.7)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@6.0.3)
       hardhat:
         specifier: 2.28.6
         version: 2.28.6(bufferutil@4.0.7)(ts-node@10.9.2(@types/node@20.19.39)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@6.0.3)
@@ -3234,8 +3234,8 @@ packages:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
     engines: {node: '>=10'}
 
-  flare-smart-contracts@https://gitlab.com/api/v4/projects/flarenetwork%2Fflare-smart-contracts/repository/archive.tar.gz?sha=10b4909f0ef58fc70ae7af8e2e5fad4180f42be8:
-    resolution: {tarball: https://gitlab.com/api/v4/projects/flarenetwork%2Fflare-smart-contracts/repository/archive.tar.gz?sha=10b4909f0ef58fc70ae7af8e2e5fad4180f42be8}
+  flare-smart-contracts@https://gitlab.com/flarenetwork/flare-smart-contracts/-/archive/10b4909f0ef58fc70ae7af8e2e5fad4180f42be8/flare-smart-contracts-10b4909f0ef58fc70ae7af8e2e5fad4180f42be8.tar.gz:
+    resolution: {gitHosted: true, tarball: https://gitlab.com/flarenetwork/flare-smart-contracts/-/archive/10b4909f0ef58fc70ae7af8e2e5fad4180f42be8/flare-smart-contracts-10b4909f0ef58fc70ae7af8e2e5fad4180f42be8.tar.gz}
     version: 0.0.1
     engines: {node: '>=12'}
 
@@ -11148,7 +11148,7 @@ snapshots:
       locate-path: 6.0.0
       path-exists: 4.0.0
 
-  flare-smart-contracts@https://gitlab.com/api/v4/projects/flarenetwork%2Fflare-smart-contracts/repository/archive.tar.gz?sha=10b4909f0ef58fc70ae7af8e2e5fad4180f42be8(bufferutil@4.0.7)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@6.0.3):
+  flare-smart-contracts@https://gitlab.com/flarenetwork/flare-smart-contracts/-/archive/10b4909f0ef58fc70ae7af8e2e5fad4180f42be8/flare-smart-contracts-10b4909f0ef58fc70ae7af8e2e5fad4180f42be8.tar.gz(bufferutil@4.0.7)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@6.0.3):
     dependencies:
       '@openzeppelin/contracts': 3.4.0
       '@tenderly/hardhat-tenderly': 1.0.12(hardhat@2.4.3(bufferutil@4.0.7)(encoding@0.1.13)(utf-8-validate@6.0.3))
