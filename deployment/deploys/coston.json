@@ -272,7 +272,7 @@
   {
     "name": "MachineManagerFacet",
     "contractName": "MachineManagerFacet.sol",
-    "address": "0x9fdC2b3f0Cc4B72Ca3c3c841C4B1fd5C4752FA03"
+    "address": "0xe75Bc3EED97B39284996F0d70082F2f43177a2a6"
   },
   {
     "name": "VerificationFacet",
@@ -307,7 +307,7 @@
   {
     "name": "WalletBackupManagerFacet",
     "contractName": "WalletBackupManagerFacet.sol",
-    "address": "0xce7C39967C1b537159214820d34e645B7515D940"
+    "address": "0xe76426826E0e366446c69F52043519f57085ecE9"
   },
   {
     "name": "VrfFacet",
@@ -322,12 +322,12 @@
   {
     "name": "ExtensionGovernanceFacet",
     "contractName": "ExtensionGovernanceFacet.sol",
-    "address": "0xef8967cF05BaF6B273b2D565491aF24B34Ff4574"
+    "address": "0x7f50f8FDf0FeF01885eF1Ec38241062294a54871"
   },
   {
     "name": "MachinePathManagerFacet",
     "contractName": "MachinePathManagerFacet.sol",
-    "address": "0x98415544cB21045A0e1673d43e2259Bf1aE71bd4"
+    "address": "0x402405ab8Ff48f77a304f69A0Ff812f558f7f943"
   },
   {
     "name": "WalletProjectPauseFacet",
