@@ -83,6 +83,34 @@ contract RelayChainDomainTest is RelayTestBase {
         sp.weights = weights;
     }
 
+    function _mainDeployedConfig(bytes32 signingPolicyHash)
+        internal
+        view
+        returns (RelayMainDeployed.MainDeployedInitialConfig memory c)
+    {
+        IRelay.RelayInitialConfig memory current = _initialConfig(signingPolicyHash);
+        c.initialRewardEpochId = current.initialRewardEpochId;
+        c.startingVotingRoundIdForInitialRewardEpochId =
+            current.startingVotingRoundIdForInitialRewardEpochId;
+        c.initialSigningPolicyHash = current.initialSigningPolicyHash;
+        c.randomNumberProtocolId = current.randomNumberProtocolId;
+        c.firstVotingRoundStartTs = current.firstVotingRoundStartTs;
+        c.votingEpochDurationSeconds = current.votingEpochDurationSeconds;
+        c.firstRewardEpochStartVotingRoundId = current.firstRewardEpochStartVotingRoundId;
+        c.rewardEpochDurationInVotingEpochs = current.rewardEpochDurationInVotingEpochs;
+        c.thresholdIncreaseBIPS = current.thresholdIncreaseBIPS;
+        c.messageFinalizationWindowInRewardEpochs =
+            current.messageFinalizationWindowInRewardEpochs;
+        c.feeCollectionAddress = current.feeCollectionAddress;
+        c.feeConfigs = new RelayMainDeployed.MainDeployedFeeConfig[](current.feeConfigs.length);
+        for (uint256 i; i < current.feeConfigs.length; ++i) {
+            c.feeConfigs[i] = RelayMainDeployed.MainDeployedFeeConfig(
+                current.feeConfigs[i].protocolId,
+                current.feeConfigs[i].feeInWei
+            );
+        }
+    }
+
     function _legacyMessageRelay(bytes memory signerPolicy, uint32 votingRoundId, bytes32 root)
         internal view returns (bytes memory)
     {
@@ -244,7 +272,9 @@ contract RelayChainDomainTest is RelayTestBase {
         // trusted signing-policy setter mode; relay-mode migration and fee-message migration are
         // deliberately out of scope here.
         RelayMainDeployed oldRelay = new RelayMainDeployed(
-            _initialConfig(_signingPolicyContentHash(policy)), address(this), IRelay(address(0))
+            _mainDeployedConfig(_signingPolicyContentHash(policy)),
+            address(this),
+            IRelay(address(0))
         );
 
         // Populate realistic pre-cutover history: two policies installed by the trusted setter

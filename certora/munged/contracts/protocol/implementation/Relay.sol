@@ -3,14 +3,20 @@ pragma solidity ^0.8.20;
 
 import { IIRelay } from "../interface/IIRelay.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
+// solhint-disable-next-line no-unused-import
 import { RandomNumberV2Interface } from "../../userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { IRelayGovernance } from "../../userInterfaces/IRelayGovernance.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { GSSGovernance } from "../../governance/GSSGovernance.sol";
+import { GnosisSafeTx } from "../../governance/GnosisSafeTx.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
  * Relay (finalization) contract.
  */
-contract Relay is IIRelay {
+contract Relay is IIRelay, IRelayGovernance {
     using MerkleProof for bytes32[];
+    using ECDSA for bytes32;
     /**
      * State variables for the relay contract.
      * IMPORTANT: if you change this, you have to adapt the assembly code interacting with
@@ -59,6 +65,12 @@ contract Relay is IIRelay {
         bytes32 nextSlot;
         uint256 pos;
         uint256 signingPolicyPos;
+    }
+
+    struct GovernanceFeeUpdate {
+        uint256 targetChainId;
+        uint256 protocolId;
+        uint256 feeInWei;
     }
 
     uint256 private constant THRESHOLD_BIPS = 10000;
@@ -192,6 +204,20 @@ contract Relay is IIRelay {
     /// fee collection address.
     address payable public feeCollectionAddress;
 
+    uint256 public immutable override governanceSourceChainId;
+    address public immutable override governanceSafe;
+    bytes32 public override activeOwnerConfigHash;
+    uint256 public override lastGovernanceSafeNonce;
+    uint256 public override governanceThreshold;
+    address[] private governanceOwners;
+    uint256 private constant MAX_GOVERNANCE_OWNERS = 256;
+    uint256 private constant MAX_GOVERNANCE_FEE_UPDATES = 256;
+
+    bytes4 private constant CHANGE_OWNERS_SELECTOR =
+        bytes4(keccak256("changeOwners(uint256,bytes32,uint256,address[])"));
+    bytes4 private constant CHANGE_PROTOCOL_FEES_SELECTOR =
+        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,uint256,uint256)[])"));
+
     /// A map with bits indicating whether a random number is secure for
     /// historical purposes. For given votingRoundId, the bit vector is obtained
     /// in index  votingRoundId / 256 and the bit is at position votingRoundId % 256.
@@ -200,9 +226,6 @@ contract Relay is IIRelay {
 
     /// The state of the relay contract.
     StateData public stateData;
-
-    /// Strictly-increasing nonce for governance fee configuration messages (replay protection).
-    uint256 public governanceFeeNonce;
 
     /// The relayed (Merkle-proven) random number for a given voting round id (RLY-03).
     //slither-disable-next-line uninitialized-state
@@ -272,8 +295,7 @@ contract Relay is IIRelay {
             stateData.noSigningPolicyRelay = true;
         }
         feeCollectionAddress = _initialConfig.feeCollectionAddress;
-        // RLY-10: in relay mode (signingPolicySetter == 0) fees can be charged now or added later via
-        // governanceFeeSetup; a zero fee-collection address would burn collected fees, so reject it.
+        // In relay mode a zero fee-collection address would burn collected fees, so reject it.
         require(
             _signingPolicySetter != address(0) || _initialConfig.feeCollectionAddress != address(0),
             "fee collection address zero"
@@ -282,6 +304,33 @@ contract Relay is IIRelay {
             uint8 protocolId = _initialConfig.feeConfigs[i].protocolId;
             require(protocolId > 1, "invalid protocol id");
             protocolFeeInWei[protocolId] = _initialConfig.feeConfigs[i].feeInWei;
+        }
+        governanceSourceChainId = _initialConfig.governanceSourceChainId;
+        governanceSafe = _initialConfig.governanceSafe;
+        governanceThreshold = _initialConfig.governanceThreshold;
+        lastGovernanceSafeNonce = _initialConfig.governanceSafeNonce;
+        bool hasGovernanceConfiguration =
+            governanceSourceChainId != 0 ||
+            governanceSafe != address(0) ||
+            governanceThreshold != 0 ||
+            _initialConfig.governanceOwners.length != 0 ||
+            lastGovernanceSafeNonce != 0;
+        if (hasGovernanceConfiguration) {
+            // The Safe exists on the source chain, so target-chain deployment cannot inspect its code.
+            if (governanceSourceChainId == 0 || governanceSafe == address(0)) {
+                revert InvalidGovernanceSource();
+            }
+            if (_signingPolicySetter != address(0) || _oldRelay != IRelay(address(0))) {
+                revert InvalidGovernanceDeployment();
+            }
+            if (_initialConfig.governanceOwners.length > MAX_GOVERNANCE_OWNERS) {
+                revert InvalidGovernanceOwnerConfiguration();
+            }
+            _validateGovernanceOwners(_initialConfig.governanceOwners, governanceThreshold);
+            for (uint256 i; i < _initialConfig.governanceOwners.length; ++i) {
+                governanceOwners.push(_initialConfig.governanceOwners[i]);
+            }
+            activeOwnerConfigHash = _governanceOwnerConfigHash(governanceThreshold, governanceOwners);
         }
         oldRelay = _oldRelay;
         // new relay must be deployed in a compatible way (policy setter or not)
@@ -477,36 +526,184 @@ contract Relay is IIRelay {
         return _verifyCustomSignature(_relayMessage, _messageHash);
     }
 
-    /**
-     * @inheritdoc IRelay
-     */
-    function governanceFeeSetup(bytes calldata _relayMessage, RelayGovernanceConfig calldata _config) external {
-        require(signingPolicySetter == address(0), "fee cannot be set");
-        require(_config.chainId == block.chainid, "wrong chain id");
-        require(_config.descriptionHash == keccak256("RelayGovernance"), "wrong description hash");
-        // RLY-02: bind the signed digest to this contract (address(this)) to prevent
-        // cross-deployment replay; the config also carries a strictly-increasing nonce.
-        uint256 returnRewardEpochId =
-            _verifyCustomSignature(_relayMessage, keccak256(abi.encode(_config, address(this))));
-        // allow signing with the latest or one earliest signing policy
-        // RLY-17: guard the `- 1` against underflow (unreachable today given the +1-monotonic
-        // signing-policy invariant, but made locally safe so a future refactor cannot panic here).
-        require(
-            stateData.lastInitializedRewardEpoch == returnRewardEpochId ||
-            (stateData.lastInitializedRewardEpoch > 0 &&
-                stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId),
-            "too old signing policy"
-        );
-        // RLY-02: replay protection — the nonce must strictly increase across accepted messages.
-        require(_config.nonce > governanceFeeNonce, "nonce too low");
-        governanceFeeNonce = _config.nonce;
-        // RLY-02: apply fee changes only after the signature has been verified.
-        for (uint256 i = 0; i < _config.newFeeConfigs.length; i++) {
-            uint8 protocolId = _config.newFeeConfigs[i].protocolId;
-            require(protocolId > 1, "invalid protocol id");
-            protocolFeeInWei[protocolId] = _config.newFeeConfigs[i].feeInWei;
-            emit RelayGovernanceFeeConfigured(protocolId, _config.newFeeConfigs[i].feeInWei, _config.nonce);
+    /// @notice Verifies a Safe transaction signed for the Flare source chain and applies its local fee updates.
+    /// @dev The source-chain target is covered by the Safe digest but is not part of Relay authorization.
+    /// Acceptance proves threshold authorization, not that the source-chain transaction was executed.
+    function processGSSMessage(
+        GnosisSafeTx.Transaction calldata txData,
+        bytes calldata signatures
+    ) external override {
+        if (governanceSafe == address(0) || txData.operation != 0 || txData.value != 0) {
+            revert InvalidGovernanceTransaction();
         }
+        _verifyGovernanceSignatures(txData, signatures);
+        bytes4 selector = _governanceSelector(txData.data);
+        uint256 actionNonce = _governanceActionNonce(txData.data);
+        if (txData.nonce == type(uint256).max || actionNonce != txData.nonce + 1) {
+            revert InvalidGovernanceTransaction();
+        }
+        if (actionNonce <= lastGovernanceSafeNonce) {
+            revert GovernanceNonceNotMonotonic(actionNonce, lastGovernanceSafeNonce);
+        }
+        bool relevant;
+        if (selector == CHANGE_OWNERS_SELECTOR) {
+            _applyGovernanceOwners(txData.data);
+            relevant = true;
+        } else if (selector == CHANGE_PROTOCOL_FEES_SELECTOR) {
+            relevant = _applyGovernanceFees(txData.data);
+        } else {
+            revert UnknownGovernanceAction(selector);
+        }
+        if (relevant) lastGovernanceSafeNonce = actionNonce;
+    }
+
+    function governanceOwnersLength() external view override returns (uint256) {
+        return governanceOwners.length;
+    }
+
+    function governanceOwner(uint256 index) external view override returns (address) {
+        return governanceOwners[index];
+    }
+
+    function _verifyGovernanceSignatures(
+        GnosisSafeTx.Transaction calldata txData,
+        bytes calldata signatures
+    ) internal view {
+        uint256 count = signatures.length / 65;
+        if (
+            signatures.length == 0 ||
+            signatures.length % 65 != 0 ||
+            count < governanceThreshold ||
+            count > governanceOwners.length
+        ) {
+            revert InvalidGovernanceSignatures();
+        }
+        bytes32 digest = GnosisSafeTx.digest(_copyGovernanceTx(txData), governanceSourceChainId, governanceSafe);
+        address previous;
+        for (uint256 i; i < count; ++i) {
+            (address signer, ECDSA.RecoverError recoverError,) =
+                digest.tryRecover(signatures[i * 65:(i + 1) * 65]);
+            if (
+                recoverError != ECDSA.RecoverError.NoError ||
+                signer == address(0) ||
+                (i > 0 && signer <= previous) ||
+                !_isGovernanceOwner(signer)
+            ) {
+                revert InvalidGovernanceSignatures();
+            }
+            previous = signer;
+        }
+    }
+
+    function _copyGovernanceTx(GnosisSafeTx.Transaction calldata source)
+        internal pure returns (GnosisSafeTx.Transaction memory target)
+    {
+        target = GnosisSafeTx.Transaction(
+            source.to,
+            source.value,
+            source.data,
+            source.operation,
+            source.safeTxGas,
+            source.baseGas,
+            source.gasPrice,
+            source.gasToken,
+            source.refundReceiver,
+            source.nonce
+        );
+    }
+
+    // solhint-disable-next-line ordering
+    function _applyGovernanceOwners(bytes calldata action) internal {
+        (uint256 nonce, bytes32 currentHash, uint256 threshold, address[] memory owners) =
+            abi.decode(action[4:], (uint256, bytes32, uint256, address[]));
+        if (keccak256(action) != keccak256(abi.encodeWithSelector(
+            CHANGE_OWNERS_SELECTOR, nonce, currentHash, threshold, owners
+        ))) revert InvalidGovernanceTransaction();
+        if (currentHash != activeOwnerConfigHash) {
+            revert GovernanceOwnerHashMismatch(currentHash, activeOwnerConfigHash);
+        }
+        if (owners.length > MAX_GOVERNANCE_OWNERS) revert InvalidGovernanceOwnerConfiguration();
+        _validateGovernanceOwners(owners, threshold);
+        bytes32 previous = activeOwnerConfigHash;
+        bytes32 next = _governanceOwnerConfigHash(threshold, owners);
+        delete governanceOwners;
+        for (uint256 i; i < owners.length; ++i) governanceOwners.push(owners[i]);
+        governanceThreshold = threshold;
+        activeOwnerConfigHash = next;
+        emit GovernanceOwnerConfigUpdated(previous, next, nonce, threshold, owners);
+    }
+
+    function _applyGovernanceFees(bytes calldata action) internal returns (bool relevant) {
+        (uint256 nonce, bytes32 configHash, GovernanceFeeUpdate[] memory updates) =
+            abi.decode(action[4:], (uint256, bytes32, GovernanceFeeUpdate[]));
+        if (keccak256(action) != keccak256(abi.encodeWithSelector(
+            CHANGE_PROTOCOL_FEES_SELECTOR, nonce, configHash, updates
+        ))) revert InvalidGovernanceTransaction();
+        if (configHash != activeOwnerConfigHash) revert GovernanceOwnerHashMismatch(configHash, activeOwnerConfigHash);
+        if (updates.length > MAX_GOVERNANCE_FEE_UPDATES) revert InvalidGovernanceTransaction();
+        for (uint256 i; i < updates.length; ++i) {
+            if (updates[i].targetChainId != block.chainid) continue;
+            relevant = true;
+            if (updates[i].protocolId <= 1) revert InvalidGovernanceTransaction();
+            for (uint256 j; j < i; ++j) {
+                if (updates[j].targetChainId == block.chainid && updates[j].protocolId == updates[i].protocolId) {
+                    revert InvalidGovernanceTransaction();
+                }
+            }
+        }
+        if (!relevant) return false;
+        for (uint256 i; i < updates.length; ++i) {
+            if (updates[i].targetChainId != block.chainid) continue;
+            protocolFeeInWei[updates[i].protocolId] = updates[i].feeInWei;
+            emit GovernanceFeeUpdated(
+                block.chainid,
+                updates[i].protocolId,
+                updates[i].feeInWei,
+                nonce,
+                configHash
+            );
+        }
+    }
+
+    function _governanceSelector(bytes calldata data) internal pure returns (bytes4 selector) {
+        if (data.length < 4) revert InvalidGovernanceTransaction();
+        selector = bytes4(data[:4]);
+    }
+
+    function _governanceActionNonce(bytes calldata data) internal pure returns (uint256 actionNonce) {
+        if (data.length < 36) revert InvalidGovernanceTransaction();
+        actionNonce = abi.decode(data[4:36], (uint256));
+    }
+
+    function _isGovernanceOwner(address account) internal view returns (bool) {
+        uint256 low;
+        uint256 high = governanceOwners.length;
+        while (low < high) {
+            uint256 middle = (low + high) / 2;
+            address candidate = governanceOwners[middle];
+            if (candidate < account) {
+                low = middle + 1;
+            } else {
+                high = middle;
+            }
+        }
+        if (low < governanceOwners.length && governanceOwners[low] == account) return true;
+        return false;
+    }
+
+    function _validateGovernanceOwners(address[] memory owners, uint256 threshold) internal pure {
+        if (owners.length == 0 || threshold == 0 || threshold > owners.length) {
+            revert InvalidGovernanceOwnerConfiguration();
+        }
+        for (uint256 i; i < owners.length; ++i) {
+            if (owners[i] == address(0) || (i > 0 && owners[i - 1] >= owners[i])) {
+                revert InvalidGovernanceOwnerConfiguration();
+            }
+        }
+    }
+
+    function _governanceOwnerConfigHash(uint256 threshold, address[] memory owners) internal view returns (bytes32) {
+        return GSSGovernance.ownerConfigHash(governanceSourceChainId, governanceSafe, threshold, owners);
     }
 
     /**
@@ -707,7 +904,9 @@ contract Relay is IIRelay {
             // and the proof is processed with OpenZeppelin sorted-pair hashing up to _memPtrMerkleRoot.
             // On success, toRandomNumberPrivate[_votingRoundId] = randomNumber; otherwise it reverts.
             // Uses scratch at _memPtr, _memPtr+32, _memPtr+64.
-            function processRandomMerkleProof(_memPtr, _proofStart, _memPtrMerkleRoot, _votingRoundId, _isSecureRandom) {
+            function processRandomMerkleProof(
+                _memPtr, _proofStart, _memPtrMerkleRoot, _votingRoundId, _isSecureRandom
+            ) {
                 // calldata must contain at least the 32-byte random number after the signatures
                 if lt(calldatasize(), add(_proofStart, 32)) {
                     revertWithMessage(_memPtr, "No random number", 16)

@@ -76,8 +76,8 @@ which you can replay as a failing test.
 That's literally what runs in this project's CI: **Halmos** executes `relay()`'s real
 bytecode symbolically — inputs are unknowns, not concrete values — and turns each path
 into a giant formula over 256-bit bitvectors, which **z3** (the SMT solver underneath)
-then checks. The 60 green proofs are z3 saying "no violating input exists (up to the
-bound)"; the 29 anti-vacuity controls are checks where we *expect* a "yes, here's a
+then checks. The 58 manifest proofs ask z3 to show "no violating input exists
+(up to the bound)"; the 28 anti-vacuity controls are checks where we *expect* a "yes, here's a
 model" — proving the interesting states are actually reachable, so the proofs aren't
 vacuously true. Certora and Kontrol sit on SMT solvers the same way.
 
@@ -320,7 +320,7 @@ bad outcome: the property is violated, a verified fact regressed — hard failur
 negation of something that should be possible ("acceptance can never happen"), so the solver
 must refute it with a witness. If a control ever *passes* — no counterexample exists — the
 interesting path became unreachable and every proof guarding it is true only **vacuously**.
-Hence the unusual spectacle of CI celebrating counterexamples: "29/29 reachability controls
+Hence the unusual spectacle of CI celebrating counterexamples: "28/28 reachability controls
 have validated counterexamples" is a green line; a *missing* CEX is the alarm. (This is the
 anti-vacuity discipline — born of the `--loop 2` incident, where a too-small loop bound
 silently cut off the accept path and negative properties passed for the wrong reason.)

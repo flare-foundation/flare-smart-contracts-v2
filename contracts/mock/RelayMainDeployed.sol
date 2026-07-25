@@ -12,12 +12,28 @@ import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerklePr
 contract RelayMainDeployed is IIRelay {
     using MerkleProof for bytes32[];
 
-    // Compatibility adapter only: current IRelay gained this view after the deployed/main
-    // implementation was released. The legacy Relay had no governance nonce; returning zero
-    // preserves that behavior and does not participate in migration hashing or verification.
-    function governanceFeeNonce() external pure returns (uint256) {
-        return 0;
+    struct MainDeployedFeeConfig {
+        uint8 protocolId;
+        uint256 feeInWei;
     }
+
+    // Keep the constructor tuple byte-for-byte compatible with the deployed main-branch Relay.
+    // The current IRelay.RelayInitialConfig contains new GSS fields and must not leak into this mock.
+    struct MainDeployedInitialConfig {
+        uint32 initialRewardEpochId;
+        uint32 startingVotingRoundIdForInitialRewardEpochId;
+        bytes32 initialSigningPolicyHash;
+        uint8 randomNumberProtocolId;
+        uint32 firstVotingRoundStartTs;
+        uint8 votingEpochDurationSeconds;
+        uint32 firstRewardEpochStartVotingRoundId;
+        uint16 rewardEpochDurationInVotingEpochs;
+        uint16 thresholdIncreaseBIPS;
+        uint32 messageFinalizationWindowInRewardEpochs;
+        address payable feeCollectionAddress;
+        MainDeployedFeeConfig[] feeConfigs;
+    }
+
     /**
      * State variables for the relay contract.
      * IMPORTANT: if you change this, you have to adapt the assembly code interacting with
@@ -226,7 +242,7 @@ contract RelayMainDeployed is IIRelay {
      * @param _oldRelay The old relay contract (can be address(0)).
      */
     constructor(
-        RelayInitialConfig memory _initialConfig,
+        MainDeployedInitialConfig memory _initialConfig,
         address _signingPolicySetter,
         IRelay _oldRelay
     ) {
@@ -437,27 +453,6 @@ contract RelayMainDeployed is IIRelay {
         bytes32 _messageHash
     ) external returns (uint256 _rewardEpochId) {
         return _verifyCustomSignature(_relayMessage, _messageHash);
-    }
-
-    /**
-     * @inheritdoc IRelay
-     */
-    function governanceFeeSetup(bytes calldata _relayMessage, RelayGovernanceConfig calldata _config) external {
-        require(signingPolicySetter == address(0), "fee cannot be set");
-        require(_config.chainId == block.chainid, "wrong chain id");
-        require(_config.descriptionHash == keccak256("RelayGovernance"), "wrong description hash");
-        for (uint256 i = 0; i < _config.newFeeConfigs.length; i++) {
-            uint8 protocolId = _config.newFeeConfigs[i].protocolId;
-            require(protocolId > 1, "invalid protocol id");
-            protocolFeeInWei[protocolId] = _config.newFeeConfigs[i].feeInWei;
-        }
-        uint256 returnRewardEpochId = _verifyCustomSignature(_relayMessage, keccak256(abi.encode(_config)));
-        // allow signing with the latest or one earliest signing policy
-        require(
-            stateData.lastInitializedRewardEpoch == returnRewardEpochId ||
-            stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId,
-            "too old signing policy"
-        );
     }
 
     /**

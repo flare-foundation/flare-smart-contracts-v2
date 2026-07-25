@@ -18,11 +18,18 @@ cd "$(dirname "$0")/.."   # repo root
 
 SRC=contracts
 DST=certora/munged/contracts
-mkdir -p "$DST/protocol/implementation" "$DST/protocol/interface" "$DST/userInterfaces/LTS"
+mkdir -p \
+  "$DST/governance" \
+  "$DST/protocol/implementation" \
+  "$DST/protocol/interface" \
+  "$DST/userInterfaces/LTS"
 
 # 1. verbatim dependencies (byte-identical copies)
+cp "$SRC/governance/GnosisSafeTx.sol"                     "$DST/governance/GnosisSafeTx.sol"
+cp "$SRC/governance/GSSGovernance.sol"                    "$DST/governance/GSSGovernance.sol"
 cp "$SRC/protocol/interface/IIRelay.sol"                 "$DST/protocol/interface/IIRelay.sol"
 cp "$SRC/userInterfaces/IRelay.sol"                      "$DST/userInterfaces/IRelay.sol"
+cp "$SRC/userInterfaces/IRelayGovernance.sol"            "$DST/userInterfaces/IRelayGovernance.sol"
 cp "$SRC/userInterfaces/LTS/RandomNumberV2Interface.sol" "$DST/userInterfaces/LTS/RandomNumberV2Interface.sol"
 
 # 2. Relay.sol with EXACTLY two visibility changes
@@ -55,8 +62,11 @@ if (diff "$SRC/protocol/implementation/Relay.sol" "$DST/protocol/implementation/
   exit 1
 fi
 # 4. verify: the dependency copies are byte-identical
+cmp -s "$SRC/governance/GnosisSafeTx.sol"                     "$DST/governance/GnosisSafeTx.sol"
+cmp -s "$SRC/governance/GSSGovernance.sol"                    "$DST/governance/GSSGovernance.sol"
 cmp -s "$SRC/protocol/interface/IIRelay.sol"                 "$DST/protocol/interface/IIRelay.sol"
 cmp -s "$SRC/userInterfaces/IRelay.sol"                      "$DST/userInterfaces/IRelay.sol"
+cmp -s "$SRC/userInterfaces/IRelayGovernance.sol"            "$DST/userInterfaces/IRelayGovernance.sol"
 cmp -s "$SRC/userInterfaces/LTS/RandomNumberV2Interface.sol" "$DST/userInterfaces/LTS/RandomNumberV2Interface.sol"
 
 echo "munge OK: certora/munged/ regenerated; Relay.sol differs by exactly the 2 visibility keywords."

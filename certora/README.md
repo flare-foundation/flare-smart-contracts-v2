@@ -1,18 +1,26 @@
 # Certora — Relay cross-transaction storage invariants
 
+> **Current-status boundary (2026-07-24).** The linked cloud runs below were
+> made against the pre-GSS `relay-fix-3` contract. They remain useful historical
+> evidence for the unchanged relay/signing-policy core, but they are not current
+> proofs of `processGSSMessage` or its state. The checked-in CVL now replaces the
+> removed `governanceFeeNonce` rule with `governanceSafeNonceMonotonic`; the
+> current rule set must be rerun before any result is claimed for
+> `relay-fix-3-gss`.
+
 CVL specs for the properties where **Certora genuinely beats the Halmos/Kontrol proofs in this repo**:
 *parametric* storage invariants that hold over **every function and every call sequence**, not just the
 specific sequences those tools could enumerate.
 
-## What it proves (`specs/RelayInvariants.spec`)
+## Current rule inventory (`specs/RelayInvariants.spec`)
 
-| Rule | Property | Cloud status (2026-07-15) |
+| Rule | Property | Current GSS status |
 |------|----------|---------------------------|
-| `nonceMonotonic` | `governanceFeeNonce` never decreases, ∀ function | ✅ proven **20/21 fns** (legacy) · 19/21 (via-ir); residual = `relay()` (see below) |
-| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function | ✅ proven 20/21 (legacy) · 19/21 (via-ir); residual = `relay()` |
-| `signingPolicySetterImmutable` | the setter authority is immutable after construction | ✅ proven 20/21 (legacy) · 19/21 (via-ir); residual = `relay()` |
-| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the documented reachable-state link) | ✅ proven **22/23 fns** (legacy, incl. `setSigningPolicy` — its writer) · 21/23 (via-ir); residual = `relay()` |
-| `merkleRootWriteOnce` | a finalized Merkle root is write-once per (protocolId, votingRoundId) | ✅ proven 22/23 (legacy) · 21/23 (via-ir); residual = `relay()` |
+| `governanceSafeNonceMonotonic` | `lastGovernanceSafeNonce` never decreases, ∀ function | pending current cloud run |
+| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function | historical baseline proven; current rerun pending |
+| `signingPolicySetterImmutable` | the setter authority is immutable after construction | historical baseline proven; current rerun pending |
+| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the documented reachable-state link) | historical baseline proven; current rerun pending |
+| `merkleRootWriteOnce` | a finalized Merkle root is write-once per `(protocolId, votingRoundId)` | historical baseline proven; current rerun pending |
 
 (The first three run against the production contract as-is — [`Relay.conf`](Relay.conf) historically,
 [`Relay-rawstorage.conf`](Relay-rawstorage.conf) for the discharged runs. The write-once pair runs against
@@ -29,10 +37,11 @@ invariants hold regardless of which signatures the prover admits.
   **not** close the ∀N within-call signature-loop gap better than Kontrol. The ∀N∀K signature-loop
   soundness remains the Lean proof (`../test-forge/fv/lean/RelaySigLoop.lean`). Certora's value here is the
   cross-transaction **storage** invariants above.
-- **Status: cloud-proven for every function except `relay()`** (and, under the deployment `via-ir` codegen
-  only, `setSigningPolicy`) — see *The C-1 discharge* below for the run matrix, the mechanism, and the
-  honestly-characterized residual. All runs pass `rule_sanity basic`, i.e. the SUCCESS verdicts are
-  **non-vacuous** proofs.
+- **Historical baseline status:** cloud-proven for every then-present function except
+  `relay()` (and, under the deployment `via-ir` codegen only,
+  `setSigningPolicy`) — see the run matrix below. Those runs passed
+  `rule_sanity basic`, so their SUCCESS verdicts were non-vacuous. They do not
+  cover the current GSS functions.
 - **Two codegens, two fidelity levels.** The `via-ir` runs match the deployment compilation pipeline; the
   `legacy`-codegen runs compile the same source the classic way and achieve strictly wider function
   coverage (they additionally prove `setSigningPolicy`). A legacy-codegen proof is evidence about the
@@ -53,7 +62,7 @@ certoraRun certora/Relay.conf --compilation_steps_only --solc /path/to/solc-0.8.
 If solc/import resolution differs in your setup, adjust `solc`, `packages`, and `solc_via_ir` in
 `Relay.conf` to match the repo's foundry remappings (see `../remappings.txt`).
 
-## The inline-assembly wall (historical, 2026-06) — and its discharge (2026-07-15)
+## Historical baseline: the inline-assembly wall and its 2026-07-15 discharge
 
 **The wall.** The first two cloud runs
 (https://prover.certora.com/output/3798318/a9a6c094009f4711852a166db63ac06f,
@@ -72,11 +81,12 @@ removing the failing analysis from the loop entirely:
   prover's **injective hashing model** (a keccak-derived location is guaranteed distinct from the scalar
   slots and from other keys' locations). The spurious cross-slot havoc vanishes with **zero spec changes**
   for the three getter-based rules.
-- **`optimistic_hashing` + `hashing_length_bound 512`**: load-bearing, not cosmetic — the discriminator run
-  (A2 below) shows `governanceFeeSetup`, which keccaks unbounded message bytes, genuinely fails under the
-  default pessimistic 224-byte bound and is proven with the flags.
+- **`optimistic_hashing` + `hashing_length_bound 512`**: load-bearing on the
+  historical source, not cosmetic — the discriminator run (A2 below) showed
+  the then-present `governanceFeeSetup`, which hashed unbounded message bytes,
+  failed under the default pessimistic 224-byte bound and passed with the flags.
 
-### The run matrix (all with `rule_sanity basic`; ~90 s prover time each)
+### Historical run matrix (pre-GSS; all with `rule_sanity basic`)
 
 | Run | Codegen | Rules | Verdict | Report |
 |-----|---------|-------|---------|--------|
@@ -123,7 +133,7 @@ rescue it** (raw `ALL_SSTORE`/`ALL_SLOAD` hooks *require* splitting-off, so any 
 inherits the same vacuity). The failure mode is now *no coverage* (visible, flagged by `rule_sanity`)
 rather than *false alarms* — and `relay()`'s storage behavior is exactly where the rest of the stack
 concentrates: Halmos proves the epoch-decision matrix, nonce sequences, and write paths on the **real
-bytecode** (`RelayGovernanceNonceFV`, `RelayEpochAdvanceFV`, the Mode-2 harnesses), Kontrol proves the ∀K
+bytecode** (`RelayEpochAdvanceFV` and the Mode-2 harnesses), Kontrol proves the ∀K
 loop invariant, and the Lean literal model proves the accept-path storage write on validated EVM semantics.
 
 ### Reproduce

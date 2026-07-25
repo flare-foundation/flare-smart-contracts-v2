@@ -30,8 +30,9 @@ compiled). FV config: [`halmos.toml`](../../halmos.toml) sets `loop=6`, `solver-
 
 The normative machine-readable record is
 [`test-forge/fv/verification-manifest.json`](../../test-forge/fv/verification-manifest.json). It owns the
-compiler settings, 89-check Halmos inventory, EVMYulLean pin, allowed Lean axioms, exact axiom-audit counts,
-and required capstones. Changes to proof inventory or trust settings therefore appear as explicit manifest diffs.
+compiler settings, 86-check Halmos inventory, EVMYulLean pin, allowed Lean axioms, exact axiom-audit counts,
+required capstones, and the 37-message legacy `relay()` assembly revert ABI. Changes to proof inventory,
+trust settings, or that compatibility surface therefore appear as explicit manifest diffs.
 
 ---
 
@@ -40,10 +41,14 @@ and required capstones. Changes to proof inventory or trust settings therefore a
 ```bash
 forge build
 forge test -vvv --match-path 'test-forge/unit/protocol/implementation/Relay.t.sol'
+forge test -vvv --match-path 'test-forge/unit/protocol/implementation/RelayChainDomain.t.sol'
+forge test -vvv --match-path 'test-forge/unit/governance/GSSGovernance.t.sol'
 forge coverage --match-path 'test-forge/unit/protocol/implementation/Relay.t.sol'
 ```
 
-Expect: 59 tests pass. **CI:** `test-unit-forge` (`forge test -vvv`), `coverage-forge` (+ `coverage-forge-reports`).
+Expect: 51 core Relay tests, 8 chain-domain/migration tests, and 15 GSS
+governance tests pass. **CI:** `test-unit-forge` (`forge test -vvv`),
+`coverage-forge` (+ `coverage-forge-reports`).
 
 ---
 
@@ -59,6 +64,9 @@ python3.11 -m venv .venv-halmos
 forge build
 # create deployment provenance after Hardhat compilation:
 node scripts/relay-artifact-provenance.js --output verification-reports/relay-deployment.json
+# pin every legacy relay() assembly Error(string) payload:
+python3 test-forge/fv/verify_relay_revert_abi.py \
+  --report-output verification-reports/relay-revert-abi.json
 # bind FV solc output + optimized Yul to the deployment artifact:
 .venv-halmos/bin/python test-forge/fv/verify_relay_artifact.py \
   --deployment-report verification-reports/relay-deployment.json \
@@ -74,12 +82,14 @@ python3 test-forge/fv/verify_fv.py --loop 2
 
 Expect from the gate:
 ```
-[fv] 89/89 checks observed: 60/60 proofs hold, 29/29 reachability controls have validated counterexamples. 0 violation(s).
+[fv] 86/86 checks observed: 58/58 proofs hold, 28/28 reachability controls have validated counterexamples. 0 violation(s).
 [fv] OK - exact proof inventory holds and every reachability control has a valid witness.
 ```
 **CI:** `test-fv-halmos` (digest-pinned Python; checksum-pinned Foundry; full Halmos lock; unit tests,
-artifact/IR parity, then the exact proof gate). The normalized JSON reports are retained as CI artifacts.
-Triggered on changes to [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol), the relay interfaces, `test-forge/fv/**`, or [`halmos.toml`](../../halmos.toml).
+legacy revert-ABI inventory, artifact/IR parity, then the exact proof gate). The normalized JSON reports
+are retained as CI artifacts. Triggered on changes to
+[`Relay.sol`](../../contracts/protocol/implementation/Relay.sol), imported governance sources, the relay
+interfaces, `test-forge/fv/**`, or [`halmos.toml`](../../halmos.toml).
 
 The gate distinguishes Halmos's six result classes. Only exit `0` is a proof pass and only exit `1` with at
 least one `is_valid=true` model is a reachability witness; timeout, stuck, all-revert, exception, malformed
@@ -91,23 +101,23 @@ JSON, missing/unexpected checks, process/JSON disagreement, and bounded loops al
 
 ```bash
 pip install certora-cli            # 8.16.1
-# Local typecheck (no key, no cloud) — compiles Relay under Certora + typechecks the spec; passes:
+# Local typecheck (no key, no cloud) — compiles Relay under Certora + typechecks the current spec:
 certoraRun certora/Relay.conf --compilation_steps_only --solc /path/to/solc-0.8.27
-# The DISCHARGED cloud runs (need an account; see certora/README.md for the run matrix + report links):
+# Current cloud rerun (needed before claiming the GSS-source rules):
 export CERTORAKEY=<your key>
-certoraRun certora/Relay-rawstorage.conf --solc /path/to/solc-0.8.27      # 3 scalar rules, via-ir: 19/21 fns
-certoraRun certora/Relay-rawstorage-A3.conf --solc /path/to/solc-0.8.27   # 3 scalar rules, legacy: 20/21
+certoraRun certora/Relay-rawstorage.conf --solc /path/to/solc-0.8.27
+certoraRun certora/Relay-rawstorage-A3.conf --solc /path/to/solc-0.8.27
 ./certora/munge.sh                                                        # regenerate + verify the munged tree
-certoraRun certora/Relay-writeonce.conf --solc /path/to/solc-0.8.27       # write-once, via-ir: 21/23
-certoraRun certora/Relay-writeonce-B2.conf --solc /path/to/solc-0.8.27    # write-once, legacy: 22/23
-# The HISTORICAL wall, for comparison (spurious violations):
+certoraRun certora/Relay-writeonce.conf --solc /path/to/solc-0.8.27
+certoraRun certora/Relay-writeonce-B2.conf --solc /path/to/solc-0.8.27
+# Historical diagnostic configuration:
 certoraRun certora/Relay.conf --solc /path/to/solc-0.8.27
 ```
 
-Expect: local typecheck exits 0 (only benign OZ-`MerkleProof` summarization warnings). The discharged runs
-prove each rule non-vacuously for every function except `relay()` (via-ir also excepts `setSigningPolicy`) —
-judge from per-rule statuses (`SUCCESS`/`SANITY_FAIL`), not the CLI exit banner ([L5 §5.2](05-R3-unbounded-attempts.md)).
-Historical wall runs: `prover.certora.com/output/3798318/{a9a6c094…, 93ef4cf5…}`.
+The current local typecheck and cloud runs must complete before the GSS-source
+rules are promoted to proven. The pre-GSS reports remain historical evidence;
+judge cloud results from per-rule statuses (`SUCCESS`/`SANITY_FAIL`), not the
+CLI exit banner ([L5 §5.2](05-R3-unbounded-attempts.md)).
 
 ---
 
@@ -221,6 +231,7 @@ CI gate (§11.7).
 |--------|------|---------|--------|
 | `test-unit-forge` | R0/R1 | `forge test -vvv` | ✅ |
 | `coverage-forge` (+ `-reports`) | R0/R1 | `forge build` + coverage | ✅ |
+| `test-fv-halmos` | compatibility ABI | exact-manifest `verify_relay_revert_abi.py` | ✅ |
 | `build-smart-contracts` + `test-fv-halmos` | artifact provenance | deployment report + FV bytecode/IR parity | ✅ |
 | `test-fv-halmos` | R2 | unit-test gates + exact-manifest `verify_fv.py` | ✅ |
 | `build-smart-contracts`, `test-linter`, `test-linter-forge` | build/lint | `forge build` / solhint | ✅ |
@@ -236,7 +247,8 @@ evidence reports rather than only human-oriented logs.
 The final `test-fv-bundle` job runs `verify_bundle.py` after the Halmos and Lean jobs.
 It refuses missing or non-passing reports and records the Git commit, the
 verification-manifest hash, and a SHA-256 for every evidence report. This bundle is
-the canonical hand-off artifact for a run; raw tool output alone may be stale or
-incomplete.
+the canonical hand-off artifact for a run. Its default evidence set is deployment
+provenance, legacy revert ABI, artifact parity, Halmos, and Lean; raw tool output
+alone may be stale or incomplete.
 
 **Next:** [L12 — Lessons](12-lessons.md): the transferable method distilled from all of this.

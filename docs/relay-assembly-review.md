@@ -1,5 +1,11 @@
 # Relay.sol — Phase 3 Step 2: assembly mutation-surface & memory/arithmetic review
 
+> **Historical scope:** this review is frozen to `relay-fix-3` before GSS
+> governance. Its “exactly three” mutation-surface statement is not a claim
+> about `relay-fix-3-gss`, which adds `processGSSMessage` and removes
+> `governanceFeeSetup`. See [`gss-governance.md`](gss-governance.md) for the
+> current extension.
+
 A static read pass over `contracts/protocol/implementation/Relay.sol` (1747 lines) that *scopes*
 the rest of Phase 3. Covers obligations AC-4 (mutation surface), AC-8 (no delegatecall/fallback),
 memory-no-collision, R8 (unchecked/assembly arithmetic bounds), L6 (startingVotingRoundId monotonicity).

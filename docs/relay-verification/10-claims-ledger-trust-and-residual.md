@@ -83,7 +83,7 @@ assumptions above: they are about *EVM/ABI behavior*, not cryptography.
 |----|-----------|--------|
 | **K-1** | Kontrol base+step compose to ∀K at the *meta* level (no native loop-invariant rule in 1.0.248) | each piece machine-checked; composition by standard induction. Subsumed by the abstract Lean proof (internal induction) |
 | **K-2** | Kontrol checks a faithful Solidity *model*, not the inline-assembly bytecode | bytecode side at K≤3 via Halmos `RelaySigParamFV`; tied by `RelayModelBridgeFV`; full bridge = future bmc-depth-1 obligation ([`docs/relay-t1-bridge.md`](../relay-t1-bridge.md)) |
-| **C-1** | Certora storage invariants vs. assembly storage (historically: analysis-failure havoc → spurious violations) | **narrowed (2026-07)**: with the storage-splitting analysis disabled, all 5 invariants are cloud-proven for every function except `relay()` (legacy codegen; via-ir also excepts `setSigningPolicy`) — `relay()` is vacuous in that model (visible no-coverage, not false alarms) and stays covered per-sequence at R2 + by the Lean literal model. Mechanics + run matrix: [`certora/README.md`](../../certora/README.md) |
+| **C-1** | Certora storage invariants vs. assembly storage (historically: analysis-failure havoc → spurious violations) | **historically narrowed (2026-07)**: on the pre-GSS source, disabling storage splitting proved the then-current invariants for every function except `relay()` (legacy codegen; via-ir also excepted `setSigningPolicy`). The current CVL replaces the deleted fee nonce rule with GSS nonce monotonicity and requires a new cloud run. Mechanics and scope: [`certora/README.md`](../../certora/README.md) |
 | **A-EVM** | EVMYulLean *is* the EVM | two parts of different strength ([L2 §2.5](02-strategy-and-the-fidelity-ladder.md)): the **opcode/memory layer** the proofs use (shared `step` dispatch, `MachineState`) sits on the path validated against the Ethereum execution-spec suites; the **Yul control-flow layer** (`Yul.exec`/`loop`, fuel) that drives the R4b proofs is Yul-specific, validated separately by Yul semantic tests (not provable; standard residual) |
 
 ---
@@ -107,27 +107,29 @@ fidelity / lower coverage (noted).
 | 4 | threshold consistency (setter + live Mode-1) | R2 Halmos | bytecode · bounded | **proven** | `RelayThresholdConsistencyFV`, `RelayModeOneFV` | MC-1,2,3, OP-1 |
 | 5 | **access control** (only setter rotates policy) | R2 Halmos | bytecode · bounded | **proven** | `RelayAccessControlFV` | MC-3 |
 | 6 | constructor **fail-closes** on bad config | R2 Halmos | bytecode | **proven** | `RelayConstructorFV` (L4/RLY-11) | — |
-| 7 | governance-fee **nonce replay protection** | R2 Halmos | bytecode · all nonces | **proven** | `RelayGovernanceNonceFV` (AC-2) | MC-1 |
-| 7b | nonce monotonic **∀ function** | R3 Certora | source · ∀ seq | **proven 20/21 fns** (legacy; 19/21 via-ir) — `relay()` vacuous (C-1 residual) | [`RelayInvariants.spec:nonceMonotonic`](../../certora/specs/RelayInvariants.spec) + `certora/Relay-rawstorage*.conf` | MC-1 |
+| 7 | GSS relevant-action nonce replay protection and target-local monotonicity | R0 Foundry | bytecode · concrete sequences | **tested, not formally proven** | [`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol) | Safe digest/signature assumptions |
+| 7b | `lastGovernanceSafeNonce` monotonic **∀ function** | R3 Certora | source · ∀ seq | **specified; current cloud run pending** | [`RelayInvariants.spec:governanceSafeNonceMonotonic`](../../certora/specs/RelayInvariants.spec) + `certora/Relay-rawstorage*.conf` | Certora call model |
+| 7c | GSS threshold authorization, owner rotation, and target-specific atomic fee updates | R0 Foundry | bytecode · concrete real-Safe flows | **tested, not formally proven** | [`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol), [`gss-governance.md`](../gss-governance.md) | ECDSA, pinned Safe v1.3.0 |
 | 8 | epoch **+1 advance** + `lastInitialized` monotone (state-effect) | R2 Halmos | bytecode | **proven** | `RelayEpochAdvanceFV` | — |
-| 8b | `lastInitialized` monotone **∀ function** | R3 Certora | source · ∀ seq | **proven 20/21 fns** (legacy; 19/21 via-ir) — `relay()` vacuous (C-1 residual) | `RelayInvariants.spec:lastInitializedMonotonic` | MC-1 |
+| 8b | `lastInitialized` monotone **∀ function** | R3 Certora | source · ∀ seq | **historical baseline proven; current GSS-source rerun pending** | `RelayInvariants.spec:lastInitializedMonotonic` | MC-1 |
 | 9 | random-pointer **monotonicity** | R3 Kontrol + R2 Halmos | model ∀K / bytecode bounded | **proven** | [`kontrol/RelayRandomMonoFV.t.sol`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol), `RelayRandomMonotonicityFV` | MC-1 |
 | 10 | random value **binding / no-forgery** | R2 Halmos | bytecode | **proven** | `RelayRandomBindingFV` | MC-1 |
 | 11 | Merkle proof-element + alignment soundness | R2 Halmos | bytecode | **proven** | `RelayMerkleProofFV` | MC-1,4 |
 | 12 | Merkle fold injectivity for a **fixed sibling/path sequence** (base, step, depth-2 machine checks; arbitrary-depth induction at meta level) | R2 Halmos | fold model | **proven as stated** | `RelayMerkleFoldFV` | MC-1; not full arbitrary-proof membership soundness |
 | 13 | **fee conservation** (`relay()` + `verify()`, incl. old-relay forwarding) | R2 Halmos | bytecode | **proven** | `RelayFeeConservationFV`, `RelayVerifyFeeFV` | OP-3, OP-4 |
 | 14 | encoding canonicality / secure-bit / return discriminator / policy hash (P3/P5/P6/P8) | R2 Halmos | bytecode | **proven** | `RelayCanonicalityFV`, `RelayIsSecureNormFV`, `RelayReturnDiscriminatorFV`, `RelayPolicyHashFV` | MC-1 |
-| 15 | functional behavior, all modes | R0/R1 Foundry | bytecode · concrete+fuzz | **proven** (tests) | [`Relay.t.sol`](../../test-forge/unit/protocol/implementation/Relay.t.sol) (59 tests) + [`RelayChainDomain.t.sol`](../../test-forge/unit/protocol/implementation/RelayChainDomain.t.sol) (7, RLY-23) | — |
+| 15 | functional behavior, all modes | R0/R1 Foundry | bytecode · concrete+fuzz | **tested** | [`Relay.t.sol`](../../test-forge/unit/protocol/implementation/Relay.t.sol) (51 tests) + [`RelayChainDomain.t.sol`](../../test-forge/unit/protocol/implementation/RelayChainDomain.t.sol) (8) + [`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol) (15) | — |
 | 15b | RLY-23 chain-domain binding — *structure*: the stored/verified signing-policy hash is `keccak256(chainid ‖ contentFold)` | R2 Halmos | real bytecode · all symbolic policies (N≤3) | **proven** | [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L57) (`check_policyHash_equiv_NV1/2/3` compare the on-chain assembly hash to the chain-bound oracle) | MC-1 (keccak) |
 | 15c | RLY-23 chain-domain binding — *effect*: a quorum's signatures minted for one network are rejected by another network's Relay (cross-chain replay closed) | R0 Foundry (concrete, real ECDSA) | bytecode · concrete | **proven** (tests) — deliberately *not* an R2 symbolic claim: cross-chain *rejection* is cryptographic (ECDSA-binding), which the uninterpreted-`ecrecover` model cannot express (the solver could otherwise make any signature recover to a voter under any digest) | [`RelayChainDomain.t.sol`](../../test-forge/unit/protocol/implementation/RelayChainDomain.t.sol) | MC-2 (ECDSA) |
-| 16 | setter immutable / hash & root write-once **∀ function** | R3 Certora | source · ∀ seq | **proven** — setter 20/21 (legacy); write-once **22/23** (legacy, over the munge-verified harness, with the in-spec reachable-state link) — `relay()` vacuous (C-1 residual) | `RelayInvariants.spec` + [`RelayWriteOnce.spec`](../../certora/specs/RelayWriteOnce.spec) | MC-1 |
+| 16 | setter immutable / hash & root write-once **∀ function** | R3 Certora | source · ∀ seq | **historical baseline proven; current GSS-source rerun pending** | `RelayInvariants.spec` + [`RelayWriteOnce.spec`](../../certora/specs/RelayWriteOnce.spec) | MC-1 |
 
 **Reading the ledger.** The security core (row 1) is established at four complementary fidelities: ∀N∀K
 abstract under `ValidRun` (R4a), conditional ∀N statements on validated semantics (R4b), ∀K on a fixed-N
 model (R3), and bounded on real bytecode (R2) with an explicit bridge (1e). These results corroborate one
-another but are not a single whole-program refinement theorem. The `relay()`-residual rows (7b/8b/16) are the
-all-functions *storage* invariants — their **per-sequence**
-forms are proven (rows 7/8), so the residual is coverage breadth over assembly storage, not the property.
+another but are not a single whole-program refinement theorem. The
+`relay()`-residual rows 8b/16 describe historical all-functions storage
+coverage. Rows 7/7b/7c deliberately keep the newer GSS evidence and pending
+formal work separate.
 
 ---
 
@@ -178,7 +180,7 @@ Status reflects the current tree.
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | **partially closed** — compiler artifact and optimized-Yul provenance are exact; `bodyL` is still a hand transcription with D1–D4 deviations and no AST-extraction/equivalence proof. Early return is modeled, while deriving the modeled premises and D3 accept-write from one compiled accepted execution remains open. |
 | **BR-1** (data layer, `mload = w[i]`) | **Proven inside the stated models** | `DataLayer`, `RelayLoopMemRead`, and `RelayBodyEff` machine-check byte decoding, memory round-trip, masking, the memory-reading loop, and the literal body's read extraction. `relay_loop_sound_literal_derived_tight` derives `hcov`/`hcorr` and guards from its preconditions, but `ValidRun`, successful execution/acceptance, and ecrecover remain explicit; transporting them from every compiled accepted execution is still BR-3. Three local declarations implement the two upstream-dischargeable data/window spec shapes. |
 | `relay()` breadth model, **OP-3/4** | Addressable — **components landed; composition remains conditional** | R4b's literal loop statements are hole-free under their explicit execution, `ValidRun`, and acceptance hypotheses. R5 adds independently checked storage round-trip/accept-write, mode dispatch, conditional dispatch→loop→accept composition, and fee-conservation components. **Remaining:** derive setup, valid-run, early-return acceptance, and accept-write from one accepted compiled execution; wire exec-level `.CALL`; reconcile D3 (modeled return vs deployed break→write→return). These are breadth/linkage residuals, not additional abstract accounting lemmas. |
-| **C-1** (Certora all-functions storage) | Addressable — **largely discharged (2026-07)** | splitting-off + hashing model proves all 5 invariants for every function except `relay()` (see the run matrix in [`certora/README.md`](../../certora/README.md)); the `relay()` vacuity is intrinsic to the no-splitting model (the ghost/hook route inherits it) and stays covered per-sequence at R2 + by the Lean literal model |
+| **C-1** (Certora all-functions storage) | Addressable — historical discharge, current rerun pending | splitting-off + hashing proved the pre-GSS invariants for every function except `relay()`; the updated GSS nonce rule and changed function surface have not yet been rerun (see [`certora/README.md`](../../certora/README.md)) |
 
 The addressable items, leverage-ordered — each, if done, moves a row from *assumed/blocked* toward *proven*:
 
@@ -260,7 +262,7 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      (with [`RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean) and
      [`RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean)) executes a
      17-statement hand transcription `bodyL`, sourced from the optimized-Yul signature loop beginning at
-     `relay_ir_optimized.yul:1563`, through EVMYulLean's validated Yul `exec`, threading modeled
+     `relay_ir_optimized.yul:2008`, through EVMYulLean's validated Yul `exec`, threading modeled
      `mstore`/`calldatacopy`/`mload` state. The chain, all hole-free (`{propext, Classical.choice, Quot.sound}`;
      the accounting-extraction lemmas need only `{propext, Quot.sound}`): `body_effL` (one iteration executed) →
      `s16_ww_advance`/`s16_ii_preserved` (the body adds exactly the selected voter's registered weight and

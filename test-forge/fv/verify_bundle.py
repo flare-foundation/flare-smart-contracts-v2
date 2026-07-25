@@ -22,6 +22,7 @@ REPO = HERE.parents[1]
 DEFAULT_MANIFEST = HERE / "verification-manifest.json"
 DEFAULT_REPORTS = (
     "verification-reports/relay-deployment.json",
+    "verification-reports/relay-revert-abi.json",
     "verification-reports/relay-artifact-parity.json",
     "verification-reports/relay-halmos.json",
     "verification-reports/relay-lean.json",

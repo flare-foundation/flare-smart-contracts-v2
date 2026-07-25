@@ -176,10 +176,10 @@ names are in the per-rung docs and the claims ledger ([L10](10-claims-ledger-tru
 
 | Rung | Tool | What it covers | Object | Coverage | Status |
 |------|------|----------------|--------|----------|--------|
-| R0/R1 | Foundry | functional behavior of all modes (incl. signing-policy rotation); coverage 31→59 tests in `Relay.t.sol`, +8 RLY-23 chain-domain (incl. legacy migration) in `RelayChainDomain.t.sol` | real bytecode | concrete + fuzz | ✅ green in CI (`test-unit-forge`, `coverage-forge`) |
-| R2 | Halmos | sig/threshold accounting; full `relay()` epoch matrix; access control; lifecycle; Merkle; randomness; fees — 26 harnesses / **89 checks (60 proofs, 29 anti-vacuity controls)** | **real bytecode** | bounded (K≤3, N≤5) | ✅ green in CI (`test-fv-halmos`, gated by [`verify_fv.py`](../../test-forge/fv/verify_fv.py)) |
+| R0/R1 | Foundry | 51 core Relay tests, 8 chain-domain/migration tests, and 15 real-Safe GSS governance tests | real bytecode | concrete + fuzz | ✅ current local suites green; CI rerun required |
+| R2 | Halmos | sig/threshold accounting; full `relay()` epoch matrix; access control; lifecycle; Merkle; randomness; fees — 25 harnesses / **86 checks (58 proofs, 28 anti-vacuity controls)**; GSS excluded | **real bytecode** | bounded (K≤3, N≤5) | current manifest; rerun required for this branch |
 | R3 | Kontrol | sig-loop weight invariant; random monotonicity — **∀K** (k-induction) | Solidity **model** | ∀K, N∈{3,5} | ✅ proven (Docker-pinned); full symbolic-N intractable (documented) |
-| R3 | Certora | 5 all-functions storage invariants (nonce/epoch monotonic, setter-immutable, hash/root write-once) | model | ∀ functions & sequences | ✅ **cloud-proven for every function except `relay()`** (legacy codegen; the deployment via-ir codegen also excepts `setSigningPolicy`) — the storage-splitting analysis removed from the loop, 2026-07; `relay()`-vacuity is the narrowed residual (C-1, [L5 §5.2](05-R3-unbounded-attempts.md)) |
+| R3 | Certora | 5 current all-functions storage invariants, including GSS nonce monotonicity | model | ∀ functions & sequences | pre-GSS rules historically cloud-proven except `relay()`; updated GSS rule set not yet rerun ([L5 §5.2](05-R3-unbounded-attempts.md)) |
 | R4a | Lean (the abstract proof) | sig-loop **threshold soundness under `ValidRun`** | abstract algorithm | **∀N ∀K** | ✅ hole-free |
 | R4b | Lean + EVMYulLean | threshold soundness for the literal hand-transliterated loop model; memory reads and index guards derived, execution/acceptance hypotheses explicit | validated EVM model | **∀N**, conditional | ✅ hole-free; artifact + optimized-Yul provenance gated |
 | R5 | Lean + EVMYulLean (`relay()` breadth) | conditional dispatch→loop→accept composition; independent storage round-trip/accept-write and fee-conservation components | validated EVM model | **∀N** (breadth) | ✅ hole-free; not byte-complete; setup, `.CALL` wiring, and D3 reconciliation remain explicit boundaries |
@@ -198,11 +198,12 @@ storage (bit-packed `StateData` written via `sstore` to scratch-memory-computed 
 storage models. That two different tools fail the same way is the *tell*: it is the assembly barrier
 (R3→R4) appearing twice, a real property of the contract, not a tooling mishap.
 
-*(2026-07 update: the Certora half of the wall was subsequently **narrowed** — disabling the failing
+*(2026-07 baseline update: the Certora half of the wall was subsequently **narrowed** — disabling the failing
 storage-splitting analysis (`-enableStorageSplitting false`, with the prover's injective hashing model
-deciding aliasing) discharges all five invariants for every function except `relay()` itself, which the
-model covers only vacuously. The convergence remains the design-time finding, and `relay()` remains the
-assembly-barrier residual — see [L5 §5.2](05-R3-unbounded-attempts.md) and [`certora/README.md`](../../certora/README.md).)*
+deciding aliasing) discharged the pre-GSS invariants for every function except
+`relay()` itself, which the model covered only vacuously. The updated GSS rule
+set still requires a cloud rerun. See [L5 §5.2](05-R3-unbounded-attempts.md)
+and [`certora/README.md`](../../certora/README.md).)*
 
 The stack is sound *because* of how the rungs are chosen around this:
 
@@ -211,13 +212,17 @@ The stack is sound *because* of how the rungs are chosen around this:
 - **Lean (the abstract proof)** gives the unbounded guarantee at the algorithm level, needing no EVM model.
 - **The bytecode refinement** reconnects the unbounded guarantee to a *validated* EVM semantics, stepping over the assembly
   barrier for the loop mechanism.
-- The **per-sequence** forms of the storage invariants *are* proven on the real bytecode
-  (Halmos [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L18) for the nonce, [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15) for the epoch pointer, etc.).
+- The **per-sequence** forms of the core storage invariants are proven on the
+  real bytecode (for example,
+  [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15)
+  for the epoch pointer). GSS nonce behavior currently has concrete
+  real-Safe tests, not a Halmos proof.
 
-So the residual after the full stack is not "the security core is untested" but "the all-functions storage
-invariants, now cloud-proven for every other function, cover `relay()` itself only via its per-sequence
-Halmos proofs and the Lean model" — incremental assurance over an already-strong, multi-tool,
-multi-fidelity base. The generalizable lesson is in [L12](12-lessons.md):
+For the pre-GSS core, the residual after the full stack is not "the security core
+is untested" but "`relay()` itself is covered through per-sequence Halmos proofs
+and the Lean model rather than the all-functions Certora result." The new GSS
+surface has a separate, explicitly pending proof backlog. The generalizable
+lesson is in [L12](12-lessons.md):
 *when independent unbounded tools converge on the same stall against hand-written assembly, that is the
 signal to switch to theorem-proving against a validated low-level semantics.*
 

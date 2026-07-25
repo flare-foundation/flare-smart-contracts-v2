@@ -372,7 +372,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             thresholdIncreaseBIPS: 12000,
             messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
             feeCollectionAddress: constants.ZERO_ADDRESS,
-            feeConfigs: []
+            feeConfigs: [],
+            governanceSourceChainId: 0,
+            governanceSafe: "0x0000000000000000000000000000000000000000",
+            governanceThreshold: 0,
+            governanceOwners: [],
+            governanceSafeNonce: 0
         }
 
         relay = await Relay.new(
@@ -394,7 +399,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
             // RLY-10: relay-mode (zero signingPolicySetter) requires a non-zero fee-collection address
             feeCollectionAddress: "0x000000000000000000000000000000000000dEaD",
-            feeConfigs: []
+            feeConfigs: [],
+            governanceSourceChainId: 0,
+            governanceSafe: "0x0000000000000000000000000000000000000000",
+            governanceThreshold: 0,
+            governanceOwners: [],
+            governanceSafeNonce: 0
         }
 
         relay2 = await Relay.new(

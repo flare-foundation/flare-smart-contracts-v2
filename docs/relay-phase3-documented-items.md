@@ -1,5 +1,9 @@
 # Relay.sol — Phase 3: document-class obligations
 
+> **Historical scope:** this document records conclusions for `relay-fix-3`
+> before GSS governance. References to `governanceFeeSetup` and its nonce proof
+> describe the deleted legacy path; they are not evidence for GSS governance.
+
 Several Phase-3 obligations are, by the plan's own tool assignment (`docs/relay-phase3-plan.md`),
 **review / Foundry-test / documented-assumption** items rather than FV proofs — because FV is the wrong
 tool (the property is an EVM-semantics corollary, an external dependency assumed correct, or out of

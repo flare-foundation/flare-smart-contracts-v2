@@ -257,7 +257,12 @@ export async function deployContracts(
     thresholdIncreaseBIPS: parameters.relayThresholdIncreaseBIPS,
     messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
     feeCollectionAddress: ZERO_ADDRESS,
-    feeConfigs: []
+    feeConfigs: [],
+    governanceSourceChainId: 0,
+    governanceSafe: "0x0000000000000000000000000000000000000000",
+    governanceThreshold: 0,
+    governanceOwners: [],
+    governanceSafeNonce: 0
   }
 
   const relay = await Relay.new(

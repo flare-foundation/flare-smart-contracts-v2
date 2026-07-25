@@ -3,6 +3,11 @@
 > The authoritative, complete write-up is **[`docs/relay-verification/`](relay-verification/00-README.md)**
 > (audit + tutorial + reproducibility, all rungs). This file is a brief one-page map; for the claims
 > ledger, the assumption register, and reproducibility, use that set.
+>
+> **GSS boundary (2026-07-24):** the existing Halmos/Kontrol/Lean claims cover
+> the relay/signing-policy core, not `processGSSMessage`. GSS governance is
+> specified and tested in [`gss-governance.md`](gss-governance.md); its formal
+> proof obligations remain pending. Existing Certora cloud links predate GSS.
 
 This is the map of the whole verification effort on `contracts/protocol/implementation/Relay.sol`. It
 states what is proven, by which tool, at what scope, under what assumptions, and — just as importantly —
@@ -28,11 +33,11 @@ See `docs/relay-assembly-review.md` (mutation surface, no delegatecall/fallback,
 
 | Layer | Tool | What it gives | Scope |
 |------|------|---------------|-------|
-| Symbolic execution on **real bytecode** | **Halmos** | 26 harnesses (`test-forge/fv/*.t.sol`) | bounded (K≤3, N≤5), but the actual deployed bytecode |
+| Symbolic execution on **real bytecode** | **Halmos** | 25 harnesses / 86 checks (`test-forge/fv/*.t.sol`) | bounded (K≤3, N≤5), but the actual deployed bytecode |
 | Unbounded-in-K via k-induction | **Kontrol/KEVM** | sig-loop weight invariant + random monotonicity (`test-forge/fv/kontrol/`) | ∀K, on a faithful Solidity **model**, N∈{3,5} |
 | Unbounded **algorithm** proof | **Lean 4** | sig-loop threshold soundness (`test-forge/fv/lean/RelaySigLoop.lean`) | **∀N ∀K**, abstract algorithm, machine-checked (no `sorry`) |
 | Model↔bytecode bridge | **Halmos** | `RelayModelBridgeFV` — real bytecode obeys the Kontrol model's `psAt` invariant | K=1,2,3 |
-| Global storage invariants | **Certora** | 5 rules, cloud-proven for all functions except `relay()` (`certora/`) | `relay()` residual — see §5 |
+| Global storage invariants | **Certora** | 5 current rules; pre-GSS cloud baseline only (`certora/`) | current GSS rerun pending |
 
 ## 3. What is proven (by area)
 
@@ -44,10 +49,12 @@ See `docs/relay-assembly-review.md` (mutation surface, no delegatecall/fallback,
   wrong-epoch (`RelayWrongEpochFV`), delayed-policy (`RelayDelayedPolicyFV`), too-old/finalization-window
   (`RelayFinalizationWindowFV`), threshold-increase (`RelayCrossEpochFV` + `RelayThresholdScalingFV`),
   must-use-new-policy (`RelayMustUseNewPolicyFV`).
-- **Access control & governance:** only the setter rotates policy (`RelayAccessControlFV`); constructor
-  fail-closes on bad config (`RelayConstructorFV`, incl. L4/RLY-11); governance-fee nonce replay protection
-  for all nonces (`RelayGovernanceNonceFV`); fee-setup mode-gating (AC-2, same file); threshold consistency
-  on the setter path and the **live Mode-1 relay path** (`RelayThresholdConsistencyFV`, `RelayModeOneFV`).
+- **Access control & lifecycle:** only the setter rotates policy
+  (`RelayAccessControlFV`); the constructor fail-closes on the proved baseline
+  configuration (`RelayConstructorFV`, incl. L4/RLY-11); threshold consistency
+  is checked on the setter path and the **live Mode-1 relay path**
+  (`RelayThresholdConsistencyFV`, `RelayModeOneFV`). GSS governance is outside
+  this proof inventory.
 - **Lifecycle:** strict +1 epoch advance + monotonic `lastInitialized` state-effect (`RelayEpochAdvanceFV`);
   random-pointer monotonicity over arbitrary sequences (`RelayRandomMonotonicityFV` + Kontrol
   `RelayRandomMonoFV`).
@@ -65,7 +72,7 @@ also confirms the elaborate setup genuinely reaches acceptance.
 
 ## 4. Reproducing
 
-- **Halmos:** `python3 test-forge/fv/verify_fv.py` checks an exact 89-check manifest, exact Halmos exit
+- **Halmos:** `python3 test-forge/fv/verify_fv.py` checks an exact 86-check manifest, exact Halmos exit
   classes, validated reachability models, and zero truncated loops.
 - **Artifact parity:** `verify_relay_artifact.py` binds the pinned FV build and optimized Yul to the
   Hardhat deployment artifact after stripping only Solidity CBOR metadata.
@@ -76,14 +83,15 @@ also confirms the elaborate setup genuinely reaches acceptance.
 
 ## 5. Honest limits (what is NOT proven, and why)
 
-1. **Global all-functions/all-sequences storage invariants** (nonce/epoch monotonicity, setter
-   immutability, hash/root write-once) — now **cloud-proven for every function except `relay()`**
-   (2026-07: the failing storage-splitting analysis disabled; legacy codegen also covers
-   `setSigningPolicy`, which via-ir excepts). On `relay()` itself the model is vacuous (visible
-   no-coverage, not false alarms) — its storage behavior stays covered by the per-sequence Halmos proofs
-   on the real bytecode and the Lean literal model. Historically this was the assembly storage-havoc wall
-   (same wall Kontrol hit at symbolic-N); a tool-vs-contract-style mismatch, **not a vulnerability**.
-   Run matrix + mechanics: `certora/README.md`.
+1. **Global all-functions/all-sequences storage invariants.** On the pre-GSS
+   source, the epoch/setter/hash/root rules were cloud-proven for every function
+   except `relay()` (legacy codegen also covered `setSigningPolicy`, which
+   via-ir excepted). The current CVL replaces the deleted fee nonce with
+   `lastGovernanceSafeNonce` monotonicity and has not yet been rerun. On
+   `relay()` itself the historical model was vacuous (visible no-coverage, not
+   false alarms); its storage behavior remains covered by per-sequence Halmos
+   proofs and the Lean literal model. Run matrix and current status:
+   `certora/README.md`.
 2. **Bytecode-level ∀N refinement** — the EVMYulLean files are hole-free and the memory/window/overflow
    layers are substantially discharged, but the literal and early-return capstones still take execution,
    `ValidRun`, and acceptance facts as hypotheses. The model is now hash-bound to freshly generated Yul;

@@ -7,6 +7,12 @@ The narrative, audit-facing companion is [`docs/relay-verification/`](../../docs
 mathematician / computer scientist but *not* yet fluent in the verification tools, and tells you how to read,
 run, and trust everything here.
 
+> **Scope:** the exact manifest covers the signing-policy, `relay()`, Merkle,
+> randomness, and verification-fee core. It does not cover
+> `processGSSMessage`, GSS owner rotation, or GSS fee updates. Their current
+> evidence and pending proof obligations are recorded in
+> [`docs/gss-governance.md`](../../docs/gss-governance.md).
+
 ---
 
 ## 1. The one-paragraph mental model
@@ -60,7 +66,7 @@ calldata that breaks the property.
    declared control must produce a **validated counterexample model**. A timeout, stuck path, exception,
    all-revert result, invalid model, or truncated loop is never accepted as a witness.
 
-### 2.1 The proof inventory (normative)
+### 2.1 The proof and compatibility inventories (normative)
 
 [`verification-manifest.json`](verification-manifest.json) is the source of truth for expected behavior:
 
@@ -70,6 +76,7 @@ calldata that breaks the property.
 | identifier is in `halmos.proofs` | explicit manifest entry | only Halmos exit code `PASS` is healthy |
 | identifier is in `halmos.reachability` | explicit manifest entry | only exit code `COUNTEREXAMPLE` with a validated model is healthy |
 | result is missing or undeclared | exact set comparison in `verify_fv.py` | hard failure; deleting or silently adding a check cannot leave CI green |
+| assembly error is in `relay_revert_abi.messages` | explicit message and byte length | `verify_relay_revert_abi.py` rejects inventory drift, nonliterals, oversized messages, and hand-count mismatches |
 
 Consequences to respect when adding checks:
 
@@ -89,13 +96,21 @@ Run the whole gate the way CI does (`test-fv-halmos`). Fresh clone? `./scripts/b
 everything (node deps, forge build, the reference venv `./.venv-halmos`) and ends by running this gate:
 
 ```bash
+python3 test-forge/fv/verify_relay_revert_abi.py \
+  --report-output verification-reports/relay-revert-abi.json
 HALMOS=$PWD/.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py \
   --report-output verification-reports/relay-halmos.json
 ```
 
-Before this gate, CI runs [`verify_relay_artifact.py`](verify_relay_artifact.py). It recompiles Relay with
-the pinned FV compiler, proves that its metadata-stripped creation and runtime bytecode equal the Hardhat
-deployment artifact, and byte-compares the generated optimized Yul with the committed Lean source snapshot.
+The first command enforces the legacy `relay()` assembly failure ABI. The exact
+manifest pins all 37 `revertWithMessage` calls; the gate rejects inventory drift,
+nonliteral messages, hand-counted length mismatches, and messages longer than
+the helper's single 32-byte payload word.
+
+CI also runs [`verify_relay_artifact.py`](verify_relay_artifact.py). It recompiles Relay with the pinned FV
+compiler, proves that its metadata-stripped creation and runtime bytecode equal the Hardhat deployment
+artifact, and byte-compares the generated optimized Yul with the committed Lean source snapshot. Both
+checks emit normalized JSON evidence consumed by the final bundle gate.
 
 ---
 
@@ -184,7 +199,6 @@ The full trust base — every assumption, where it lives, and how it is discharg
 [`RelayMerkleProofFV.t.sol`](RelayMerkleProofFV.t.sol) · [`RelayMerkleFoldFV.t.sol`](RelayMerkleFoldFV.t.sol) ·
 [`RelayVerifyFeeFV.t.sol`](RelayVerifyFeeFV.t.sol) ·
 [`RelayFeeConservationFV.t.sol`](RelayFeeConservationFV.t.sol) ·
-[`RelayGovernanceNonceFV.t.sol`](RelayGovernanceNonceFV.t.sol) (RLY-02 replay) ·
 [`RelayPolicyHashFV.t.sol`](RelayPolicyHashFV.t.sol) · [`RelaySigParamFV.t.sol`](RelaySigParamFV.t.sol) ·
 [`RelayReturnDiscriminatorFV.t.sol`](RelayReturnDiscriminatorFV.t.sol) ·
 [`RelayAccessControlFV.t.sol`](RelayAccessControlFV.t.sol) ·
@@ -193,3 +207,9 @@ The full trust base — every assumption, where it lives, and how it is discharg
 **Harness base + gate + Lean.** [`../unit/protocol/implementation/Relay.t.sol`](../unit/protocol/implementation/Relay.t.sol)
 (the shared `RelayTestBase` calldata encoders, reused by the Halmos harnesses) ·
 [`verify_fv.py`](verify_fv.py) (the CI gate) · [`lean/`](lean/) (R4 Lean proofs) · [`kontrol/`](kontrol/).
+
+The GSS governance path is not yet part of this formal-proof inventory. Its current
+evidence is the concrete real-Safe integration coverage under
+`test-forge/unit/governance/`. No Halmos, Lean, or Kontrol result should be cited as
+proving `processGSSMessage`, owner rotation, or GSS fee updates until dedicated checks
+are added to this manifest and pass the corresponding gates.

@@ -7,7 +7,7 @@
 #                                        #   ~30-60 min first time) and run the 9-file Lean gate
 #
 # What "done" looks like: the Halmos gate prints
-#   [fv] 89/89 checks observed: 60/60 proofs hold, 29/29 reachability controls have validated counterexamples.
+#   [fv] 86/86 checks observed: 58/58 proofs hold, 28/28 reachability controls have validated counterexamples.
 # The reference interpretation of every verdict: docs/relay-verification/11-reproducibility.md.
 #
 # Not automated (deliberately): the Kontrol Docker image (~18.5 GB — see test-forge/fv/kontrol/README.md)
@@ -30,9 +30,10 @@ step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 
 # --- 0. sanity: expected branch ------------------------------------------------------------------
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [ "$BRANCH" != "relay-fix-3" ]; then
-  echo "NOTE: you are on '$BRANCH'; the verification engagement lives on 'relay-fix-3' (git switch relay-fix-3)."
-fi
+case "$BRANCH" in
+  relay-fix-3|relay-fix-3-gss) ;;
+  *) echo "NOTE: you are on '$BRANCH'; the maintained Relay verification branches are relay-fix-3 and relay-fix-3-gss." ;;
+esac
 
 # --- 1. node deps (forge remappings reference node_modules/, e.g. @gnosis.pm) ---------------------
 step "node deps (needed by forge remappings)"
@@ -70,12 +71,18 @@ else
 fi
 .venv-halmos/bin/halmos --version
 
-# --- 4. the Halmos gate (the fast feedback loop; ~5-10 min) ---------------------------------------
+# --- 4. the fail-closed local gates ----------------------------------------------------------------
 if [ "$RUN_GATE" = 1 ]; then
+  step "Relay legacy revert ABI gate"
+  python3 -m unittest discover -s test-forge/fv/tests -v
+  python3 test-forge/fv/verify_relay_revert_abi.py \
+    --report-output verification-reports/relay-revert-abi.json
+
   step "Halmos FV gate (verify_fv.py — judge from the [fv] summary lines)"
   HALMOS="$PWD/.venv-halmos/bin/halmos" .venv-halmos/bin/python test-forge/fv/verify_fv.py
 else
-  step "skipping the Halmos gate (--no-gate); run later with:"
+  step "skipping the local gates (--no-gate); run later with:"
+  echo '  python3 test-forge/fv/verify_relay_revert_abi.py'
   echo '  HALMOS=$PWD/.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py'
 fi
 

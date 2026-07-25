@@ -1,5 +1,11 @@
 # Relay.sol — Robustness Fixes
 
+> **Historical scope:** this is the `relay-fix-3` hardening log. The current
+> `relay-fix-3-gss` branch removes `governanceFeeSetup` and replaces its
+> signing-policy governance with the GSS design in
+> [`gss-governance.md`](gss-governance.md). Legacy entries below remain as
+> provenance for the deployed/pre-GSS review and are not current API guidance.
+
 **Branch:** `relay-fix-3` (off `origin/main` @ `264dab74`)
 **Target:** `contracts/protocol/implementation/Relay.sol` (+ its interfaces / tests)
 **Started:** 2026-06-14

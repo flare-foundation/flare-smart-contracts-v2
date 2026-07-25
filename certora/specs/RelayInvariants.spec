@@ -3,9 +3,8 @@
  *
  * These are PARAMETRIC rules: each holds for EVERY external/public method `f`, EVERY caller, and EVERY
  * argument — i.e. over all functions and all call sequences. That is Certora's genuine advantage over the
- * Halmos/Kontrol proofs in this repo, which established the same properties only for SPECIFIC call
- * sequences (e.g. RelayGovernanceNonceFV's 2-call nonce sequence, RelayEpochAdvanceFV's single +1 step).
- * Here they become global state invariants.
+ * Halmos/Kontrol proofs in this repo, which establish the same properties only for SPECIFIC call
+ * sequences (e.g. RelayEpochAdvanceFV's single +1 step). Here they become global state invariants.
  *
  * NOTE (honest scope): Certora — like Halmos and Kontrol — UNROLLS the within-call signature loop
  * (--loop_iter), so it does NOT close the ∀N within-call signature-loop gap better than Kontrol; the ∀N∀K
@@ -19,26 +18,27 @@
  */
 
 methods {
-    function governanceFeeNonce() external returns (uint256) envfree;
+    function lastGovernanceSafeNonce() external returns (uint256) envfree;
     function signingPolicySetter() external returns (address) envfree;
     function lastInitializedRewardEpochData() external returns (uint32, uint32) envfree;
 
     // Unresolved external calls — the ecrecover precompile (0x01), the address(this).call self-verify in
     // _verifyCustomSignature, and oldRelay.* — must NOT havoc this contract's storage. Sound because Relay
     // has NO delegatecall (verified, AC-8): an external call can never write currentContract storage.
-    // Without this, Certora's default HAVOC_ALL spuriously breaks every storage invariant on relay()/
-    // governanceFeeSetup.
+    // Without this, Certora's default HAVOC_ALL spuriously breaks storage invariants on functions with
+    // unresolved external calls.
     unresolved external in _._ => DISPATCH [] default HAVOC_ECF;
 }
 
-/// The governance-fee nonce never decreases — across ANY function (generalises RLY-02 / AC-10 from the
-/// 2-call sequence in RelayGovernanceNonceFV to all functions & all sequences).
-rule nonceMonotonic(method f) {
-    uint256 pre = governanceFeeNonce();
+/// The highest target-local, relevant GSS action nonce never decreases across any function or sequence.
+/// Irrelevant fee actions may leave it unchanged; accepted owner updates and relevant fee updates may
+/// only assign a strictly greater value.
+rule governanceSafeNonceMonotonic(method f) {
+    uint256 pre = lastGovernanceSafeNonce();
     env e; calldataarg args;
     f(e, args);
-    uint256 post = governanceFeeNonce();
-    assert post >= pre, "governanceFeeNonce must never decrease";
+    uint256 post = lastGovernanceSafeNonce();
+    assert post >= pre, "lastGovernanceSafeNonce must never decrease";
 }
 
 /// The last-initialized reward epoch never regresses — across ANY function (generalises L1 / the +1 step in

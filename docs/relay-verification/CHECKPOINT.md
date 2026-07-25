@@ -4,7 +4,7 @@
 > verification + hardening engagement, so any fresh session (or reader) can resume/audit
 > without re-deriving prior work. Historically kept outside the repo; moved into
 > `docs/relay-verification/` on 2026-07-15 so the engagement record is self-contained in-repo.
-> **Keep this file updated** as phases complete. Last updated: 2026-07-15.
+> **Keep this file updated** as phases complete. Last updated: 2026-07-24.
 > Reading order: the ⭐ banners at the top are current; numbered sections below are the
 > chronological history (oldest at the bottom of each era). The polished, audit-facing
 > account is `docs/relay-verification/` — this file is the raw engineering log behind it.
@@ -12,6 +12,19 @@
 > (creates the in-repo `./.venv-halmos` reference toolchain and runs the Halmos gate).
 
 ---
+
+## ⭐ 2026-07-24 — GSS governance branch and proof boundary
+
+Branch `relay-fix-3-gss` removes the unused legacy `governanceFeeSetup` path and
+adds Safe v1.3.0 governance for owner configuration and target-specific protocol
+fees. The implementation specification and current security boundary are in
+[`docs/gss-governance.md`](../gss-governance.md).
+
+The core Halmos manifest is now 86 checks (58 proofs and 28 reachability
+controls); the deleted legacy nonce harness is not relabeled as a GSS proof.
+The optimized-Yul snapshot has been regenerated and compiler parity remains
+exact. GSS has real-Safe integration coverage, while dedicated
+Halmos/Kontrol/Lean properties and a current Certora cloud rerun remain open.
 
 ## ⭐ 2026-07-23 — RLY-23 CHAIN-DOMAIN BINDING landed + FV re-baselined
 

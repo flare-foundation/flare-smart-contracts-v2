@@ -83,25 +83,28 @@ but not the whole ∀N∀K story either.
 Certora's distinctive strength is **parametric** invariants: a `rule … (method f)` is checked for **every**
 external/public method and arbitrary arguments — i.e., over all callers and all call sequences, not just
 the specific sequences Halmos/Kontrol enumerate. The spec targets exactly the cross-transaction **storage**
-properties where that would beat the other tools — **five invariants**, each now **cloud-proven for every
-function except `relay()`** (2026-07; under the deployment via-ir codegen also excepting
-`setSigningPolicy`). The assembly-storage wall (ledger item **C-1** in
-[L10](10-claims-ledger-trust-and-residual.md)) is thereby narrowed to a single-function residual:
+properties where that would beat the other tools. The checked-in source contains
+**five current invariants**. Four retain the pre-GSS properties; the fifth
+replaces the deleted `governanceFeeNonce` rule with monotonicity of
+`lastGovernanceSafeNonce`. The 2026-07 cloud runs predate GSS and must not be
+cited for the current rule set:
 
-| Rule | Property | Status |
+| Rule | Property | Current GSS status |
 |------|----------|--------|
-| `nonceMonotonic` | `governanceFeeNonce` never decreases, ∀ function (globalizes RLY-02 / the 2-call [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L18)) | ✅ proven **20/21 fns** (legacy) · 19/21 (via-ir), incl. `governanceFeeSetup`, the writer; `relay()` vacuous (residual) |
-| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15)) | ✅ proven 20/21 (legacy) · 19/21 (via-ir); `relay()` (incl. its Mode-1 write) vacuous — covered per-sequence by Halmos |
-| `signingPolicySetterImmutable` | the setter authority is immutable after construction | ✅ proven 20/21 (legacy) · 19/21 (via-ir); `relay()` vacuous |
-| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the in-spec reachable-state link) | ✅ proven **22/23** (legacy, incl. `setSigningPolicy` — its writer) · 21/23 (via-ir); `relay()` vacuous |
-| `merkleRootWriteOnce` | a finalized Merkle root is write-once per (protocolId, votingRoundId) | ✅ proven 22/23 (legacy) · 21/23 (via-ir); `relay()` vacuous |
+| `governanceSafeNonceMonotonic` | `lastGovernanceSafeNonce` never decreases, ∀ function | current cloud run pending |
+| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15)) | historical baseline proven; current rerun pending |
+| `signingPolicySetterImmutable` | the setter authority is immutable after construction | historical baseline proven; current rerun pending |
+| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the in-spec reachable-state link) | historical baseline proven; current rerun pending |
+| `merkleRootWriteOnce` | a finalized Merkle root is write-once per `(protocolId, votingRoundId)` | historical baseline proven; current rerun pending |
 
 `ecrecover` is left NONDET (modeling-contract A2): the storage invariants must hold regardless of which
 signatures the prover admits.
 
-**Status: cloud-proven, non-vacuously (`rule_sanity basic`), for every function except `relay()`** — and
-except `setSigningPolicy` under the deployment via-ir codegen (the legacy-codegen runs cover it). The
-historical wall, for the record:
+**Historical baseline status:** cloud-proven non-vacuously (`rule_sanity
+basic`) for every then-present function except `relay()` — and except
+`setSigningPolicy` under via-ir (the legacy-codegen runs covered it). The
+current local typecheck and cloud proof must be rerun. The historical wall, for
+the record:
 
 - The specs pass Certora's **local** pipeline — `certoraRun certora/Relay.conf --compilation_steps_only` —
   which compiles [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol) under Certora and **typechecks the spec against the real contract** (exit 0,

@@ -29,13 +29,12 @@ interface IRelay is RandomNumberV2Interface {
                                                                // the protocol messages.
         address payable feeCollectionAddress;                  // Fee collection address
         FeeConfig[] feeConfigs;                                // Fee configurations
-    }
-
-    struct RelayGovernanceConfig {
-        bytes32 descriptionHash;        // Description hash (should be keccak256("RelayGovernance")
-        uint256 chainId;                // Chain id on which is the relay is deployed
-        uint256 nonce;                  // Strictly-increasing replay-protection nonce
-        FeeConfig[] newFeeConfigs;      // Fee configurations
+        // Source-chain GSS governance configuration. Zero values disable the new path.
+        uint256 governanceSourceChainId;
+        address governanceSafe;
+        uint256 governanceThreshold;
+        address[] governanceOwners;
+        uint256 governanceSafeNonce;
     }
 
     // Event is emitted when a new signing policy is initialized by the signing policy setter.
@@ -70,13 +69,6 @@ interface IRelay is RandomNumberV2Interface {
         bytes32 merkleRoot                  // Merkle root of the protocol message
     );
 
-    // Event is emitted when a protocol fee is (re)configured via governanceFeeSetup.
-    event RelayGovernanceFeeConfigured(
-        uint8 indexed protocolId,           // Protocol id
-        uint256 feeInWei,                   // New fee in wei
-        uint256 nonce                       // Governance fee nonce used for this change
-    );
-
     // Event is emitted when a random number is relayed (random-number protocol).
     event RandomNumberRelayed(
         uint32 indexed votingRoundId,       // Voting round id of the random
@@ -108,16 +100,6 @@ interface IRelay is RandomNumberV2Interface {
         returns (uint256 _rewardEpochId);
 
     /**
-     * Checks the relay message for sufficient weight of signatures of the hash of the _config data.
-     * If the check is successful, the relay contract is configured with the new _config data, which
-     * in particular means that fee configurations are updated.
-     * Otherwise the function reverts.
-     * @param _relayMessage The relay message.
-     * @param _config The new relay configuration.
-     */
-    function governanceFeeSetup(bytes calldata _relayMessage, RelayGovernanceConfig calldata _config) external;
-
-    /**
      * Finalization function for new signing policies and protocol messages.
      * It can be used as finalization contract on Flare chain or as relay contract on other EVM chain.
      * Can be called in two modes. It expects calldata that is parsed in a custom manner.
@@ -146,7 +128,8 @@ interface IRelay is RandomNumberV2Interface {
      * for given protocol id and voting round id.
      * A fee may need to be paid. It is protocol specific.
      * **NOTE:** Overpayment above the protocol fee is refunded to the caller via a value-bearing call, so a
-     *           contract caller MUST be able to receive ETH (or send exactly the fee); otherwise verify() reverts (L-2).
+     *           contract caller MUST be able to receive ETH (or send exactly the fee);
+     *           otherwise verify() reverts (L-2).
      * **NOTE (RLY-15):** A leaf equal to the (finalized, non-zero) root verifies with an empty proof —
      *           a standard Merkle property. Off-chain leaf encoding MUST be domain-separated from internal
      *           and root node hashes so an internal node cannot be presented as a differently-typed leaf.
@@ -233,11 +216,6 @@ interface IRelay is RandomNumberV2Interface {
      * @param _protocolId The protocol id.
      */
     function protocolFeeInWei(uint256 _protocolId) external view returns (uint256);
-
-    /**
-     * Returns the current strictly-increasing governance fee configuration nonce.
-     */
-    function governanceFeeNonce() external view returns (uint256);
 
     /**
      * Returns the state data.

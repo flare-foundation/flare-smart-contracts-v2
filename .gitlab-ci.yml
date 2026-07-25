@@ -235,7 +235,9 @@ test-fv-halmos:
   - changes:
     - contracts/protocol/implementation/Relay.sol
     - contracts/protocol/interface/IIRelay.sol
+    - contracts/governance/**/*
     - contracts/userInterfaces/IRelay.sol
+    - contracts/userInterfaces/IRelayGovernance.sol
     - test-forge/fv/**/*
     - halmos.toml
     - foundry.toml
@@ -258,6 +260,7 @@ test-fv-halmos:
   script:
   - export PATH="$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
   - python3 -m unittest discover -s test-forge/fv/tests -v
+  - python3 test-forge/fv/verify_relay_revert_abi.py --report-output verification-reports/relay-revert-abi.json
   - python3 test-forge/fv/verify_relay_artifact.py --deployment-report verification-reports/relay-deployment.json --report-output verification-reports/relay-artifact-parity.json
   - HALMOS=halmos python3 test-forge/fv/verify_fv.py --report-output verification-reports/relay-halmos.json
   artifacts:
@@ -265,6 +268,7 @@ test-fv-halmos:
     expire_in: 1 week
     paths:
     - verification-reports/relay-deployment.json
+    - verification-reports/relay-revert-abi.json
     - verification-reports/relay-artifact-parity.json
     - verification-reports/relay-halmos.json
 
@@ -281,7 +285,9 @@ test-fv-bundle:
   - changes:
     - contracts/protocol/implementation/Relay.sol
     - contracts/protocol/interface/IIRelay.sol
+    - contracts/governance/**/*
     - contracts/userInterfaces/IRelay.sol
+    - contracts/userInterfaces/IRelayGovernance.sol
     - test-forge/fv/**/*
     - halmos.toml
     - foundry.toml
@@ -318,7 +324,9 @@ test-fv-lean:
   - changes:
     - contracts/protocol/implementation/Relay.sol
     - contracts/protocol/interface/IIRelay.sol
+    - contracts/governance/**/*
     - contracts/userInterfaces/IRelay.sol
+    - contracts/userInterfaces/IRelayGovernance.sol
     - foundry.toml
     - hardhat.config.ts
     - scripts/relay-artifact-provenance.js

@@ -1,6 +1,6 @@
 # L4 — R2: bounded symbolic execution (Halmos)
 
-> **What you get from this level.** The workhorse rung: 26 harnesses / 89 checks that **symbolically
+> **What you get from this level.** The workhorse rung: 25 harnesses / 86 checks that **symbolically
 > execute the real `Relay.sol` bytecode** and prove properties over *all* inputs up to a fixed size. The
 > suite design (including the anti-vacuity tripwire and the loop-bound subtlety that makes the whole thing
 > trustworthy), the full property catalog, the modeling assumptions, and how to reproduce.
@@ -47,10 +47,11 @@ anti-vacuity controls fail by design). The gate runs one Halmos invocation over 
 - a declared **reachability** control must return `COUNTEREXAMPLE` with a validated model;
 - the observed and declared check sets must be identical, with zero bounded loops.
 
-It prints a per-check table and the summary line, and exits non-zero on any violation. Current CI output:
+It prints a per-check table and the summary line, and exits non-zero on any
+violation. The current manifest's healthy summary is:
 
 ```
-[fv] 89/89 checks observed: 60/60 proofs hold, 29/29 reachability controls have validated counterexamples. 0 violation(s).
+[fv] 86/86 checks observed: 58/58 proofs hold, 28/28 reachability controls have validated counterexamples. 0 violation(s).
 [fv] OK - exact proof inventory holds and every reachability control has a valid witness.
 ```
 
@@ -79,7 +80,7 @@ memory).
 
 ---
 
-## 4.3 The property catalog (26 harnesses)
+## 4.3 The property catalog (25 harnesses)
 
 Grouped by area. Each harness pairs proof checks with ≥1 reachability control. "Models" notes whether the
 harness drives the real compiled `Relay` or a self-contained model (see §4.4).
@@ -117,14 +118,17 @@ are nonlinear and need `solver-timeout-assertion = 0` (§4.2).
 | [`RelayThresholdConsistencyFV`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L21) | threshold consistency on the **setter path** (`thresholdTooBig/TooSmall_rejected`; `reach_inBand_accepted`) |
 | [`RelayModeOneFV`](../../test-forge/fv/RelayModeOneFV.t.sol#L23) | threshold consistency on the **live Mode-1 relay path** (`modeOne_thresholdTooSmall_rejected`; `reach_modeOne_validInstalls`) |
 
-### Access control, governance, lifecycle
+### Access control and lifecycle
 
 | Harness | Property |
 |---------|----------|
 | [`RelayAccessControlFV`](../../test-forge/fv/RelayAccessControlFV.t.sol#L13) | only the signing-policy setter rotates the policy |
 | [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L14) | constructor **fail-closes** on bad config (incl. L4/RLY-11) |
-| [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L18) | governance-fee **nonce replay protection** for all nonces; fee-setup mode-gating (AC-2) |
 | [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15) | strict **+1** epoch advance + monotonic `lastInitialized` state-effect |
+
+The removed `RelayGovernanceNonceFV` harness proved the deleted
+`governanceFeeSetup` path. GSS nonce and owner-transition properties are not
+silently inherited from it; they remain in the GSS proof backlog.
 
 ### Merkle & randomness
 
@@ -151,9 +155,9 @@ are nonlinear and need `solver-timeout-assertion = 0` (§4.2).
 | [`RelayReturnDiscriminatorFV`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L35) | P6 — return discriminator (`protocolId1_successReturns35`, `protocolId3_successReturns0/isNot35`) |
 | [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L57) | P8 — policy-hash equivalence (`policyHash_equiv_NV1/2/3`; `policyHash_mismatchReachable_NV3`) |
 
-**Totals:** 26 harnesses, **89 checks = 60 proofs + 29 reachability controls** (cross-checked against the
-CI gate output; the 26th harness, `RelayEcrecoverSymbolicFV`, is grouped in the inventory below and
-described in §4.4).
+**Totals:** 25 harnesses, **86 checks = 58 proofs + 28 reachability controls**.
+`RelayEcrecoverSymbolicFV` is grouped in the inventory below and described in
+section 4.4.
 
 ### The complete check inventory (one line per check)
 
@@ -161,9 +165,9 @@ Every symbolic obligation in the suite, one line each — what each check **prov
 event it **witnesses**. ✅ = proof (must PASS); 🔍 = reachability control (must produce a counterexample —
 the anti-vacuity tripwire; see §4.2 and the normative naming rules in
 [`test-forge/fv/README.md`](../../test-forge/fv/README.md)). Groups mirror the catalog above, plus the
-OP-1 `ecrecover` harness described in §4.4; rows follow source order within each harness. The inventory
-totals **89 checks = 60 proofs + 29 reachability controls** — the 25 catalog harnesses' 85 plus
-[`RelayEcrecoverSymbolicFV`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L50)'s 4.
+OP-1 `ecrecover` harness described in section 4.4; rows follow source order
+within each harness. The inventory totals **86 checks = 58 proofs + 28
+reachability controls**.
 
 **Signature / threshold accounting — the core**
 
@@ -213,7 +217,7 @@ totals **89 checks = 60 proofs + 29 reachability controls** — the 25 catalog h
 | [`RelayModeOneFV`](../../test-forge/fv/RelayModeOneFV.t.sol#L23) | [`check_modeOne_thresholdTooSmall_rejected`](../../test-forge/fv/RelayModeOneFV.t.sol#L72) | ✅ proof | a Mode-1-relayed new policy with a below-MIN-band threshold can never be installed |
 | | [`check_reach_modeOne_validInstalls`](../../test-forge/fv/RelayModeOneFV.t.sol#L81) | 🔍 reach | witnesses: an in-band Mode-1 new policy CAN be installed by the old quorum |
 
-**Access control, governance, lifecycle**
+**Access control and lifecycle**
 
 | Harness | Check | Kind | Proves / witnesses |
 |---------|-------|------|--------------------|
@@ -224,9 +228,6 @@ totals **89 checks = 60 proofs + 29 reachability controls** — the 25 catalog h
 | | [`check_ctor_rejectsZeroVotingEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L43) | ✅ proof | the constructor rejects a zero voting-epoch duration (RLY-11) |
 | | [`check_ctor_rejectsZeroPolicyHash`](../../test-forge/fv/RelayConstructorFV.t.sol#L51) | ✅ proof | the constructor rejects a zero initial signing-policy hash (L-4, would brick the epoch) |
 | | [`check_reach_ctor_validDeploys`](../../test-forge/fv/RelayConstructorFV.t.sol#L58) | 🔍 reach | witnesses: the valid base config DOES deploy |
-| [`RelayGovernanceNonceFV`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L18) | [`check_nonce_mustStrictlyIncrease`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L51) | ✅ proof | after nonce `n1` is accepted, any `n2 ≤ n1` is rejected — no replay, for all nonces |
-| | [`check_reach_nonce_increasing`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L63) | 🔍 reach | witnesses: two strictly-increasing nonces are BOTH accepted in sequence |
-| | [`check_feeSetup_rejectedInSetterMode`](../../test-forge/fv/RelayGovernanceNonceFV.t.sol#L76) | ✅ proof | `governanceFeeSetup` always reverts in setter mode, for any non-zero setter (AC-2) |
 | [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15) | [`check_epochAdvance_requiresSequential`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L36) | ✅ proof | any epoch other than `lastInitialized+1` is rejected — no skip, replay, or regress |
 | | [`check_reach_epochAdvance_correctSucceeds`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L46) | 🔍 reach | witnesses: the exact next epoch IS accepted |
 | | [`check_epochAdvance_incrementsByOne`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L59) | ✅ proof | a successful `setSigningPolicy` advances `lastInitialized` by exactly +1 (the monotone step) |

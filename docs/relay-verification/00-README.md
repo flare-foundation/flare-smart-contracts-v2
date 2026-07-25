@@ -15,6 +15,13 @@ theorem proving against a validated model of the EVM. It is written to serve **t
 These three are not in tension: an audit that cannot be reproduced is hearsay, and a tutorial that is not
 precise teaches the wrong thing. The same precision serves all three.
 
+> **Current GSS scope (2026-07-24).** The ladder below proves properties of
+> Relay's signing-policy, `relay()`, randomness, Merkle, and verification-fee
+> core. The newly added GSS governance path is specified and security-reviewed
+> in [`gss-governance.md`](../gss-governance.md) and covered by real-Safe tests,
+> but it is not yet covered by Halmos, Kontrol, or Lean. Pre-GSS Certora cloud
+> reports are historical evidence only until the updated CVL is rerun.
+
 > **The engagement had two goals.** (1) **Verify** `Relay.sol`'s accounting — this ladder. (2) **Harden**
 > `Relay.sol` against the audit findings — the RLY-* robustness fixes, documented in
 > [`docs/relay-fixes.md`](../relay-fixes.md) (issue-by-issue changes + tests) and
@@ -29,7 +36,7 @@ precise teaches the wrong thing. The same precision serves all three.
 
 [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol)'s security-critical accounting is verified by a **five-rung stack**, each rung covering what
 the one below cannot. Concrete and fuzz tests (R0/R1) exercise the deployed contract. **Halmos** (R2)
-symbolically executes the **real bytecode** across 26 harnesses / 89 checks, proving the signature/
+symbolically executes the **real bytecode** across 25 harnesses / 86 checks, proving the signature/
 threshold accounting, the full `relay()` epoch-decision matrix, access control, lifecycle, Merkle and
 randomness, and fees — bounded in size but on the actual deployed code, each proof guarded by an
 anti-vacuity control. **Kontrol/KEVM** (R3) lifts the signature-loop weight invariant and random
@@ -43,8 +50,9 @@ unbounded approaches — Kontrol at full symbolic-N and **Certora** at
 all-functions storage invariants — hit the *same* wall: Relay's ~90% hand-written inline-assembly storage
 defeats automated storage analysis. That convergent failure is itself a finding, and it is exactly the gap
 the R4 (Lean) rungs address at model level. (The Certora half was later **narrowed** — 2026-07 — to a
-`relay()`-only residual: with the failing analysis disabled, all five storage invariants are cloud-proven
-for every other function; L5 §5.2.) The bytecode refinement runs a statement-for-statement model of
+`relay()`-only residual on the pre-GSS source: with the failing analysis disabled,
+the historical storage invariants were cloud-proven for every other function;
+the updated GSS nonce rule still requires a current run; L5 §5.2.) The bytecode refinement runs a statement-for-statement model of
 the contract's **17-statement loop body** on the validated EVM (the hole-free
 [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean) chain).
 `relay_loop_sound_literal_derived_tight` carries *accept ⟹ total registered weight > threshold* for all N with
@@ -74,7 +82,7 @@ discharged deeper. Read only as deep as you need.
 | **L1** | [`01-big-picture.md`](01-big-picture.md) | tutorial | What Relay does, what "verification" means, the two enemies — by analogy. No background needed. |
 | **L2** | [`02-strategy-and-the-fidelity-ladder.md`](02-strategy-and-the-fidelity-ladder.md) | tutorial + audit | The research-first strategy, the **fidelity ladder (R0–R5)**, and the executive results table across all rungs. |
 | **L3** | [`03-R0R1-foundation-tests.md`](03-R0R1-foundation-tests.md) | all | Foundry concrete + fuzz tests: the base of the stack. |
-| **L4** | [`04-R2-bounded-symbolic-halmos.md`](04-R2-bounded-symbolic-halmos.md) | all | The 26-harness / 89-check Halmos suite on real bytecode + the vacuity tripwire. The property catalog + the complete per-check inventory. |
+| **L4** | [`04-R2-bounded-symbolic-halmos.md`](04-R2-bounded-symbolic-halmos.md) | all | The 25-harness / 86-check Halmos suite on real bytecode + the vacuity tripwire. The property catalog + the complete per-check inventory. |
 | **L5** | [`05-R3-unbounded-attempts.md`](05-R3-unbounded-attempts.md) | all | Kontrol (∀K on a model) and Certora (storage invariants, since proven for all functions but `relay()`) — partial successes and the honest assembly wall. |
 | **L6** | [`06-R4a-abstract-proof.md`](06-R4a-abstract-proof.md) | all | The abstract proof: the ∀N ∀K threshold-soundness theorem in Lean. |
 | **L7** | [`07-R4b-bytecode-refinement.md`](07-R4b-bytecode-refinement.md) | all | The bytecode refinement: lifting the abstract proof onto validated EVM semantics, ∀N. |

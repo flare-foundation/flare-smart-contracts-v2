@@ -1,5 +1,10 @@
 # L13 — Residual weaknesses & attack surface (proof-grounded review)
 
+> **Scope note:** this is the residual review of the deployed/pre-GSS
+> `relay-fix-3` target. Legacy fee-governance findings and 89-check proof counts
+> are intentionally preserved as historical facts. The GSS branch's additional
+> residuals and proof gaps are in [`gss-governance.md`](../gss-governance.md).
+
 > **What you get from this level.** An honest, proof-grounded inventory of what could still go wrong in the
 > **currently deployed-target `Relay.sol`** (`relay-fix-3`). It reads the whole verification effort *backwards*:
 > the proofs establish what is sound, so the residual risk lives in what they **assume**, what they **don't

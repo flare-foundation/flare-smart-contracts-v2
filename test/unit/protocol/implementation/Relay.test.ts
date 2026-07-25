@@ -15,89 +15,28 @@ import { getTestFile } from "../../../utils/constants";
 import { toBN } from "../../../utils/test-helpers";
 import { defaultTestSigningPolicy, generateSignatures, generateSignaturesEncoded } from "../coding/coding-helpers";
 import { RelayContract } from "../../../../typechain-truffle";
-import { ParamType } from "ethers";
 import { IECDSASignatureWithIndex } from "../../../../scripts/libs/protocol/ECDSASignatureWithIndex";
-const coder = ethers.AbiCoder.defaultAbiCoder();
 
 const Relay: RelayContract = artifacts.require("Relay");
 
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
-
-interface FeeConfig {
-  protocolId: number;
-  feeInWei: string;
-}
-
-interface RelayGovernanceConfig {
-  descriptionHash: string;
-  chainId: number;
-  nonce: number;
-  newFeeConfigs: FeeConfig[];
-}
-
-const RelayGovernanceConfigABI = {
-  "components": [
-    {
-      "internalType": "bytes32",
-      "name": "descriptionHash",
-      "type": "bytes32"
-    },
-    {
-      "internalType": "uint256",
-      "name": "chainId",
-      "type": "uint256"
-    },
-    {
-      "internalType": "uint256",
-      "name": "nonce",
-      "type": "uint256"
-    },
-    {
-      "components": [
-        {
-          "internalType": "uint8",
-          "name": "protocolId",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint256",
-          "name": "feeInWei",
-          "type": "uint256"
-        }
-      ],
-      "internalType": "struct IRelay.FeeConfig[]",
-      "name": "newFeeConfigs",
-      "type": "tuple[]"
-    }
-  ],
-  "internalType": "struct IRelay.RelayGovernanceConfig",
-  "name": "_config",
-  "type": "tuple"
-}
-
-function hashRelayGovernanceConfig(config: RelayGovernanceConfig, relayAddress: string): string {
-  const paramType = ParamType.from(RelayGovernanceConfigABI);
-  // Must mirror Relay.governanceFeeSetup: keccak256(abi.encode(_config, address(this))).
-  const abiEncoded = coder.encode([paramType, ParamType.from("address")], [config, relayAddress]);
-  return ethers.keccak256(abiEncoded);
-}
 
 interface StateDataRaw {
   [key: number]: BN | boolean;
 }
 function stateDataName(stateDataRaw: StateDataRaw) {
   return {
-    randomNumberProtocolId: stateDataRaw[0],
-    firstVotingRoundStartTs: stateDataRaw[1],
-    votingEpochDurationSeconds: stateDataRaw[2],
-    firstRewardEpochStartVotingRoundId: stateDataRaw[3],
-    rewardEpochDurationInVotingEpochs: stateDataRaw[4],
-    thresholdIncreaseBIPS: stateDataRaw[5],
-    randomVotingRoundId: stateDataRaw[6],
-    isSecureRandom: stateDataRaw[7],
-    lastInitializedRewardEpoch: stateDataRaw[8],
-    noSigningPolicyRelay: stateDataRaw[9],
-    messageFinalizationWindowInRewardEpochs: stateDataRaw[10],
+    randomNumberProtocolId: stateDataRaw[0] as BN,
+    firstVotingRoundStartTs: stateDataRaw[1] as BN,
+    votingEpochDurationSeconds: stateDataRaw[2] as BN,
+    firstRewardEpochStartVotingRoundId: stateDataRaw[3] as BN,
+    rewardEpochDurationInVotingEpochs: stateDataRaw[4] as BN,
+    thresholdIncreaseBIPS: stateDataRaw[5] as BN,
+    randomVotingRoundId: stateDataRaw[6] as BN,
+    isSecureRandom: stateDataRaw[7] as boolean,
+    lastInitializedRewardEpoch: stateDataRaw[8] as BN,
+    noSigningPolicyRelay: stateDataRaw[9] as boolean,
+    messageFinalizationWindowInRewardEpochs: stateDataRaw[10] as BN,
   };
 }
 
@@ -192,8 +131,6 @@ function encodeForgedSignatures(
   }
   return encoded;
 }
-const relayGovernanceDescriptionHash = web3.utils.keccak256("RelayGovernance");
-
 contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   // let accounts: Account[];
   let signers: SignerWithAddress[];
@@ -266,7 +203,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
       feeCollectionAddress: BURN_ADDRESS,
-      feeConfigs: []
+      feeConfigs: [],
+      governanceSourceChainId: 0,
+      governanceSafe: "0x0000000000000000000000000000000000000000",
+      governanceThreshold: 0,
+      governanceOwners: [],
+      governanceSafeNonce: 0
     }
 
     relay = await Relay.new(
@@ -588,7 +530,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
       feeCollectionAddress: BURN_ADDRESS,
-      feeConfigs: []
+      feeConfigs: [],
+      governanceSourceChainId: 0,
+      governanceSafe: "0x0000000000000000000000000000000000000000",
+      governanceThreshold: 0,
+      governanceOwners: [],
+      governanceSafeNonce: 0
     }
 
     const relay2 = await Relay.new(
@@ -795,7 +742,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
       feeCollectionAddress: BURN_ADDRESS,
-      feeConfigs: []
+      feeConfigs: [],
+      governanceSourceChainId: 0,
+      governanceSafe: "0x0000000000000000000000000000000000000000",
+      governanceThreshold: 0,
+      governanceOwners: [],
+      governanceSafeNonce: 0
     }
 
     const relay2 = await Relay.new(
@@ -1261,7 +1213,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay2 = await Relay.new(
@@ -1309,7 +1266,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay2 = await Relay.new(
@@ -1341,7 +1303,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay2 = await Relay.new(
@@ -1362,7 +1329,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay3 = await Relay.new(
@@ -1399,7 +1371,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay2 = await Relay.new(
@@ -1429,7 +1406,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay2 = await Relay.new(
@@ -1457,7 +1439,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay2 = await Relay.new(
@@ -1503,7 +1490,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay2 = await Relay.new(
@@ -1564,7 +1556,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay2 = await Relay.new(
@@ -1585,7 +1582,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay3 = await Relay.new(
@@ -1651,7 +1653,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay2 = await Relay.new(
@@ -1672,7 +1679,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay3 = await Relay.new(
@@ -1804,7 +1816,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         feeConfigs: [{
           protocolId: 17,
           feeInWei: "1000"
-        }]
+        }],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay = await Relay.new(
@@ -1906,7 +1923,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       };
       const relay = await Relay.new(relayInitialConfig, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
       // Nothing relayed for protocol 16 / round 12345 -> stored root is zero. A zero leaf with an
@@ -1935,7 +1957,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       };
     }
 
@@ -1992,7 +2019,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay = await Relay.new(
@@ -2047,163 +2079,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     });
   });
 
-  describe("Governance fee changing", () => {
-    it("Should fee be changed through signer governance", async () => {
-      const signingPolicyData = defaultTestSigningPolicy(
-        signers.map(x => x.address),
-        N,
-        singleWeight
-      );
-      signingPolicyData.rewardEpochId = rewardEpochId;
-      signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
-      const signingPolicy = SigningPolicy.encode(signingPolicyData);
-      const localHash = SigningPolicy.hashEncoded(signingPolicy, chainId);
-
-      async function relayNewSigningPolicy(newRewardEpochId: number, relayAddress: string) {
-        const prevSigningPolicyData = { ...signingPolicyData };
-        prevSigningPolicyData.rewardEpochId = newRewardEpochId - 1;
-        const newSigningPolicyDataRelayed = { ...signingPolicyData };
-        newSigningPolicyDataRelayed.rewardEpochId = newRewardEpochId;
-        const localHash = SigningPolicy.hash(newSigningPolicyDataRelayed, chainId);
-        const signatures = await generateSignatures(
-          accountPrivateKeys,
-          localHash,
-          N / 2 + 1
-        );
-        const relayMessage = {
-          signingPolicy: prevSigningPolicyData,
-          signatures,
-          newSigningPolicy: newSigningPolicyDataRelayed
-        };
-        const fullData = RelayMessage.encode(relayMessage);
-
-        return await web3.eth.sendTransaction({
-          from: signers[0].address,
-          to: relayAddress,
-          data: selector + fullData.slice(2),
-        })
-      }
-
-      const relayInitialConfig: RelayInitialConfig = {
-        initialRewardEpochId: signingPolicyData.rewardEpochId,
-        startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
-        initialSigningPolicyHash: localHash,
-        randomNumberProtocolId: randomNumberProtocolId,
-        firstVotingRoundStartTs: firstVotingRoundStartSec,
-        votingEpochDurationSeconds: votingRoundDurationSec,
-        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
-        rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
-        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
-        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-        feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
-      }
-
-      const relay = await Relay.new(
-        relayInitialConfig,
-        constants.ZERO_ADDRESS,
-        constants.ZERO_ADDRESS
-      );
-
-      // chainId: the file-level value (set in before()) is used both for the RLY-23 digest
-      // binding above and for the RelayGovernanceConfig.chainId field below.
-
-      const NEW_FEE = "1000";
-      const newRelayGovernanceConfig: RelayGovernanceConfig = {
-        descriptionHash: relayGovernanceDescriptionHash,
-        chainId,
-        nonce: 1,
-        newFeeConfigs: [
-          {
-            protocolId: 2,
-            feeInWei: NEW_FEE
-          }
-        ]
-      }
-
-      async function prepareRelayMessage(config: RelayGovernanceConfig, numSignatures = N / 2 + 1, protocolId = 1, votingRoundId = 0, newRewardEpochId?: number) {
-        const newMessageData = { ...messageData };
-        newMessageData.merkleRoot = hashRelayGovernanceConfig(config, relay.address);
-        newMessageData.votingRoundId = votingRoundId;
-        newMessageData.isSecureRandom = false;
-        newMessageData.protocolId = protocolId;
-        const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
-        const signatures = await generateSignatures(
-          accountPrivateKeys,
-          messageHash,
-          numSignatures
-        );
-
-        const tmpSigningPolicyData = { ...signingPolicyData };
-        if (newRewardEpochId) {
-          tmpSigningPolicyData.rewardEpochId = rewardEpochId;
-        }
-        const relayMessage = {
-          signingPolicy: tmpSigningPolicyData,
-          signatures,
-          protocolMessageMerkleRoot: newMessageData,
-        };
-        const fullData = RelayMessage.encode(relayMessage);
-        return selector + fullData.slice(2)
-      }
-      for (const feeChange of newRelayGovernanceConfig.newFeeConfigs) {
-        expect((await relay.protocolFeeInWei(feeChange.protocolId)).toString()).to.equal("0");
-        const setupTx = await relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig);
-        expectEvent(setupTx, "RelayGovernanceFeeConfigured", { feeInWei: NEW_FEE, nonce: "1" });
-        expect((await relay.protocolFeeInWei(feeChange.protocolId)).toString()).to.equal(NEW_FEE);
-      }
-      expect((await relay.governanceFeeNonce()).toString()).to.equal("1");
-
-      // RLY-02: replaying an accepted governance message is rejected (nonce did not increase).
-      await expectRevert(
-        relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig),
-        "nonce too low"
-      );
-
-      // RLY-02: a strictly-greater (non-sequential) nonce is accepted.
-      const bumpConfig: RelayGovernanceConfig = {
-        descriptionHash: relayGovernanceDescriptionHash,
-        chainId,
-        nonce: 5,
-        newFeeConfigs: [{ protocolId: 2, feeInWei: "2000" }]
-      };
-      await relay.governanceFeeSetup(await prepareRelayMessage(bumpConfig), bumpConfig);
-      expect((await relay.protocolFeeInWei(2)).toString()).to.equal("2000");
-      expect((await relay.governanceFeeNonce()).toString()).to.equal("5");
-
-      // RLY-02: a nonce <= the current one (3 < 5) is rejected, even though > the original nonce.
-      const staleConfig: RelayGovernanceConfig = {
-        descriptionHash: relayGovernanceDescriptionHash,
-        chainId,
-        nonce: 3,
-        newFeeConfigs: [{ protocolId: 2, feeInWei: "3000" }]
-      };
-      await expectRevert(
-        relay.governanceFeeSetup(await prepareRelayMessage(staleConfig), staleConfig),
-        "nonce too low"
-      );
-      expect((await relay.protocolFeeInWei(2)).toString()).to.equal("2000");
-
-      newRelayGovernanceConfig.descriptionHash = web3.utils.keccak256("Something else");
-      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig), "wrong description hash");
-      newRelayGovernanceConfig.descriptionHash = relayGovernanceDescriptionHash;
-      newRelayGovernanceConfig.chainId = newRelayGovernanceConfig.chainId + 1;
-      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig), "wrong chain id");
-      newRelayGovernanceConfig.chainId = newRelayGovernanceConfig.chainId - 1;
-      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig, Math.round(N / 4)), newRelayGovernanceConfig), "Verification failed");
-      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig, N / 2 + 1, 5, signingPolicyData.startVotingRoundId), newRelayGovernanceConfig), "Wrong verification data");
-
-      const tmpRelayGovernanceConfig = { ...newRelayGovernanceConfig };
-      tmpRelayGovernanceConfig.newFeeConfigs = tmpRelayGovernanceConfig.newFeeConfigs.map(x => ({ ...x }));
-      tmpRelayGovernanceConfig.newFeeConfigs[0].feeInWei = NEW_FEE + "1";
-      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), tmpRelayGovernanceConfig), "Invalid config hash");
-
-      await relayNewSigningPolicy(signingPolicyData.rewardEpochId + 1, relay.address);
-      await relayNewSigningPolicy(signingPolicyData.rewardEpochId + 2, relay.address);
-      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig), "too old signing policy");
-    });
-  });
-
   describe("Random number test", () => {
     it("Should historical random number work", async () => {
       const signingPolicyData = defaultTestSigningPolicy(
@@ -2228,7 +2103,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay = await Relay.new(
@@ -2319,7 +2199,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relay1 = await Relay.new(
@@ -2512,7 +2397,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relayInitialConfigNewFlare: RelayInitialConfig = {
@@ -2527,7 +2417,12 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
-        feeConfigs: []
+        feeConfigs: [],
+        governanceSourceChainId: 0,
+        governanceSafe: "0x0000000000000000000000000000000000000000",
+        governanceThreshold: 0,
+        governanceOwners: [],
+        governanceSafeNonce: 0
       }
 
       const relayOldFlare = await Relay.new(
