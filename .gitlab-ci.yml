@@ -510,7 +510,8 @@ coverage-forge-node_modules:
   - apt-get update -y && apt-get install -y rsync
   script:
   - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
-  - rsync -zarvm --include "*/" --include="*.sol" --exclude="*" node_modules/ node_modules.sol
+  # The production rehearsal deploys these exact Safe v1.3.0 release artifacts.
+  - rsync -zarvm --include "*/" --include="*.sol" --include="GnosisSafeL2.json" --include="GnosisSafeProxy.json" --include="CompatibilityFallbackHandler.json" --exclude="*" node_modules/ node_modules.sol
   artifacts:
     expire_in: 5 minutes
     paths:
