@@ -8,9 +8,10 @@ mathematician / computer scientist but *not* yet fluent in the verification tool
 run, and trust everything here.
 
 > **Scope:** the exact manifest covers the signing-policy, `relay()`, Merkle,
-> randomness, and verification-fee core. It does not cover
-> `processGSSMessage`, GSS owner rotation, or GSS fee updates. Their current
-> evidence and pending proof obligations are recorded in
+> randomness, verification-fee core, and the bounded post-recovery GSS signer
+> and action state machines. Safe EIP-712 digest equivalence and successful Safe
+> execution are differential/concrete boundaries, not Halmos claims. The exact
+> boundary and residuals are recorded in
 > [`docs/gss-governance.md`](../../docs/gss-governance.md).
 
 ---
@@ -98,6 +99,9 @@ everything (node deps, forge build, the reference venv `./.venv-halmos`) and end
 ```bash
 python3 test-forge/fv/verify_relay_revert_abi.py \
   --report-output verification-reports/relay-revert-abi.json
+python3 test-forge/fv/verify_gss_governance.py \
+  --report-output verification-reports/relay-gss-governance.json
+node scripts/verify-gss-source-safe.js
 HALMOS=$PWD/.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py \
   --report-output verification-reports/relay-halmos.json
 ```
@@ -106,6 +110,11 @@ The first command enforces the legacy `relay()` assembly failure ABI. The exact
 manifest pins all 37 `revertWithMessage` calls; the gate rejects inventory drift,
 nonliteral messages, hand-counted length mismatches, and messages longer than
 the helper's single 32-byte payload word.
+
+Before invoking Halmos, the second command checks the pinned Foundry version and
+force-rebuilds AST-complete Forge artifacts. This prevents an ordinary incremental
+`forge build` or `forge test` from leaving fresh AST-less artifacts that Halmos 0.3.3
+would otherwise skip.
 
 CI also runs [`verify_relay_artifact.py`](verify_relay_artifact.py). It recompiles Relay with the pinned FV
 compiler, proves that its metadata-stripped creation and runtime bytecode equal the Hardhat deployment
@@ -148,6 +157,9 @@ cp <repo>/test-forge/fv/lean/RelaySigLoop.lean . && lake env lean RelaySigLoop.l
   cryptography uninterpreted. See [`kontrol/README.md`](kontrol/README.md).
 - **Certora** — [`../../certora/specs/RelayInvariants.spec`](../../certora/specs/RelayInvariants.spec): storage
   invariants in CVL; `ecrecover`/self-call/`oldRelay` left `NONDET` so they cannot havoc `Relay`'s storage.
+  [`verify_certora_local.py`](verify_certora_local.py) fail-closes on compiler,
+  CVL typecheck, config, toolchain, and munge drift. It is not a cloud-proof
+  substitute.
 
 ---
 
@@ -208,8 +220,16 @@ The full trust base — every assumption, where it lives, and how it is discharg
 (the shared `RelayTestBase` calldata encoders, reused by the Halmos harnesses) ·
 [`verify_fv.py`](verify_fv.py) (the CI gate) · [`lean/`](lean/) (R4 Lean proofs) · [`kontrol/`](kontrol/).
 
-The GSS governance path is not yet part of this formal-proof inventory. Its current
-evidence is the concrete real-Safe integration coverage under
-`test-forge/unit/governance/`. No Halmos, Lean, or Kontrol result should be cited as
-proving `processGSSMessage`, owner rotation, or GSS fee updates until dedicated checks
-are added to this manifest and pass the corresponding gates.
+**GSS governance.** [`GSSGovernanceFV.t.sol`](GSSGovernanceFV.t.sol) contributes
+13 proofs and 2 reachability controls for the internal post-recovery signer and
+verified-action boundaries. [`verify_gss_governance.py`](verify_gss_governance.py)
+requires the exact 36-test real-Safe, production-rehearsal, and stateful-invariant
+inventory. [`../../scripts/verify-gss-source-safe.js`](../../scripts/verify-gss-source-safe.js)
+pins the production Safe shape at one fixed Flare block.
+
+The full Halmos inventory is 101 checks: 71 proofs and 30 validated reachability
+controls. Do not cite it as a proof of ECDSA, the complete Safe digest algorithm,
+successful source execution, or GSS behavior beyond the exposed bounded state
+machines. Kontrol and Lean still cover only the signing-policy relay core. The
+current Certora rules pass the local compile/typecheck gate; cloud proof remains
+pending.

@@ -1,9 +1,11 @@
 # L13 — Residual weaknesses & attack surface (proof-grounded review)
 
-> **Scope note:** this is the residual review of the deployed/pre-GSS
-> `relay-fix-3` target. Legacy fee-governance findings and 89-check proof counts
-> are intentionally preserved as historical facts. The GSS branch's additional
-> residuals and proof gaps are in [`gss-governance.md`](../gss-governance.md).
+> **Scope note:** sections centered on the currently deployed pre-GSS contract
+> retain their historical labels. The current branch's GSS residuals and exact
+> proof boundary are in [`gss-governance.md`](../gss-governance.md). Its section
+> 16 records each current GSS residual as a conditionally accepted design choice,
+> with required controls and stronger design alternatives. The current combined
+> Halmos gate is 101 checks (71 proofs, 30 controls).
 
 > **What you get from this level.** An honest, proof-grounded inventory of what could still go wrong in the
 > **currently deployed-target `Relay.sol`** (`relay-fix-3`). It reads the whole verification effort *backwards*:
@@ -28,9 +30,20 @@ below is tagged with its **class**, **severity if it went wrong**, and **current
 | **trust boundary** | an assumption the proofs rest on (crypto, governance, external contracts) | no — attack surface *if* the assumption is false; irreducible by design |
 | **coverage gap** | a place the proofs do not reach ("is what we proved about *exactly* the deployed bytes?") | possibly — where a bug could still hide |
 | **deferred** | a known issue consciously accepted / documented, not fixed | known trade-off; mostly neutralized |
+| **accepted design choice** | intentional protocol behavior whose exposure stays inside the declared governance/asynchrony trust model | no — acceptable only while its stated controls and assumptions remain true |
 | **regression risk** | proven safe *today*, catastrophic if a future edit breaks it | no — a maintenance hazard |
 
 This review is ordered by **how much attention each deserves**, not severity alone.
+
+For GSS, acceptance is based on the Safe owner threshold being the remote authority,
+targets progressing asynchronously, and the threshold being trusted not to authorize
+contradictory or destructive actions. A confirmed source-Safe receipt is useful defense
+in depth but cannot be the security boundary of permissionless Relay submission. The
+accepted items therefore remain visible risks with review triggers; they have not been
+reclassified as proven properties. See the canonical
+[`DR-01` through `DR-14` register](../gss-governance.md#162-accepted-design-risk-register)
+for source-proof, nonce, deployment-domain, owner-transition, fee-policy, signature-mode,
+and gas-cap alternatives.
 
 ---
 
@@ -42,7 +55,10 @@ a [validated EVM semantics](CONCEPTS.md#18-validated-semantics-a-evm), the follo
 - **Threshold soundness & no-double-count** — the [`RelaySigLoop.threshold_sound`](../../test-forge/fv/lean/RelaySigLoop.lean#L102) capstone (∀N∀K) and its contrapositive; lifted onto the deployed 17-statement loop body with real masked memory reads (R4b), corroborated bounded on real bytecode (`RelaySigFV`, `RelaySigParamFV`) and tied to the ∀K model by `RelayModelBridgeFV`.
 - **The `ecrecover` guard triad** rejects the empty-return / stale-buffer failure mode and zero signer (`RelayEcrecoverSymbolicFV`, `RelayEcrecoverABI.t.sol`); canonical-ECDSA (`RelayCanonicalityFV`).
 - **The whole `relay()` epoch-decision matrix**, threshold consistency, access control, constructor fail-closure, governance-nonce replay protection, Merkle & random binding, and fee conservation (the Halmos suite, bounded).
-- **Cross-transaction storage invariants** — nonce/epoch monotonicity, setter immutability, hash/root write-once — for every function except `relay()` itself (Certora, C-1 discharged 2026-07), plus per-sequence forms on the real bytecode.
+- **Cross-transaction storage invariants** — the pre-GSS nonce/epoch, setter,
+  and hash/root rules were cloud-proven for every modeled function except
+  `relay()` itself. Current GSS rules pass local compilation/typechecking; their
+  cloud proof remains pending. Per-sequence GSS forms are bounded in Halmos.
 
 The residuals below are the *complement* of this list.
 
@@ -59,7 +75,12 @@ Low severity for the most part, but **live** — a maintainer or integrator shou
 **T1-c · The V1 proxies strip the `isSecureRandom` flag** — `FtsoProxy.sol:59-64,152-155` and `PriceSubmitterProxy.sol:35-49` (**RLY-12**, compounding **RLY-20**). *Class: deferred.* A live V1 consumer gets randomness with **no security signal** — possibly a bootstrap `0` — and `FtsoProxy` offers *no* quality-aware alternative at all (`PriceSubmitterProxy` at least has `getCurrentRandomWithQuality()`). "Migrate to V2" misses exactly the V1 callers at risk. Low-medium for any still-live V1 integration.
 
 **T1-d · Two accepted rationales are thin enough to revisit** — both cheap to harden:
-- **L-5 — irreversible fee-nonce bricking** (`Relay.sol:493`): one accepted message carrying a near-`uint256.max` nonce **permanently** locks all future fee configuration (no recovery short of redeploy). Needs a valid quorum signature, so it is a governance-trust risk, not an external exploit — but a sequential or bounded-delta nonce would remove the footgun at zero security cost.
+- **L-5 — irreversible fee-nonce bricking** was a deployed/pre-GSS finding and
+  that function is removed on the GSS branch. The analogous current behavior is
+  accepted design risk DR-08/TIM-A7: a threshold-signed `uint256.max` Safe nonce
+  can exhaust remote fee updates because gaps are intentionally allowed. It is
+  governance self-harm, not an unprivileged bypass; on-chain alternatives are
+  listed in [`gss-governance.md`](../gss-governance.md#162-accepted-design-risk-register).
 - **`messageFinalizationWindowInRewardEpochs` unvalidated in the constructor** (`Relay.sol:266`): `0` ⇒ only the current epoch can ever finalize; very large ⇒ staleness protection is effectively off. It sits a few lines from the RLY-11 duration checks that *do* bound their inputs — an inconsistent-hardening gap a cheap `require` would close.
 
 **T1-e · Off-chain-dependent residuals the contract cannot enforce:**
@@ -117,7 +138,7 @@ Solidity-level failure modes stand out, all currently safe:
 2. **An early `return` inserted into the RLY-08 window** (`Relay.sol:1149`→`1340`) would leak an unverified signing policy — the write-before-verify pattern relies entirely on there being *no* success-return before the accept gate.
 3. **Drift between the packed-`StateData` bit offsets** (`Relay.sol:85-144`) and the struct field order, or between the hand-tracked scratch-memory slot liveness and its comments — either would silently corrupt an adjacent field.
 
-None is enforced by the type system; the comments (`"NO CODE SHOULD BE ADDED HERE"`, `"if you change this, you have to adapt the assembly"`) are the only source-level guard. **This is exactly what the FV suite catches on change** — the Halmos gate (60 proofs + 29 anti-vacuity controls, [CEX discipline](CONCEPTS.md#7-what-is-a-cex-counterexamples-and-why-half-the-suite-celebrates-them)), the [hole-free](CONCEPTS.md#13-hole-free-and-print-axioms) Lean bytecode refinement, and the Certora storage invariants. It is the strongest argument for keeping the three CI gates green on every future edit.
+None is enforced by the type system; the comments (`"NO CODE SHOULD BE ADDED HERE"`, `"if you change this, you have to adapt the assembly"`) are the only source-level guard. **This is exactly what the FV suite catches on change** — the Halmos gate (71 proofs + 30 anti-vacuity controls, [CEX discipline](CONCEPTS.md#7-what-is-a-cex-counterexamples-and-why-half-the-suite-celebrates-them)), the [hole-free](CONCEPTS.md#13-hole-free-and-print-axioms) Lean bytecode refinement, and the locally checked Certora specifications (current cloud proof still pending). It is the strongest argument for keeping the automated gates green on every future edit.
 
 ---
 

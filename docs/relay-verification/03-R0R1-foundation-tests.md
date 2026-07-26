@@ -28,8 +28,10 @@ Section 3.5 itemizes the remaining 51 tests. A sibling
 file [`RelayChainDomain.t.sol`](../../test-forge/unit/protocol/implementation/RelayChainDomain.t.sol) adds **8**
 RLY-23 chain-domain-binding tests (cross-chain replay rejection, fork fail-closed, same-chain acceptance, and a
 legacy migration A/B against the `contracts/mock/RelayMainDeployed.sol` pre-RLY-23 Relay), reusing the same
-`RelayTestBase` harness. The real-Safe GSS governance suite adds **15** tests in
-[`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol).
+`RelayTestBase` harness. The exact GSS gate adds **36** tests: 30 in
+[`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol),
+3 production-shape tests using exact Safe v1.3.0 release artifacts, and 3
+state-machine tests including 16,384 randomized handler calls.
 Together these suites span all three `relay()` modes, migration behavior, and the
 new governance entry point:
 
@@ -46,7 +48,9 @@ new governance entry point:
 - **GSS governance:** the pinned Safe v1.3.0 fixture covers digest equivalence,
   threshold signatures, helper-target independence, owner staging and native
   Safe rotation, per-target fee extraction, replay/nonce behavior, malformed
-  inputs, and deployment restrictions. Its exact security scope is recorded in
+  inputs, canonical and maximum-size fee batches, delayed-rotation ordering,
+  deployment restrictions, same-nonce conflicts, removed-owner lag, source
+  cancellation, and terminal future-nonce exhaustion. Its exact security scope is recorded in
   [`gss-governance.md`](../gss-governance.md).
 - **Randomness:** happy-path stores the proven value; **monotonicity** (stale round does not regress,
   across reward epochs); invalid/missing/short/malformed-trailer reverts; deep Merkle proof; secure-bit

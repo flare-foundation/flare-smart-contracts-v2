@@ -75,7 +75,7 @@ but not the whole ∀N∀K story either.
 
 ---
 
-## 5.2 Certora — all-functions storage invariants (specified, blocked by the wall)
+## 5.2 Certora — all-functions storage invariants (locally checked, cloud pending)
 
 **Tool:** `certora-cli 8.16.1`. **Artifacts:** [`certora/Relay.conf`](../../certora/Relay.conf), [`certora/specs/RelayInvariants.spec`](../../certora/specs/RelayInvariants.spec),
 [`certora/README.md`](../../certora/README.md).
@@ -84,18 +84,21 @@ Certora's distinctive strength is **parametric** invariants: a `rule … (method
 external/public method and arbitrary arguments — i.e., over all callers and all call sequences, not just
 the specific sequences Halmos/Kontrol enumerate. The spec targets exactly the cross-transaction **storage**
 properties where that would beat the other tools. The checked-in source contains
-**five current invariants**. Four retain the pre-GSS properties; the fifth
-replaces the deleted `governanceFeeNonce` rule with monotonicity of
-`lastGovernanceSafeNonce`. The 2026-07 cloud runs predate GSS and must not be
-cited for the current rule set:
+**eight current invariants**. Four retain the pre-GSS properties; four cover
+the GSS global nonce high-water mark, owner-generation monotonicity,
+hash/generation coupling, and consumed-nonce permanence. The 2026-07 cloud
+runs predate GSS and must not be cited for the current rule set:
 
 | Rule | Property | Current GSS status |
 |------|----------|--------|
-| `governanceSafeNonceMonotonic` | `lastGovernanceSafeNonce` never decreases, ∀ function | current cloud run pending |
-| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15)) | historical baseline proven; current rerun pending |
-| `signingPolicySetterImmutable` | the setter authority is immutable after construction | historical baseline proven; current rerun pending |
-| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the in-spec reachable-state link) | historical baseline proven; current rerun pending |
-| `merkleRootWriteOnce` | a finalized Merkle root is write-once per `(protocolId, votingRoundId)` | historical baseline proven; current rerun pending |
+| `governanceSafeNonceMonotonic` | `lastGovernanceSafeNonce` never decreases, ∀ function | local typecheck pass; cloud proof pending |
+| `governanceOwnerConfigSafeNonceMonotonic` | owner-configuration generations never regress, ∀ function | local typecheck pass; cloud proof pending |
+| `governanceOwnerHashChangeAdvancesGeneration` | a changed owner hash strictly advances its generation | local typecheck pass; cloud proof pending |
+| `governanceConsumedNonceWriteOnce` | a consumed Safe nonce can never become reusable | local typecheck pass; cloud proof pending |
+| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15)) | historical cloud baseline; current local typecheck pass; cloud proof pending |
+| `signingPolicySetterImmutable` | the setter authority is immutable after construction | historical cloud baseline; current local typecheck pass; cloud proof pending |
+| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the in-spec reachable-state link) | historical cloud baseline; current local typecheck pass; cloud proof pending |
+| `merkleRootWriteOnce` | a finalized Merkle root is write-once per `(protocolId, votingRoundId)` | historical cloud baseline; current local typecheck pass; cloud proof pending |
 
 `ecrecover` is left NONDET (modeling-contract A2): the storage invariants must hold regardless of which
 signatures the prover admits.
@@ -103,13 +106,14 @@ signatures the prover admits.
 **Historical baseline status:** cloud-proven non-vacuously (`rule_sanity
 basic`) for every then-present function except `relay()` — and except
 `setSigningPolicy` under via-ir (the legacy-codegen runs covered it). The
-current local typecheck and cloud proof must be rerun. The historical wall, for
+current local gate passes both configured compilation/typecheck runs; the cloud
+proof must still be rerun. The historical wall, for
 the record:
 
-- The specs pass Certora's **local** pipeline — `certoraRun certora/Relay.conf --compilation_steps_only` —
+- The specs pass the pinned Certora **local** gate — `verify_certora_local.py` —
   which compiles [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol) under Certora and **typechecks the spec against the real contract** (exit 0,
-  only benign OZ-`MerkleProof` summarization warnings). So the rules are confirmed **well-formed against the
-  actual contract**, not just syntactically.
+  for both `Relay.conf` and `Relay-writeonce.conf`, after exact munge validation). So the rules are confirmed
+  **well-formed against the actual contract**, not just syntactically. This is not a proof verdict.
 - The actual proof runs on Certora's **cloud** (needs `CERTORAKEY`). **Two cloud runs were executed**
   (run 2 added `HAVOC_ECF` + a uint32-wrap guard):
   - run 1: `https://prover.certora.com/output/3798318/a9a6c094009f4711852a166db63ac06f`
@@ -193,7 +197,9 @@ Pinned: Kontrol `v1.0.248`, K `v7.1.334`, toolchain `nixpkgs @ 9eac87a…`, base
 **Certora** (needs an account/key for the cloud proof):
 
 ```bash
-pip install certora-cli            # tested: 8.16.1
+pip install certora-cli==8.16.1
+# no key/cloud; JDK 21+ and exact solc 0.8.27 required:
+python3 test-forge/fv/verify_certora_local.py --solc /path/to/solc-0.8.27
 export CERTORAKEY=<your key>
 # the discharged runs (see certora/README.md for the full matrix + report links):
 certoraRun certora/Relay-rawstorage.conf --solc /path/to/solc-0.8.27      # 3 scalar rules, via-ir: 19/21
@@ -203,7 +209,6 @@ certoraRun certora/Relay-writeonce.conf --solc /path/to/solc-0.8.27       # writ
 certoraRun certora/Relay-writeonce-B2.conf --solc /path/to/solc-0.8.27    # write-once, legacy: 22/23
 # the historical wall, for comparison (spurious violations):
 certoraRun certora/Relay.conf --solc /path/to/solc-0.8.27
-certoraRun certora/Relay.conf --compilation_steps_only --solc /path/to/solc-0.8.27   # local typecheck (no key)
 ```
 
 Judge from the per-rule statuses in the report (`SUCCESS` = proven non-vacuously; `SANITY_FAIL` = the

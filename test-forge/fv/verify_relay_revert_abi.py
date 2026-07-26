@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
@@ -17,6 +18,13 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 DEFAULT_MANIFEST = HERE / "verification-manifest.json"
 IDENTIFIER = re.compile(r"\b[A-Za-z_$][A-Za-z0-9_$]*\b")
+
+
+def git_commit() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=False
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
 def mask_comments(source: str) -> str:
@@ -296,13 +304,16 @@ def main() -> int:
     parser.add_argument("--report-output", type=Path)
     args = parser.parse_args()
     try:
-        manifest = json.loads(args.manifest.read_text())
+        manifest_bytes = args.manifest.read_bytes()
+        manifest = json.loads(manifest_bytes)
         config = manifest["relay_revert_abi"]
         configured_source = Path(config["source"])
         source_path = args.source or (REPO / configured_source)
         source_bytes = source_path.read_bytes()
         source = source_bytes.decode("utf-8")
         report = audit_source(source, config)
+        report["git_commit"] = git_commit()
+        report["manifest_sha256"] = hashlib.sha256(manifest_bytes).hexdigest()
         report["source"] = {
             "path": str(source_path.resolve().relative_to(REPO.resolve())),
             "sha256": hashlib.sha256(source_bytes).hexdigest(),

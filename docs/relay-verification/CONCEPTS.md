@@ -320,7 +320,7 @@ bad outcome: the property is violated, a verified fact regressed — hard failur
 negation of something that should be possible ("acceptance can never happen"), so the solver
 must refute it with a witness. If a control ever *passes* — no counterexample exists — the
 interesting path became unreachable and every proof guarding it is true only **vacuously**.
-Hence the unusual spectacle of CI celebrating counterexamples: "28/28 reachability controls
+Hence the unusual spectacle of CI celebrating counterexamples: "30/30 reachability controls
 have validated counterexamples" is a green line; a *missing* CEX is the alarm. (This is the
 anti-vacuity discipline — born of the `--loop 2` incident, where a too-small loop bound
 silently cut off the accept path and negative properties passed for the wrong reason.)

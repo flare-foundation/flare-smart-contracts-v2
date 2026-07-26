@@ -34,6 +34,7 @@ interface IRelay is RandomNumberV2Interface {
         address governanceSafe;
         uint256 governanceThreshold;
         address[] governanceOwners;
+        uint256 governanceOwnerConfigSafeNonce;
         uint256 governanceSafeNonce;
     }
 

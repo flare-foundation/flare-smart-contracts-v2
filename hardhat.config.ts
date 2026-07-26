@@ -312,7 +312,11 @@ task("offer-rewards", "Generate and send community reward offers").setAction(asy
 
 task("redeploy-contracts", "Redeploy contracts")
   .addFlag("quiet", "Suppress console output")
-  .setAction(async (args: { quiet: boolean }, hre, runSuper) => {
+  .addOptionalParam(
+    "oldRelayPolicyHashScheme",
+    "Required for Relay migration: 'legacy' or 'chain-bound'"
+  )
+  .setAction(async (args: { quiet: boolean, oldRelayPolicyHashScheme?: string }, hre, runSuper) => {
     if (!process.env.OLD_CONTRACTS_PATH) {
       throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
     }
@@ -321,7 +325,14 @@ task("redeploy-contracts", "Redeploy contracts")
       const network = process.env.CHAIN_CONFIG!;
       const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
       const contracts = readContracts(network);
-      await redeployContracts(hre, oldContracts, contracts, parameters, args.quiet);
+      await redeployContracts(
+        hre,
+        oldContracts,
+        contracts,
+        parameters,
+        args.oldRelayPolicyHashScheme,
+        args.quiet
+      );
     } else {
       throw Error("CHAIN_CONFIG environment variable not set.");
     }
@@ -329,12 +340,22 @@ task("redeploy-contracts", "Redeploy contracts")
 
 task("redeploy-relay", "Redeploy relay contract")
   .addFlag("quiet", "Suppress console output")
-  .setAction(async (args: { quiet: boolean }, hre, runSuper) => {
+  .addParam(
+    "oldRelayPolicyHashScheme",
+    "Old Relay hash scheme: 'legacy' or 'chain-bound'"
+  )
+  .setAction(async (args: { quiet: boolean, oldRelayPolicyHashScheme: string }, hre, runSuper) => {
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
       const network = process.env.CHAIN_CONFIG!;
       const contracts = readContracts(network);
-      await redeployRelay(hre, contracts, parameters, args.quiet);
+      await redeployRelay(
+        hre,
+        contracts,
+        parameters,
+        args.oldRelayPolicyHashScheme,
+        args.quiet
+      );
     } else {
       throw Error("CHAIN_CONFIG environment variable not set.");
     }

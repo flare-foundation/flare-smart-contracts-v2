@@ -544,7 +544,7 @@ per-slot by `weight_read` — are the stated hypotheses.
 
 §F.3's `relay_loop_sound` still takes the per-slot memory invariant `hcov` and the masked-read correspondence
 `hcorr` as hypotheses. The literal model removes them by transliterating the deployed signature-verification loop
-body — all 17 statements of `relay_ir_optimized.yul:2010-2053` — into the Yul AST (`bodyL`) and executing it
+body — all 17 statements of `relay_ir_optimized.yul:2159-2202` — into the Yul AST (`bodyL`) and executing it
 through EVMYulLean's real `exec`/`eval`. `RelayLoopLiteral` supplies `bodyL`, the interpreter atoms, and the
 calldata decode (`sigIdxAt`/`voterWeightAt`/`voterSignerAt`/`weightsOf`); `RelayLoopWindows` the byte-window
 decode lemmas; `RelayBodyEff` composes them. Four registered deviations (D1–D4: folded addressing, revert payloads

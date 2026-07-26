@@ -394,10 +394,12 @@ signs) gains the domain, so `verify()` reads, FDC/FTSO consumers, and the leaf f
 (`chainBoundHash`) is the single wrap definition; `SigningPolicy.hash`/`hashEncoded` and
 `ProtocolMessageMerkleRoot.hash` take a required `chainId` and return the chain-bound value;
 `RelayMessage.encode(msg, verify=true, chainId)` requires it. Deploy scripts bind to the deployment chain;
-`redeploy-relay.ts` carries the migration note (wrap once when migrating from a pre-RLY-23 relay, never from
-a new one). All validators + all deployments + off-chain libs must cut over together, ideally at a
-reward-epoch boundary; the two digest formats are distinct so no cross-format replay is possible in either
-direction during transition.
+`redeploy-relay.ts` and the non-initial `redeploy-contracts.ts` path now require the operator to declare the
+old Relay's hash scheme explicitly (`legacy` or `chain-bound`). The shared migration helper wraps a legacy
+hash exactly once, passes an already chain-bound hash through, and rejects zero, malformed, or ambiguous
+input before deployment; its three fail-closed branches are unit-tested. All validators + all deployments +
+off-chain libs must cut over together, ideally at a reward-epoch boundary; the two digest formats are
+distinct so no cross-format replay is possible in either direction during transition.
 
 **Tests.** New Foundry `RelayChainDomain.t.sol` (8): cross-chain rejection of messages, policy rotations and
 custom signatures (14 vs 19, identical voter set → `"Wrong signature"`); stored hash structurally

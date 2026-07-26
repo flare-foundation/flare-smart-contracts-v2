@@ -48,6 +48,7 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, accounts => {
       governanceSafe: "0x0000000000000000000000000000000000000000",
       governanceThreshold: 0,
       governanceOwners: [],
+      governanceOwnerConfigSafeNonce: 0,
       governanceSafeNonce: 0
     }
 

@@ -4,6 +4,7 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "verify_fv.py"
@@ -49,6 +50,27 @@ def payload(*checks: dict, exitcode: int = 1) -> dict:
 
 
 class EvaluateResultsTest(unittest.TestCase):
+    def test_extracts_pinned_foundry_version(self) -> None:
+        output = """forge Version: 1.7.1
+Commit SHA: 4072e48705af9d93e3c0f6e29e93b5e9a40caed8
+Build Profile: dist
+"""
+        self.assertEqual("1.7.1", verify_fv._foundry_version(output))
+        self.assertEqual("unavailable", verify_fv._foundry_version("forge failed"))
+
+    def test_halmos_prebuild_forces_ast_complete_artifacts(self) -> None:
+        completed = Mock(returncode=0, stdout="", stderr="")
+        with patch.object(verify_fv.subprocess, "run", return_value=completed) as run:
+            self.assertEqual(0, verify_fv._prepare_halmos_artifacts())
+        command = run.call_args.args[0]
+        self.assertEqual("forge", command[0])
+        self.assertIn("--force", command)
+        self.assertIn("--ast", command)
+        self.assertEqual(
+            ["storageLayout", "metadata"],
+            command[command.index("--extra-output") + 1:],
+        )
+
     def test_accepts_exact_pass_and_valid_counterexample(self) -> None:
         report = verify_fv.evaluate_results(
             payload(

@@ -9,11 +9,13 @@ import { spewNewContractInfo } from './deploy-utils';
 import { RelayInitialConfig } from '../utils/RelayInitialConfig';
 import { FlareSystemsManagerContract, FlareSystemsManagerInstance, RelayContract } from '../../typechain-truffle';
 import { Account } from 'web3-core';
+import { signingPolicyHashForMigration } from '../utils/SigningPolicyHashMigration';
 
 export async function redeployRelay(
   hre: HardhatRuntimeEnvironment,
   contracts: Contracts,
   parameters: ChainParameters,
+  oldRelayPolicyHashScheme: string,
   quiet: boolean = false
 ) {
   const web3 = hre.web3;
@@ -41,12 +43,13 @@ export async function redeployRelay(
 
   const nextRewardEpochId = (await flareSystemsManager.getCurrentRewardEpochId()).toNumber() + 1;
   const startVotingRoundId = await flareSystemsManager.getStartVotingRoundId(nextRewardEpochId);
-  // RLY-23 MIGRATION NOTE: the new Relay stores/verifies CHAIN-BOUND policy hashes
-  // (keccak256(chainid ‖ contentHash)). If `oldRelay` predates RLY-23, its getter returns the bare
-  // content hash and the value below MUST be wrapped once with chainBoundHash(hash, chainId)
-  // (scripts/libs/protocol/ChainDomain.ts) before deployment; if `oldRelay` is already RLY-23,
-  // the value is already chain-bound and must NOT be wrapped again. Decide at cutover time.
-  const signingPolicyHash = await oldRelay.toSigningPolicyHash(nextRewardEpochId);
+  const oldSigningPolicyHash = await oldRelay.toSigningPolicyHash(nextRewardEpochId);
+  const chainId = await web3.eth.getChainId();
+  const signingPolicyHash = signingPolicyHashForMigration(
+    oldSigningPolicyHash,
+    chainId,
+    oldRelayPolicyHashScheme
+  );
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: nextRewardEpochId,
     startingVotingRoundIdForInitialRewardEpochId: startVotingRoundId.toNumber(),
@@ -64,6 +67,7 @@ export async function redeployRelay(
     governanceSafe: "0x0000000000000000000000000000000000000000",
     governanceThreshold: 0,
     governanceOwners: [],
+    governanceOwnerConfigSafeNonce: 0,
     governanceSafeNonce: 0
   }
 
@@ -79,4 +83,3 @@ export async function redeployRelay(
     console.error("Deploy complete.");
   }
 }
-

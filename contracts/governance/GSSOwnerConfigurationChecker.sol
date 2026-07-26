@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { GSSGovernance } from "./GSSGovernance.sol";
+import {GSSGovernance} from "./GSSGovernance.sol";
 
 interface IGSSSafeView {
     function getOwners() external view returns (address[] memory);
@@ -20,14 +20,12 @@ contract GSSOwnerConfigurationChecker {
     address public immutable gss;
     uint256 public latestSafeNonce;
     bytes32 public activeOwnerConfigHash;
+    uint256 public activeOwnerConfigSafeNonce;
     uint256 private constant MAX_GOVERNANCE_OWNERS = 256;
     uint256 private constant MAX_GOVERNANCE_FEE_UPDATES = 256;
 
     event OwnerConfigurationChanged(
-        uint256 indexed safeNonce,
-        bytes32 indexed ownerConfigHash,
-        uint256 threshold,
-        address[] owners
+        uint256 indexed safeNonce, bytes32 indexed ownerConfigHash, uint256 threshold, address[] owners
     );
 
     event ProtocolFeesChecked(uint256 indexed safeNonce, bytes32 indexed ownerConfigHash, uint256 updateCount);
@@ -62,8 +60,9 @@ contract GSSOwnerConfigurationChecker {
         }
         if (owners.length > MAX_GOVERNANCE_OWNERS) revert InvalidOwnerConfiguration();
         _validate(owners, threshold);
-        bytes32 liveHash = _liveOwnerConfigHash();
-        newHash = _hashCalldata(threshold, owners);
+        bytes32 liveHash =
+            _liveOwnerConfigHash(activeOwnerConfigHash == bytes32(0) ? safeNonce : activeOwnerConfigSafeNonce);
+        newHash = _hashCalldata(safeNonce, threshold, owners);
         if (activeOwnerConfigHash == bytes32(0)) {
             // Bootstrap attests the Safe's already-live owner configuration.
             if (newHash != liveHash) revert OwnerConfigurationMismatch(newHash, liveHash);
@@ -73,17 +72,14 @@ contract GSSOwnerConfigurationChecker {
             revert OwnerConfigurationMismatch(liveHash, activeOwnerConfigHash);
         }
         latestSafeNonce = safeNonce;
+        activeOwnerConfigSafeNonce = safeNonce;
         activeOwnerConfigHash = newHash;
         emit OwnerConfigurationChanged(safeNonce, newHash, threshold, owners);
     }
 
     /// @notice Source-chain checker for the same governance calldata relayed to target chains.
     /// @dev It deliberately does not store target-chain fees; target Relays extract their own updates.
-    function changeProtocolFees(
-        uint256 safeNonce,
-        bytes32 ownerConfigHash,
-        FeeUpdate[] calldata updates
-    ) external {
+    function changeProtocolFees(uint256 safeNonce, bytes32 ownerConfigHash, FeeUpdate[] calldata updates) external {
         if (msg.sender != gss) revert OnlyGSS();
         if (block.chainid != sourceChainId) revert WrongSourceChain();
         uint256 actualNonce = IGSSSafeView(gss).nonce();
@@ -92,7 +88,7 @@ contract GSSOwnerConfigurationChecker {
         if (ownerConfigHash != activeOwnerConfigHash) {
             revert OwnerConfigurationMismatch(ownerConfigHash, activeOwnerConfigHash);
         }
-        bytes32 liveHash = _liveOwnerConfigHash();
+        bytes32 liveHash = _liveOwnerConfigHash(activeOwnerConfigSafeNonce);
         if (liveHash != activeOwnerConfigHash) {
             revert OwnerConfigurationMismatch(liveHash, activeOwnerConfigHash);
         }
@@ -101,24 +97,35 @@ contract GSSOwnerConfigurationChecker {
         emit ProtocolFeesChecked(safeNonce, ownerConfigHash, updates.length);
     }
 
-    function _hashMemory(uint256 threshold, address[] memory owners) internal view returns (bytes32) {
-        return GSSGovernance.ownerConfigHash(sourceChainId, gss, threshold, owners);
+    /// @notice Returns whether the admitted owner generation exactly matches the live Safe.
+    /// @dev Deployment tooling must require true; false also identifies a staged rotation.
+    function activeOwnerConfigurationIsLive() external view returns (bool) {
+        if (activeOwnerConfigHash == bytes32(0)) return false;
+        return _liveOwnerConfigHash(activeOwnerConfigSafeNonce) == activeOwnerConfigHash;
     }
 
-    function _hashCalldata(uint256 threshold, address[] calldata owners) internal view returns (bytes32) {
-        return GSSGovernance.ownerConfigHash(sourceChainId, gss, threshold, owners);
+    function _hashMemory(uint256 ownerConfigSafeNonce, uint256 threshold, address[] memory owners)
+        internal
+        view
+        returns (bytes32)
+    {
+        return GSSGovernance.ownerConfigHash(sourceChainId, gss, ownerConfigSafeNonce, threshold, owners);
     }
 
-    function _liveOwnerConfigHash() internal view returns (bytes32) {
+    function _hashCalldata(uint256 ownerConfigSafeNonce, uint256 threshold, address[] calldata owners)
+        internal
+        view
+        returns (bytes32)
+    {
+        return GSSGovernance.ownerConfigHash(sourceChainId, gss, ownerConfigSafeNonce, threshold, owners);
+    }
+
+    function _liveOwnerConfigHash(uint256 ownerConfigSafeNonce) internal view returns (bytes32) {
         address[] memory owners = IGSSSafeView(gss).getOwners();
         uint256 threshold = IGSSSafeView(gss).getThreshold();
         _sort(owners);
-        if (
-            owners.length == 0 ||
-            owners.length > MAX_GOVERNANCE_OWNERS ||
-            threshold == 0 ||
-            threshold > owners.length
-        ) {
+        if (owners.length == 0 || owners.length > MAX_GOVERNANCE_OWNERS || threshold == 0 || threshold > owners.length)
+        {
             revert InvalidOwnerConfiguration();
         }
         for (uint256 i; i < owners.length; ++i) {
@@ -126,7 +133,7 @@ contract GSSOwnerConfigurationChecker {
                 revert InvalidOwnerConfiguration();
             }
         }
-        return _hashMemory(threshold, owners);
+        return _hashMemory(ownerConfigSafeNonce, threshold, owners);
     }
 
     function _validate(address[] calldata owners, uint256 threshold) internal pure {
@@ -155,13 +162,15 @@ contract GSSOwnerConfigurationChecker {
             revert InvalidFeeUpdates();
         }
         for (uint256 i; i < updates.length; ++i) {
-            if (updates[i].targetChainId == 0 || updates[i].protocolId <= 1) {
+            FeeUpdate calldata update = updates[i];
+            if (update.targetChainId == 0 || update.protocolId <= 1) {
                 revert InvalidFeeUpdates();
             }
-            for (uint256 j; j < i; ++j) {
+            if (i > 0) {
+                FeeUpdate calldata previous = updates[i - 1];
                 if (
-                    updates[j].targetChainId == updates[i].targetChainId &&
-                    updates[j].protocolId == updates[i].protocolId
+                    update.targetChainId < previous.targetChainId
+                        || (update.targetChainId == previous.targetChainId && update.protocolId <= previous.protocolId)
                 ) {
                     revert InvalidFeeUpdates();
                 }

@@ -24,12 +24,14 @@ import {
 
 } from '../../typechain-truffle';
 import { Account } from 'web3-core';
+import { signingPolicyHashForMigration } from '../utils/SigningPolicyHashMigration';
 
 export async function redeployContracts(
   hre: HardhatRuntimeEnvironment,
   oldContracts: Contracts,
   contracts: Contracts,
   parameters: ChainParameters,
+  oldRelayPolicyHashScheme?: string,
   quiet: boolean = false
 ) {
   const web3 = hre.web3;
@@ -132,7 +134,15 @@ export async function redeployContracts(
     const oldRelay = await Relay.at(contracts.getContractAddress(Contracts.RELAY));
     const currentRewardEpochId = await flareSystemsManager.getCurrentRewardEpochId();
     const startVotingRoundId = await flareSystemsManager.getStartVotingRoundId(currentRewardEpochId);
-    const signingPolicyHash = await oldRelay.toSigningPolicyHash(currentRewardEpochId);
+    if (!oldRelayPolicyHashScheme) {
+      throw Error("Old Relay policy hash scheme must be explicitly set for Relay migration");
+    }
+    const oldSigningPolicyHash = await oldRelay.toSigningPolicyHash(currentRewardEpochId);
+    const signingPolicyHash = signingPolicyHashForMigration(
+      oldSigningPolicyHash,
+      await web3.eth.getChainId(),
+      oldRelayPolicyHashScheme
+    );
     const relayInitialConfig: RelayInitialConfig = {
       initialRewardEpochId: currentRewardEpochId.toNumber(),
       startingVotingRoundIdForInitialRewardEpochId: startVotingRoundId.toNumber(),
@@ -150,6 +160,7 @@ export async function redeployContracts(
       governanceSafe: "0x0000000000000000000000000000000000000000",
       governanceThreshold: 0,
       governanceOwners: [],
+      governanceOwnerConfigSafeNonce: 0,
       governanceSafeNonce: 0
     }
 
@@ -536,4 +547,3 @@ export async function redeployContracts(
     return web3.utils.keccak256(web3.eth.abi.encodeParameters(["string"], [text]));
   }
 }
-

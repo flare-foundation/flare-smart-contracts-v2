@@ -7,7 +7,7 @@
 #                                        #   ~30-60 min first time) and run the 9-file Lean gate
 #
 # What "done" looks like: the Halmos gate prints
-#   [fv] 86/86 checks observed: 58/58 proofs hold, 28/28 reachability controls have validated counterexamples.
+#   [fv] 101/101 checks observed: 71/71 proofs hold, 30/30 reachability controls have validated counterexamples.
 # The reference interpretation of every verdict: docs/relay-verification/11-reproducibility.md.
 #
 # Not automated (deliberately): the Kontrol Docker image (~18.5 GB — see test-forge/fv/kontrol/README.md)
@@ -52,7 +52,7 @@ step "forge deps + build"
 command -v forge >/dev/null 2>&1 || { echo "ERROR: foundry not installed (https://getfoundry.sh)." >&2; exit 1; }
 forge soldeer install
 forge install
-forge build
+forge build --force --ast --extra-output storageLayout metadata
 
 # --- 3. the Halmos reference venv (./.venv-halmos, gitignored) ------------------------------------
 step "Halmos reference venv (.venv-halmos from test-forge/fv/requirements-halmos.lock)"
@@ -78,11 +78,21 @@ if [ "$RUN_GATE" = 1 ]; then
   python3 test-forge/fv/verify_relay_revert_abi.py \
     --report-output verification-reports/relay-revert-abi.json
 
+  step "GSS governance tests and stateful invariant gate"
+  python3 test-forge/fv/verify_gss_governance.py \
+    --report-output verification-reports/relay-gss-governance.json
+
+  step "Flare governance Safe fixed-block snapshot gate"
+  node scripts/verify-gss-source-safe.js
+
   step "Halmos FV gate (verify_fv.py — judge from the [fv] summary lines)"
-  HALMOS="$PWD/.venv-halmos/bin/halmos" .venv-halmos/bin/python test-forge/fv/verify_fv.py
+  HALMOS="$PWD/.venv-halmos/bin/halmos" .venv-halmos/bin/python test-forge/fv/verify_fv.py \
+    --report-output verification-reports/relay-halmos.json
 else
   step "skipping the local gates (--no-gate); run later with:"
   echo '  python3 test-forge/fv/verify_relay_revert_abi.py'
+  echo '  python3 test-forge/fv/verify_gss_governance.py'
+  echo '  node scripts/verify-gss-source-safe.js'
   echo '  HALMOS=$PWD/.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py'
 fi
 

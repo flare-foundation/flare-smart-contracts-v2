@@ -1,6 +1,6 @@
 # L4 — R2: bounded symbolic execution (Halmos)
 
-> **What you get from this level.** The workhorse rung: 25 harnesses / 86 checks that **symbolically
+> **What you get from this level.** The workhorse rung: 26 harnesses / 101 checks that **symbolically
 > execute the real `Relay.sol` bytecode** and prove properties over *all* inputs up to a fixed size. The
 > suite design (including the anti-vacuity tripwire and the loop-bound subtlety that makes the whole thing
 > trustworthy), the full property catalog, the modeling assumptions, and how to reproduce.
@@ -47,11 +47,15 @@ anti-vacuity controls fail by design). The gate runs one Halmos invocation over 
 - a declared **reachability** control must return `COUNTEREXAMPLE` with a validated model;
 - the observed and declared check sets must be identical, with zero bounded loops.
 
-It prints a per-check table and the summary line, and exits non-zero on any
-violation. The current manifest's healthy summary is:
+The gate also checks the pinned Foundry/Halmos/Z3 versions and first forces a
+Forge rebuild with AST and storage-layout output. This closes an incremental-build
+hazard in Halmos 0.3.3: its own `forge build --ast` does not use `--force`, so a
+fresh AST-less artifact from an earlier ordinary Forge command could otherwise be
+silently skipped. It prints a per-check table and the summary line, and exits
+non-zero on any violation. The current manifest's healthy summary is:
 
 ```
-[fv] 86/86 checks observed: 58/58 proofs hold, 28/28 reachability controls have validated counterexamples. 0 violation(s).
+[fv] 101/101 checks observed: 71/71 proofs hold, 30/30 reachability controls have validated counterexamples. 0 violation(s).
 [fv] OK - exact proof inventory holds and every reachability control has a valid witness.
 ```
 
@@ -80,7 +84,7 @@ memory).
 
 ---
 
-## 4.3 The property catalog (25 harnesses)
+## 4.3 The property catalog (26 harnesses)
 
 Grouped by area. Each harness pairs proof checks with ≥1 reachability control. "Models" notes whether the
 harness drives the real compiled `Relay` or a self-contained model (see §4.4).
@@ -127,8 +131,14 @@ are nonlinear and need `solver-timeout-assertion = 0` (§4.2).
 | [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15) | strict **+1** epoch advance + monotonic `lastInitialized` state-effect |
 
 The removed `RelayGovernanceNonceFV` harness proved the deleted
-`governanceFeeSetup` path. GSS nonce and owner-transition properties are not
-silently inherited from it; they remain in the GSS proof backlog.
+`governanceFeeSetup` path. No result is inherited from it. The GSS properties
+below are separate checks against the current code.
+
+### GSS governance (bounded post-recovery boundary)
+
+| Harness | Property | Scope |
+|---------|----------|-------|
+| [`GSSGovernanceFV`](../../test-forge/fv/GSSGovernanceFV.t.sol#L30) | distinct ordered owner threshold; Safe/action nonce binding; generation-bound rotation; consumed-nonce exclusion; canonical atomic target-local fees; irrelevant-target nonconsumption; global fee high-water monotonicity | production Relay bytecode through exposed internal signer/action boundaries; fixed 3-of-5 owner shape; ECDSA recovery and Safe digest are outside this harness |
 
 ### Merkle & randomness
 
@@ -155,7 +165,7 @@ silently inherited from it; they remain in the GSS proof backlog.
 | [`RelayReturnDiscriminatorFV`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L35) | P6 — return discriminator (`protocolId1_successReturns35`, `protocolId3_successReturns0/isNot35`) |
 | [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L57) | P8 — policy-hash equivalence (`policyHash_equiv_NV1/2/3`; `policyHash_mismatchReachable_NV3`) |
 
-**Totals:** 25 harnesses, **86 checks = 58 proofs + 28 reachability controls**.
+**Totals:** 26 harnesses, **101 checks = 71 proofs + 30 reachability controls**.
 `RelayEcrecoverSymbolicFV` is grouped in the inventory below and described in
 section 4.4.
 
@@ -166,7 +176,7 @@ event it **witnesses**. ✅ = proof (must PASS); 🔍 = reachability control (mu
 the anti-vacuity tripwire; see §4.2 and the normative naming rules in
 [`test-forge/fv/README.md`](../../test-forge/fv/README.md)). Groups mirror the catalog above, plus the
 OP-1 `ecrecover` harness described in section 4.4; rows follow source order
-within each harness. The inventory totals **86 checks = 58 proofs + 28
+within each harness. The inventory totals **101 checks = 71 proofs + 30
 reachability controls**.
 
 **Signature / threshold accounting — the core**
@@ -286,6 +296,26 @@ reachability controls**.
 | | [`check_policyHash_equiv_NV3`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L136) | ✅ proof | the same at 3 voters — multiple full chunks plus a 13-byte remainder fold |
 | | [`check_policyHash_mismatchReachable_NV3`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L154) | 🔍 reach | witnesses: a bit-flipped stored hash DOES fire the mismatch revert — the detector is live |
 
+**GSS governance (post-recovery signer/action boundary)**
+
+| Harness | Check | Kind | Proves / witnesses |
+|---------|-------|------|--------------------|
+| [`GSSGovernanceFV`](../../test-forge/fv/GSSGovernanceFV.t.sol#L30) | [`check_gss_signers_belowThreshold_rejected`](../../test-forge/fv/GSSGovernanceFV.t.sol#L120) | ✅ proof | fewer recovered active owners than the threshold cannot authorize |
+| | [`check_gss_duplicateSigner_rejected`](../../test-forge/fv/GSSGovernanceFV.t.sol#L129) | ✅ proof | a duplicate recovered owner cannot be counted twice |
+| | [`check_gss_nonOwnerSigner_rejected`](../../test-forge/fv/GSSGovernanceFV.t.sol#L139) | ✅ proof | an ordered outsider cannot replace an admitted owner |
+| | [`check_gss_unorderedSigners_rejected`](../../test-forge/fv/GSSGovernanceFV.t.sol#L150) | ✅ proof | recovered owners must be strictly ordered |
+| | [`check_gss_relevantFee_atomicAndConsumed`](../../test-forge/fv/GSSGovernanceFV.t.sol#L160) | ✅ proof | a canonical local fee action writes the fee and consumes exactly its nonce |
+| | [`check_gss_irrelevantFee_doesNotConsume`](../../test-forge/fv/GSSGovernanceFV.t.sol#L172) | ✅ proof | an action with no local target entry changes no local governance state |
+| | [`check_gss_nonCanonicalFee_isAtomic`](../../test-forge/fv/GSSGovernanceFV.t.sol#L184) | ✅ proof | a duplicate fee key reverts before any fee or nonce write |
+| | [`check_gss_ownerRotation_advancesGeneration`](../../test-forge/fv/GSSGovernanceFV.t.sol#L199) | ✅ proof | the current hash authorizes rotation and the new hash is bound to its activation nonce |
+| | [`check_gss_wrongCurrentHash_cannotRotate`](../../test-forge/fv/GSSGovernanceFV.t.sol#L214) | ✅ proof | a proposed/wrong configuration hash cannot install itself |
+| | [`check_gss_consumedNonce_excludesConflict`](../../test-forge/fv/GSSGovernanceFV.t.sol#L227) | ✅ proof | once one relevant action consumes a nonce, a conflicting action at that nonce cannot apply |
+| | [`check_gss_delayedRotation_preservesFeeHighWater`](../../test-forge/fv/GSSGovernanceFV.t.sol#L241) | ✅ proof | a delayed lower-nonce rotation can progress without lowering the global fee high-water mark |
+| | [`check_gss_lowerFeeNonce_cannotRegress`](../../test-forge/fv/GSSGovernanceFV.t.sol#L258) | ✅ proof | a lower fee nonce cannot overwrite a previously accepted higher-nonce fee |
+| | [`check_gss_actionNonce_boundToSafeNonce`](../../test-forge/fv/GSSGovernanceFV.t.sol#L270) | ✅ proof | the action nonce must equal the outer Safe transaction nonce plus one |
+| | [`check_reach_gss_validSignerSet`](../../test-forge/fv/GSSGovernanceFV.t.sol#L281) | 🔍 reach | witnesses: a sorted threshold subset of active owners is accepted |
+| | [`check_reach_gss_validFeeAction`](../../test-forge/fv/GSSGovernanceFV.t.sol#L291) | 🔍 reach | witnesses: a valid local fee transition is reachable |
+
 **The `ecrecover` ABI (OP-1 — the §4.4 harness, not in the catalog above)**
 
 | Harness | Check | Kind | Proves / witnesses |
@@ -324,6 +354,11 @@ reachability controls**.
   load-bearing and must never be removed.
 - **Bound rationale.** K≤3, N≤5 are chosen to exercise every branch and the double-count/threshold
   boundaries while staying solver-tractable; the unbounded dimensions are escalated to R3/R4.
+- **GSS boundary.** `GSSGovernanceFV` deploys production Relay bytecode but
+  exposes two otherwise-internal functions in a verification-only child. It
+  starts after EIP-712 digest construction and signer recovery. The real-Safe
+  differential tests discharge that integration boundary concretely; source
+  execution remains an explicit operational assumption.
 
 ---
 
@@ -347,12 +382,15 @@ Expected: the gate prints the per-check table and `[fv] OK - exact proof invento
 
 ## 4.6 What R2 establishes and does not
 
-- **Establishes:** the security-critical surface — sig/threshold accounting, the full epoch matrix, access
-  control, lifecycle, Merkle, randomness, fees — holds for **all inputs up to K≤3, N≤5**, on the **real
-  deployed bytecode**, with every proof certified non-vacuous.
+- **Establishes:** the signing-policy accounting, full epoch matrix, access
+  control, lifecycle, Merkle, randomness, and fee properties hold at the stated
+  relay bounds on real bytecode. It also establishes the listed GSS signer/action
+  state transitions at their fixed-owner bounded scope. Every proof is certified
+  non-vacuous.
 - **Does not:** reach arbitrary K or N. The signature loop beyond K=3 and voter sets beyond N=5 are the
   induction barrier, handled at R3 (Kontrol, ∀K) and R4 (Lean, ∀N∀K), with [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L31) connecting
-  R3's model back to this bytecode.
+  R3's model back to this bytecode. It also does not prove ECDSA, the complete
+  Safe digest implementation, or canonical source execution.
 
 **Next:** [L5 — R3: unbounded attempts](05-R3-unbounded-attempts.md) — crossing the induction barrier with
 Kontrol, and the honest assembly wall that Kontrol's symbolic-N and Certora both hit.

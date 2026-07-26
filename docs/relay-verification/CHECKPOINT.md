@@ -4,7 +4,7 @@
 > verification + hardening engagement, so any fresh session (or reader) can resume/audit
 > without re-deriving prior work. Historically kept outside the repo; moved into
 > `docs/relay-verification/` on 2026-07-15 so the engagement record is self-contained in-repo.
-> **Keep this file updated** as phases complete. Last updated: 2026-07-24.
+> **Keep this file updated** as phases complete. Last updated: 2026-07-26.
 > Reading order: the ⭐ banners at the top are current; numbered sections below are the
 > chronological history (oldest at the bottom of each era). The polished, audit-facing
 > account is `docs/relay-verification/` — this file is the raw engineering log behind it.
@@ -12,6 +12,116 @@
 > (creates the in-repo `./.venv-halmos` reference toolchain and runs the Halmos gate).
 
 ---
+
+## ⭐ 2026-07-26 — GSS coverage and evidence closure
+
+The GSS review was extended from example-based integration coverage to an exact,
+fail-closed evidence pipeline:
+
+- Halmos now includes `GSSGovernanceFV`: 13 post-recovery signer/action proofs
+  plus 2 reachability controls. The full exact gate is **101/101** (71 proofs,
+  30 validated controls, zero bounded loops or violations).
+- The exact GSS test gate is **36/36**: 30 real-Safe unit/differential tests, 3
+  production-shape tests, and 3 state-machine tests. Differential fuzzing runs
+  256 cases per property; the invariant runs 128x128 = 16,384 handler calls with
+  zero handler reverts.
+- Production rehearsal deploys exact Gnosis Safe v1.3.0 NPM release artifact
+  bytecode, reproduces the recorded 11-owner/threshold-6 Flare shape, executes
+  successful Safe calldata through two target Relays, and fits the maximum
+  256-entry batch in 7,508,970 test gas.
+- `verify-gss-source-safe.js` pins 20 source-Safe facts at Flare block
+  65,907,987: block identity, proxy/singleton/fallback code hashes, v1.3.0,
+  11 canonical EOA owners, threshold 6, nonce 998, no modules, and zero guard.
+  This is a reproducible snapshot, not permission to skip a pre-deployment refresh.
+- Both current Certora configs compile and typecheck under the pinned local gate
+  (CLI 8.16.1, Java 21, solc 0.8.27, exact two-keyword munge). A current cloud
+  prover run still requires `CERTORAKEY` and remains mandatory before claiming
+  parametric all-functions GSS proofs.
+- The bundle now requires exactly eight reports: deployment, revert ABI,
+  artifact parity, GSS tests, source Safe, Halmos, Lean, and Certora local. It
+  rejects dirty release trees; `--allow-dirty` produces development-only evidence.
+
+Recorded local regression evidence: full Foundry **967/967**, Hardhat unit
+**139/139**, Hardhat integration **36/36**, Lean **9 files / 165 axiom audits**,
+legacy assembly reverts **37/37**, FV gate unit tests **35/35**, artifact parity
+creation/runtime/IR SHA-256 `40fce992…5e034` / `f132e72f…bc15` /
+`d3841471…d74c`, and a development eight-report bundle. A clean-tree bundle and
+the current Certora cloud verdict cannot be produced while these review changes
+remain intentionally uncommitted.
+
+Accepted design risk DR-08: a threshold-signed, never-executed future fee action
+at Safe nonce `uint256.max` can exhaust a target's fee sequence. This is not an
+unprivileged bypass; it is the sharpest consequence of accepting gap-tolerant
+monotonic bearer authorization without source execution proof. Official-relayer
+policy admits only confirmed successful Flare Safe executions as defense in depth,
+while the security model deliberately treats the owner threshold itself as authority.
+
+## ⭐ 2026-07-25 — Alternative GSS timing, migration, and reproducibility review
+
+> Historical checkpoint; the 2026-07-26 banner supersedes its test/proof counts.
+
+An adversarial pass on `relay-fix-3-gss` re-derived the GSS protocol from
+out-of-order delivery, owner-set reincarnation, Safe cancellation, target
+deployment timing, and production migration. The detailed finding ledger and
+runbooks are in [`docs/gss-governance.md`](../gss-governance.md), section 17.
+
+Implemented hardening:
+
+- owner configuration hashes now include their activation Safe nonce, so
+  returning to the same owner tuple creates a new generation and cannot revive
+  old signed actions;
+- delayed owner rotations remain installable after a higher old-generation fee,
+  but they do not lower the global fee high-water mark; a lower-nonce fee under
+  the new generation is rejected;
+- each relevant target action consumes its Safe nonce globally, preventing two
+  conflicting signed actions at the same nonce from both applying locally;
+- fee batches are nonempty, capped at 256, and strictly ordered by
+  `(targetChainId, protocolId)` in both checker and Relay. This aligns their
+  grammars, eliminates quadratic duplicate scans, and makes the maximum batch
+  executable (7.44M gas in the real-Safe Forge test);
+- deployment distinguishes the owner-generation nonce from the replay-floor
+  snapshot, emits both, and documents a signing pause plus same-owner generation
+  bump because a replay floor cannot revoke pre-signed future-nonce actions;
+- the source checker exposes whether its admitted generation exactly matches the
+  live Safe; deployment must require this before seeding a target, because a
+  staged owner rotation cannot be canceled or superseded until the Safe adopts
+  the proposed configuration;
+- pre-RLY-23 signing-policy migration now requires an explicit `legacy` or
+  `chain-bound` old-hash scheme and tests wrap-once, pass-through, and
+  fail-closed behavior.
+
+The review also caught a proof-pipeline bug: Halmos 0.3.3 requests AST output
+from Forge without forcing recompilation, so a preceding ordinary incremental
+build could leave changed AST-less artifacts that Halmos silently skipped. The
+exact gate now checks Foundry 1.7.1 and force-builds AST-complete artifacts
+before Halmos; its regression test pins `--force`, `--ast`, and the required
+extra outputs.
+
+Current local evidence on the final source:
+
+- full Forge suite green; GSS real-Safe suite **27/27**;
+- Hardhat compile **250 files**, affected suites **95/95**, TypeScript clean,
+  production GSS/Relay Solhint clean;
+- FV Python gates **27/27**; legacy `relay()` revert ABI **37/37**;
+- artifact parity green: creation semantic SHA-256
+  `cd3d0e644b08906fd56c7bd417b92724579331deee0a4d36b8f3765ce5f905f2`,
+  runtime `dd32fc178de8f8683b033cf3beaf3dcc3f5a26b89321bd67637940fcda538e61`,
+  optimized IR `f5209e989093cd3bc4170b26992e4dd399aafdbdaa0ed7f76c27802e6dd2f443`;
+- exact Halmos gate **86/86** (58 proofs + 28 validated reachability controls);
+- Lean gate **9 files / 165 declared axiom audits**;
+- Certora munge self-check green (exactly two visibility changes); current GSS
+  cloud run remains pending;
+- documentation link gate and `git diff --check` green.
+
+Accepted current design boundary: Relay proves threshold authorization, not
+canonical source execution. Safe cancellation/failure does not revoke copied
+signatures, conflicting signed transactions can produce first-delivery divergence
+across targets, a higher fee nonce suppresses lower signed fees, removed owners
+remain authorized on lagging targets, and signatures are not bound to one Relay address.
+Safe modules can also perturb the helper checker. Cryptographic closure requires
+a Flare execution proof or a separately signed
+expiry/revocation/deployment epoch. The current controls and alternative designs
+are recorded in [`gss-governance.md` section 16](../gss-governance.md#16-accepted-design-risks-and-alternatives).
 
 ## ⭐ 2026-07-24 — GSS governance branch and proof boundary
 

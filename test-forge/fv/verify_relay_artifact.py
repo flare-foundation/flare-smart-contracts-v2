@@ -44,6 +44,17 @@ def sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def git_commit() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
 def summarize_bytecode(value: str, label: str) -> dict[str, Any]:
     raw = bytecode_bytes(value, label)
     semantic, metadata_bytes = strip_cbor_metadata(value, label)
@@ -187,7 +198,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        manifest = json.loads(args.manifest.read_text())
+        manifest_bytes = args.manifest.read_bytes()
+        manifest = json.loads(manifest_bytes)
         deployment = json.loads(args.deployment_report.read_text())
         version = forge_version(args.forge)
         expected_foundry = manifest["toolchain"]["foundry"]
@@ -223,6 +235,8 @@ def main() -> int:
                 "schema_version": 1,
                 "gate": "relay-artifact-parity",
                 "status": "pass" if not problems else "fail",
+                "git_commit": git_commit(),
+                "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
                 "foundry_version": version,
                 "deployment": deployment,
                 "verification": verification,

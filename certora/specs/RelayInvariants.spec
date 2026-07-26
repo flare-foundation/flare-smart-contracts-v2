@@ -19,6 +19,9 @@
 
 methods {
     function lastGovernanceSafeNonce() external returns (uint256) envfree;
+    function activeOwnerConfigSafeNonce() external returns (uint256) envfree;
+    function activeOwnerConfigHash() external returns (bytes32) envfree;
+    function governanceSafeNonceConsumed(uint256) external returns (bool) envfree;
     function signingPolicySetter() external returns (address) envfree;
     function lastInitializedRewardEpochData() external returns (uint32, uint32) envfree;
 
@@ -31,14 +34,45 @@ methods {
 }
 
 /// The highest target-local, relevant GSS action nonce never decreases across any function or sequence.
-/// Irrelevant fee actions may leave it unchanged; accepted owner updates and relevant fee updates may
-/// only assign a strictly greater value.
+/// A delayed owner rotation may carry a nonce below this global high-water mark, but processing it leaves
+/// the high-water mark unchanged rather than regressing it.
 rule governanceSafeNonceMonotonic(method f) {
     uint256 pre = lastGovernanceSafeNonce();
     env e; calldataarg args;
     f(e, args);
     uint256 post = lastGovernanceSafeNonce();
     assert post >= pre, "lastGovernanceSafeNonce must never decrease";
+}
+
+/// Owner-configuration generations are Safe nonces and can only advance. This is the anti-resurrection
+/// anchor: returning to an identical owner tuple still produces a newer, distinct configuration.
+rule governanceOwnerConfigSafeNonceMonotonic(method f) {
+    uint256 pre = activeOwnerConfigSafeNonce();
+    env e; calldataarg args;
+    f(e, args);
+    uint256 post = activeOwnerConfigSafeNonce();
+    assert post >= pre, "activeOwnerConfigSafeNonce must never decrease";
+}
+
+/// A changed owner hash must be accompanied by a strictly newer configuration-generation nonce.
+rule governanceOwnerHashChangeAdvancesGeneration(method f) {
+    bytes32 preHash = activeOwnerConfigHash();
+    uint256 preNonce = activeOwnerConfigSafeNonce();
+    env e; calldataarg args;
+    f(e, args);
+    bytes32 postHash = activeOwnerConfigHash();
+    uint256 postNonce = activeOwnerConfigSafeNonce();
+    assert postHash == preHash || postNonce > preNonce, "owner hash changes must advance the configuration generation";
+}
+
+/// Once a target consumes a Safe nonce for a relevant action, no function can make it reusable.
+rule governanceConsumedNonceWriteOnce(method f, uint256 nonce) {
+    bool pre = governanceSafeNonceConsumed(nonce);
+    require pre;
+    env e; calldataarg args;
+    f(e, args);
+    bool post = governanceSafeNonceConsumed(nonce);
+    assert post, "a consumed governance Safe nonce must remain consumed";
 }
 
 /// The last-initialized reward epoch never regresses — across ANY function (generalises L1 / the +1 step in

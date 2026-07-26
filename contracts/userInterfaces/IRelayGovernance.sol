@@ -20,6 +20,14 @@ interface IRelayGovernance {
         address[] owners
     );
 
+    event GovernanceInitialized(
+        bytes32 indexed ownerConfigHash,
+        uint256 ownerConfigSafeNonce,
+        uint256 replayFloor,
+        uint256 threshold,
+        address[] owners
+    );
+
     error InvalidGovernanceSource();
     error InvalidGovernanceDeployment();
     error InvalidGovernanceOwnerConfiguration();
@@ -28,6 +36,9 @@ interface IRelayGovernance {
     error UnknownGovernanceAction(bytes4 selector);
     error GovernanceOwnerHashMismatch(bytes32 supplied, bytes32 active);
     error GovernanceNonceNotMonotonic(uint256 supplied, uint256 lastAccepted);
+    error GovernanceNonceBeforeReplayFloor(uint256 supplied, uint256 replayFloor);
+    error GovernanceNonceAlreadyConsumed(uint256 supplied);
+    error GovernanceOwnerConfigNonceNotIncreasing(uint256 supplied, uint256 active);
 
     function processGSSMessage(
         GnosisSafeTx.Transaction calldata txData,
@@ -40,7 +51,13 @@ interface IRelayGovernance {
 
     function activeOwnerConfigHash() external view returns (bytes32);
 
+    function activeOwnerConfigSafeNonce() external view returns (uint256);
+
     function lastGovernanceSafeNonce() external view returns (uint256);
+
+    function governanceReplayFloor() external view returns (uint256);
+
+    function governanceSafeNonceConsumed(uint256 nonce) external view returns (bool);
 
     function governanceThreshold() external view returns (uint256);
 

@@ -26,9 +26,9 @@ in §10.2. *Blocked* = specified but not dischargeable by the chosen tool (with 
 
 ## 10.2 The assumption register (the trusted surface)
 
-Four groups: the **modeling contract** (cryptographic / trust, by design), the **operational boundary-call
+Five groups: the **modeling contract** (cryptographic / trust, by design), the **operational boundary-call
 contracts** (the EVM-level behavior of every external/precompile call), the **bytecode-refinement
-residuals**, and the **tool-coverage limits**.
+residuals**, the **tool-coverage limits**, and the accepted **GSS remote-governance boundaries**.
 
 ### Modeling contract — cryptographic & trust (MC)
 
@@ -83,8 +83,22 @@ assumptions above: they are about *EVM/ABI behavior*, not cryptography.
 |----|-----------|--------|
 | **K-1** | Kontrol base+step compose to ∀K at the *meta* level (no native loop-invariant rule in 1.0.248) | each piece machine-checked; composition by standard induction. Subsumed by the abstract Lean proof (internal induction) |
 | **K-2** | Kontrol checks a faithful Solidity *model*, not the inline-assembly bytecode | bytecode side at K≤3 via Halmos `RelaySigParamFV`; tied by `RelayModelBridgeFV`; full bridge = future bmc-depth-1 obligation ([`docs/relay-t1-bridge.md`](../relay-t1-bridge.md)) |
-| **C-1** | Certora storage invariants vs. assembly storage (historically: analysis-failure havoc → spurious violations) | **historically narrowed (2026-07)**: on the pre-GSS source, disabling storage splitting proved the then-current invariants for every function except `relay()` (legacy codegen; via-ir also excepted `setSigningPolicy`). The current CVL replaces the deleted fee nonce rule with GSS nonce monotonicity and requires a new cloud run. Mechanics and scope: [`certora/README.md`](../../certora/README.md) |
+| **C-1** | Certora storage invariants vs. assembly storage (historically: analysis-failure havoc → spurious violations) | **historically narrowed (2026-07)**: on the pre-GSS source, disabling storage splitting proved the then-current invariants for every function except `relay()` (legacy codegen; via-ir also excepted `setSigningPolicy`). Both current configs now pass the pinned local compile/typecheck gate, but the changed GSS source still requires a cloud proof. Mechanics and scope: [`certora/README.md`](../../certora/README.md) |
 | **A-EVM** | EVMYulLean *is* the EVM | two parts of different strength ([L2 §2.5](02-strategy-and-the-fidelity-ladder.md)): the **opcode/memory layer** the proofs use (shared `step` dispatch, `MachineState`) sits on the path validated against the Ethereum execution-spec suites; the **Yul control-flow layer** (`Yul.exec`/`loop`, fuel) that drives the R4b proofs is Yul-specific, validated separately by Yul semantic tests (not provable; standard residual) |
+
+### GSS remote-governance acceptance boundaries (GA)
+
+These are deliberate protocol and operational choices, not facts established by the
+proof tools. They bound what "secure GSS governance" means in this engagement. The full
+risk rationale, required controls, review triggers, and alternative designs are in
+[`gss-governance.md` section 16](../gss-governance.md#16-accepted-design-risks-and-alternatives).
+
+| ID | Accepted boundary | Consequence for security claims |
+|---|---|---|
+| **GA-1** | A Safe-owner threshold signature is remote authorization without proof that the transaction executed successfully on Flare. | Cancellation, failure, non-execution, and source-nonce replacement do not revoke copied signatures. Official relayer receipt checks are defense in depth because Relay submission is permissionless. |
+| **GA-2** | Target chains progress independently and need not process every Safe nonce. | Owner generations and fee state may temporarily diverge; first relevant delivery and the global high-water mark determine each target's state. Rotation and migration order are security-relevant operational controls. |
+| **GA-3** | The owner threshold is trusted for governance integrity and liveness, including nonce and fee selection. | Contradictory same-nonce signatures, an extreme future nonce, or an uneconomic fee are governance self-harm rather than an unprivileged authorization bypass. The contract intentionally does not make quorum actions harmless. |
+| **GA-4** | Production uses EOA EIP-712 owners and one authoritative Relay deployment per target chain. | Other Safe signature modes are rejected, and a second same-chain Relay with the same generation can replay an action unless replacement controls or a deployment-bound message format are used. |
 
 ---
 
@@ -107,29 +121,31 @@ fidelity / lower coverage (noted).
 | 4 | threshold consistency (setter + live Mode-1) | R2 Halmos | bytecode · bounded | **proven** | `RelayThresholdConsistencyFV`, `RelayModeOneFV` | MC-1,2,3, OP-1 |
 | 5 | **access control** (only setter rotates policy) | R2 Halmos | bytecode · bounded | **proven** | `RelayAccessControlFV` | MC-3 |
 | 6 | constructor **fail-closes** on bad config | R2 Halmos | bytecode | **proven** | `RelayConstructorFV` (L4/RLY-11) | — |
-| 7 | GSS relevant-action nonce replay protection and target-local monotonicity | R0 Foundry | bytecode · concrete sequences | **tested, not formally proven** | [`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol) | Safe digest/signature assumptions |
-| 7b | `lastGovernanceSafeNonce` monotonic **∀ function** | R3 Certora | source · ∀ seq | **specified; current cloud run pending** | [`RelayInvariants.spec:governanceSafeNonceMonotonic`](../../certora/specs/RelayInvariants.spec) + `certora/Relay-rawstorage*.conf` | Certora call model |
-| 7c | GSS threshold authorization, owner rotation, and target-specific atomic fee updates | R0 Foundry | bytecode · concrete real-Safe flows | **tested, not formally proven** | [`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol), [`gss-governance.md`](../gss-governance.md) | ECDSA, pinned Safe v1.3.0 |
+| 7 | GSS distinct-owner threshold validation, action/Safe nonce binding, generation-bound owner transitions, global fee monotonicity, canonical atomic fees, irrelevant-target no-op, and consumed-nonce exclusion | R2 Halmos | bytecode · bounded post-recovery state machine | **proven at stated bound** (13 proofs + 2 reachability controls) | [`GSSGovernanceFV.t.sol`](../../test-forge/fv/GSSGovernanceFV.t.sol) | recovered-signer/ECDSA and Safe-digest boundary |
+| 7b | `lastGovernanceSafeNonce` monotonic **∀ function** | R3 Certora | source · ∀ seq | **specified; local typecheck pass; current cloud proof pending** | [`RelayInvariants.spec:governanceSafeNonceMonotonic`](../../certora/specs/RelayInvariants.spec) + `certora/Relay-rawstorage*.conf` | Certora call model |
+| 7c | Complete Safe digest binding, real ECDSA recovery, successful source-Safe calldata, owner rotation, and multi-target fee delivery | R0/R1 Foundry | bytecode · concrete + 256-run differential fuzz + stateful invariant | **tested/differentially checked, not an ECDSA or source-execution proof** | exact 36-test GSS gate: [`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol), [`GSSGovernanceProductionRehearsal.t.sol`](../../test-forge/unit/governance/GSSGovernanceProductionRehearsal.t.sol), [`GSSGovernanceInvariant.t.sol`](../../test-forge/invariant/governance/GSSGovernanceInvariant.t.sol) | ECDSA, pinned Safe v1.3.0, relayer source-execution policy |
+| 7d | owner-generation nonce monotonicity, owner-hash/generation coupling, and consumed-nonce permanence **∀ function** | R3 Certora | source · ∀ seq | **specified; local typecheck pass; current cloud proof pending** | `RelayInvariants.spec:governanceOwnerConfigSafeNonceMonotonic`, `governanceOwnerHashChangeAdvancesGeneration`, `governanceConsumedNonceWriteOnce` | Certora call model |
 | 8 | epoch **+1 advance** + `lastInitialized` monotone (state-effect) | R2 Halmos | bytecode | **proven** | `RelayEpochAdvanceFV` | — |
-| 8b | `lastInitialized` monotone **∀ function** | R3 Certora | source · ∀ seq | **historical baseline proven; current GSS-source rerun pending** | `RelayInvariants.spec:lastInitializedMonotonic` | MC-1 |
+| 8b | `lastInitialized` monotone **∀ function** | R3 Certora | source · ∀ seq | **historical cloud baseline; current local typecheck pass; cloud proof pending** | `RelayInvariants.spec:lastInitializedMonotonic` | MC-1 |
 | 9 | random-pointer **monotonicity** | R3 Kontrol + R2 Halmos | model ∀K / bytecode bounded | **proven** | [`kontrol/RelayRandomMonoFV.t.sol`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol), `RelayRandomMonotonicityFV` | MC-1 |
 | 10 | random value **binding / no-forgery** | R2 Halmos | bytecode | **proven** | `RelayRandomBindingFV` | MC-1 |
 | 11 | Merkle proof-element + alignment soundness | R2 Halmos | bytecode | **proven** | `RelayMerkleProofFV` | MC-1,4 |
 | 12 | Merkle fold injectivity for a **fixed sibling/path sequence** (base, step, depth-2 machine checks; arbitrary-depth induction at meta level) | R2 Halmos | fold model | **proven as stated** | `RelayMerkleFoldFV` | MC-1; not full arbitrary-proof membership soundness |
 | 13 | **fee conservation** (`relay()` + `verify()`, incl. old-relay forwarding) | R2 Halmos | bytecode | **proven** | `RelayFeeConservationFV`, `RelayVerifyFeeFV` | OP-3, OP-4 |
 | 14 | encoding canonicality / secure-bit / return discriminator / policy hash (P3/P5/P6/P8) | R2 Halmos | bytecode | **proven** | `RelayCanonicalityFV`, `RelayIsSecureNormFV`, `RelayReturnDiscriminatorFV`, `RelayPolicyHashFV` | MC-1 |
-| 15 | functional behavior, all modes | R0/R1 Foundry | bytecode · concrete+fuzz | **tested** | [`Relay.t.sol`](../../test-forge/unit/protocol/implementation/Relay.t.sol) (51 tests) + [`RelayChainDomain.t.sol`](../../test-forge/unit/protocol/implementation/RelayChainDomain.t.sol) (8) + [`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol) (15) | — |
+| 15 | functional behavior, all modes | R0/R1 Foundry | bytecode · concrete+fuzz+stateful | **tested** | full Forge tree 967 tests; exact GSS gate 36/36 with 16,384 invariant calls | — |
 | 15b | RLY-23 chain-domain binding — *structure*: the stored/verified signing-policy hash is `keccak256(chainid ‖ contentFold)` | R2 Halmos | real bytecode · all symbolic policies (N≤3) | **proven** | [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L57) (`check_policyHash_equiv_NV1/2/3` compare the on-chain assembly hash to the chain-bound oracle) | MC-1 (keccak) |
 | 15c | RLY-23 chain-domain binding — *effect*: a quorum's signatures minted for one network are rejected by another network's Relay (cross-chain replay closed) | R0 Foundry (concrete, real ECDSA) | bytecode · concrete | **proven** (tests) — deliberately *not* an R2 symbolic claim: cross-chain *rejection* is cryptographic (ECDSA-binding), which the uninterpreted-`ecrecover` model cannot express (the solver could otherwise make any signature recover to a voter under any digest) | [`RelayChainDomain.t.sol`](../../test-forge/unit/protocol/implementation/RelayChainDomain.t.sol) | MC-2 (ECDSA) |
-| 16 | setter immutable / hash & root write-once **∀ function** | R3 Certora | source · ∀ seq | **historical baseline proven; current GSS-source rerun pending** | `RelayInvariants.spec` + [`RelayWriteOnce.spec`](../../certora/specs/RelayWriteOnce.spec) | MC-1 |
+| 16 | setter immutable / hash & root write-once **∀ function** | R3 Certora | source · ∀ seq | **historical cloud baseline; current local typecheck pass; cloud proof pending** | `RelayInvariants.spec` + [`RelayWriteOnce.spec`](../../certora/specs/RelayWriteOnce.spec) | MC-1 |
 
 **Reading the ledger.** The security core (row 1) is established at four complementary fidelities: ∀N∀K
 abstract under `ValidRun` (R4a), conditional ∀N statements on validated semantics (R4b), ∀K on a fixed-N
 model (R3), and bounded on real bytecode (R2) with an explicit bridge (1e). These results corroborate one
 another but are not a single whole-program refinement theorem. The
 `relay()`-residual rows 8b/16 describe historical all-functions storage
-coverage. Rows 7/7b/7c deliberately keep the newer GSS evidence and pending
-formal work separate.
+coverage. Rows 7/7b/7c deliberately separate bounded GSS state-machine proofs,
+pending parametric Certora cloud work, and the concrete cryptographic/source
+integration boundary.
 
 ---
 
@@ -174,13 +190,14 @@ Status reflects the current tree.
 | **MC-1, MC-2** (keccak / ECDSA hardness) | Permanent — irreducible | leave; cannot be proven unconditionally |
 | **A-EVM** (EVMYulLean = the EVM) | Permanent — irreducible | leave; validated by conformance tests, not provable (hardenable by cross-validation) |
 | **MC-3** (trusted setter), **MC-5** (oldRelay) | Permanent — trust boundary by design | leave; on-chain enforcement would be a *contract change*, not verification |
+| **GA-1..4** (GSS authorization, asynchronous targets, quorum authority, production profile) | Permanent under the current design — explicitly accepted | retain with the section-16 signing, rotation, migration, and deployment controls; source proofs, deployment-bound messages, nonce bounds, recoverable transitions, and broader Safe signature support are protocol changes, not additional interpretation of the current proofs |
 | **MC-4** (OZ `MerkleProof`) | Borderline | conventionally assumed; cheaply verifiable if an audit demands zero library trust |
 | **BR-2** (overflow bound) | Addressable | ✅ **done** — `bytecode_threshold_sound_int` |
 | **OP-1** (ecrecover failure ABI) | Addressable | ✅ **done** — real-EVM regression ([`RelayEcrecoverABI.t.sol`](../../test-forge/fv/RelayEcrecoverABI.t.sol)) **and** symbolic internalization ([`RelayEcrecoverSymbolicFV.t.sol`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol): the guard proven against the empty-return/stale-buffer ABI over all stale contents) |
 | **BR-3 / K-2** (encoding fidelity, model↔bytecode) | Addressable | **partially closed** — compiler artifact and optimized-Yul provenance are exact; `bodyL` is still a hand transcription with D1–D4 deviations and no AST-extraction/equivalence proof. Early return is modeled, while deriving the modeled premises and D3 accept-write from one compiled accepted execution remains open. |
 | **BR-1** (data layer, `mload = w[i]`) | **Proven inside the stated models** | `DataLayer`, `RelayLoopMemRead`, and `RelayBodyEff` machine-check byte decoding, memory round-trip, masking, the memory-reading loop, and the literal body's read extraction. `relay_loop_sound_literal_derived_tight` derives `hcov`/`hcorr` and guards from its preconditions, but `ValidRun`, successful execution/acceptance, and ecrecover remain explicit; transporting them from every compiled accepted execution is still BR-3. Three local declarations implement the two upstream-dischargeable data/window spec shapes. |
 | `relay()` breadth model, **OP-3/4** | Addressable — **components landed; composition remains conditional** | R4b's literal loop statements are hole-free under their explicit execution, `ValidRun`, and acceptance hypotheses. R5 adds independently checked storage round-trip/accept-write, mode dispatch, conditional dispatch→loop→accept composition, and fee-conservation components. **Remaining:** derive setup, valid-run, early-return acceptance, and accept-write from one accepted compiled execution; wire exec-level `.CALL`; reconcile D3 (modeled return vs deployed break→write→return). These are breadth/linkage residuals, not additional abstract accounting lemmas. |
-| **C-1** (Certora all-functions storage) | Addressable — historical discharge, current rerun pending | splitting-off + hashing proved the pre-GSS invariants for every function except `relay()`; the updated GSS nonce rule and changed function surface have not yet been rerun (see [`certora/README.md`](../../certora/README.md)) |
+| **C-1** (Certora all-functions storage) | Addressable — local front end green, current cloud proof pending | splitting-off + hashing proved the pre-GSS invariants for every function except `relay()`; both current configs compile and typecheck in the pinned local gate, but no current GSS cloud verdict exists (see [`certora/README.md`](../../certora/README.md)) |
 
 The addressable items, leverage-ordered — each, if done, moves a row from *assumed/blocked* toward *proven*:
 
@@ -262,7 +279,7 @@ The addressable items, leverage-ordered — each, if done, moves a row from *ass
      (with [`RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean) and
      [`RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean)) executes a
      17-statement hand transcription `bodyL`, sourced from the optimized-Yul signature loop beginning at
-     `relay_ir_optimized.yul:2008`, through EVMYulLean's validated Yul `exec`, threading modeled
+     `relay_ir_optimized.yul:2157`, through EVMYulLean's validated Yul `exec`, threading modeled
      `mstore`/`calldatacopy`/`mload` state. The chain, all hole-free (`{propext, Classical.choice, Quot.sound}`;
      the accounting-extraction lemmas need only `{propext, Quot.sound}`): `body_effL` (one iteration executed) →
      `s16_ww_advance`/`s16_ii_preserved` (the body adds exactly the selected voter's registered weight and

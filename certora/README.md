@@ -1,12 +1,15 @@
 # Certora — Relay cross-transaction storage invariants
 
-> **Current-status boundary (2026-07-24).** The linked cloud runs below were
+> **Current-status boundary (2026-07-26).** The linked cloud runs below were
 > made against the pre-GSS `relay-fix-3` contract. They remain useful historical
 > evidence for the unchanged relay/signing-policy core, but they are not current
 > proofs of `processGSSMessage` or its state. The checked-in CVL now replaces the
-> removed `governanceFeeNonce` rule with `governanceSafeNonceMonotonic`; the
-> current rule set must be rerun before any result is claimed for
-> `relay-fix-3-gss`.
+> removed `governanceFeeNonce` rule with four GSS state-machine rules covering
+> the global high-water mark, owner-generation nonce, hash/generation coupling,
+> and consumed-nonce permanence. The current rule set must be rerun before any
+> result is claimed for `relay-fix-3-gss`. The current sources pass the pinned
+> local front-end gate for both configs (CLI 8.16.1, Java 21, solc 0.8.27,
+> compile + CVL typecheck + exact munge). That is not a cloud proof verdict.
 
 CVL specs for the properties where **Certora genuinely beats the Halmos/Kontrol proofs in this repo**:
 *parametric* storage invariants that hold over **every function and every call sequence**, not just the
@@ -16,13 +19,16 @@ specific sequences those tools could enumerate.
 
 | Rule | Property | Current GSS status |
 |------|----------|---------------------------|
-| `governanceSafeNonceMonotonic` | `lastGovernanceSafeNonce` never decreases, ∀ function | pending current cloud run |
-| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function | historical baseline proven; current rerun pending |
-| `signingPolicySetterImmutable` | the setter authority is immutable after construction | historical baseline proven; current rerun pending |
-| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the documented reachable-state link) | historical baseline proven; current rerun pending |
-| `merkleRootWriteOnce` | a finalized Merkle root is write-once per `(protocolId, votingRoundId)` | historical baseline proven; current rerun pending |
+| `governanceSafeNonceMonotonic` | `lastGovernanceSafeNonce` never decreases, ∀ function | local typecheck pass; cloud proof pending |
+| `governanceOwnerConfigSafeNonceMonotonic` | owner-configuration generations never regress, ∀ function | local typecheck pass; cloud proof pending |
+| `governanceOwnerHashChangeAdvancesGeneration` | a changed owner hash strictly advances its generation | local typecheck pass; cloud proof pending |
+| `governanceConsumedNonceWriteOnce` | a consumed Safe nonce can never become reusable | local typecheck pass; cloud proof pending |
+| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function | historical cloud baseline; current local typecheck pass; cloud proof pending |
+| `signingPolicySetterImmutable` | the setter authority is immutable after construction | historical cloud baseline; current local typecheck pass; cloud proof pending |
+| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the documented reachable-state link) | historical cloud baseline; current local typecheck pass; cloud proof pending |
+| `merkleRootWriteOnce` | a finalized Merkle root is write-once per `(protocolId, votingRoundId)` | historical cloud baseline; current local typecheck pass; cloud proof pending |
 
-(The first three run against the production contract as-is — [`Relay.conf`](Relay.conf) historically,
+(The first six run against the production contract as-is — [`Relay.conf`](Relay.conf) historically,
 [`Relay-rawstorage.conf`](Relay-rawstorage.conf) for the discharged runs. The write-once pair runs against
 [`harness/RelayHarness.sol`](harness/RelayHarness.sol) over the munged tree — see *The write-once route*
 below — via [`Relay-writeonce.conf`](Relay-writeonce.conf).)
@@ -55,9 +61,17 @@ export CERTORAKEY=<your key>
 # from the repo root, with dependencies/ present (soldeer) and a solc 0.8.27 binary:
 certoraRun certora/Relay.conf --solc /path/to/solc-0.8.27
 
-# Local typecheck only (no key, no cloud) — what was run here, passes (needs solc 0.8.27 + a JDK):
-certoraRun certora/Relay.conf --compilation_steps_only --solc /path/to/solc-0.8.27
+# Local fail-closed front-end gate (no key/cloud; needs JDK 21+):
+python3 test-forge/fv/verify_certora_local.py \
+  --solc /path/to/solc-0.8.27 \
+  --report-output verification-reports/relay-certora-local.json
 ```
+
+The local gate verifies exact tool versions, runs `munge.sh`, compiles and
+typechecks `Relay.conf` and `Relay-writeonce.conf`, and emits normalized bundle
+evidence. A local `compilation_steps_only` success means the current spec is
+well-formed against the current contract; only a cloud run can establish a CVL
+rule as proven.
 
 If solc/import resolution differs in your setup, adjust `solc`, `packages`, and `solc_via_ir` in
 `Relay.conf` to match the repo's foundry remappings (see `../remappings.txt`).

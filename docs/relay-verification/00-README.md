@@ -15,12 +15,13 @@ theorem proving against a validated model of the EVM. It is written to serve **t
 These three are not in tension: an audit that cannot be reproduced is hearsay, and a tutorial that is not
 precise teaches the wrong thing. The same precision serves all three.
 
-> **Current GSS scope (2026-07-24).** The ladder below proves properties of
-> Relay's signing-policy, `relay()`, randomness, Merkle, and verification-fee
-> core. The newly added GSS governance path is specified and security-reviewed
-> in [`gss-governance.md`](../gss-governance.md) and covered by real-Safe tests,
-> but it is not yet covered by Halmos, Kontrol, or Lean. Pre-GSS Certora cloud
-> reports are historical evidence only until the updated CVL is rerun.
+> **Current GSS scope (2026-07-26).** The ladder now includes 13 bounded Halmos
+> proofs and 2 reachability controls for GSS post-recovery signer validation and
+> verified action transitions, plus an exact 36-test real-Safe/stateful gate.
+> It does not prove ECDSA, complete Safe digest semantics, or successful source
+> execution. Kontrol/Lean remain signing-policy-core results, and pre-GSS
+> Certora cloud reports remain historical until the current CVL is proved.
+> [`gss-governance.md`](../gss-governance.md) owns the exact boundary.
 
 > **The engagement had two goals.** (1) **Verify** `Relay.sol`'s accounting — this ladder. (2) **Harden**
 > `Relay.sol` against the audit findings — the RLY-* robustness fixes, documented in
@@ -36,7 +37,7 @@ precise teaches the wrong thing. The same precision serves all three.
 
 [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol)'s security-critical accounting is verified by a **five-rung stack**, each rung covering what
 the one below cannot. Concrete and fuzz tests (R0/R1) exercise the deployed contract. **Halmos** (R2)
-symbolically executes the **real bytecode** across 25 harnesses / 86 checks, proving the signature/
+symbolically executes the **real bytecode** across 26 harnesses / 101 checks, proving the signature/
 threshold accounting, the full `relay()` epoch-decision matrix, access control, lifecycle, Merkle and
 randomness, and fees — bounded in size but on the actual deployed code, each proof guarded by an
 anti-vacuity control. **Kontrol/KEVM** (R3) lifts the signature-loop weight invariant and random
@@ -68,7 +69,10 @@ is small and named — exactly the ecrecover boundary (MC-2/OP-1), stated per-it
 cryptography (`ecrecover`/`keccak`), the operational ABI of each boundary call, a trusted signing-policy setter,
 and the per-iteration *selection/validity* those external calls determine (which voter each signature recovers to,
 strictly-increasing). CI separately binds the `0.8.27` FV build and optimized-Yul snapshot to the `0.8.30`
-Hardhat deployment artifact by exact metadata-stripped bytecode hashes.
+Hardhat deployment artifact by exact metadata-stripped bytecode hashes. The GSS
+extension adds bounded post-recovery signer/action proofs around a real-Safe
+differential and stateful test boundary; it deliberately does not turn threshold
+signatures into proof of canonical Flare execution.
 
 ---
 
@@ -82,7 +86,7 @@ discharged deeper. Read only as deep as you need.
 | **L1** | [`01-big-picture.md`](01-big-picture.md) | tutorial | What Relay does, what "verification" means, the two enemies — by analogy. No background needed. |
 | **L2** | [`02-strategy-and-the-fidelity-ladder.md`](02-strategy-and-the-fidelity-ladder.md) | tutorial + audit | The research-first strategy, the **fidelity ladder (R0–R5)**, and the executive results table across all rungs. |
 | **L3** | [`03-R0R1-foundation-tests.md`](03-R0R1-foundation-tests.md) | all | Foundry concrete + fuzz tests: the base of the stack. |
-| **L4** | [`04-R2-bounded-symbolic-halmos.md`](04-R2-bounded-symbolic-halmos.md) | all | The 25-harness / 86-check Halmos suite on real bytecode + the vacuity tripwire. The property catalog + the complete per-check inventory. |
+| **L4** | [`04-R2-bounded-symbolic-halmos.md`](04-R2-bounded-symbolic-halmos.md) | all | The 26-harness / 101-check Halmos suite on real bytecode + the vacuity tripwire. The property catalog + the complete per-check inventory. |
 | **L5** | [`05-R3-unbounded-attempts.md`](05-R3-unbounded-attempts.md) | all | Kontrol (∀K on a model) and Certora (storage invariants, since proven for all functions but `relay()`) — partial successes and the honest assembly wall. |
 | **L6** | [`06-R4a-abstract-proof.md`](06-R4a-abstract-proof.md) | all | The abstract proof: the ∀N ∀K threshold-soundness theorem in Lean. |
 | **L7** | [`07-R4b-bytecode-refinement.md`](07-R4b-bytecode-refinement.md) | all | The bytecode refinement: lifting the abstract proof onto validated EVM semantics, ∀N. |

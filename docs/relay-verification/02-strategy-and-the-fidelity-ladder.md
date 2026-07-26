@@ -176,10 +176,10 @@ names are in the per-rung docs and the claims ledger ([L10](10-claims-ledger-tru
 
 | Rung | Tool | What it covers | Object | Coverage | Status |
 |------|------|----------------|--------|----------|--------|
-| R0/R1 | Foundry | 51 core Relay tests, 8 chain-domain/migration tests, and 15 real-Safe GSS governance tests | real bytecode | concrete + fuzz | ✅ current local suites green; CI rerun required |
-| R2 | Halmos | sig/threshold accounting; full `relay()` epoch matrix; access control; lifecycle; Merkle; randomness; fees — 25 harnesses / **86 checks (58 proofs, 28 anti-vacuity controls)**; GSS excluded | **real bytecode** | bounded (K≤3, N≤5) | current manifest; rerun required for this branch |
+| R0/R1 | Foundry | full 967-test tree; exact 36-test GSS gate with real-Safe differential fuzzing, production artifacts, and a 16,384-call state machine | real bytecode | concrete + fuzz + stateful invariant | ✅ current local gates green |
+| R2 | Halmos | relay-core accounting/matrix/lifecycle/Merkle/randomness/fees plus bounded GSS post-recovery signer/action transitions — 26 harnesses / **101 checks (71 proofs, 30 anti-vacuity controls)** | **real bytecode** | bounded; relay K≤3/N≤5, GSS fixed owner shape | ✅ exact current manifest green |
 | R3 | Kontrol | sig-loop weight invariant; random monotonicity — **∀K** (k-induction) | Solidity **model** | ∀K, N∈{3,5} | ✅ proven (Docker-pinned); full symbolic-N intractable (documented) |
-| R3 | Certora | 5 current all-functions storage invariants, including GSS nonce monotonicity | model | ∀ functions & sequences | pre-GSS rules historically cloud-proven except `relay()`; updated GSS rule set not yet rerun ([L5 §5.2](05-R3-unbounded-attempts.md)) |
+| R3 | Certora | 8 current all-functions storage invariants, including GSS high-water, generation, and consumed-nonce properties | model | ∀ functions & sequences | 2/2 current configs compile/typecheck locally; pre-GSS cloud history only, current cloud proof pending ([L5 §5.2](05-R3-unbounded-attempts.md)) |
 | R4a | Lean (the abstract proof) | sig-loop **threshold soundness under `ValidRun`** | abstract algorithm | **∀N ∀K** | ✅ hole-free |
 | R4b | Lean + EVMYulLean | threshold soundness for the literal hand-transliterated loop model; memory reads and index guards derived, execution/acceptance hypotheses explicit | validated EVM model | **∀N**, conditional | ✅ hole-free; artifact + optimized-Yul provenance gated |
 | R5 | Lean + EVMYulLean (`relay()` breadth) | conditional dispatch→loop→accept composition; independent storage round-trip/accept-write and fee-conservation components | validated EVM model | **∀N** (breadth) | ✅ hole-free; not byte-complete; setup, `.CALL` wiring, and D3 reconciliation remain explicit boundaries |
@@ -215,13 +215,15 @@ The stack is sound *because* of how the rungs are chosen around this:
 - The **per-sequence** forms of the core storage invariants are proven on the
   real bytecode (for example,
   [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15)
-  for the epoch pointer). GSS nonce behavior currently has concrete
-  real-Safe tests, not a Halmos proof.
+  for the epoch pointer). GSS signer and action transitions now have dedicated
+  bounded Halmos proofs, while Safe digest equivalence and source execution stay
+  outside that symbolic boundary.
 
 For the pre-GSS core, the residual after the full stack is not "the security core
 is untested" but "`relay()` itself is covered through per-sequence Halmos proofs
-and the Lean model rather than the all-functions Certora result." The new GSS
-surface has a separate, explicitly pending proof backlog. The generalizable
+and the Lean model rather than the all-functions Certora result." The GSS
+surface has bounded state-machine proofs but still lacks current parametric
+Certora cloud evidence and any source-execution proof. The generalizable
 lesson is in [L12](12-lessons.md):
 *when independent unbounded tools converge on the same stall against hand-written assembly, that is the
 signal to switch to theorem-proving against a validated low-level semantics.*

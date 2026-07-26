@@ -121,7 +121,7 @@ an *abstract* 2-statement body (`body_effM`) that *assumes* the read is state-pr
 selected weight (`hcov`/`hcorr`). A companion model now removes those assumptions:
 [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean) — with
 [`RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean) (the Yul body
-hand-transliterated statement-for-statement from `relay_ir_optimized.yul:2010-2053`) and
+hand-transliterated statement-for-statement from `relay_ir_optimized.yul:2159-2202`) and
 [`RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean) (the calldata
 byte-window decode) — executes the **17-statement body model** `bodyL` through the validated Yul
 `exec`, threading modeled `mstore`/`calldatacopy`/`mload` state. The chain, all hole-free
@@ -224,7 +224,7 @@ deployed break→write→return) so the accept-write folds into the composition.
 and the message hash) live in the **pre-loop setup region** — inside `realSetup`, whose aggregate state
 transition `dispatch_setup_loop_accept` carries as an explicit hypothesis. The literal loop-body model
 (`RelayLoopLiteral`) is therefore **unchanged** — the 17-statement source body is represented by the current
-snapshot at `relay_ir_optimized.yul:2010-2053`. The chain-binding of the stored policy hash is instead pinned at R2 by
+snapshot at `relay_ir_optimized.yul:2159-2202`. The chain-binding of the stored policy hash is instead pinned at R2 by
 `RelayPolicyHashFV` (it proves the on-chain `keccak256(chainid ‖ contentFold)` equals the oracle for all symbolic
 policies); cross-chain *rejection* is a cryptographic property proved concretely at R0 (`RelayChainDomain.t.sol`).
 

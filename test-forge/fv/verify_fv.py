@@ -15,6 +15,7 @@ import hashlib
 import importlib.metadata
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -245,8 +246,14 @@ def _command_output(command: list[str]) -> str:
     return (completed.stdout or completed.stderr).strip()
 
 
+def _foundry_version(output: str) -> str:
+    match = re.search(r"^forge Version:\s*(\S+)", output, re.MULTILINE)
+    return match.group(1) if match else "unavailable"
+
+
 def _toolchain_problems(halmos_binary: str, manifest: dict[str, Any]) -> tuple[dict[str, str], list[str]]:
     expected = manifest["toolchain"]
+    foundry_version = _foundry_version(_command_output(["forge", "--version"]))
     halmos_version = _command_output([halmos_binary, "--version"])
     try:
         z3_version = importlib.metadata.version("z3-solver")
@@ -254,13 +261,50 @@ def _toolchain_problems(halmos_binary: str, manifest: dict[str, Any]) -> tuple[d
         z3_version = "unavailable"
 
     problems: list[str] = []
+    if foundry_version != expected["foundry"]:
+        problems.append(
+            f"Foundry version is {foundry_version!r}; expected {expected['foundry']!r}"
+        )
     if halmos_version != f"halmos {expected['halmos']}":
         problems.append(
             f"Halmos version is {halmos_version!r}; expected 'halmos {expected['halmos']}'"
         )
     if z3_version != expected["z3"]:
         problems.append(f"z3-solver version is {z3_version!r}; expected {expected['z3']!r}")
-    return {"halmos": halmos_version, "z3_solver": z3_version}, problems
+    return {
+        "foundry": foundry_version,
+        "halmos": halmos_version,
+        "z3_solver": z3_version,
+    }, problems
+
+
+def _prepare_halmos_artifacts() -> int:
+    """Force AST-complete artifacts so Halmos cannot reuse an incompatible incremental build."""
+    command = [
+        "forge",
+        "build",
+        "--force",
+        "--ast",
+        "--extra-output",
+        "storageLayout",
+        "metadata",
+    ]
+    print("[fv] preparing Halmos artifacts:", " ".join(command), flush=True)
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as error:
+        print(f"[fv] FAIL: could not execute Forge ({error}).")
+        return 1
+    if completed.returncode:
+        print(completed.stdout, end="")
+        print(completed.stderr, end="", file=sys.stderr)
+    return completed.returncode
 
 
 def _git_commit() -> str:
@@ -305,6 +349,9 @@ def main() -> int:
             output_path = args.results_input
             print(f"[fv] validating existing results: {output_path}")
         else:
+            if _prepare_halmos_artifacts():
+                print("[fv] FAIL: could not produce AST-complete Foundry artifacts.")
+                return 1
             with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as output:
                 temporary_output = Path(output.name)
             output_path = temporary_output

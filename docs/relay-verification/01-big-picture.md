@@ -124,9 +124,9 @@ rung chosen for what it can reach that the rung below cannot:
          ▲   lifts the abstract proof onto the validated bytecode semantics
    R4a  ABSTRACT PROOF — Lean (core) ....................... abstract algorithm, ∀N ∀K
          ▲   the math: induction, no EVM in sight
-   R3   KONTROL (∀K on a Solidity model, N∈{3,5})  +  CERTORA (storage invariants — blocked)
-         ▲   unbounded-in-K by induction; Certora hits the assembly wall (a finding)
-   R2   HALMOS — 25 harnesses / 86 checks on the REAL BYTECODE ... bounded (K≤3, N≤5), all inputs in range
+   R3   KONTROL (∀K on a Solidity model, N∈{3,5})  +  CERTORA (storage invariants)
+         ▲   unbounded-in-K by induction; current Certora CVL is locally checked, cloud proof pending
+   R2   HALMOS — 26 harnesses / 101 checks on REAL BYTECODE ... bounded; includes GSS state transitions
          ▲   symbolic execution; immune to the assembly wall; each proof anti-vacuity-guarded
    R0/R1 FOUNDRY tests + fuzzing on the deployed contract ........ concrete + random inputs
 ```

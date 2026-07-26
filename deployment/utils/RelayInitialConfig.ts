@@ -19,5 +19,6 @@ export interface RelayInitialConfig {
   governanceSafe: string;
   governanceThreshold: number;
   governanceOwners: string[];
+  governanceOwnerConfigSafeNonce: number;
   governanceSafeNonce: number;
 }

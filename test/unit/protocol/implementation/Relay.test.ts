@@ -208,6 +208,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       governanceSafe: "0x0000000000000000000000000000000000000000",
       governanceThreshold: 0,
       governanceOwners: [],
+      governanceOwnerConfigSafeNonce: 0,
       governanceSafeNonce: 0
     }
 
@@ -535,6 +536,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       governanceSafe: "0x0000000000000000000000000000000000000000",
       governanceThreshold: 0,
       governanceOwners: [],
+      governanceOwnerConfigSafeNonce: 0,
       governanceSafeNonce: 0
     }
 
@@ -747,6 +749,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       governanceSafe: "0x0000000000000000000000000000000000000000",
       governanceThreshold: 0,
       governanceOwners: [],
+      governanceOwnerConfigSafeNonce: 0,
       governanceSafeNonce: 0
     }
 
@@ -1218,6 +1221,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1271,6 +1275,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1308,6 +1313,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1334,6 +1340,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1376,6 +1383,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1411,6 +1419,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1444,6 +1453,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1495,6 +1505,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1561,6 +1572,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1587,6 +1599,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1658,6 +1671,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1684,6 +1698,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1821,6 +1836,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -1928,6 +1944,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       };
       const relay = await Relay.new(relayInitialConfig, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
@@ -1962,6 +1979,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       };
     }
@@ -2024,6 +2042,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -2108,6 +2127,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -2204,6 +2224,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -2402,6 +2423,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 
@@ -2422,6 +2444,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         governanceSafe: "0x0000000000000000000000000000000000000000",
         governanceThreshold: 0,
         governanceOwners: [],
+        governanceOwnerConfigSafeNonce: 0,
         governanceSafeNonce: 0
       }
 

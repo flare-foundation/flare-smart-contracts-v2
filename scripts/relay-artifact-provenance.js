@@ -5,6 +5,7 @@
 // The FV job consumes this instead of transferring Hardhat's large build-info tree.
 
 const crypto = require("crypto");
+const childProcess = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -96,7 +97,8 @@ function assertExpected(actual, expected, label) {
   }
 }
 
-const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const manifestBytes = fs.readFileSync(manifestPath);
+const manifest = JSON.parse(manifestBytes);
 const target = manifest.target;
 const sourceName = target.source;
 const contractName = target.contract;
@@ -136,6 +138,11 @@ const report = {
   schema_version: 1,
   gate: "relay-deployment-artifact",
   status: "pass",
+  git_commit: childProcess.execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  }).trim(),
+  manifest_sha256: sha256(manifestBytes),
   source: sourceName,
   contract: contractName,
   source_sha256: sha256(sourceBytes),

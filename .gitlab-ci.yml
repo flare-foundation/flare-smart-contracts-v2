@@ -236,17 +236,26 @@ test-fv-halmos:
     - contracts/protocol/implementation/Relay.sol
     - contracts/protocol/interface/IIRelay.sol
     - contracts/governance/**/*
-    - contracts/userInterfaces/IRelay.sol
-    - contracts/userInterfaces/IRelayGovernance.sol
+    - contracts/userInterfaces/**/*
+    - certora/**/*
     - test-forge/fv/**/*
+    - test-forge/unit/governance/**/*
+    - test-forge/invariant/governance/**/*
     - halmos.toml
     - foundry.toml
     - hardhat.config.ts
     - scripts/relay-artifact-provenance.js
+    - scripts/verify-gss-source-safe.js
+    - scripts/bootstrap-fv.sh
+    - package.json
+    - yarn.lock
+    - remappings.txt
+    - .gitlab-ci.yml
   before_script:
   - python3 --version; git --version; curl --version | head -1   # env diagnostics
   # node_modules fallback — the runner-local cache is an optimization, not a dependency (see test-unit-forge)
-  - if [ ! -d node_modules ]; then apt-get update -qq && apt-get install -y -qq nodejs npm > /dev/null && npx --yes yarn@1.22.22 install --frozen-lockfile; fi
+  - if ! command -v node >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -qq nodejs npm > /dev/null; fi
+  - if [ ! -d node_modules ]; then npx --yes yarn@1.22.22 install --frozen-lockfile; fi
   - pip install --user -r test-forge/fv/requirements-halmos.lock
   - mkdir -p "$HOME/.foundry/bin"
   - curl --fail --location --retry 3 --output "/tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" "https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_VERSION}/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz"
@@ -256,12 +265,14 @@ test-fv-halmos:
   - forge --version
   - forge soldeer install
   - forge install --no-git
-  - forge build
+  - forge build --force --ast --extra-output storageLayout metadata
   script:
   - export PATH="$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
   - python3 -m unittest discover -s test-forge/fv/tests -v
   - python3 test-forge/fv/verify_relay_revert_abi.py --report-output verification-reports/relay-revert-abi.json
   - python3 test-forge/fv/verify_relay_artifact.py --deployment-report verification-reports/relay-deployment.json --report-output verification-reports/relay-artifact-parity.json
+  - python3 test-forge/fv/verify_gss_governance.py --report-output verification-reports/relay-gss-governance.json
+  - node scripts/verify-gss-source-safe.js
   - HALMOS=halmos python3 test-forge/fv/verify_fv.py --report-output verification-reports/relay-halmos.json
   artifacts:
     when: always
@@ -270,7 +281,68 @@ test-fv-halmos:
     - verification-reports/relay-deployment.json
     - verification-reports/relay-revert-abi.json
     - verification-reports/relay-artifact-parity.json
+    - verification-reports/relay-gss-governance.json
+    - verification-reports/gss-source-safe.json
     - verification-reports/relay-halmos.json
+
+# Local Certora front-end gate. This checks Solidity compilation, CVL type-checking, and the exact
+# production-to-harness munge; it deliberately does not claim a cloud prover verdict.
+test-fv-certora-local:
+  needs: []
+  timeout: 20 minutes
+  tags: [ flarenetwork-md ]
+  image: python:3.11.6-bookworm@sha256:ba7a7ac30c38e119c4304f98ef0e188f90f4f67a958bb6899da9defb99bfb471
+  variables:
+    FOUNDRY_VERSION: "v1.7.1"
+    FOUNDRY_ARCHIVE_SHA256: "cf7e688ed0c4c48adffca788b496076e31060b67ac5afe1e43dbb5499c20c88b"
+    TEMURIN_URL: "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12%2B8/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12_8.tar.gz"
+    TEMURIN_SHA256: "e4446ff06a276155697597cc0f1b15da004ff083f4964a35271ecee567177370"
+    SOLC_URL: "https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.27+commit.40a35a09"
+    SOLC_SHA256: "b9977d500c17cba6f0032ca939ef98c4decf6363f19f386d05fb02f708115264"
+  rules:
+  - changes:
+    - contracts/protocol/implementation/Relay.sol
+    - contracts/protocol/interface/IIRelay.sol
+    - contracts/governance/**/*
+    - contracts/userInterfaces/**/*
+    - certora/**/*
+    - test-forge/fv/**/*
+    - test-forge/unit/governance/**/*
+    - test-forge/invariant/governance/**/*
+    - halmos.toml
+    - foundry.toml
+    - hardhat.config.ts
+    - scripts/relay-artifact-provenance.js
+    - scripts/verify-gss-source-safe.js
+    - scripts/bootstrap-fv.sh
+    - package.json
+    - yarn.lock
+    - remappings.txt
+    - .gitlab-ci.yml
+  before_script:
+  - pip install --user certora-cli==8.16.1
+  - mkdir -p /tmp/temurin21 "$HOME/.foundry/bin"
+  - curl --fail --location --retry 3 --output /tmp/temurin21.tar.gz "$TEMURIN_URL"
+  - echo "$TEMURIN_SHA256  /tmp/temurin21.tar.gz" | sha256sum --check --strict
+  - tar -xzf /tmp/temurin21.tar.gz -C /tmp/temurin21 --strip-components=1
+  - curl --fail --location --retry 3 --output /tmp/solc-0.8.27 "$SOLC_URL"
+  - echo "$SOLC_SHA256  /tmp/solc-0.8.27" | sha256sum --check --strict
+  - chmod +x /tmp/solc-0.8.27
+  - curl --fail --location --retry 3 --output "/tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" "https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_VERSION}/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz"
+  - echo "$FOUNDRY_ARCHIVE_SHA256  /tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" | sha256sum --check --strict
+  - tar -xzf "/tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" -C "$HOME/.foundry/bin"
+  - export PATH="/tmp/temurin21/bin:$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
+  - forge soldeer install
+  - forge install --no-git
+  script:
+  - export JAVA_HOME=/tmp/temurin21
+  - export PATH="$JAVA_HOME/bin:$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
+  - python3 test-forge/fv/verify_certora_local.py --solc /tmp/solc-0.8.27 --report-output verification-reports/relay-certora-local.json
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - verification-reports/relay-certora-local.json
 
 # The bundle is the hand-off artifact: it binds passing evidence to the Git commit,
 # the manifest hash, and the SHA-256 of every report. Keep this deliberately separate
@@ -281,18 +353,29 @@ test-fv-bundle:
     artifacts: true
   - job: test-fv-lean
     artifacts: true
+  - job: test-fv-certora-local
+    artifacts: true
   rules:
   - changes:
     - contracts/protocol/implementation/Relay.sol
     - contracts/protocol/interface/IIRelay.sol
     - contracts/governance/**/*
-    - contracts/userInterfaces/IRelay.sol
-    - contracts/userInterfaces/IRelayGovernance.sol
+    - contracts/userInterfaces/**/*
     - test-forge/fv/**/*
+    - test-forge/unit/governance/**/*
+    - test-forge/invariant/governance/**/*
     - halmos.toml
     - foundry.toml
     - hardhat.config.ts
     - scripts/relay-artifact-provenance.js
+    - scripts/verify-gss-source-safe.js
+    - certora/**/*
+    - test-forge/fv/verify_certora_local.py
+    - scripts/bootstrap-fv.sh
+    - package.json
+    - yarn.lock
+    - remappings.txt
+    - .gitlab-ci.yml
   image: python:3.11.6-bookworm@sha256:ba7a7ac30c38e119c4304f98ef0e188f90f4f67a958bb6899da9defb99bfb471
   script:
   - python3 test-forge/fv/verify_bundle.py --output verification-reports/relay-fv-bundle.json
@@ -325,17 +408,21 @@ test-fv-lean:
     - contracts/protocol/implementation/Relay.sol
     - contracts/protocol/interface/IIRelay.sol
     - contracts/governance/**/*
-    - contracts/userInterfaces/IRelay.sol
-    - contracts/userInterfaces/IRelayGovernance.sol
+    - contracts/userInterfaces/**/*
+    - certora/**/*
+    - test-forge/fv/**/*
+    - test-forge/unit/governance/**/*
+    - test-forge/invariant/governance/**/*
+    - halmos.toml
     - foundry.toml
     - hardhat.config.ts
     - scripts/relay-artifact-provenance.js
-    - test-forge/fv/verification-manifest.json
-    - test-forge/fv/verify_relay_artifact.py
-    - test-forge/fv/lean/RelaySigLoop.lean
-    - test-forge/fv/lean/relay_ir_optimized.yul
-    - test-forge/fv/lean/bytecode-refinement/**/*
-    - test-forge/fv/lean/verify_lean.py
+    - scripts/verify-gss-source-safe.js
+    - scripts/bootstrap-fv.sh
+    - package.json
+    - yarn.lock
+    - remappings.txt
+    - .gitlab-ci.yml
   before_script:
   - python3 --version; git --version; curl --version | head -1   # env diagnostics
   - curl --fail --location --retry 3 --output /tmp/elan.tar.gz "https://github.com/leanprover/elan/releases/download/${ELAN_VERSION}/elan-x86_64-unknown-linux-gnu.tar.gz"
@@ -371,9 +458,15 @@ test-doc-links:
   - changes:
     - docs/relay-verification/**/*
     - docs/relay-verification-summary.md
+    - docs/gss-governance.md
+    - certora/README.md
     - test-forge/fv/**/*
     - test-forge/unit/protocol/implementation/Relay.t.sol
+    - test-forge/unit/governance/**/*
+    - test-forge/invariant/governance/**/*
     - certora/specs/**/*
+    - scripts/bootstrap-fv.sh
+    - .gitlab-ci.yml
   script:
   - python3 docs/relay-verification/verify_links.py --check
 

@@ -38,6 +38,11 @@ def run(command: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False)
 
 
+def git_commit() -> str:
+    result = run(["git", "rev-parse", "HEAD"], cwd=FV_DIR.parents[1])
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
 def strip_lean_comments(source: str) -> str:
     """Strip nested block and line comments while preserving line boundaries."""
     output: list[str] = []
@@ -205,7 +210,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        manifest = json.loads(args.manifest.read_text())
+        manifest_bytes = args.manifest.read_bytes()
+        manifest = json.loads(manifest_bytes)
         lean_manifest = manifest["lean"]
         allowed_axioms = set(lean_manifest["allowed_axioms"])
     except (OSError, KeyError, json.JSONDecodeError) as error:
@@ -270,6 +276,8 @@ def main() -> int:
         "schema_version": 1,
         "gate": "relay-lean",
         "status": "pass" if not all_problems else "fail",
+        "git_commit": git_commit(),
+        "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
         "toolchain": toolchain,
         "allowed_axioms": sorted(allowed_axioms),
         "files": report_files,

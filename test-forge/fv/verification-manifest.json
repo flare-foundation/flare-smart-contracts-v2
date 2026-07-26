@@ -74,12 +74,140 @@
     "kontrol": "1.0.248",
     "k": "7.1.334"
   },
+  "gss_governance_tests": {
+    "foundry": "1.7.1",
+    "safe_contracts": "1.3.0",
+    "minimum_fuzz_runs": 256,
+    "invariant_runs": 128,
+    "invariant_depth": 128,
+    "invariant_handler_functions": [
+      "createConflict",
+      "createFee",
+      "createRotation",
+      "deliver",
+      "mutateAndDeliver"
+    ],
+    "suites": [
+      {
+        "path": "test-forge/unit/governance/GSSGovernance.t.sol",
+        "contract": "GSSGovernanceTest",
+        "tests": [
+          "testFuzz_everySafeTransactionFieldIsBound",
+          "testFuzz_safeDigestMatchesRealSafeForArbitraryTransaction",
+          "test_acceptsMessageExecutedThroughAnyCompatibleHelper",
+          "test_acceptsMoreValidSignaturesThanThreshold",
+          "test_checkerAndRelayRejectNonCanonicalFeeList",
+          "test_checkerRejectsFeesWhileOwnerRotationIsStaged",
+          "test_conflictingTransactionsAtSameSafeNonceAreFirstDeliveryWins",
+          "test_delayedOwnerRotationCannotBeStrandedByHigherOldConfigFee",
+          "test_deploymentReplayFloorRejectsPredatingMessage",
+          "test_extremeFutureNonceCanExhaustFeeSequenceWithoutSourceExecution",
+          "test_feeMessageWorksOnTwoIndependentTargetChains",
+          "test_gappedSafeNonceIsAccepted",
+          "test_governanceConfigurationRequiresRelayModeAndNoOldRelay",
+          "test_higherNonceFeeDeliveredFirstSuppressesLowerNonceFee",
+          "test_irrelevantFeeMessageDoesNotConsumeLocalNonce",
+          "test_maximumCanonicalFeeBatchIsExecutable",
+          "test_ownerRotationRequiresLocalInstallationBeforeNewOwnersCanGovern",
+          "test_rejectsActionNonceThatDoesNotMatchSafeTransactionNonce",
+          "test_rejectsDuplicateLocalFeeWithoutPartialUpdate",
+          "test_rejectsEmptyFeeList",
+          "test_rejectsFeeBatchAboveLimit",
+          "test_rejectsInvalidSignatureSetsAndNormalizesRecoveryErrors",
+          "test_rejectsReplayAndModifiedAction",
+          "test_removedOwnerRemainsAuthorizedUntilTargetInstallsRotation",
+          "test_returningToSameOwnersDoesNotReviveOldFutureNonceMessage",
+          "test_safeCancellationDoesNotRevokeRemoteAuthorization",
+          "test_safeDigestMatchesRealSafeForCompleteTransaction",
+          "test_sameSignedMessageAuthorizesTwoRelayDeploymentsOnSameChain",
+          "test_setupIsThreeOfFiveAndCheckerMatchesGSS",
+          "test_targetDeploymentDoesNotRequireSourceSafeCode"
+        ]
+      },
+      {
+        "path": "test-forge/unit/governance/GSSGovernanceProductionRehearsal.t.sol",
+        "contract": "GSSGovernanceProductionRehearsalTest",
+        "tests": [
+          "test_rehearsalExecutesFeesRotationAndFeesThroughRealSafe",
+          "test_rehearsalMatchesFlareSafeVersionAndConfigurationShape",
+          "test_rehearsalMaximumBatchFitsRecordedFlareBlockGasLimit"
+        ]
+      },
+      {
+        "path": "test-forge/invariant/governance/GSSGovernanceInvariant.t.sol",
+        "contract": "GSSGovernanceInvariantTest",
+        "tests": [
+          "invariant_modelMatchesBothRelayTargets",
+          "test_stateMachineHandlesDelayedRotationAndTargetDivergence",
+          "test_stateMachineMakesSameNonceConflictsFirstDeliveryWinsPerTarget"
+        ]
+      }
+    ]
+  },
+  "gss_source_safe": {
+    "network": "flare",
+    "rpc_url": "https://flare-api.flare.network/ext/C/rpc",
+    "chain_id": 14,
+    "safe": "0xbe653c54df337f13fcb726101388f4a4803049f3",
+    "block_number": 65907987,
+    "block_hash": "0x63ad0a44c3ab8703a5946e588642458faa35b5a9bb7d486c03eceeb43572773e",
+    "block_timestamp": 1785023428,
+    "block_gas_limit": "28000000",
+    "version": "1.3.0",
+    "owner_count": 11,
+    "owner_contract_count": 0,
+    "owners_canonical": [
+      "0x1ff339f9e01a138201c03a42050973a024d568ee",
+      "0x2d40222a08f8d1d51e8e9eae640aaa2f00062ac8",
+      "0x460a7f465e8e9b4189f2ae22a900cc9e5c7372d0",
+      "0x49893c5dfc035f4ee4e46fac014f6d4bc80f7f92",
+      "0x5d2f75392ddda69a2818021dd6a64937904c8352",
+      "0x6455dc38fdf739b6fe021b30c7d9672c1c6deb5c",
+      "0x6bc7dca62010d418eb72ccdc58561e00c5868ef1",
+      "0x714783a6e709b878f9181ce43222683fd32eaccd",
+      "0x968631112f9517450b524bed54b39efb8e6cbac6",
+      "0xe34bb361536610a9dccea5292262e36aff65c06c",
+      "0xebacb762a5dc1f022fce61be0deb5d2423936508"
+    ],
+    "threshold": "6",
+    "nonce": "998",
+    "module_count": 0,
+    "module_next": "0x0000000000000000000000000000000000000001",
+    "singleton": "0xf09fc2658270ac5494fa365dc5e29e0a2c636413",
+    "safe_runtime_keccak256": "0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000",
+    "singleton_runtime_keccak256": "0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f",
+    "guard": "0x0000000000000000000000000000000000000000",
+    "fallback_handler": "0x3f083d314c01ad7f1cc53b0a8422ee335cf2923a",
+    "fallback_handler_runtime_keccak256": "0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf"
+  },
+  "certora_local": {
+    "certora_cli": "8.16.1",
+    "minimum_java_major": 21,
+    "solc_long_version": "0.8.27+commit.40a35a09",
+    "configs": [
+      "certora/Relay.conf",
+      "certora/Relay-writeonce.conf"
+    ]
+  },
   "halmos": {
     "function_prefix": "check_",
     "expected_process_exitcode": 1,
-    "expected_check_count": 86,
+    "expected_check_count": 101,
     "max_bounded_loops": 0,
     "proofs": [
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_actionNonce_boundToSafeNonce",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_consumedNonce_excludesConflict",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_delayedRotation_preservesFeeHighWater",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_duplicateSigner_rejected",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_irrelevantFee_doesNotConsume",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_lowerFeeNonce_cannotRegress",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_nonCanonicalFee_isAtomic",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_nonOwnerSigner_rejected",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_ownerRotation_advancesGeneration",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_relevantFee_atomicAndConsumed",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_signers_belowThreshold_rejected",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_unorderedSigners_rejected",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_wrongCurrentHash_cannotRotate",
       "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_setSigningPolicy_onlySetter",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_badV_cannotAccept",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_highS_cannotAccept",
@@ -140,6 +268,8 @@
       "test-forge/fv/RelayWrongEpochFV.t.sol:RelayWrongEpochFV.check_wrongEpoch_rejected"
     ],
     "reachability": [
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_reach_gss_validFeeAction",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_reach_gss_validSignerSet",
       "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_reach_setter_canCall",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_reachability_canonicalAccepts",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_reach_ctor_validDeploys",
