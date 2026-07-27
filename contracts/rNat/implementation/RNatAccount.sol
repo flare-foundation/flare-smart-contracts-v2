@@ -68,6 +68,14 @@ contract RNatAccount is IIRNatAccount {
         require(address(_rNat) != address(0), "rNat address zero");
         owner = _owner;
         rNat = _rNat;
+        // Neutralize any pre-funding of this CREATE-deterministic address by wrapping it into
+        // WNat. This ensures the creation-time bootstrap `setClaimExecutors` call finds a zero
+        // native balance and cannot hand control to the owner (via `_transferCurrentBalanceToOwner`)
+        // while `RNat` still holds an unaccounted `msg.value` from an outer `setClaimExecutors` call.
+        uint256 preFunded = address(this).balance;
+        if (preFunded > 0) {
+            _rNat.wNat().deposit{value: preFunded}();
+        }
         emit Initialized(owner, _rNat);
     }
 
