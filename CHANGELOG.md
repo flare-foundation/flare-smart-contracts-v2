@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * Removed `unchecked` block in `SafePct.mulDivRoundUp` to prevent a potential overflow
+* `RNatAccount.initialize` wraps any pre-funded balance, preventing a creation-time reentrancy in new account clones
 
 
 ## [[v1.2.0]((https://github.com/flare-foundation/flare-smart-contracts-v2/releases/tag/v1.2.0)])] - 2026-04-17
