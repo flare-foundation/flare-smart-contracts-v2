@@ -74,6 +74,9 @@ contract RNatAccount is IIRNatAccount {
         // while `RNat` still holds an unaccounted `msg.value` from an outer `setClaimExecutors` call.
         uint256 preFunded = address(this).balance;
         if (preFunded > 0) {
+            // Destination is the canonical WNat from the trusted RNat; the value is this
+            // account's own pre-fund. Safe despite the static-analysis arbitrary-send flag.
+            //slither-disable-next-line arbitrary-send-eth
             _rNat.wNat().deposit{value: preFunded}();
         }
         emit Initialized(owner, _rNat);
