@@ -126,12 +126,6 @@ contract DeployTeeContracts is Script {
         string name;
     }
 
-    struct OperationFeeConfig {
-        string feeWei;
-        string opCommand;
-        string opType;
-    }
-
     struct KeyTypeWithSigningAlgos {
         string keyType;
         string[] signingAlgos;
@@ -167,12 +161,6 @@ contract DeployTeeContracts is Script {
         uint256 maxBatchSize;
         string opType;
         TeePaymentsUtxoSourceConfig[] sourceConfigs;
-    }
-
-    struct Fdc2RequestFee {
-        string attestationType;
-        string feeWei;
-        string source;
     }
 
     // NOTE: stdJson parses struct fields in alphabetical order of JSON keys.
@@ -524,23 +512,21 @@ contract DeployTeeContracts is Script {
     }
 
     function _configureOperationFees() internal {
-        OperationFeeConfig[] memory fees = abi.decode(
-            vm.parseJson(config, ".teeOperationFees"),
-            (OperationFeeConfig[])
-        );
-        if (fees.length == 0) return;
+        uint256 count = _jsonArrayLength(".teeOperationFees");
+        if (count == 0) return;
 
-        bytes32[] memory opTypes = new bytes32[](fees.length);
-        bytes32[] memory opCommands = new bytes32[](fees.length);
-        uint256[] memory feeValues = new uint256[](fees.length);
+        bytes32[] memory opTypes = new bytes32[](count);
+        bytes32[] memory opCommands = new bytes32[](count);
+        uint256[] memory feeValues = new uint256[](count);
 
-        for (uint256 i = 0; i < fees.length; i++) {
-            opTypes[i] = bytes32(bytes(fees[i].opType));
-            opCommands[i] = bytes32(bytes(fees[i].opCommand));
-            feeValues[i] = vm.parseUint(fees[i].feeWei);
+        for (uint256 i = 0; i < count; i++) {
+            string memory key = string.concat(".teeOperationFees[", vm.toString(i), "]");
+            opTypes[i] = bytes32(bytes(vm.parseJsonString(config, string.concat(key, ".opType"))));
+            opCommands[i] = bytes32(bytes(vm.parseJsonString(config, string.concat(key, ".opCommand"))));
+            feeValues[i] = vm.parseJsonUint(config, string.concat(key, ".feeWei"));
         }
 
-        console2.log("Setting operation fees, count:", fees.length);
+        console2.log("Setting operation fees, count:", count);
         flareTeeManager.setOperationFees(opTypes, opCommands, feeValues);
     }
 
@@ -1332,19 +1318,17 @@ contract DeployTeeContracts is Script {
     // =========================================================================
 
     function _configureFdc2RequestFees() internal {
-        Fdc2RequestFee[] memory fees = abi.decode(
-            vm.parseJson(config, ".fdc2RequestFees"),
-            (Fdc2RequestFee[])
-        );
+        uint256 count = _jsonArrayLength(".fdc2RequestFees");
         console2.log(
             "Setting FDC2 request fees, count:",
-            fees.length
+            count
         );
-        for (uint256 i = 0; i < fees.length; i++) {
+        for (uint256 i = 0; i < count; i++) {
+            string memory key = string.concat(".fdc2RequestFees[", vm.toString(i), "]");
             Fdc2RequestFeeConfigurations(fdc2FeeAddr).setTypeAndSourceFee(
-                bytes32(bytes(fees[i].attestationType)),
-                bytes32(bytes(fees[i].source)),
-                vm.parseUint(fees[i].feeWei)
+                bytes32(bytes(vm.parseJsonString(config, string.concat(key, ".attestationType")))),
+                bytes32(bytes(vm.parseJsonString(config, string.concat(key, ".source")))),
+                vm.parseJsonUint(config, string.concat(key, ".feeWei"))
             );
         }
     }
@@ -1450,6 +1434,26 @@ contract DeployTeeContracts is Script {
             return IAddressValidator.Network.Mainnet; // flare / songbird
         }
         return IAddressValidator.Network.Testnet;
+    }
+
+    // =========================================================================
+    // JSON array helpers
+    // =========================================================================
+
+    // NOTE: vm.parseJson coerces string values that parse as numbers wider than
+    // 64 bits into uint256 while smaller numeric strings stay strings, so
+    // abi.decode of object arrays with numeric string fields (e.g. feeWei) is
+    // unreliable. Such arrays must be parsed element by element with the typed
+    // cheatcodes (vm.parseJsonString / vm.parseJsonUint).
+    function _jsonArrayLength(
+        string memory _key
+    )
+        internal view
+        returns (uint256 _length)
+    {
+        while (vm.keyExistsJson(config, string.concat(_key, "[", vm.toString(_length), "]"))) {
+            _length++;
+        }
     }
 
     // =========================================================================
