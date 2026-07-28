@@ -393,7 +393,7 @@
     ],
     "teePaymentsUtxoConfigurations": [],
     "fdc2MinThresholdBIPS": 4000,
-    "fdc2DefaultNumberOfTees": 2,
+    "fdc2DefaultNumberOfTees": 1,
     "fdc2RequestFees": [
         {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "3000000000000000000"},
         {"attestationType": "PMWMultisigAccountConfigured", "source": "XRP", "feeWei": "20000000000000000000"},
