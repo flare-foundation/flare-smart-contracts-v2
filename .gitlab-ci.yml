@@ -63,7 +63,7 @@ scanner-slither:
   # Pinned: an unpinned install silently picks up new detectors on release, which turns every
   # pipeline red without any code change (0.11.6 added `msg-value-in-nonpayable`). Bump deliberately.
   - pip3 install slither-analyzer==0.11.6 1> /dev/null
-  - slither --version
+  - echo "slither version:" && slither --version
   - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
   - rm -f ./slither.json ./slither_badge.json
   script:
