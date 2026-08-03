@@ -900,7 +900,7 @@ contract GSSGovernanceTest is Test {
         c.thresholdIncreaseBIPS = 10000;
         c.messageFinalizationWindowInRewardEpochs = 1;
         c.feeCollectionAddress = payable(address(0xfee));
-        c.governanceSourceChainId = SOURCE_CHAIN;
+        c.sourceChainId = SOURCE_CHAIN;
         c.governanceSafe = safe;
         c.governanceThreshold = THRESHOLD;
         c.governanceOwners = owners;

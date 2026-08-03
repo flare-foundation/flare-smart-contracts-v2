@@ -771,7 +771,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
       feeCollectionAddress: constants.ZERO_ADDRESS,
       feeConfigs: [],
-      governanceSourceChainId: 0,
+      sourceChainId: 0,
       governanceSafe: "0x0000000000000000000000000000000000000000",
       governanceThreshold: 0,
       governanceOwners: [],
@@ -795,7 +795,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       // RLY-10: relay-mode (zero signingPolicySetter) requires a non-zero fee-collection address
       feeCollectionAddress: "0x000000000000000000000000000000000000dEaD",
       feeConfigs: [],
-      governanceSourceChainId: 0,
+      sourceChainId: 0,
       governanceSafe: "0x0000000000000000000000000000000000000000",
       governanceThreshold: 0,
       governanceOwners: [],

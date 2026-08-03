@@ -130,7 +130,7 @@ bytes32 constant SAFE_TX_TYPEHASH = keccak256(
 
 bytes32 domain = keccak256(abi.encode(
     DOMAIN_SEPARATOR_TYPEHASH,
-    governanceSourceChainId,
+    sourceChainId,
     governanceSafe
 ));
 
@@ -309,7 +309,7 @@ validation linear in the batch size.
 `IRelay.RelayInitialConfig` contains:
 
 ```solidity
-uint256 governanceSourceChainId;
+uint256 sourceChainId;   // RLY-23: shared with the signing path; the Safe's home network
 address governanceSafe;
 uint256 governanceThreshold;
 address[] governanceOwners;
@@ -317,17 +317,22 @@ uint256 governanceOwnerConfigSafeNonce;
 uint256 governanceSafeNonce;
 ```
 
-All-zero governance fields disable the GSS entry point. Any partial nonzero configuration
-is rejected.
+`sourceChainId` is the single source-network id, unified with the RLY-23 signing binding (it was
+formerly the governance-only `governanceSourceChainId`). It is always set (`0` ⇒ `block.chainid`), so it
+no longer doubles as the GSS enable flag: **the GSS entry point is enabled iff any *governance* field
+(`governanceSafe`, `governanceThreshold`, `governanceOwners`, either nonce) is nonzero**; all-zero
+governance fields disable it, and any partial nonzero configuration is rejected.
 
 When GSS governance is enabled, construction requires:
 
 ```text
-governanceSourceChainId != 0
 governanceSafe != address(0)
 signingPolicySetter == address(0)
 oldRelay == address(0)
 ```
+
+(Governance is thus mirror-only; `sourceChainId` names the Flare/Songbird network whose Safe and voter
+consensus this mirror relays.)
 
 The constructor validates and stores the canonical owners and threshold, computes
 `activeOwnerConfigHash`, and initializes the nonce state. The two constructor nonces are
@@ -355,7 +360,7 @@ on Flare, not necessarily at that address on the target chain.
 Governance state is exposed through `IRelayGovernance`:
 
 ```solidity
-uint256 public immutable governanceSourceChainId;
+uint256 public immutable sourceChainId;
 address public immutable governanceSafe;
 bytes32 public activeOwnerConfigHash;
 uint256 public activeOwnerConfigSafeNonce;
@@ -729,7 +734,7 @@ and constructor callers.
 GSS governance now has a dedicated Halmos harness in
 `test-forge/fv/GSSGovernanceFV.t.sol`. The exact manifest contains 13 GSS proofs
 and 2 validated reachability controls, bringing the full Halmos gate to 101
-checks (71 proofs and 30 controls). The harness executes production Relay
+checks (72 proofs and 30 controls). The harness executes production Relay
 bytecode through two deliberately exposed internal boundaries and proves:
 
 - distinct, ordered, admitted-owner threshold validation after signer recovery;
@@ -773,7 +778,7 @@ with the v1.3.0 commit above. A release or merge request should record:
 - Hardhat compile and Relay unit result;
 - passing legacy `relay()` revert-ABI report;
 - updated optimized-Yul snapshot for the current Relay source;
-- exact 36-test GSS gate and 101-check Halmos result;
+- exact 36-test GSS gate and 102-check Halmos result;
 - fixed-block source-Safe snapshot report, refreshed immediately before a
   production ceremony;
 - local Certora compilation/typecheck report and the separate cloud-proof status;

@@ -45,7 +45,7 @@ interface IRelayGovernance {
         bytes calldata signatures
     ) external;
 
-    function governanceSourceChainId() external view returns (uint256);
+    function sourceChainId() external view returns (uint256);
 
     function governanceSafe() external view returns (address);
 

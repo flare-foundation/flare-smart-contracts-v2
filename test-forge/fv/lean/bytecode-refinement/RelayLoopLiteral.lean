@@ -5,7 +5,7 @@ open EvmYul EvmYul.Yul EvmYul.Yul.Ast
 # Relay signature loop — the LITERAL body (work in progress: deriving `hcorr`/`hvalid`)
 
 This file transliterates the deployed signature loop's **actual body** — from the committed optimized-IR
-snapshot `../relay_ir_optimized.yul:2159-2202` — into the EVMYulLean Yul AST: both `calldatacopy`s (the
+snapshot `../relay_ir_optimized.yul:2177-2220` — into the EVMYulLean Yul AST: both `calldatacopy`s (the
 67-byte signature record; the 22-byte voter record), the **fixed scratch-slot addressing** (`m+32`…`m+128`),
 the full guard cascade (index range/order, canonical `v`, low-`s`, `staticcall`-success,
 `returndatasize()==32`, non-zero signer, signer==expected), the masked weight accumulation, and the
@@ -64,7 +64,7 @@ def revert00 : Stmt := Stmt.ExprStmtCall (bc .REVERT [litN 0, litN 0])
 /-- `if cond { revert }` — the guard shape used by every check in the loop. -/
 def guard' (cond : Expr) : Stmt := Stmt.If cond [revert00]
 
-/-! ## The loop, transliterated (IR lines 2159-2202)
+/-! ## The loop, transliterated (IR lines 2177-2220)
 
 Parameters: `m` = `usr$memPtrFor` (loop-invariant free-memory base), `sigStart` = `usr$signatureStart`,
 `nSig` = `_17` (numberOfSignatures), `nVot` = `shr(240,_1)` (numberOfVoters), `thr` = `usr$threshold`. -/

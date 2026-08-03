@@ -12,7 +12,7 @@ The module has since grown to a full **data layer** and a **literal hand-transli
 | `RelayBytecodeRefinement.lean` | loop *mechanism*, memory-free body, ∀N |
 | `DataLayer.lean` | the byte/memory/value/mask data layer (`weight_read`) against EVMYulLean's real `ByteArray`/`MachineState` |
 | `RelayLoopMemRead.lean` | abstract memory-reading loop + `relay_loop_sound` (accept ⟹ total registered weight > thr, ∀N; assumes `hcov`/`hcorr`) |
-| `RelayLoopLiteral.lean` | the hand-transliterated body model sourced from the optimized-Yul loop beginning at `relay_ir_optimized.yul:2157`, with deviations D1-D4 documented in the file, + reusable interpreter atoms and abstract accounting |
+| `RelayLoopLiteral.lean` | the hand-transliterated body model sourced from the optimized-Yul loop beginning at `relay_ir_optimized.yul:2175`, with deviations D1-D4 documented in the file, + reusable interpreter atoms and abstract accounting |
 | `RelayLoopWindows.lean` | the calldata byte-window decode layer |
 | `RelayBodyEff.lean` | composes the literal model into `relay_loop_sound_literal_derived_tight`; reads and structural guards are derived from explicit model preconditions, while ecrecover and model-to-deployment fidelity remain boundaries |
 | `RelayStorageLayer.lean` | storage round-trip and accept-write components |
@@ -173,7 +173,7 @@ and transfer [`RelaySigLoop.threshold_sound`](../RelaySigLoop.lean#L102) through
 - *Literal conditional body model — ✅ checked as stated (`RelayBodyEff.lean`, with `RelayLoopLiteral.lean` +
   `RelayLoopWindows.lean`; 2026-07-02/03).* The "remaining, optional" item above is built. It executes the
   **17-statement hand-transliterated body model** `bodyL`, sourced from the optimized-Yul signature loop
-  beginning at `relay_ir_optimized.yul:2157` — through the validated Yul `exec`, threading modeled
+  beginning at `relay_ir_optimized.yul:2175` — through the validated Yul `exec`, threading modeled
   `mstore`/`calldatacopy`/`mload` state (no `hcov` state-preservation assumption). The chain, all hole-free:
   `body_effL` (one iteration) → `s16_ww_advance`/`s16_ii_preserved` (the body adds exactly the selected
   voter's registered weight, preserves the counter) → `iter_advance` (the per-iteration advance `hstep`,

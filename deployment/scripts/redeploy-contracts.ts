@@ -189,7 +189,7 @@ export async function redeployContracts(
       messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
       feeCollectionAddress: ZERO_ADDRESS,
       feeConfigs: [],
-      governanceSourceChainId: 0,
+      sourceChainId: 0,
       governanceSafe: "0x0000000000000000000000000000000000000000",
       governanceThreshold: 0,
       governanceOwners: [],

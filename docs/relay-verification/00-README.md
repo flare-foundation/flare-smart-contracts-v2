@@ -37,7 +37,7 @@ precise teaches the wrong thing. The same precision serves all three.
 
 [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol)'s security-critical accounting is verified by a **five-rung stack**, each rung covering what
 the one below cannot. Concrete and fuzz tests (R0/R1) exercise the deployed contract. **Halmos** (R2)
-symbolically executes the **real bytecode** across 26 harnesses / 101 checks, proving the signature/
+symbolically executes the **real bytecode** across 26 harnesses / 102 checks, proving the signature/
 threshold accounting, the full `relay()` epoch-decision matrix, access control, lifecycle, Merkle and
 randomness, and fees — bounded in size but on the actual deployed code, each proof guarded by an
 anti-vacuity control. **Kontrol/KEVM** (R3) lifts the signature-loop weight invariant and random
@@ -86,7 +86,7 @@ discharged deeper. Read only as deep as you need.
 | **L1** | [`01-big-picture.md`](01-big-picture.md) | tutorial | What Relay does, what "verification" means, the two enemies — by analogy. No background needed. |
 | **L2** | [`02-strategy-and-the-fidelity-ladder.md`](02-strategy-and-the-fidelity-ladder.md) | tutorial + audit | The research-first strategy, the **fidelity ladder (R0–R5)**, and the executive results table across all rungs. |
 | **L3** | [`03-R0R1-foundation-tests.md`](03-R0R1-foundation-tests.md) | all | Foundry concrete + fuzz tests: the base of the stack. |
-| **L4** | [`04-R2-bounded-symbolic-halmos.md`](04-R2-bounded-symbolic-halmos.md) | all | The 26-harness / 101-check Halmos suite on real bytecode + the vacuity tripwire. The property catalog + the complete per-check inventory. |
+| **L4** | [`04-R2-bounded-symbolic-halmos.md`](04-R2-bounded-symbolic-halmos.md) | all | The 26-harness / 102-check Halmos suite on real bytecode + the vacuity tripwire. The property catalog + the complete per-check inventory. |
 | **L5** | [`05-R3-unbounded-attempts.md`](05-R3-unbounded-attempts.md) | all | Kontrol (∀K on a model) and Certora (storage invariants, since proven for all functions but `relay()`) — partial successes and the honest assembly wall. |
 | **L6** | [`06-R4a-abstract-proof.md`](06-R4a-abstract-proof.md) | all | The abstract proof: the ∀N ∀K threshold-soundness theorem in Lean. |
 | **L7** | [`07-R4b-bytecode-refinement.md`](07-R4b-bytecode-refinement.md) | all | The bytecode refinement: lifting the abstract proof onto validated EVM semantics, ∀N. |

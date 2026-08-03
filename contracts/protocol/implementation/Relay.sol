@@ -204,7 +204,9 @@ contract Relay is IIRelay, IRelayGovernance {
     /// fee collection address.
     address payable public feeCollectionAddress;
 
-    uint256 public immutable override governanceSourceChainId;
+    // RLY-23: source network id (Flare/Songbird), bound into every signed digest and the governance
+    // digest; shared with the signing path. On a home deploy == block.chainid (forced in constructor).
+    uint256 public immutable override sourceChainId;
     address public immutable override governanceSafe;
     uint256 public immutable override governanceReplayFloor;
     bytes32 public override activeOwnerConfigHash;
@@ -263,9 +265,9 @@ contract Relay is IIRelay, IRelayGovernance {
         require(_initialConfig.rewardEpochDurationInVotingEpochs > 0, "reward epoch duration zero");
         require(_initialConfig.votingEpochDurationSeconds > 0, "voting epoch duration zero");
         // L-4: a zero initial signing-policy hash would brick the initial epoch (no relay message could match).
-        // RLY-23: the supplied hash must already be chain-bound — keccak256(chainid ‖ contentHash) for THIS
-        // chain — matching what relay()/setSigningPolicy store and verify. A content hash (or a hash bound to
-        // another chain) fails closed: no relay message can ever match it. Deploy scripts wrap on migration.
+        // RLY-23: the supplied hash must already be source-bound — keccak256(sourceChainId ‖ contentHash) —
+        // matching what relay()/setSigningPolicy store and verify. A content hash (or a hash bound to another
+        // source) fails closed: no relay message can ever match it. Deploy scripts wrap on migration.
         require(_initialConfig.initialSigningPolicyHash != bytes32(0), "initial signing policy hash zero");
         require(
             _initialConfig.firstRewardEpochStartVotingRoundId +
@@ -308,14 +310,15 @@ contract Relay is IIRelay, IRelayGovernance {
             require(protocolId > 1, "invalid protocol id");
             protocolFeeInWei[protocolId] = _initialConfig.feeConfigs[i].feeInWei;
         }
-        governanceSourceChainId = _initialConfig.governanceSourceChainId;
+        // RLY-23: source-network id (shared with governance). Zero => this chain (home); home-force below.
+        sourceChainId = _initialConfig.sourceChainId == 0 ? block.chainid : _initialConfig.sourceChainId;
         governanceSafe = _initialConfig.governanceSafe;
         governanceThreshold = _initialConfig.governanceThreshold;
         activeOwnerConfigSafeNonce = _initialConfig.governanceOwnerConfigSafeNonce;
         lastGovernanceSafeNonce = _initialConfig.governanceSafeNonce;
         governanceReplayFloor = _initialConfig.governanceSafeNonce;
+        // Governance-enabled keys on the governance fields only (sourceChainId is always set now).
         bool hasGovernanceConfiguration =
-            governanceSourceChainId != 0 ||
             governanceSafe != address(0) ||
             governanceThreshold != 0 ||
             _initialConfig.governanceOwners.length != 0 ||
@@ -323,7 +326,7 @@ contract Relay is IIRelay, IRelayGovernance {
             lastGovernanceSafeNonce != 0;
         if (hasGovernanceConfiguration) {
             // The Safe exists on the source chain, so target-chain deployment cannot inspect its code.
-            if (governanceSourceChainId == 0 || governanceSafe == address(0)) {
+            if (governanceSafe == address(0)) {
                 revert InvalidGovernanceSource();
             }
             if (_signingPolicySetter != address(0) || _oldRelay != IRelay(address(0))) {
@@ -348,6 +351,11 @@ contract Relay is IIRelay, IRelayGovernance {
                 governanceThreshold,
                 governanceOwners
             );
+        }
+        // RLY-23 home-force: a live signing-policy setter (home deploy) must bind this chain. After the
+        // governance checks, so InvalidGovernanceDeployment still wins for a governance+setter mix.
+        if (_signingPolicySetter != address(0)) {
+            require(sourceChainId == block.chainid, "source chain id must match on home deploy");
         }
         oldRelay = _oldRelay;
         // new relay must be deployed in a compatible way (policy setter or not)
@@ -511,11 +519,11 @@ contract Relay is IIRelay, IRelayGovernance {
                 }
             }
         }
-        // RLY-23: chain-domain binding — the stored signing-policy hash commits to this
-        // chain: keccak256(block.chainid ‖ contentHash). Signatures over policies (and, via the
-        // analogous wrap in relay(), over protocol messages) minted for another network are
-        // thereby rejected even under a fully overlapping voter set.
-        currentHash = keccak256(abi.encodePacked(block.chainid, currentHash));
+        // RLY-23: chain-domain binding — the stored signing-policy hash commits to the configured
+        // source network: keccak256(sourceChainId ‖ contentHash). Signatures over policies (and, via
+        // the analogous wrap in relay(), over protocol messages) minted for another network are thereby
+        // rejected even under a fully overlapping voter set. On a home deploy sourceChainId == block.chainid.
+        currentHash = keccak256(abi.encodePacked(sourceChainId, currentHash));
         toSigningPolicyHashPrivate[_signingPolicy.rewardEpochId] = currentHash;
         stateData.lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
         startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy.startVotingRoundId;
@@ -614,7 +622,7 @@ contract Relay is IIRelay, IRelayGovernance {
         ) {
             revert InvalidGovernanceSignatures();
         }
-        bytes32 digest = GnosisSafeTx.digest(_copyGovernanceTx(txData), governanceSourceChainId, governanceSafe);
+        bytes32 digest = GnosisSafeTx.digest(_copyGovernanceTx(txData), sourceChainId, governanceSafe);
         address[] memory signers = new address[](count);
         for (uint256 i; i < count; ++i) {
             (address signer, ECDSA.RecoverError recoverError,) =
@@ -779,7 +787,7 @@ contract Relay is IIRelay, IRelayGovernance {
         address[] memory owners
     ) internal view returns (bytes32) {
         return GSSGovernance.ownerConfigHash(
-            governanceSourceChainId,
+            sourceChainId,
             governanceSafe,
             ownerConfigSafeNonce,
             threshold,
@@ -791,6 +799,8 @@ contract Relay is IIRelay, IRelayGovernance {
      * @inheritdoc IRelay
      */
     function relay() external returns (bytes memory){
+        // RLY-23: bound below (as _scid) into the policy hash and the protocol-message digest.
+        uint256 _sourceChainId = sourceChainId;
         // solhint-disable-next-line no-inline-assembly
         assembly {
             // Helper function to revert with a message
@@ -860,7 +870,8 @@ contract Relay is IIRelay, IRelayGovernance {
             function calculateSigningPolicyHash(
                 _memPos,
                 _calldataPos,
-                _policyLength
+                _policyLength,
+                _scid
             ) -> _policyHash {
                 // first byte
                 calldatacopy(_memPos, _calldataPos, 32)
@@ -885,11 +896,11 @@ contract Relay is IIRelay, IRelayGovernance {
                     mstore(_memPos, keccak256(_memPos, 64))
                     _policyHash := mload(_memPos)
                 }
-                // RLY-23: chain-domain binding — the signing-policy hash commits to this
-                // chain: keccak256(chainid ‖ contentHash). Reuses the two scratch slots
-                // this function already owns. Runtime chainid() (not a deploy-time value)
-                // so a chain-id-changing fork fails closed.
-                mstore(_memPos, chainid())
+                // RLY-23: chain-domain binding — the signing-policy hash commits to the configured
+                // source network: keccak256(sourceChainId ‖ contentHash). Reuses the two scratch slots
+                // this function already owns. The id is a deploy-time immutable (threaded in as
+                // _scid), so the same policy verifies on every Relay that mirrors this source.
+                mstore(_memPos, _scid)
                 mstore(add(_memPos, M_1), _policyHash)
                 _policyHash := keccak256(_memPos, 64)
             }
@@ -1097,7 +1108,8 @@ contract Relay is IIRelay, IRelayGovernance {
                 calculateSigningPolicyHash(
                     memPtr,
                     SELECTOR_BYTES,
-                    signingPolicyLength
+                    signingPolicyLength,
+                    _sourceChainId
                 )
             )
 
@@ -1295,11 +1307,11 @@ contract Relay is IIRelay, IRelayGovernance {
 
                 // Prepare the message hash into slot M_1
                 mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, MESSAGE_BYTES))
-                // RLY-23: chain-domain binding — the signed digest commits to this chain:
-                // M_1 <- keccak256(chainid ‖ keccak256(message)). Slot M_0 (the spent
-                // message bytes) is safe to reuse as scratch: this is the last statement
-                // of the block and the accept path re-reads the message from calldata.
-                mstore(memPtrGP0, chainid())
+                // RLY-23: chain-domain binding — the signed digest commits to the configured source:
+                // M_1 <- keccak256(sourceChainId ‖ keccak256(message)). Slot M_0 (the spent message
+                // bytes) is safe to reuse as scratch: this is the last statement of the block and the
+                // accept path re-reads the message from calldata.
+                mstore(memPtrGP0, _sourceChainId)
                 mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, 64))
             }
 
@@ -1426,7 +1438,8 @@ contract Relay is IIRelay, IRelayGovernance {
                         SELECTOR_BYTES,
                         add(signingPolicyLength, PROTOCOL_ID_BYTES)
                     ),
-                    newSigningPolicyLength
+                    newSigningPolicyLength,
+                    _sourceChainId
                 )
                 // Update temporary stateData. If the weight of signatures if
                 // over threshold, then this will be written to storage

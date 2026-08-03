@@ -126,7 +126,7 @@ rung chosen for what it can reach that the rung below cannot:
          ▲   the math: induction, no EVM in sight
    R3   KONTROL (∀K on a Solidity model, N∈{3,5})  +  CERTORA (storage invariants)
          ▲   unbounded-in-K by induction; current Certora CVL is locally checked, cloud proof pending
-   R2   HALMOS — 26 harnesses / 101 checks on REAL BYTECODE ... bounded; includes GSS state transitions
+   R2   HALMOS — 26 harnesses / 102 checks on REAL BYTECODE ... bounded; includes GSS state transitions
          ▲   symbolic execution; immune to the assembly wall; each proof anti-vacuity-guarded
    R0/R1 FOUNDRY tests + fuzzing on the deployed contract ........ concrete + random inputs
 ```

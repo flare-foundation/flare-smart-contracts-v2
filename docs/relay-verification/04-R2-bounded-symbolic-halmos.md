@@ -1,6 +1,6 @@
 # L4 — R2: bounded symbolic execution (Halmos)
 
-> **What you get from this level.** The workhorse rung: 26 harnesses / 101 checks that **symbolically
+> **What you get from this level.** The workhorse rung: 26 harnesses / 102 checks that **symbolically
 > execute the real `Relay.sol` bytecode** and prove properties over *all* inputs up to a fixed size. The
 > suite design (including the anti-vacuity tripwire and the loop-bound subtlety that makes the whole thing
 > trustworthy), the full property catalog, the modeling assumptions, and how to reproduce.
@@ -55,7 +55,7 @@ silently skipped. It prints a per-check table and the summary line, and exits
 non-zero on any violation. The current manifest's healthy summary is:
 
 ```
-[fv] 101/101 checks observed: 71/71 proofs hold, 30/30 reachability controls have validated counterexamples. 0 violation(s).
+[fv] 102/102 checks observed: 72/72 proofs hold, 30/30 reachability controls have validated counterexamples. 0 violation(s).
 [fv] OK - exact proof inventory holds and every reachability control has a valid witness.
 ```
 
@@ -127,7 +127,7 @@ are nonlinear and need `solver-timeout-assertion = 0` (§4.2).
 | Harness | Property |
 |---------|----------|
 | [`RelayAccessControlFV`](../../test-forge/fv/RelayAccessControlFV.t.sol#L13) | only the signing-policy setter rotates the policy |
-| [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L14) | constructor **fail-closes** on bad config (incl. L4/RLY-11) |
+| [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L15) | constructor **fail-closes** on bad config (incl. L4/RLY-11) |
 | [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15) | strict **+1** epoch advance + monotonic `lastInitialized` state-effect |
 
 The removed `RelayGovernanceNonceFV` harness proved the deleted
@@ -165,7 +165,7 @@ below are separate checks against the current code.
 | [`RelayReturnDiscriminatorFV`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L35) | P6 — return discriminator (`protocolId1_successReturns35`, `protocolId3_successReturns0/isNot35`) |
 | [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L57) | P8 — policy-hash equivalence (`policyHash_equiv_NV1/2/3`; `policyHash_mismatchReachable_NV3`) |
 
-**Totals:** 26 harnesses, **101 checks = 71 proofs + 30 reachability controls**.
+**Totals:** 26 harnesses, **102 checks = 72 proofs + 30 reachability controls**.
 `RelayEcrecoverSymbolicFV` is grouped in the inventory below and described in
 section 4.4.
 
@@ -176,7 +176,7 @@ event it **witnesses**. ✅ = proof (must PASS); 🔍 = reachability control (mu
 the anti-vacuity tripwire; see §4.2 and the normative naming rules in
 [`test-forge/fv/README.md`](../../test-forge/fv/README.md)). Groups mirror the catalog above, plus the
 OP-1 `ecrecover` harness described in section 4.4; rows follow source order
-within each harness. The inventory totals **101 checks = 71 proofs + 30
+within each harness. The inventory totals **102 checks = 72 proofs + 30
 reachability controls**.
 
 **Signature / threshold accounting — the core**
@@ -233,11 +233,11 @@ reachability controls**.
 |---------|-------|------|--------------------|
 | [`RelayAccessControlFV`](../../test-forge/fv/RelayAccessControlFV.t.sol#L13) | [`check_setSigningPolicy_onlySetter`](../../test-forge/fv/RelayAccessControlFV.t.sol#L29) | ✅ proof | for ANY setter address other than the caller, `setSigningPolicy` always reverts |
 | | [`check_reach_setter_canCall`](../../test-forge/fv/RelayAccessControlFV.t.sol#L39) | 🔍 reach | witnesses: the registered setter CAN rotate the policy |
-| [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L14) | [`check_ctor_rejectsLowThresholdIncrease`](../../test-forge/fv/RelayConstructorFV.t.sol#L26) | ✅ proof | the constructor rejects any `thresholdIncreaseBIPS` below 10000 (×1.0) |
-| | [`check_ctor_rejectsZeroRewardEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L35) | ✅ proof | the constructor rejects a zero reward-epoch duration (RLY-11, div-by-zero) |
-| | [`check_ctor_rejectsZeroVotingEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L43) | ✅ proof | the constructor rejects a zero voting-epoch duration (RLY-11) |
-| | [`check_ctor_rejectsZeroPolicyHash`](../../test-forge/fv/RelayConstructorFV.t.sol#L51) | ✅ proof | the constructor rejects a zero initial signing-policy hash (L-4, would brick the epoch) |
-| | [`check_reach_ctor_validDeploys`](../../test-forge/fv/RelayConstructorFV.t.sol#L58) | 🔍 reach | witnesses: the valid base config DOES deploy |
+| [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L15) | [`check_ctor_rejectsLowThresholdIncrease`](../../test-forge/fv/RelayConstructorFV.t.sol#L27) | ✅ proof | the constructor rejects any `thresholdIncreaseBIPS` below 10000 (×1.0) |
+| | [`check_ctor_rejectsZeroRewardEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L36) | ✅ proof | the constructor rejects a zero reward-epoch duration (RLY-11, div-by-zero) |
+| | [`check_ctor_rejectsZeroVotingEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L44) | ✅ proof | the constructor rejects a zero voting-epoch duration (RLY-11) |
+| | [`check_ctor_rejectsZeroPolicyHash`](../../test-forge/fv/RelayConstructorFV.t.sol#L52) | ✅ proof | the constructor rejects a zero initial signing-policy hash (L-4, would brick the epoch) |
+| | [`check_reach_ctor_validDeploys`](../../test-forge/fv/RelayConstructorFV.t.sol#L69) | 🔍 reach | witnesses: the valid base config DOES deploy |
 | [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15) | [`check_epochAdvance_requiresSequential`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L36) | ✅ proof | any epoch other than `lastInitialized+1` is rejected — no skip, replay, or regress |
 | | [`check_reach_epochAdvance_correctSucceeds`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L46) | 🔍 reach | witnesses: the exact next epoch IS accepted |
 | | [`check_epochAdvance_incrementsByOne`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L59) | ✅ proof | a successful `setSigningPolicy` advances `lastInitialized` by exactly +1 (the monotone step) |
@@ -291,7 +291,7 @@ reachability controls**.
 | | [`check_protocolId3_successReturns0`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L94) | ✅ proof | a successful protocolId-3 (Mode-2) relay returns exactly 0 bytes |
 | | [`check_protocolId3_isNot35`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L104) | ✅ proof | a Mode-2 success can never return 35 bytes — the discriminator cannot be spoofed |
 | | [`check_reach_protocolId3_canAccept`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L112) | 🔍 reach | witnesses: the protocolId-3 accept path is reachable |
-| [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L57) | [`check_policyHash_equiv_NV1`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L116) | ✅ proof | the assembly policy hash equals the reference fold — now the **RLY-23 chain-bound** fold `keccak256(chainid ‖ contentFold)` — for **all** symbolic 1-voter policies (so the on-chain chain-domain wrap in `calculateSigningPolicyHash` is symbolically confirmed to match the oracle) |
+| [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L57) | [`check_policyHash_equiv_NV1`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L116) | ✅ proof | the assembly policy hash equals the reference fold — now the **RLY-23 chain-bound** fold `keccak256(sourceChainId ‖ contentFold)` — for **all** symbolic 1-voter policies (so the on-chain chain-domain wrap in `calculateSigningPolicyHash` is symbolically confirmed to match the oracle) |
 | | [`check_policyHash_equiv_NV2`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L125) | ✅ proof | the same equivalence over all symbolic 2-voter policies |
 | | [`check_policyHash_equiv_NV3`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L136) | ✅ proof | the same at 3 voters — multiple full chunks plus a 13-byte remainder fold |
 | | [`check_policyHash_mismatchReachable_NV3`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L154) | 🔍 reach | witnesses: a bit-flipped stored hash DOES fire the mismatch revert — the detector is live |

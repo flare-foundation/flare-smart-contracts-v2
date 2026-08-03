@@ -7,13 +7,18 @@ import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
 import { RelayTestBase } from "./Relay.t.sol";
 
-// RLY-23: chain-domain binding. The signing-policy hash the contract stores/verifies and the
-// digest voters sign both commit to the chain id (keccak256(chainid ‖ hash)), read at runtime
-// via the CHAINID opcode. These tests pin the security property that motivated the change —
-// a quorum's signatures minted for one network are inert on another network's Relay even under
-// a fully overlapping voter set — plus the two deliberate design commitments:
-//   - same-chain redeployments still accept the same consensus messages (old→new Relay migration),
-//   - a chain-id-changing fork fails closed ("Signing policy hash mismatch") until redeployment.
+// RLY-23: chain-domain binding (origin form). The signing-policy hash the contract stores/verifies
+// and the digest voters sign both commit to the configured SOURCE network id
+// (keccak256(sourceChainId ‖ hash)) — a deploy-time immutable naming the chain where the protocol's
+// voter consensus is anchored (Flare/Songbird), NOT the chain the Relay runs on. These tests pin:
+//   - the security property: a quorum's signatures minted for one source are inert on a Relay bound
+//     to a different source, even under a fully overlapping voter set;
+//   - mirrors: a Relay deployed on another chain but configured with a foreign source ACCEPTS that
+//     source's messages — the same signatures verify on the home Relay and on every mirror of it;
+//   - the home-force: a deployment with a live signing-policy setter must bind its own chain;
+//   - same-chain redeployments still accept the same consensus messages (old→new Relay migration);
+//   - the fork trade-off: because the source is an immutable, a chain-id-changing fork does NOT fail
+//     closed (the deliberate price of enabling mirrors) — contrast the earlier runtime-chainid design.
 contract RelayChainDomainTest is RelayTestBase {
     uint256 internal constant FLARE_CHAIN_ID = 14;
     uint256 internal constant SONGBIRD_CHAIN_ID = 19;
@@ -25,8 +30,9 @@ contract RelayChainDomainTest is RelayTestBase {
         policy = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
     }
 
-    // Deploys a pure-relay Relay whose initial policy hash is bound to the CURRENT block.chainid
-    // (the helper reads it at call time), with the shared voter set.
+    // Deploys a pure-relay Relay (no signing-policy setter). The config leaves sourceChainId = 0, so
+    // the constructor captures the CURRENT block.chainid as the immutable source; the seeded policy
+    // hash (built by the helper under the same block.chainid) matches. Shared voter set.
     function _deployRelay() internal returns (Relay) {
         return new Relay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
     }
@@ -149,8 +155,9 @@ contract RelayChainDomainTest is RelayTestBase {
         );
     }
 
-    // The stored hash is exactly keccak256(chainid ‖ contentHash): checked via a setter-mode
-    // relay (so both the setSigningPolicy return value and the getter are observable).
+    // The stored hash is exactly keccak256(sourceChainId ‖ contentHash): checked via a setter-mode
+    // relay (a home deploy, so sourceChainId == block.chainid). Both the setSigningPolicy return
+    // value and the getter are observable.
     function test_storedPolicyHash_isChainBound() public {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.initialRewardEpochId = 0; // setSigningPolicy requires lastInitialized + 1 == rewardEpochId
@@ -166,7 +173,12 @@ contract RelayChainDomainTest is RelayTestBase {
 
         bytes32 contentHash = _signingPolicyContentHash(policy);
         bytes32 stored = setterRelay.setSigningPolicy(sp);
-        assertEq(stored, keccak256(abi.encodePacked(block.chainid, contentHash)), "not keccak(chainid || content)");
+        assertEq(setterRelay.sourceChainId(), block.chainid, "home deploy must bind its own chain");
+        assertEq(
+            stored,
+            keccak256(abi.encodePacked(setterRelay.sourceChainId(), contentHash)),
+            "not keccak(sourceChainId || content)"
+        );
         assertTrue(stored != contentHash, "stored hash must not be the bare content hash");
         assertEq(setterRelay.toSigningPolicyHash(REWARD_EPOCH_ID), stored, "getter disagrees with stored hash");
     }
@@ -325,25 +337,59 @@ contract RelayChainDomainTest is RelayTestBase {
         this.relayToLegacy(oldRelay, _chainBoundPolicyRelay(policy3, policy4));
     }
 
-    // Fork behavior (runtime chainid, EIP-1344): if the chain id changes under an existing
-    // deployment, the stored policy hash no longer matches under the new domain — the Relay fails
-    // closed for ALL new finalizations (even freshly signed ones) until redeployed. Already-stored
-    // roots remain verifiable (verify() is content-pure).
-    function test_fork_failsClosed() public {
+    // Mirror: a Relay deployed on one chain but configured with a FOREIGN source id accepts that
+    // source's messages. This is the point of origin binding — the SAME signatures the home Flare
+    // Relay accepts are accepted by a Flare mirror running on Songbird's chain.
+    function test_mirror_acceptsForeignSourceMessages() public {
+        // Build a Flare-origin (source = 14) policy hash and message while chain 14 is active, so the
+        // block.chainid-based helpers bind 14.
+        vm.chainId(FLARE_CHAIN_ID);
+        bytes32 flareBoundInitialHash = _signingPolicyHash(policy);
         bytes memory rm = _msgRelay(3, START_VOTING_ROUND_ID, keccak256("root"), 3);
-        (bool ok,) = address(relay).call(rm);
+
+        // Deploy the mirror on Songbird's chain (19) but explicitly configured with Flare's source id.
+        vm.chainId(SONGBIRD_CHAIN_ID);
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(flareBoundInitialHash);
+        cfg.sourceChainId = FLARE_CHAIN_ID;
+        Relay mirror = new Relay(cfg, address(0), IRelay(address(0)));
+        assertEq(mirror.sourceChainId(), FLARE_CHAIN_ID, "mirror must bind the configured source");
+
+        // The exact Flare-signed message a home Flare Relay would accept is accepted by the mirror,
+        // even though it runs on chain 19.
+        (bool ok,) = address(mirror).call(rm);
+        assertTrue(ok, "mirror must accept messages from its configured source");
+        assertTrue(mirror.isFinalized(3, START_VOTING_ROUND_ID), "mirror did not finalize the source message");
+    }
+
+    // Home-force: a deployment with a live signing-policy setter (Flare/Songbird home) must bind its
+    // own chain — a foreign source is rejected at construction, so a live setter can never mint
+    // policies under a foreign domain.
+    function test_homeDeploy_forcesMatchingSource() public {
+        vm.chainId(SONGBIRD_CHAIN_ID);
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.sourceChainId = FLARE_CHAIN_ID; // foreign source on a setter (home) deployment
+        vm.expectRevert("source chain id must match on home deploy");
+        new Relay(cfg, address(this), IRelay(address(0)));
+    }
+
+    // Fork trade-off: the source is a deploy-time IMMUTABLE, so a chain-id-changing fork does NOT
+    // fail closed — the Relay keeps accepting messages bound to its configured source. This is the
+    // deliberate price of enabling mirrors (the same signatures must verify wherever the source's
+    // data is relayed); a fork re-bootstraps by redeploying with the new id. (The earlier
+    // runtime-chainid design failed closed here instead.)
+    function test_fork_immutableSource_doesNotFailClosed() public {
+        vm.chainId(FLARE_CHAIN_ID);
+        Relay flareRelay = _deployRelay(); // immutable sourceChainId = 14
+        // Both messages are built under chain 14, so both are bound to source 14.
+        bytes memory rm = _msgRelay(3, START_VOTING_ROUND_ID, keccak256("root"), 3);
+        bytes memory rmNew = _msgRelay(3, START_VOTING_ROUND_ID + 1, keccak256("root2"), 3);
+        (bool ok,) = address(flareRelay).call(rm);
         assertTrue(ok, "pre-fork accept failed");
 
-        vm.chainId(SONGBIRD_CHAIN_ID); // the fork renames the chain
-        // pre-fork calldata: rejected before the signature loop
-        vm.expectRevert("Signing policy hash mismatch");
-        this.relayTo(relay, rm);
-        // even fresh signatures under the NEW domain cannot finalize — the stored policy hash
-        // still carries the old domain
-        bytes memory rmNew = _msgRelay(3, START_VOTING_ROUND_ID + 1, keccak256("root2"), 3);
-        vm.expectRevert("Signing policy hash mismatch");
-        this.relayTo(relay, rmNew);
-        // content-pure reads survive the fork
-        assertTrue(relay.isFinalized(3, START_VOTING_ROUND_ID), "stored root must remain readable");
+        vm.chainId(SONGBIRD_CHAIN_ID); // the chain forks / renames its id
+        // The immutable source is still 14, so a fresh source-14-bound message is STILL accepted.
+        (bool ok2,) = address(flareRelay).call(rmNew);
+        assertTrue(ok2, "post-fork: immutable-source Relay must still accept source-bound messages");
+        assertTrue(flareRelay.isFinalized(3, START_VOTING_ROUND_ID + 1), "post-fork finalize failed");
     }
 }

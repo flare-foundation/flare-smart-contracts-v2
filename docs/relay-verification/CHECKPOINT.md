@@ -13,6 +13,42 @@
 
 ---
 
+## ⭐ 2026-08-03 — RLY-23 revised to ORIGIN binding (source-chain immutable, mirrors enabled)
+
+RLY-23's chain-domain binding was re-based from *runtime* `chainid()` (destination binding) to a
+**configured source-network immutable `sourceChainId`** (origin binding), after clarifying the deployment
+model: a Relay is deployed on remote chains precisely to **relay messages signed on the source network**
+(Flare 14 / Songbird 19), so the digest must commit to the *source* the signatures originate from — not the
+chain the Relay runs on.
+
+- **One immutable, unified with governance.** The former `governanceSourceChainId` is renamed `sourceChainId`
+  and now feeds BOTH the signing wrap and the GSS Safe digest (same origin network). Governance-enable keys on
+  the governance fields only (source is always set). `RelayInitialConfig.sourceChainId`: `0` ⇒ `block.chainid`
+  (home); a mirror sets the origin explicitly.
+- **Home-force.** A deployment with a live `signingPolicySetter` (Flare/Songbird home, protocol signs locally)
+  must have `sourceChainId == block.chainid` — enforced in the constructor *after* the governance
+  deployment-shape checks, so `InvalidGovernanceDeployment` still wins for a governance+setter mix.
+- **Three wrap sites** bind the immutable (threaded into the Yul as `_scid` / a pre-assembly local):
+  `calculateSigningPolicyHash`, the Mode≥1 message-hash line, `_initializeSigningPolicy`.
+  `verifyCustomSignature` inherits it via its `relay()` self-call.
+- **Mirrors enabled; fork trade-off accepted.** The same signatures verify on the home Relay and every mirror
+  of the same source (the point of a relay); cross-source separation (14 vs 19) still holds. Because the id is
+  an immutable, a chain-id-changing fork no longer fails closed (documented trade-off).
+
+**Tests** — `RelayChainDomain.t.sol` 8→**10** (added `test_mirror_acceptsForeignSourceMessages`,
+`test_homeDeploy_forcesMatchingSource`; replaced `test_fork_failsClosed` with
+`test_fork_immutableSource_doesNotFailClosed`). Foundry full tree **969** green; Hardhat Relay 53 / coding 7 /
+Submission 3. **FV re-baselined**: optimized-Yul snapshot regenerated (wrap sites now emit `loadimmutable`;
+signature-loop body byte-unchanged, shifted +18 IR lines — Lean citations updated), Certora munged tree
+re-derived, **Halmos 102/102 green** (venv; +1 proof over the prior 101 —
+`RelayConstructorFV.check_ctor_homeForce_rejectsForeignSource` covers the new home-force guard; the local
+forge-version pin `1.5.0`≠`1.7.1` is a CI-only guard, not a proof failure). Docs updated: `docs/relay-fixes.md` RLY-23 section + table row + status; L3 count; L4/L7/L10/L13
+`chainid`→`sourceChainId`. **Not run here (CI / off-CI):** the Lean hole-free gate (needs the pinned
+EVMYulLean checkout), Kontrol Docker, Certora cloud. The 2026-07-23 entry below describes the **superseded**
+runtime-`chainid` form.
+
+---
+
 ## ⭐ 2026-07-26 — GSS coverage and evidence closure
 
 The GSS review was extended from example-based integration coverage to an exact,
@@ -137,6 +173,11 @@ exact. GSS has real-Safe integration coverage, while dedicated
 Halmos/Kontrol/Lean properties and a current Certora cloud rerun remain open.
 
 ## ⭐ 2026-07-23 — RLY-23 CHAIN-DOMAIN BINDING landed + FV re-baselined
+
+> **⚠️ SUPERSEDED by the 2026-08-03 banner (origin binding).** This entry describes the original
+> *runtime-`chainid()`* (destination) form. The current code binds a configured **`sourceChainId`
+> immutable** (origin), so the `keccak256(chainid ‖ …)` / "fork fails closed" statements below are
+> historical, not current. See the top banner and `docs/relay-fixes.md` RLY-23.
 
 New hardening finding **RLY-23** (beyond the original audit set): the `relay()` signature paths bound no
 chain/deployment identifier, so a voter quorum's signatures minted on one network were valid bearer
@@ -426,7 +467,8 @@ Research anchors requested:
 - **Mode 2** `protocolId > 1` (L766-906, 1219-1382): publish **Merkle root** for (protocolId, votingRoundId); random-number protocol updates `stateData` + `isSecureRandomMap`; emits `ProtocolMessageRelayed`.
 - **Custom-signature** `protocolId == 1` (L801-817, 1229-1236): returns `(merkleRoot, rewardEpochId)`; **does NOT persist anything**. Used by `verifyCustomSignature()` (L428) and `governanceFeeSetup()` (L438).
 
-**Signature verification core (L1108-1388):** *(historical line numbers; predates RLY-23.)*
+**Signature verification core (L1108-1388):** *(historical line numbers; predates RLY-23. The RLY-23
+digest below was later revised from `chainid` to the configured `sourceChainId` immutable — 2026-08-03 banner.)*
 - Prefixed hash `keccak256("\x19Ethereum Signed Message:\n32" ‖ messageHash)` built in slot 0 (L1110-1112).
   **Post-RLY-23 (2026-07-23):** `messageHash` is now the chain-bound digest `keccak256(chainid ‖ keccak256(message))`
   (and the signing-policy hash is `keccak256(chainid ‖ contentFold)`); the prefix step is otherwise unchanged. See

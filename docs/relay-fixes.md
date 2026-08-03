@@ -9,7 +9,7 @@
 **Branch:** `relay-fix-3` (off `origin/main` @ `264dab74`)
 **Target:** `contracts/protocol/implementation/Relay.sol` (+ its interfaces / tests)
 **Started:** 2026-06-14
-**Status:** Substantive set + selected defence-in-depth notes + post-review hardening complete on `relay-fix-3`. Implemented & tested: RLY-02, RLY-03 (incl. RLY-14), RLY-01, RLY-13, RLY-21, RLY-10, RLY-11, RLY-04, **RLY-16, RLY-17, RLY-18, RLY-22, RLY-23**, and security-review **M-1, L-1, L-4**. Documented (no code): RLY-06, **RLY-07, RLY-09, RLY-15, RLY-19, RLY-20**, and **L-2, L-3, L-6, L-7**. Deferred: RLY-05, RLY-08, RLY-12; review L-5 (strictly-increasing nonce, accepted). **Foundry 67 passing (59 `Relay.t.sol` + 8 `RelayChainDomain.t.sol`, incl. legacy-migration A/B) · Hardhat Relay 54 + Submission 3 + EndToEnd 36 = 93 passing.** (Full `forge test` tree 947 green.) Round-2 re-review = CLEAN (zero new findings); coverage expanded 31→52 Foundry at round-2, later 52→59 with the signing-policy-rotation port, then +8 with RLY-23. See "Security-review follow-ups" + "Round-2 review" + the RLY-23 section at the end + `docs/relay-security-review.md`.
+**Status:** Substantive set + selected defence-in-depth notes + post-review hardening complete on `relay-fix-3`. Implemented & tested: RLY-02, RLY-03 (incl. RLY-14), RLY-01, RLY-13, RLY-21, RLY-10, RLY-11, RLY-04, **RLY-16, RLY-17, RLY-18, RLY-22, RLY-23**, and security-review **M-1, L-1, L-4**. Documented (no code): RLY-06, **RLY-07, RLY-09, RLY-15, RLY-19, RLY-20**, and **L-2, L-3, L-6, L-7**. Deferred: RLY-05, RLY-08, RLY-12; review L-5 (strictly-increasing nonce, accepted). **Foundry 69 passing (59 `Relay.t.sol` + 10 `RelayChainDomain.t.sol`, incl. legacy-migration A/B) · Hardhat Relay 53 + Submission 3 + EndToEnd 36 = 92 passing.** (Full `forge test` tree 969 green.) Round-2 re-review = CLEAN (zero new findings); coverage expanded 31→52 Foundry at round-2, later 52→59 with the signing-policy-rotation port, then +10 with RLY-23 (origin binding, mirrors enabled). See "Security-review follow-ups" + "Round-2 review" + the RLY-23 section at the end + `docs/relay-security-review.md`.
 
 This document records, issue by issue, exactly what is changed in `Relay.sol`
 to address the findings collected from the internal AI audit runs (the
@@ -73,7 +73,7 @@ Baseline must be green before the first change: install deps, compile, run the e
 | 18 | RLY-09 | Note | `relay()` / `isFinalized` | — | resolved by RLY-04 (non-zero roots) — documented | 📝 |
 | 19 | RLY-15 | Note | `verify()` / leaf encoding | no | off-chain domain-separation documented in NatSpec | 📝 |
 | 20 | RLY-22 | Note | events / API | no | event-signature regression test (Foundry) | ✅ |
-| 21 | RLY-23 | **Med** | `relay()` sig verification + `calculateSigningPolicyHash` + `_initializeSigningPolicy` + off-chain libs | **yes** | **chain-domain binding**: bind the stored signing-policy hash and every signed message digest to `keccak256(chainid ‖ hash)` (runtime `CHAINID`), closing cross-chain replay of a quorum's signatures onto another network's Relay with an overlapping voter set | ✅ |
+| 21 | RLY-23 | **Med** | `relay()` sig verification + `calculateSigningPolicyHash` + `_initializeSigningPolicy` + off-chain libs | **yes** | **chain-domain binding (origin)**: bind the stored signing-policy hash and every signed message digest to `keccak256(sourceChainId ‖ hash)` — a configured source-network immutable (unified with the governance source), closing cross-chain replay onto a Relay bound to a different source while letting mirrors of the same source verify it | ✅ |
 
 **Out-of-`Relay.sol` (scope decision):**
 - RLY-12 (legacy `FtsoProxy`/`PriceSubmitterProxy` random getters drop `_isSecureRandom`) — different files.
@@ -356,66 +356,83 @@ audit's H-01 replay fix (RLY-02) had bound only the deployment-local `governance
 `relay()` paths were never chain-bound. (This closes the cross-chain half of security-review **L-3 / L13
 T1-b**; the same-chain cross-deployment residual for `verifyCustomSignature` remains, by decision.)
 
-**Fix.** Bind both the stored policy hash and every signed digest to the chain:
-`digest = keccak256(uint256(chainid) ‖ bytes32(hash))`, with `chainid` read at **runtime** (the `CHAINID`
-opcode / `block.chainid`), not a deploy-time immutable — so a chain-id-changing fork fails closed rather
-than remaining replayable. Three wrap sites, one convention:
-- **`calculateSigningPolicyHash`** (assembly helper tail) — covers both consumers at once: the existing
-  Mode-2 policy check (`"Signing policy hash mismatch"`) and the Mode-1 new-policy store+sign path. Reuses
-  the two scratch slots (M_0/M_1) the helper already owns; the content hash is captured on the stack before
-  M_0 is overwritten.
-- **the Mode≥1 message-hash line** in `relay()` — `M_1 ← keccak256(chainid ‖ keccak256(message))`. The spent
-  message bytes in slot M_0 are reused as scratch (the accept path re-reads the message from calldata, never
-  from M_0/M_1).
+**Fix (origin binding).** Bind both the stored policy hash and every signed digest to the **source network
+where the protocol's voter consensus is anchored** (Flare 14 / Songbird 19):
+`digest = keccak256(uint256(sourceChainId) ‖ bytes32(hash))`. `sourceChainId` is a **deploy-time immutable**
+(constructor parameter; `0` defaults to `block.chainid`), NOT the runtime `CHAINID` — so the *same*
+signatures verify on the home Relay and on every Relay that mirrors that source to another chain (the core
+relay use case). It is **unified with the governance source**: the single `sourceChainId` immutable replaces
+the former `governanceSourceChainId` and feeds both the signing wrap and the GSS Safe digest (they name the
+same origin network). Three wrap sites, one convention, the immutable threaded into the hand-written Yul as
+a parameter (`_scid`) / read once into a local before the `relay()` assembly:
+- **`calculateSigningPolicyHash`** (assembly helper tail, new `_scid` parameter) — covers both consumers at
+  once: the Mode-2 policy check (`"Signing policy hash mismatch"`) and the Mode-1 new-policy store+sign path.
+  Reuses the two scratch slots (M_0/M_1) the helper already owns.
+- **the Mode≥1 message-hash line** in `relay()` — `M_1 ← keccak256(sourceChainId ‖ keccak256(message))`. The
+  spent message bytes in slot M_0 are reused as scratch (the accept path re-reads the message from calldata).
 - **`_initializeSigningPolicy`** (the `setSigningPolicy` path, plain Solidity) — wrap `currentHash` before
   storing to `toSigningPolicyHashPrivate` and returning it. Via `FlareSystemsManager.signNewSigningPolicy`
-  (which reads `relay.toSigningPolicyHash`), voter policy confirmations become chain-bound automatically —
+  (which reads `relay.toSigningPolicyHash`), voter policy confirmations become source-bound automatically —
   no FSM change.
 
-The constructor now expects an **already chain-bound** `initialSigningPolicyHash`; a bare content hash (or
-a hash bound to another chain) fails closed at the first relay ("Signing policy hash mismatch"). The
-EIP-191 prefix step and the entire signature loop (index monotonicity, low-s/v, ecrecover ABI, threshold
-accounting) are byte-unchanged — only the *value* placed in M_1 changed.
+A **home-force** guards misconfiguration: when a `signingPolicySetter` is present (the Flare/Songbird home
+deployment, where the protocol signs locally) the constructor requires `sourceChainId == block.chainid`, so
+a live setter can never mint policies under a foreign domain. The constructor expects an **already
+source-bound** `initialSigningPolicyHash`; a bare content hash (or a hash bound to a different source) fails
+closed at the first relay. The EIP-191 prefix step and the entire signature loop (index monotonicity,
+low-s/v, ecrecover ABI, threshold accounting) are byte-unchanged — only the *value* placed in M_1 changed.
 
-**Design commitments (documented in `RelayChainDomain.t.sol`):** destination ≡ source is hard-wired (a
-Flare-consensus verifier deployed on another chain — a "mirror" — is foreclosed without a parameterized
-variant; not needed for the home-network deployments); a chain-id-changing fork fails closed until the fork
-redeploys/re-bootstraps, while already-stored Merkle roots stay verifiable (`verify()` is content-pure);
-and same-chain redeployments still accept identical consensus messages, preserving the old→new Relay
-migration flow. What RLY-23 does **not** address: an *active* colluding cross-network quorum can always sign
-fresh messages under the other chain's domain — that is a key/policy-separation (operational) control, not a
-digest-format one.
+**Design commitments (documented in `RelayChainDomain.t.sol`):** **mirrors are enabled** — a Relay deployed
+on any chain but configured with a foreign `sourceChainId` verifies that source's consensus (the same
+signatures the home Relay accepts), which is the point of a relay; cross-source separation still holds
+(Flare 14 vs Songbird 19 — a quorum's signatures for one source are inert on a Relay bound to a different
+source, even under a fully overlapping voter set); the **home-force** ties a live-setter deployment to its
+own chain; and same-chain redeployments still accept identical consensus messages, preserving the old→new
+Relay migration flow. **Trade-off (accepted):** because `sourceChainId` is an immutable, a chain-id-changing
+fork does **not** fail closed — the Relay keeps accepting messages bound to its configured source until the
+fork redeploys with the new id (the price of making the same signatures relay across chains; already-stored
+Merkle roots stay verifiable regardless, `verify()` being content-pure). What RLY-23 does **not** address:
+an *active* colluding cross-network quorum can always sign fresh messages under another source's domain —
+that is a key/policy-separation (operational) control, not a digest-format one.
 
 **What is NOT wrapped (deliberate).** The Merkle roots (`merkleRootsPrivate`) and random values
 (`toRandomNumberPrivate`) remain pure content identifiers — only the *authorization layer* (what a quorum
 signs) gains the domain, so `verify()` reads, FDC/FTSO consumers, and the leaf format are unchanged.
 
-**Off-chain / ABI impact (breaking, coordinated).** New `scripts/libs/protocol/ChainDomain.ts`
-(`chainBoundHash`) is the single wrap definition; `SigningPolicy.hash`/`hashEncoded` and
-`ProtocolMessageMerkleRoot.hash` take a required `chainId` and return the chain-bound value;
-`RelayMessage.encode(msg, verify=true, chainId)` requires it. Deploy scripts bind to the deployment chain;
-`redeploy-relay.ts` and the non-initial `redeploy-contracts.ts` path now require the operator to declare the
-old Relay's hash scheme explicitly (`legacy` or `chain-bound`). The shared migration helper wraps a legacy
-hash exactly once, passes an already chain-bound hash through, and rejects zero, malformed, or ambiguous
-input before deployment; its three fail-closed branches are unit-tested. All validators + all deployments +
-off-chain libs must cut over together, ideally at a reward-epoch boundary; the two digest formats are
-distinct so no cross-format replay is possible in either direction during transition.
+**Off-chain / ABI impact (breaking, coordinated).** `scripts/libs/protocol/ChainDomain.ts` (`chainBoundHash`)
+is the single wrap definition; `SigningPolicy.hash`/`hashEncoded` and `ProtocolMessageMerkleRoot.hash` take a
+required `chainId` and return the bound value; `RelayMessage.encode(msg, verify=true, chainId)` requires it —
+and that `chainId` argument is now the **configured source** (`relay.sourceChainId()`), not the deployment
+chain (they coincide on a home deploy). The `RelayInitialConfig` field `governanceSourceChainId` is renamed
+`sourceChainId` (one field, shared by signing and governance; home configs keep passing `0`, a mirror sets
+the mirrored network's id explicitly). `redeploy-relay.ts` and the non-initial `redeploy-contracts.ts` path
+still require the operator to declare the old Relay's hash scheme (`legacy` or `chain-bound`); the shared
+migration helper wraps a legacy hash exactly once with the source id, passes an already-bound hash through,
+and rejects zero/malformed/ambiguous input before deployment. All validators + all deployments + off-chain
+libs must cut over together, ideally at a reward-epoch boundary; the two digest formats are distinct so no
+cross-format replay is possible in either direction during transition.
 
-**Tests.** New Foundry `RelayChainDomain.t.sol` (8): cross-chain rejection of messages, policy rotations and
+**Tests.** Foundry `RelayChainDomain.t.sol` (10): cross-source rejection of messages, policy rotations and
 custom signatures (14 vs 19, identical voter set → `"Wrong signature"`); stored hash structurally
-`keccak(chainid ‖ content)`; old-format (unwrapped) signatures dead; same-chain second deployment still
-accepts; fork fail-closed; and **legacy migration** (`test_migration_fromMainRelay_...`, via the
-`contracts/mock/RelayMainDeployed.sol` pre-RLY-23 Relay: an old-format stored hash is wrapped on migration
-and the live relay is preserved). Foundry full tree green (947); Hardhat Relay 54 / coding 7 / EndToEnd 36 /
-Submission 3 green. The shared `RelayTestBase` oracle (`_chainBound`, `_signingPolicyHash`,
-`_ethSignedHash`) mirrors the three on-chain wrap sites, so all 26 Halmos harnesses inherit the new digest.
+`keccak(sourceChainId ‖ content)`; old-format (unwrapped) signatures dead; same-chain second deployment
+still accepts; **mirror-accept** (`test_mirror_acceptsForeignSourceMessages` — a Relay on chain 19 configured
+`source=14` accepts the exact Flare-signed message); **home-force** (`test_homeDeploy_forcesMatchingSource` —
+a setter deploy with a foreign source reverts at construction); the **fork trade-off**
+(`test_fork_immutableSource_doesNotFailClosed`, documenting the accepted non-fail-closed behavior); and
+**legacy migration** (`test_migration_fromMainRelay_...`, via the `contracts/mock/RelayMainDeployed.sol`
+pre-RLY-23 Relay). Foundry full tree green (969); Hardhat Relay 53 / coding 7 / Submission 3 green. The
+shared `RelayTestBase` oracle (`_chainBound`, `_signingPolicyHash`, `_ethSignedHash`) mirrors the three
+on-chain wrap sites, so the Halmos harnesses inherit the new digest.
 
-**FV re-baseline (done in the same pass).** Optimized-Yul snapshot regenerated (pinned solc 0.8.27) and the
-Certora munged tree re-derived; the Halmos 89-check gate re-runs green unchanged (the accounting proofs are
-digest-agnostic — the digest is an opaque input; `RelayPolicyHashFV` re-confirms the on-chain policy-hash
-wrap matches the oracle). The R4 Lean loop-body model is unaffected (the wrap lands in the pre-loop setup
-region, inside the already-explicit `hsetup` boundary; the 17-statement body is byte-unchanged, shifted +4
-IR lines). A *symbolic* proof of cross-chain rejection is intentionally **not** added: under the modeling
-contract `ecrecover` is uninterpreted, so a solver could freely make a signature recover to a voter under
-any digest — cross-chain replay resistance is a cryptographic (ECDSA-binding) property, which correctly
-stays at R0 (concrete, real signatures) rather than R2.
+**FV re-baseline (done in the same pass).** Optimized-Yul snapshot regenerated (pinned solc 0.8.27; the wrap
+sites now emit `loadimmutable` for `sourceChainId` instead of the `CHAINID` opcode) and the Certora munged
+tree re-derived; the Halmos gate is 102/102 (72 proofs hold, 30 reachability controls validated) — one new
+proof over the prior 101: `RelayConstructorFV.check_ctor_homeForce_rejectsForeignSource` proves a setter
+(home) deploy reverts for any nonzero source ≠ block.chainid. The accounting proofs are digest-agnostic —
+the digest is an opaque input; `RelayPolicyHashFV` re-confirms the on-chain policy-hash wrap matches the
+oracle. The R4 Lean loop-body model is unaffected (the wrap lands in the pre-loop
+setup region; the signature-loop body is byte-unchanged, shifted +18 IR lines — citations updated). A
+*symbolic* proof of cross-source rejection is intentionally **not** added: under the modeling contract
+`ecrecover` is uninterpreted, so a solver could freely make a signature recover to a voter under any digest
+— cross-chain replay resistance is a cryptographic (ECDSA-binding) property, which correctly stays at R0
+(concrete, real signatures) rather than R2.
