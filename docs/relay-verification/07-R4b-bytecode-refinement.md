@@ -220,12 +220,12 @@ at bounded scope by `RelayVerifyFeeFV`), and reconciling the loop model's D3 dev
 deployed break→write→return) so the accept-write folds into the composition. Full walk: [L9 §F.5](09-the-formal-detail.md).
 
 **RLY-23 note (chain-domain binding).** The digest the loop verifies against enters the model as an input
-(`prefixedHash` in memory), and the RLY-23 chain-binding keccaks (`keccak256(chainid ‖ ·)` for the policy hash
+(`prefixedHash` in memory), and the RLY-23 chain-binding keccaks (`keccak256(sourceChainId ‖ ·)` for the policy hash
 and the message hash) live in the **pre-loop setup region** — inside `realSetup`, whose aggregate state
 transition `dispatch_setup_loop_accept` carries as an explicit hypothesis. The literal loop-body model
 (`RelayLoopLiteral`) is therefore **unchanged** — the 17-statement source body is represented by the current
 snapshot at `relay_ir_optimized.yul:2159-2202`. The chain-binding of the stored policy hash is instead pinned at R2 by
-`RelayPolicyHashFV` (it proves the on-chain `keccak256(chainid ‖ contentFold)` equals the oracle for all symbolic
+`RelayPolicyHashFV` (it proves the on-chain `keccak256(sourceChainId ‖ contentFold)` equals the oracle for all symbolic
 policies); cross-chain *rejection* is a cryptographic property proved concretely at R0 (`RelayChainDomain.t.sol`).
 
 ---

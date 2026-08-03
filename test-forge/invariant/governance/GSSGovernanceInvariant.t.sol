@@ -493,7 +493,7 @@ contract GSSGovernanceInvariantTest is StdInvariant, Test {
         config.thresholdIncreaseBIPS = 10_000;
         config.messageFinalizationWindowInRewardEpochs = 1;
         config.feeCollectionAddress = payable(address(0xFEE));
-        config.governanceSourceChainId = SOURCE_CHAIN;
+        config.sourceChainId = SOURCE_CHAIN;
         config.governanceSafe = address(safe);
         config.governanceThreshold = THRESHOLD;
         config.governanceOwners = ownersA;

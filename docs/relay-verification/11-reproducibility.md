@@ -30,7 +30,7 @@ compiled). FV config: [`halmos.toml`](../../halmos.toml) sets `loop=6`, `solver-
 
 The normative machine-readable record is
 [`test-forge/fv/verification-manifest.json`](../../test-forge/fv/verification-manifest.json). It owns the
-compiler settings, 101-check Halmos inventory, exact 36-test GSS inventory, fixed-block Safe snapshot,
+compiler settings, 102-check Halmos inventory, exact 36-test GSS inventory, fixed-block Safe snapshot,
 Certora local toolchain/configs, EVMYulLean pin, allowed Lean axioms, exact axiom-audit counts,
 required capstones, and the 37-message legacy `relay()` assembly revert ABI. Changes to proof inventory,
 trust settings, or that compatibility surface therefore appear as explicit manifest diffs.
@@ -93,7 +93,7 @@ python3 test-forge/fv/verify_fv.py --loop 2
 
 Expect from the gate:
 ```
-[fv] 101/101 checks observed: 71/71 proofs hold, 30/30 reachability controls have validated counterexamples. 0 violation(s).
+[fv] 102/102 checks observed: 72/72 proofs hold, 30/30 reachability controls have validated counterexamples. 0 violation(s).
 [fv] OK - exact proof inventory holds and every reachability control has a valid witness.
 ```
 **CI:** `test-fv-halmos` (digest-pinned Python; checksum-pinned Foundry; full Halmos lock; unit tests,

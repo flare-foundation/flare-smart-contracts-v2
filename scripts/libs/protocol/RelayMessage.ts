@@ -30,7 +30,7 @@ export namespace RelayMessage {
    * - threshold is met
    * @param message
    * @param verify
-   * @param chainId chain id of the network the target Relay is deployed on
+   * @param chainId the configured source chain id (`relay.sourceChainId()`)
    *                (RLY-23 chain-domain binding; required when verify is true)
    * @returns
    */

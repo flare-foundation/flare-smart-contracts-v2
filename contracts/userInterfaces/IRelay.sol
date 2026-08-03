@@ -29,8 +29,9 @@ interface IRelay is RandomNumberV2Interface {
                                                                // the protocol messages.
         address payable feeCollectionAddress;                  // Fee collection address
         FeeConfig[] feeConfigs;                                // Fee configurations
-        // Source-chain GSS governance configuration. Zero values disable the new path.
-        uint256 governanceSourceChainId;
+        // RLY-23 source network id (shared by signing + governance). Zero => block.chainid (home);
+        // a home deploy (signingPolicySetter set) forces it to equal block.chainid.
+        uint256 sourceChainId;
         address governanceSafe;
         uint256 governanceThreshold;
         address[] governanceOwners;

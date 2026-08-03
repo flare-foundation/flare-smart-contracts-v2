@@ -177,7 +177,7 @@ names are in the per-rung docs and the claims ledger ([L10](10-claims-ledger-tru
 | Rung | Tool | What it covers | Object | Coverage | Status |
 |------|------|----------------|--------|----------|--------|
 | R0/R1 | Foundry | full 967-test tree; exact 36-test GSS gate with real-Safe differential fuzzing, production artifacts, and a 16,384-call state machine | real bytecode | concrete + fuzz + stateful invariant | ✅ current local gates green |
-| R2 | Halmos | relay-core accounting/matrix/lifecycle/Merkle/randomness/fees plus bounded GSS post-recovery signer/action transitions — 26 harnesses / **101 checks (71 proofs, 30 anti-vacuity controls)** | **real bytecode** | bounded; relay K≤3/N≤5, GSS fixed owner shape | ✅ exact current manifest green |
+| R2 | Halmos | relay-core accounting/matrix/lifecycle/Merkle/randomness/fees plus bounded GSS post-recovery signer/action transitions — 26 harnesses / **102 checks (72 proofs, 30 anti-vacuity controls)** | **real bytecode** | bounded; relay K≤3/N≤5, GSS fixed owner shape | ✅ exact current manifest green |
 | R3 | Kontrol | sig-loop weight invariant; random monotonicity — **∀K** (k-induction) | Solidity **model** | ∀K, N∈{3,5} | ✅ proven (Docker-pinned); full symbolic-N intractable (documented) |
 | R3 | Certora | 8 current all-functions storage invariants, including GSS high-water, generation, and consumed-nonce properties | model | ∀ functions & sequences | 2/2 current configs compile/typecheck locally; pre-GSS cloud history only, current cloud proof pending ([L5 §5.2](05-R3-unbounded-attempts.md)) |
 | R4a | Lean (the abstract proof) | sig-loop **threshold soundness under `ValidRun`** | abstract algorithm | **∀N ∀K** | ✅ hole-free |

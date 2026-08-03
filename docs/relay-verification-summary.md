@@ -40,7 +40,7 @@ See `docs/relay-assembly-review.md` (mutation surface, no delegatecall/fallback,
 
 | Layer | Tool | What it gives | Scope |
 |------|------|---------------|-------|
-| Symbolic execution on **real bytecode** | **Halmos** | 26 harnesses / 101 checks (`test-forge/fv/*.t.sol`) | bounded; relay core K≤3/N≤5, GSS at fixed owner shape and exposed post-recovery boundaries |
+| Symbolic execution on **real bytecode** | **Halmos** | 26 harnesses / 102 checks (`test-forge/fv/*.t.sol`) | bounded; relay core K≤3/N≤5, GSS at fixed owner shape and exposed post-recovery boundaries |
 | Unbounded-in-K via k-induction | **Kontrol/KEVM** | sig-loop weight invariant + random monotonicity (`test-forge/fv/kontrol/`) | ∀K, on a faithful Solidity **model**, N∈{3,5} |
 | Unbounded **algorithm** proof | **Lean 4** | sig-loop threshold soundness (`test-forge/fv/lean/RelaySigLoop.lean`) | **∀N ∀K**, abstract algorithm, machine-checked (no `sorry`) |
 | Model↔bytecode bridge | **Halmos** | `RelayModelBridgeFV` — real bytecode obeys the Kontrol model's `psAt` invariant | K=1,2,3 |
@@ -84,7 +84,7 @@ also confirms the elaborate setup genuinely reaches acceptance.
 
 ## 4. Reproducing
 
-- **Halmos:** `python3 test-forge/fv/verify_fv.py` checks an exact 101-check manifest, exact Halmos exit
+- **Halmos:** `python3 test-forge/fv/verify_fv.py` checks an exact 102-check manifest, exact Halmos exit
   classes, validated reachability models, and zero truncated loops.
 - **GSS:** `verify_gss_governance.py` requires 36/36 tests, including 256-run
   differential fuzzing and a 16,384-call state machine; the production rehearsal

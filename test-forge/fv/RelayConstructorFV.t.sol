@@ -9,6 +9,7 @@ import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
 //   rewardEpochDurationInVotingEpochs > 0           (RLY-11, no div-by-zero)    [Relay.sol:237]
 //   votingEpochDurationSeconds > 0                  (RLY-11)                    [Relay.sol:238]
 //   initialSigningPolicyHash != 0                   (L-4, would brick epoch)    [Relay.sol:240]
+//   sourceChainId == block.chainid on setter deploy (RLY-23 home-force)
 // Each check builds the otherwise-valid base config and corrupts exactly one field, then asserts the
 // deploy reverts; the reachability control confirms the valid config deploys.
 contract RelayConstructorFV is RelayTestBase {
@@ -50,6 +51,16 @@ contract RelayConstructorFV is RelayTestBase {
     // EXPECT: PASS (proof).
     function check_ctor_rejectsZeroPolicyHash() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(0));
+        assert(!_tryDeploy(cfg));
+    }
+
+    // RLY-23 home-force: on a home deploy (signing-policy setter present, as _tryDeploy passes) a
+    // source chain id that is nonzero and != block.chainid is rejected — a live setter cannot bind a
+    // foreign domain. EXPECT: PASS (proof).
+    function check_ctor_homeForce_rejectsForeignSource(uint256 src) external {
+        vm.assume(src != 0 && src != block.chainid);
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
+        cfg.sourceChainId = src;
         assert(!_tryDeploy(cfg));
     }
 

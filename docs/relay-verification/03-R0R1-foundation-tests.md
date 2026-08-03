@@ -25,9 +25,10 @@ or inductive tool is invoked.
 The five removed `governanceFeeSetup` tests, two direct custom-signature tests, and
 one superseded policy-hash example covered the deleted legacy fee-governance path.
 Section 3.5 itemizes the remaining 51 tests. A sibling
-file [`RelayChainDomain.t.sol`](../../test-forge/unit/protocol/implementation/RelayChainDomain.t.sol) adds **8**
-RLY-23 chain-domain-binding tests (cross-chain replay rejection, fork fail-closed, same-chain acceptance, and a
-legacy migration A/B against the `contracts/mock/RelayMainDeployed.sol` pre-RLY-23 Relay), reusing the same
+file [`RelayChainDomain.t.sol`](../../test-forge/unit/protocol/implementation/RelayChainDomain.t.sol) adds **10**
+RLY-23 chain-domain-binding tests (cross-source replay rejection, mirror-accept, home-force, the fork trade-off,
+same-chain acceptance, and a legacy migration A/B against the `contracts/mock/RelayMainDeployed.sol` pre-RLY-23
+Relay), reusing the same
 `RelayTestBase` harness. The exact GSS gate adds **36** tests: 30 in
 [`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol),
 3 production-shape tests using exact Safe v1.3.0 release artifacts, and 3

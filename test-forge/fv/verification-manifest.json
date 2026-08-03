@@ -192,7 +192,7 @@
   "halmos": {
     "function_prefix": "check_",
     "expected_process_exitcode": 1,
-    "expected_check_count": 101,
+    "expected_check_count": 102,
     "max_bounded_loops": 0,
     "proofs": [
       "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_actionNonce_boundToSafeNonce",
@@ -211,6 +211,7 @@
       "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_setSigningPolicy_onlySetter",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_badV_cannotAccept",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_highS_cannotAccept",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_homeForce_rejectsForeignSource",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsLowThresholdIncrease",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroPolicyHash",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroRewardEpochDuration",

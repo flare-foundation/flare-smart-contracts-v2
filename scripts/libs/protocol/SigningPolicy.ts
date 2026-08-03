@@ -151,7 +151,7 @@ export namespace SigningPolicy {
    * sequentially hashing 32-byte chunks with keccak256; since RLY-23 the result is chain-bound:
    * keccak256(chainId ‖ contentHash) — this is what the Relay contract stores and verifies.
    * @param signingPolicy
-   * @param chainId chain id of the network the target Relay is deployed on
+   * @param chainId the configured source chain id (`relay.sourceChainId()`)
    * @returns
    */
   export function hashEncoded(signingPolicy: string, chainId: number | bigint) {
@@ -176,7 +176,7 @@ export namespace SigningPolicy {
   /**
    * Calculates the (RLY-23 chain-bound) signing policy hash from signing policy object.
    * @param signingPolicy
-   * @param chainId chain id of the network the target Relay is deployed on
+   * @param chainId the configured source chain id (`relay.sourceChainId()`)
    * @returns
    */
   export function hash(signingPolicy: ISigningPolicy, chainId: number | bigint) {
