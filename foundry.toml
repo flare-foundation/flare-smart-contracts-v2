@@ -10,7 +10,8 @@ fs_permissions = [
     { access = "read", path = "./deployment/chain-config/"},
     { access = "read", path = "./deployment/cuts/"},
     { access = "read-write", path = "./deployment/deploys/"},
-    { access = "read-write", path = "./deployment/output-internal/"}
+    { access = "read-write", path = "./deployment/output-internal/"},
+    { access = "read", path = "./node_modules/@gnosis.pm/safe-contracts/build/artifacts/"}
 ]
 optimizer = true
 optimizer_runs = 200
@@ -20,6 +21,9 @@ optimizer_runs = 200
 # pinned to viaIR off below (Yul stack/unimplemented issues).
 via_ir = true
 ffi = true
+# Reference Yul IR artifacts (e.g. test-forge/fv/lean/relay_ir_optimized.yul) are kept for the
+# formal-verification work but are NOT contracts to compile. Skip them so `forge build` ignores them.
+skip = ['*.yul']
 
 [[profile.default.additional_compiler_profiles]]
 name = "no-via-ir"
@@ -44,6 +48,11 @@ via_ir = false
 [[profile.default.compilation_restrictions]]
 paths = "contracts/mock/*.sol"
 via_ir = false
+
+[invariant]
+runs = 128
+depth = 128
+fail_on_revert = true
 
 [dependencies]
 forge-std = "1.10.0"

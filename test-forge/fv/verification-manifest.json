@@ -1,0 +1,369 @@
+{
+  "schema_version": 1,
+  "target": {
+    "source": "contracts/protocol/implementation/Relay.sol",
+    "contract": "Relay",
+    "optimized_ir_snapshot": "test-forge/fv/lean/relay_ir_optimized.yul",
+    "verification_compiler": {
+      "version": "0.8.27+commit.40a35a09",
+      "short_version": "0.8.27",
+      "evm_version": "cancun",
+      "optimizer_enabled": true,
+      "optimizer_runs": 200,
+      "via_ir": false
+    },
+    "deployment_compiler": {
+      "version": "0.8.30+commit.73712a01",
+      "evm_version": "cancun",
+      "optimizer_enabled": true,
+      "optimizer_runs": 200,
+      "via_ir": false
+    }
+  },
+  "relay_revert_abi": {
+    "source": "contracts/protocol/implementation/Relay.sol",
+    "helper": "revertWithMessage",
+    "encoding": "Error(string)",
+    "max_message_bytes": 32,
+    "messages": [
+      { "message": "Invalid voting round id", "length": 23 },
+      { "message": "total weight too big", "length": 20 },
+      { "message": "too small threshold", "length": 19 },
+      { "message": "too big threshold", "length": 17 },
+      { "message": "No random number", "length": 16 },
+      { "message": "Incorrect merkle proof", "length": 22 },
+      { "message": "Invalid random number proof", "length": 27 },
+      { "message": "Invalid sign policy metadata", "length": 28 },
+      { "message": "Invalid sign policy length", "length": 26 },
+      { "message": "Signing policy hash mismatch", "length": 28 },
+      { "message": "Too short message", "length": 17 },
+      { "message": "Already relayed", "length": 15 },
+      { "message": "Wrong message format", "length": 20 },
+      { "message": "Wrong message format2", "length": 21 },
+      { "message": "Wrong sign policy reward epoch", "length": 30 },
+      { "message": "Message too old", "length": 15 },
+      { "message": "Delayed sign policy", "length": 19 },
+      { "message": "Must use new sign policy", "length": 24 },
+      { "message": "Sign policy relay disabled", "length": 26 },
+      { "message": "No new sign policy size", "length": 23 },
+      { "message": "must be non-trivial", "length": 19 },
+      { "message": "too many voters", "length": 15 },
+      { "message": "Wrong size for new sign policy", "length": 30 },
+      { "message": "Not with last intialized", "length": 24 },
+      { "message": "Not next reward epoch", "length": 21 },
+      { "message": "No signature count", "length": 18 },
+      { "message": "Not enough signatures", "length": 21 },
+      { "message": "Index out of range", "length": 18 },
+      { "message": "Index out of order", "length": 18 },
+      { "message": "Bad v", "length": 5 },
+      { "message": "Bad s", "length": 5 },
+      { "message": "ecrecover error", "length": 15 },
+      { "message": "ecrecover returned bad data", "length": 27 },
+      { "message": "Zero signer", "length": 11 },
+      { "message": "Wrong signature", "length": 15 },
+      { "message": "zero merkle root", "length": 16 },
+      { "message": "This should never happen", "length": 24 }
+    ]
+  },
+  "toolchain": {
+    "foundry": "1.7.1",
+    "halmos": "0.3.3",
+    "z3": "4.12.6.0",
+    "evmyullean_commit": "047f63070309f436b66c61e276ab3b6d1169265a",
+    "lean_toolchain": "leanprover/lean4:v4.22.0",
+    "kontrol": "1.0.248",
+    "k": "7.1.334"
+  },
+  "gss_governance_tests": {
+    "foundry": "1.7.1",
+    "safe_contracts": "1.3.0",
+    "minimum_fuzz_runs": 256,
+    "invariant_runs": 128,
+    "invariant_depth": 128,
+    "invariant_handler_functions": [
+      "createConflict",
+      "createFee",
+      "createRotation",
+      "deliver",
+      "mutateAndDeliver"
+    ],
+    "suites": [
+      {
+        "path": "test-forge/unit/governance/GSSGovernance.t.sol",
+        "contract": "GSSGovernanceTest",
+        "tests": [
+          "testFuzz_everySafeTransactionFieldIsBound",
+          "testFuzz_safeDigestMatchesRealSafeForArbitraryTransaction",
+          "test_acceptsMessageExecutedThroughAnyCompatibleHelper",
+          "test_acceptsMoreValidSignaturesThanThreshold",
+          "test_checkerAndRelayRejectNonCanonicalFeeList",
+          "test_checkerRejectsFeesWhileOwnerRotationIsStaged",
+          "test_conflictingTransactionsAtSameSafeNonceAreFirstDeliveryWins",
+          "test_delayedOwnerRotationCannotBeStrandedByHigherOldConfigFee",
+          "test_deploymentReplayFloorRejectsPredatingMessage",
+          "test_extremeFutureNonceCanExhaustFeeSequenceWithoutSourceExecution",
+          "test_feeMessageWorksOnTwoIndependentTargetChains",
+          "test_gappedSafeNonceIsAccepted",
+          "test_governanceConfigurationRequiresRelayModeAndNoOldRelay",
+          "test_higherNonceFeeDeliveredFirstSuppressesLowerNonceFee",
+          "test_irrelevantFeeMessageDoesNotConsumeLocalNonce",
+          "test_maximumCanonicalFeeBatchIsExecutable",
+          "test_ownerRotationRequiresLocalInstallationBeforeNewOwnersCanGovern",
+          "test_rejectsActionNonceThatDoesNotMatchSafeTransactionNonce",
+          "test_rejectsDuplicateLocalFeeWithoutPartialUpdate",
+          "test_rejectsEmptyFeeList",
+          "test_rejectsFeeBatchAboveLimit",
+          "test_rejectsInvalidSignatureSetsAndNormalizesRecoveryErrors",
+          "test_rejectsReplayAndModifiedAction",
+          "test_removedOwnerRemainsAuthorizedUntilTargetInstallsRotation",
+          "test_returningToSameOwnersDoesNotReviveOldFutureNonceMessage",
+          "test_safeCancellationDoesNotRevokeRemoteAuthorization",
+          "test_safeDigestMatchesRealSafeForCompleteTransaction",
+          "test_sameSignedMessageAuthorizesTwoRelayDeploymentsOnSameChain",
+          "test_setupIsThreeOfFiveAndCheckerMatchesGSS",
+          "test_targetDeploymentDoesNotRequireSourceSafeCode"
+        ]
+      },
+      {
+        "path": "test-forge/unit/governance/GSSGovernanceProductionRehearsal.t.sol",
+        "contract": "GSSGovernanceProductionRehearsalTest",
+        "tests": [
+          "test_rehearsalExecutesFeesRotationAndFeesThroughRealSafe",
+          "test_rehearsalMatchesFlareSafeVersionAndConfigurationShape",
+          "test_rehearsalMaximumBatchFitsRecordedFlareBlockGasLimit"
+        ]
+      },
+      {
+        "path": "test-forge/invariant/governance/GSSGovernanceInvariant.t.sol",
+        "contract": "GSSGovernanceInvariantTest",
+        "tests": [
+          "invariant_modelMatchesBothRelayTargets",
+          "test_stateMachineHandlesDelayedRotationAndTargetDivergence",
+          "test_stateMachineMakesSameNonceConflictsFirstDeliveryWinsPerTarget"
+        ]
+      }
+    ]
+  },
+  "gss_source_safe": {
+    "network": "flare",
+    "rpc_url": "https://flare-api.flare.network/ext/C/rpc",
+    "chain_id": 14,
+    "safe": "0xbe653c54df337f13fcb726101388f4a4803049f3",
+    "block_number": 65907987,
+    "block_hash": "0x63ad0a44c3ab8703a5946e588642458faa35b5a9bb7d486c03eceeb43572773e",
+    "block_timestamp": 1785023428,
+    "block_gas_limit": "28000000",
+    "version": "1.3.0",
+    "owner_count": 11,
+    "owner_contract_count": 0,
+    "owners_canonical": [
+      "0x1ff339f9e01a138201c03a42050973a024d568ee",
+      "0x2d40222a08f8d1d51e8e9eae640aaa2f00062ac8",
+      "0x460a7f465e8e9b4189f2ae22a900cc9e5c7372d0",
+      "0x49893c5dfc035f4ee4e46fac014f6d4bc80f7f92",
+      "0x5d2f75392ddda69a2818021dd6a64937904c8352",
+      "0x6455dc38fdf739b6fe021b30c7d9672c1c6deb5c",
+      "0x6bc7dca62010d418eb72ccdc58561e00c5868ef1",
+      "0x714783a6e709b878f9181ce43222683fd32eaccd",
+      "0x968631112f9517450b524bed54b39efb8e6cbac6",
+      "0xe34bb361536610a9dccea5292262e36aff65c06c",
+      "0xebacb762a5dc1f022fce61be0deb5d2423936508"
+    ],
+    "threshold": "6",
+    "nonce": "998",
+    "module_count": 0,
+    "module_next": "0x0000000000000000000000000000000000000001",
+    "singleton": "0xf09fc2658270ac5494fa365dc5e29e0a2c636413",
+    "safe_runtime_keccak256": "0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000",
+    "singleton_runtime_keccak256": "0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f",
+    "guard": "0x0000000000000000000000000000000000000000",
+    "fallback_handler": "0x3f083d314c01ad7f1cc53b0a8422ee335cf2923a",
+    "fallback_handler_runtime_keccak256": "0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf"
+  },
+  "certora_local": {
+    "certora_cli": "8.16.1",
+    "minimum_java_major": 21,
+    "solc_long_version": "0.8.27+commit.40a35a09",
+    "configs": [
+      "certora/Relay.conf",
+      "certora/Relay-writeonce.conf"
+    ]
+  },
+  "halmos": {
+    "function_prefix": "check_",
+    "expected_process_exitcode": 1,
+    "expected_check_count": 101,
+    "max_bounded_loops": 0,
+    "proofs": [
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_actionNonce_boundToSafeNonce",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_consumedNonce_excludesConflict",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_delayedRotation_preservesFeeHighWater",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_duplicateSigner_rejected",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_irrelevantFee_doesNotConsume",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_lowerFeeNonce_cannotRegress",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_nonCanonicalFee_isAtomic",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_nonOwnerSigner_rejected",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_ownerRotation_advancesGeneration",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_relevantFee_atomicAndConsumed",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_signers_belowThreshold_rejected",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_unorderedSigners_rejected",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_wrongCurrentHash_cannotRotate",
+      "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_setSigningPolicy_onlySetter",
+      "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_badV_cannotAccept",
+      "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_highS_cannotAccept",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsLowThresholdIncrease",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroPolicyHash",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroRewardEpochDuration",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroVotingEpochDuration",
+      "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_noDoubleCount",
+      "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_threshold",
+      "test-forge/fv/RelayDelayedPolicyFV.t.sol:RelayDelayedPolicyFV.check_delayedPolicy_rejected",
+      "test-forge/fv/RelayEcrecoverSymbolicFV.t.sol:RelayEcrecoverSymbolicFV.check_accepted_usesFreshReturn_notStale",
+      "test-forge/fv/RelayEcrecoverSymbolicFV.t.sol:RelayEcrecoverSymbolicFV.check_emptyReturn_rejected",
+      "test-forge/fv/RelayEcrecoverSymbolicFV.t.sol:RelayEcrecoverSymbolicFV.check_zeroSigner_rejected",
+      "test-forge/fv/RelayEpochAdvanceFV.t.sol:RelayEpochAdvanceFV.check_epochAdvance_incrementsByOne",
+      "test-forge/fv/RelayEpochAdvanceFV.t.sol:RelayEpochAdvanceFV.check_epochAdvance_requiresSequential",
+      "test-forge/fv/RelayFeeConservationFV.t.sol:RelayFeeConservationFV.check_p7_feeConservation",
+      "test-forge/fv/RelayFinalizationWindowFV.t.sol:RelayFinalizationWindowFV.check_messageTooOld_rejected",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_historicalSecure_eq_byteNonZero",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_leafNorm_machineChecked",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_liveAndHistorical_agree",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_liveSecure_eq_byteNonZero",
+      "test-forge/fv/RelayMerkleFoldFV.t.sol:RelayMerkleFoldFV.check_fold_base_injective",
+      "test-forge/fv/RelayMerkleFoldFV.t.sol:RelayMerkleFoldFV.check_fold_depth2_injective",
+      "test-forge/fv/RelayMerkleFoldFV.t.sol:RelayMerkleFoldFV.check_fold_step_injective",
+      "test-forge/fv/RelayMerkleProofFV.t.sol:RelayMerkleProofFV.check_m2_wrongSibling_cannotStore",
+      "test-forge/fv/RelayMerkleProofFV.t.sol:RelayMerkleProofFV.check_m3_misalignedProof_rejected",
+      "test-forge/fv/RelayModeOneFV.t.sol:RelayModeOneFV.check_modeOne_thresholdTooSmall_rejected",
+      "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_bridge_1sig",
+      "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_bridge_2sig",
+      "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_bridge_3sig",
+      "test-forge/fv/RelayMustUseNewPolicyFV.t.sol:RelayMustUseNewPolicyFV.check_mustUseNewPolicy_afterStart",
+      "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_equiv_NV1",
+      "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_equiv_NV2",
+      "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_equiv_NV3",
+      "test-forge/fv/RelayRandomBindingFV.t.sol:RelayRandomBindingFV.check_p4_storedEqualsCommitted",
+      "test-forge/fv/RelayRandomBindingFV.t.sol:RelayRandomBindingFV.check_p4_uncommittedValue_cannotStore",
+      "test-forge/fv/RelayRandomMonotonicityFV.t.sol:RelayRandomMonotonicityFV.check_advances",
+      "test-forge/fv/RelayRandomMonotonicityFV.t.sol:RelayRandomMonotonicityFV.check_bothHistoricalRetained",
+      "test-forge/fv/RelayRandomMonotonicityFV.t.sol:RelayRandomMonotonicityFV.check_staleDoesNotRegress",
+      "test-forge/fv/RelayReturnDiscriminatorFV.t.sol:RelayReturnDiscriminatorFV.check_protocolId1_successReturns35",
+      "test-forge/fv/RelayReturnDiscriminatorFV.t.sol:RelayReturnDiscriminatorFV.check_protocolId3_isNot35",
+      "test-forge/fv/RelayReturnDiscriminatorFV.t.sol:RelayReturnDiscriminatorFV.check_protocolId3_successReturns0",
+      "test-forge/fv/RelaySigFV.t.sol:RelaySigFV.check_noDoubleCount_duplicateIndex_cannotAccept",
+      "test-forge/fv/RelaySigFV.t.sol:RelaySigFV.check_threshold_twoVoters_cannotAccept",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_noDoubleCount_headDup_param",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_noDoubleCount_tailDup_param",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_threshold_1sig_param",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_threshold_2sig_param",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_threshold_3sig_param",
+      "test-forge/fv/RelayThresholdConsistencyFV.t.sol:RelayThresholdConsistencyFV.check_thresholdTooBig_rejected",
+      "test-forge/fv/RelayThresholdConsistencyFV.t.sol:RelayThresholdConsistencyFV.check_thresholdTooSmall_rejected",
+      "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_scaling_identityAtBoundary",
+      "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_scaling_neverWeakens",
+      "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_scaling_noOverflow",
+      "test-forge/fv/RelayVerifyFeeFV.t.sol:RelayVerifyFeeFV.check_fee_conserved",
+      "test-forge/fv/RelayVerifyFeeFV.t.sol:RelayVerifyFeeFV.check_fee_noOverpayKept",
+      "test-forge/fv/RelayVerifyFeeFV.t.sol:RelayVerifyFeeFV.check_fee_underpaymentImpossible",
+      "test-forge/fv/RelayWrongEpochFV.t.sol:RelayWrongEpochFV.check_wrongEpoch_rejected"
+    ],
+    "reachability": [
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_reach_gss_validFeeAction",
+      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_reach_gss_validSignerSet",
+      "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_reach_setter_canCall",
+      "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_reachability_canonicalAccepts",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_reach_ctor_validDeploys",
+      "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_reachability",
+      "test-forge/fv/RelayDelayedPolicyFV.t.sol:RelayDelayedPolicyFV.check_reach_atStart",
+      "test-forge/fv/RelayEcrecoverSymbolicFV.t.sol:RelayEcrecoverSymbolicFV.check_reach_validSigner_accepted",
+      "test-forge/fv/RelayEpochAdvanceFV.t.sol:RelayEpochAdvanceFV.check_reach_epochAdvance_correctSucceeds",
+      "test-forge/fv/RelayFeeConservationFV.t.sol:RelayFeeConservationFV.check_p7_reachability",
+      "test-forge/fv/RelayFinalizationWindowFV.t.sol:RelayFinalizationWindowFV.check_reach_recentNotTooOld",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_reach_highByte_canAccept",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_reach_insecure_canAccept",
+      "test-forge/fv/RelayIsSecureNormFV.t.sol:RelayIsSecureNormFV.check_reach_secure_canAccept",
+      "test-forge/fv/RelayMerkleFoldFV.t.sol:RelayMerkleFoldFV.check_reach_fold_distinguishes",
+      "test-forge/fv/RelayMerkleProofFV.t.sol:RelayMerkleProofFV.check_reach_matchingProof",
+      "test-forge/fv/RelayModeOneFV.t.sol:RelayModeOneFV.check_reach_modeOne_validInstalls",
+      "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_reach_bridge_canAccept",
+      "test-forge/fv/RelayMustUseNewPolicyFV.t.sol:RelayMustUseNewPolicyFV.check_reach_oldPolicyOkBeforeStart",
+      "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_mismatchReachable_NV3",
+      "test-forge/fv/RelayRandomBindingFV.t.sol:RelayRandomBindingFV.check_p4_reachability",
+      "test-forge/fv/RelayRandomMonotonicityFV.t.sol:RelayRandomMonotonicityFV.check_reachability_twoRelays",
+      "test-forge/fv/RelayReturnDiscriminatorFV.t.sol:RelayReturnDiscriminatorFV.check_reach_protocolId1_canAccept",
+      "test-forge/fv/RelayReturnDiscriminatorFV.t.sol:RelayReturnDiscriminatorFV.check_reach_protocolId3_canAccept",
+      "test-forge/fv/RelaySigFV.t.sol:RelaySigFV.check_reachability_threeVoters_canAccept",
+      "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_reachability_param",
+      "test-forge/fv/RelayThresholdConsistencyFV.t.sol:RelayThresholdConsistencyFV.check_reach_inBand_accepted",
+      "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_reach_scaling_canIncrease",
+      "test-forge/fv/RelayVerifyFeeFV.t.sol:RelayVerifyFeeFV.check_reach_exactFee",
+      "test-forge/fv/RelayWrongEpochFV.t.sol:RelayWrongEpochFV.check_reach_correctEpoch"
+    ]
+  },
+  "lean": {
+    "allowed_axioms": [
+      "Classical.choice",
+      "Quot.sound",
+      "RelayDataLayer.toByteArray_size",
+      "RelayDataLayer.zeroes_data",
+      "RelayWindows.zeroes_data",
+      "propext"
+    ],
+    "declared_axioms": {
+      "DataLayer.lean": [
+        "RelayDataLayer.zeroes_data",
+        "RelayDataLayer.toByteArray_size"
+      ],
+      "RelayLoopWindows.lean": [
+        "RelayWindows.zeroes_data"
+      ]
+    },
+    "axiom_audit_counts": {
+      "RelaySigLoop.lean": 2,
+      "RelayBytecodeRefinement.lean": 5,
+      "DataLayer.lean": 11,
+      "RelayLoopMemRead.lean": 8,
+      "RelayLoopWindows.lean": 26,
+      "RelayLoopLiteral.lean": 31,
+      "RelayStorageLayer.lean": 13,
+      "RelayFeeLayer.lean": 14,
+      "RelayBodyEff.lean": 55
+    },
+    "required_results": {
+      "RelaySigLoop.lean": [
+        "RelaySigLoop.threshold_sound",
+        "RelaySigLoop.insufficient_weight_cannot_accept"
+      ],
+      "RelayBytecodeRefinement.lean": [
+        "bytecode_loop_correct",
+        "bytecode_threshold_sound_int"
+      ],
+      "DataLayer.lean": [
+        "weight_read"
+      ],
+      "RelayLoopMemRead.lean": [
+        "relay_loop_sound"
+      ],
+      "RelayLoopWindows.lean": [
+        "weight_of_window",
+        "signer_of_window"
+      ],
+      "RelayLoopLiteral.lean": [
+        "return_eff",
+        "staticcall_hyp_compose"
+      ],
+      "RelayStorageLayer.lean": [
+        "sstore_reads_back"
+      ],
+      "RelayFeeLayer.lean": [
+        "two_transfer_caller_net_zero"
+      ],
+      "RelayBodyEff.lean": [
+        "relay_loop_sound_literal_derived_tight",
+        "relay_loop_sound_literal_early",
+        "relay_dispatch_loop_accept",
+        "dispatch_setup_loop_accept"
+      ]
+    }
+  }
+}

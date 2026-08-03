@@ -1,17 +1,20 @@
-stages:
-  - build
-  - test
-  - sbom
-
-default:
-  tags:
-    - flarenetwork
-  artifacts:
-    expire_in: 3 days
-
+# Prevent duplicate pipelines (MR and BRANCH pipelines, when a MR is opened for the given branch)
 workflow:
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_TAG
+  - if: '$CI_OPEN_MERGE_REQUESTS != null && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "webide")'
+    when: never
+  - when: always
+
+default:
+  tags: [ flarenetwork ]
+
+variables:
+  PNPM_STORE_DIR: .pnpm-store
+
+
+##
+## PARTIALS
+##
 
 .partials:
   # Pinned Foundry, one place to bump. The exact tag matters: this repo uses solc 0.8.35's
@@ -23,23 +26,108 @@ workflow:
   # so pin the full tag and bump it deliberately. Retire the nightly for `stable` once a
   # stable release past v1.7.1 carries solar 0.2.0.
   foundry-image: flarefoundation/foundry-custom:forge-nightly-160b6026
-
-.pnpm-cache:
-  cache:
+  cache-nodejs:
     key:
-      files:
-        - "$CI_PROJECT_DIR/pnpm-lock.yaml"
+      files: [ pnpm-lock.yaml ]
     paths:
-      - node_modules/
+    - $PNPM_STORE_DIR
+    - node_modules/
+    policy: pull
+  # Same cache, read-write: for jobs pinned to the flarenetwork-md runner, whose runner-local cache the
+  # (untagged) build-smart-contracts job can never seed. With pull-push, the first self-provisioned run
+  # (see the node_modules fallback in those jobs) warms the local cache for subsequent runs.
+  cache-nodejs-rw:
+    key:
+      files: [ pnpm-lock.yaml ]
+    paths:
+    - $PNPM_STORE_DIR
+    - node_modules/
+    policy: pull-push
 
-.test:
+
+##
+## SCANNERS
+##
+
+include:
+- template: Jobs/SAST.latest.gitlab-ci.yml
+- template: Jobs/Dependency-Scanning.latest.gitlab-ci.yml
+- template: Jobs/Secret-Detection.latest.gitlab-ci.yml
+
+
+sast:
+  needs: []
+
+dependency_scanning:
+  needs: []
+
+.secret-analyzer:
+  needs: []
+
+
+scanner-slither:
   image: node:24
   timeout: 10 minutes
-  extends:
-    - .pnpm-cache
+  tags: [ flarenetwork-lg ]
+  needs: []
+  cache: [ !reference [.partials, cache-nodejs] ]
+  variables:
+    PIP_BREAK_SYSTEM_PACKAGES: "1"
+  retry: 1
+  before_script:
+  - apt-get update 1> /dev/null
+  - apt-get install -y python3-pip 1> /dev/null
+  - pip3 install slither-analyzer 1> /dev/null
+  - corepack enable && pnpm install --frozen-lockfile
+  - rm -f ./slither.json ./slither_badge.json
+  script:
+  - (slither . --json=./slither.json || if [ $? = 1 ]; then exit 1; else exit 0; fi)
+  - node scripts/slither-parse.js ./slither.json
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths: [ slither.json ]
+
+
+
+build-smart-contracts:
+  stage: build
+  needs: []
+  image: node:24
+  timeout: 10 minutes
+  tags: [ flarenetwork-lg ]
+  before_script:
+  - corepack enable && pnpm install --frozen-lockfile
+  script:
+  - pnpm compile
+  - node scripts/relay-artifact-provenance.js --output verification-reports/relay-deployment.json
+  cache:
+  - key:
+      files: [ pnpm-lock.yaml ]
+    paths:
+    - $PNPM_STORE_DIR
+    - node_modules/
+    policy: pull-push
+  artifacts:
+    paths:
+    - typechain
+    - typechain-truffle
+    - typechain-web3
+    - verification-reports/relay-deployment.json
+    expire_in: 1 week
+
+
+##
+## UNIT TESTS
+##
+
+.test-node-sc:
+  image: node:24
+  timeout: 10 minutes
   needs:
-    - job: build-smart-contracts
-      artifacts: true
+  - job: build-smart-contracts
+    artifacts: true
+  cache: [ !reference [.partials, cache-nodejs] ]
   variables:
     DEPLOYER_PRIVATE_KEY: "0xc5e8f61d1ab959b397eecc0a37a6517b8e67a0e7cf1f4bce5591f3ed80199122"
     GENESIS_GOVERNANCE_PRIVATE_KEY: "0x50777f5a3ce16445e63411bf1e865a2a11d5ca3c4cbc1de00808a52180bd8d3c"
@@ -47,136 +135,332 @@ workflow:
     GOVERNANCE_PUBLIC_KEY: "0xeAD9C93b79Ae7C1591b1FB5323BD777E86e150d4"
     GOVERNANCE_EXECUTOR_PUBLIC_KEY: "0xE5904695748fe4A84b40b3fc79De2277660BD1D3"
   before_script:
-    - corepack enable
-    - pnpm install --frozen-lockfile
-
-include:
-  - component: gitlab.com/flarenetwork/ci-components-private/lgtm@2
-  - component: gitlab.com/flarenetwork/ci-components-private/dependency-track@2
-  - component: gitlab.com/flarenetwork/ci-components-private/lint-shell@2
-  - component: gitlab.com/flarenetwork/ci-components-private/lint-dockerfile@2
-  - template: Jobs/SAST.latest.gitlab-ci.yml
-  - template: Jobs/Secret-Detection.latest.gitlab-ci.yml
-
-
-sast:
-  needs: []
-
-.secret-analyzer:
-  needs: []
-
-build-smart-contracts:
-  image: node:24
-  extends:
-    - .pnpm-cache
-  stage: build
-  tags: [flarenetwork-lg]
-  needs: []
-  timeout: 10 minutes
-  before_script:
-    - corepack enable
-    - pnpm install --frozen-lockfile
-  script:
-    - pnpm compile
-  artifacts:
-    paths:
-      - typechain
-      - typechain-truffle
-      - typechain-web3
-    expire_in: 1 week
-
-scanner-slither:
-  image: node:24
-  extends:
-    - .pnpm-cache
-  stage: test
-  tags: [flarenetwork-lg]
-  needs: []
-  timeout: 10 minutes
-  variables:
-    PIP_BREAK_SYSTEM_PACKAGES: "1"
-  retry: 1
-  before_script:
-    - apt-get update 1> /dev/null
-    - apt-get install -y python3-pip 1> /dev/null
-    - pip3 install slither-analyzer 1> /dev/null
-    - corepack enable
-    - pnpm install --frozen-lockfile
-    - rm -f ./slither.json ./slither_badge.json
-  script:
-    - (slither . --json=./slither.json || if [ $? = 1 ]; then exit 1; else exit 0; fi)
-    - node scripts/slither-parse.js ./slither.json
-  artifacts:
-    when: always
-    expire_in: 7 days
-    paths: [slither.json]
+  - corepack enable && pnpm install --frozen-lockfile 1>/dev/null
 
 test-unit-hardhat:
-  extends:
-    - .test
-  script:
-    - pnpm hardhat test --network hardhat ${TEST_ARG}
+  extends: .test-node-sc
+  tags: [ flarenetwork-lg ]
   parallel:
     matrix:
-      - TEST_ARG:
-          - ./test/unit/protocol/coding/coding.test.ts
-          - ./test/unit/protocol/implementation/RewardManager.test.ts
-          - ./test/unit/protocol/implementation/Submission.test.ts
-          - ./test/unit/fastUpdates/lib/Bn256.test.ts
-          - ./test/unit/fastUpdates/lib/FixedPointArithmetic.test.ts
-          - ./test/unit/fastUpdates/lib/Sortition.test.ts
+    - TEST_ARG:
+      - ./test/unit/protocol/coding/coding.test.ts
+      - ./test/unit/protocol/implementation/RewardManager.test.ts
+      - ./test/unit/protocol/implementation/Submission.test.ts
+      - ./test/unit/fastUpdates/lib/Bn256.test.ts
+      - ./test/unit/fastUpdates/lib/FixedPointArithmetic.test.ts
+      - ./test/unit/fastUpdates/lib/Sortition.test.ts
+  script:
+  - pnpm hardhat test --network hardhat ${TEST_ARG}
 
 test-unit-hardhat-md:
-  extends:
-    - .test
+  extends: test-unit-hardhat
   timeout: 10 minutes
-  tags: [flarenetwork-md]
-  script:
-    - pnpm hardhat test --network hardhat ${TEST_ARG}
+  tags: [ flarenetwork-lg ]
   parallel:
     matrix:
-      - TEST_ARG:
-          - ./test/unit/protocol/implementation/Relay.test.ts
-          - ./test/unit/fastUpdates/implementation/FastUpdateIncentiveManager.test.ts
-          - ./test/unit/fastUpdates/implementation/FastUpdater.test.ts
+    - TEST_ARG:
+      - ./test/unit/protocol/implementation/Relay.test.ts
+      - ./test/unit/fastUpdates/implementation/FastUpdateIncentiveManager.test.ts
+      - ./test/unit/fastUpdates/implementation/FastUpdater.test.ts
 
 test-contract-end-to-end:
-  extends:
-    - .test
-  tags: [flarenetwork-lg]
+  extends: .test-node-sc
+  tags: [ flarenetwork-lg ]
   script:
-    - pnpm hardhat test ./test/integration/EndToEnd.test.ts
+  - pnpm hardhat test ./test/integration/EndToEnd.test.ts
 
 test-linter-sol:
-  extends:
-    - .test
+  extends: .test-node-sc
   script:
-    - pnpm lint-sol
+  - pnpm lint-sol
 
 test-linter-ts:
-  extends:
-    - .test
+  extends: .test-node-sc
   script:
-    - pnpm lint:check
+  - pnpm lint:check
 
 test-format:
-  extends:
-    - .test
+  extends: .test-node-sc
   script:
-    - pnpm format:check
+  - pnpm format:check
 
 test-unit-forge:
-  extends:
-    - .test
+  extends: .test-node-sc
   timeout: 10 minutes
-  tags: [flarenetwork-lg]
+  tags: [ flarenetwork-lg ]
   image: !reference [.partials, foundry-image]
   before_script:
-    - forge soldeer install
-    - forge install --no-git
-    - forge build
+  - forge soldeer install
+  - forge install --no-git
+  - forge build
   script:
-    - forge test -vvv
+  - forge test -vvv
+
+##
+## FORMAL VERIFICATION (Halmos)
+##
+
+# Gate for the Relay.sol formal-verification suite (test-forge/fv). Enforces BOTH halves of every
+# proof: each PROOF check passes, and each REACHABILITY / non-vacuity control produces a counterexample.
+# An unexpected reachability PASS is a hard failure ("vacuity alarm") — that is what would happen if the
+# Halmos --loop bound (halmos.toml: loop=6) ever dropped below a harness's signer count, silently making
+# the proofs vacuous. See docs/relay-fv.md. verify_fv.py judges via Halmos JSON (Halmos's own exit code
+# is non-zero by design, since the reachability controls produce counterexamples).
+test-fv-halmos:
+  # depend on build-smart-contracts and pull its node_modules cache: forge build needs the npm-resolved
+  # remappings (e.g. @gnosis.pm/mock-contract) that live under node_modules/, exactly like test-unit-forge
+  # (which gets them via .test-node-sc). soldeer + forge install cover the non-npm deps.
+  needs:
+  - job: build-smart-contracts
+    artifacts: true
+  cache: [ !reference [.partials, cache-nodejs-rw] ]
+  timeout: 20 minutes
+  tags: [ flarenetwork-md ]
+  # Python is pinned to the reference version and image digest. Foundry is downloaded from its immutable
+  # v1.7.1 release and verified before extraction; Halmos and its full dependency closure come from the lock.
+  image: python:3.11.6-bookworm@sha256:ba7a7ac30c38e119c4304f98ef0e188f90f4f67a958bb6899da9defb99bfb471
+  variables:
+    FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+    FOUNDRY_VERSION: "v1.7.1"
+    FOUNDRY_ARCHIVE_SHA256: "cf7e688ed0c4c48adffca788b496076e31060b67ac5afe1e43dbb5499c20c88b"
+  rules:
+  - changes:
+    - contracts/protocol/implementation/Relay.sol
+    - contracts/protocol/interface/IIRelay.sol
+    - contracts/governance/**/*
+    - contracts/userInterfaces/**/*
+    - certora/**/*
+    - test-forge/fv/**/*
+    - test-forge/unit/governance/**/*
+    - test-forge/invariant/governance/**/*
+    - halmos.toml
+    - foundry.toml
+    - hardhat.config.ts
+    - scripts/relay-artifact-provenance.js
+    - scripts/verify-gss-source-safe.js
+    - scripts/bootstrap-fv.sh
+    - package.json
+    - pnpm-lock.yaml
+    - remappings.txt
+    - .gitlab-ci.yml
+  before_script:
+  - python3 --version; git --version; curl --version | head -1   # env diagnostics
+  # node_modules fallback — the runner-local cache is an optimization, not a dependency (see test-unit-forge)
+  - if ! command -v node >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -qq nodejs npm > /dev/null; fi
+  - if [ ! -d node_modules ]; then corepack enable && pnpm install --frozen-lockfile; fi
+  - pip install --user -r test-forge/fv/requirements-halmos.lock
+  - mkdir -p "$HOME/.foundry/bin"
+  - curl --fail --location --retry 3 --output "/tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" "https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_VERSION}/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz"
+  - echo "$FOUNDRY_ARCHIVE_SHA256  /tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" | sha256sum --check --strict
+  - tar -xzf "/tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" -C "$HOME/.foundry/bin"
+  - export PATH="$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
+  - forge --version
+  - forge soldeer install
+  - forge install --no-git
+  - forge build --force --ast --extra-output storageLayout metadata
+  script:
+  - export PATH="$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
+  - python3 -m unittest discover -s test-forge/fv/tests -v
+  - python3 test-forge/fv/verify_relay_revert_abi.py --report-output verification-reports/relay-revert-abi.json
+  - python3 test-forge/fv/verify_relay_artifact.py --deployment-report verification-reports/relay-deployment.json --report-output verification-reports/relay-artifact-parity.json
+  - python3 test-forge/fv/verify_gss_governance.py --report-output verification-reports/relay-gss-governance.json
+  - node scripts/verify-gss-source-safe.js
+  - HALMOS=halmos python3 test-forge/fv/verify_fv.py --report-output verification-reports/relay-halmos.json
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - verification-reports/relay-deployment.json
+    - verification-reports/relay-revert-abi.json
+    - verification-reports/relay-artifact-parity.json
+    - verification-reports/relay-gss-governance.json
+    - verification-reports/gss-source-safe.json
+    - verification-reports/relay-halmos.json
+
+# Local Certora front-end gate. This checks Solidity compilation, CVL type-checking, and the exact
+# production-to-harness munge; it deliberately does not claim a cloud prover verdict.
+test-fv-certora-local:
+  needs: []
+  timeout: 20 minutes
+  tags: [ flarenetwork-md ]
+  image: python:3.11.6-bookworm@sha256:ba7a7ac30c38e119c4304f98ef0e188f90f4f67a958bb6899da9defb99bfb471
+  variables:
+    FOUNDRY_VERSION: "v1.7.1"
+    FOUNDRY_ARCHIVE_SHA256: "cf7e688ed0c4c48adffca788b496076e31060b67ac5afe1e43dbb5499c20c88b"
+    TEMURIN_URL: "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12%2B8/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12_8.tar.gz"
+    TEMURIN_SHA256: "e4446ff06a276155697597cc0f1b15da004ff083f4964a35271ecee567177370"
+    SOLC_URL: "https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.27+commit.40a35a09"
+    SOLC_SHA256: "b9977d500c17cba6f0032ca939ef98c4decf6363f19f386d05fb02f708115264"
+  rules:
+  - changes:
+    - contracts/protocol/implementation/Relay.sol
+    - contracts/protocol/interface/IIRelay.sol
+    - contracts/governance/**/*
+    - contracts/userInterfaces/**/*
+    - certora/**/*
+    - test-forge/fv/**/*
+    - test-forge/unit/governance/**/*
+    - test-forge/invariant/governance/**/*
+    - halmos.toml
+    - foundry.toml
+    - hardhat.config.ts
+    - scripts/relay-artifact-provenance.js
+    - scripts/verify-gss-source-safe.js
+    - scripts/bootstrap-fv.sh
+    - package.json
+    - pnpm-lock.yaml
+    - remappings.txt
+    - .gitlab-ci.yml
+  before_script:
+  - pip install --user certora-cli==8.16.1
+  - mkdir -p /tmp/temurin21 "$HOME/.foundry/bin"
+  - curl --fail --location --retry 3 --output /tmp/temurin21.tar.gz "$TEMURIN_URL"
+  - echo "$TEMURIN_SHA256  /tmp/temurin21.tar.gz" | sha256sum --check --strict
+  - tar -xzf /tmp/temurin21.tar.gz -C /tmp/temurin21 --strip-components=1
+  - curl --fail --location --retry 3 --output /tmp/solc-0.8.27 "$SOLC_URL"
+  - echo "$SOLC_SHA256  /tmp/solc-0.8.27" | sha256sum --check --strict
+  - chmod +x /tmp/solc-0.8.27
+  - curl --fail --location --retry 3 --output "/tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" "https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_VERSION}/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz"
+  - echo "$FOUNDRY_ARCHIVE_SHA256  /tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" | sha256sum --check --strict
+  - tar -xzf "/tmp/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" -C "$HOME/.foundry/bin"
+  - export PATH="/tmp/temurin21/bin:$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
+  - forge soldeer install
+  - forge install --no-git
+  script:
+  - export JAVA_HOME=/tmp/temurin21
+  - export PATH="$JAVA_HOME/bin:$HOME/.local/bin:$HOME/.foundry/bin:$PATH"
+  - python3 test-forge/fv/verify_certora_local.py --solc /tmp/solc-0.8.27 --report-output verification-reports/relay-certora-local.json
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - verification-reports/relay-certora-local.json
+
+# The bundle is the hand-off artifact: it binds passing evidence to the Git commit,
+# the manifest hash, and the SHA-256 of every report. Keep this deliberately separate
+# from the individual gates so a partial or stale report cannot be presented as a run.
+test-fv-bundle:
+  needs:
+  - job: test-fv-halmos
+    artifacts: true
+  - job: test-fv-lean
+    artifacts: true
+  - job: test-fv-certora-local
+    artifacts: true
+  rules:
+  - changes:
+    - contracts/protocol/implementation/Relay.sol
+    - contracts/protocol/interface/IIRelay.sol
+    - contracts/governance/**/*
+    - contracts/userInterfaces/**/*
+    - test-forge/fv/**/*
+    - test-forge/unit/governance/**/*
+    - test-forge/invariant/governance/**/*
+    - halmos.toml
+    - foundry.toml
+    - hardhat.config.ts
+    - scripts/relay-artifact-provenance.js
+    - scripts/verify-gss-source-safe.js
+    - certora/**/*
+    - test-forge/fv/verify_certora_local.py
+    - scripts/bootstrap-fv.sh
+    - package.json
+    - pnpm-lock.yaml
+    - remappings.txt
+    - .gitlab-ci.yml
+  image: python:3.11.6-bookworm@sha256:ba7a7ac30c38e119c4304f98ef0e188f90f4f67a958bb6899da9defb99bfb471
+  script:
+  - python3 test-forge/fv/verify_bundle.py --output verification-reports/relay-fv-bundle.json
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - verification-reports/relay-fv-bundle.json
+
+# Gate for the Lean bytecode-refinement proofs (test-forge/fv/lean/bytecode-refinement). Type-checks every
+# file against the PINNED NethermindEth EVMYulLean semantics and enforces that the results stay HOLE-FREE:
+# `lake env lean` must exit 0 (no error), and every `#print axioms` must list only allowed axioms — no
+# `sorryAx`, no `native_decide`, nothing beyond Lean's three foundational axioms plus the two documented,
+# upstream-dischargeable data-layer specs (zeroes_data, toByteArray_size). Complements test-fv-halmos: the
+# Halmos harnesses and the Lean refinement are the two FV strands, and this keeps the Lean side — the
+# strongest results (∀N soundness on validated EVM semantics, incl. the literal loop-body model) — from
+# silently regressing. verify_lean.py fails independently of Lake's own success reporting: a proof that
+# still builds but acquired a `sorry` passes `lake` yet fails this gate. See docs/relay-verification/ L7/L11.
+test-fv-lean:
+  needs: []
+  timeout: 60 minutes
+  tags: [ flarenetwork-md ]
+  image: python:3.11.6-bookworm@sha256:ba7a7ac30c38e119c4304f98ef0e188f90f4f67a958bb6899da9defb99bfb471
+  variables:
+    ELAN_HOME: "$CI_PROJECT_DIR/.elan"
+    ELAN_VERSION: "v4.2.3"
+    ELAN_ARCHIVE_SHA256: "df0b2b3a439961ffcbb3985214365ffe40f49bc871df04dff268c7d8e21ca8b2"
+  rules:
+  - changes:
+    - contracts/protocol/implementation/Relay.sol
+    - contracts/protocol/interface/IIRelay.sol
+    - contracts/governance/**/*
+    - contracts/userInterfaces/**/*
+    - certora/**/*
+    - test-forge/fv/**/*
+    - test-forge/unit/governance/**/*
+    - test-forge/invariant/governance/**/*
+    - halmos.toml
+    - foundry.toml
+    - hardhat.config.ts
+    - scripts/relay-artifact-provenance.js
+    - scripts/verify-gss-source-safe.js
+    - scripts/bootstrap-fv.sh
+    - package.json
+    - pnpm-lock.yaml
+    - remappings.txt
+    - .gitlab-ci.yml
+  before_script:
+  - python3 --version; git --version; curl --version | head -1   # env diagnostics
+  - curl --fail --location --retry 3 --output /tmp/elan.tar.gz "https://github.com/leanprover/elan/releases/download/${ELAN_VERSION}/elan-x86_64-unknown-linux-gnu.tar.gz"
+  - echo "$ELAN_ARCHIVE_SHA256  /tmp/elan.tar.gz" | sha256sum --check --strict
+  - tar -xzf /tmp/elan.tar.gz -C /tmp
+  - /tmp/elan-init -y --default-toolchain none
+  - export PATH="$ELAN_HOME/bin:$PATH"
+  - export EVMYUL_COMMIT="$(python3 -c 'import json; print(json.load(open("test-forge/fv/verification-manifest.json"))["toolchain"]["evmyullean_commit"])')"
+  # build the validated semantics once, pinned; cache get pulls prebuilt Mathlib+deps oleans, then build EvmYul
+  - git clone https://github.com/NethermindEth/EVMYulLean /tmp/evmyul
+  - git -C /tmp/evmyul checkout "$EVMYUL_COMMIT"
+  - (cd /tmp/evmyul && lake exe cache get && lake build)
+  script:
+  - export PATH="$ELAN_HOME/bin:$PATH"
+  - EVMYUL_DIR=/tmp/evmyul python3 test-forge/fv/lean/verify_lean.py --report-output verification-reports/relay-lean.json
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - verification-reports/relay-lean.json
+
+# Keeps the verification docs' code links honest. The docs use SYMBOL-ADDRESSED links (link text = the
+# function/theorem name, anchor = single line `#L<n>` of its definition — single-line anchors render on
+# both GitLab and GitHub; ranges do not). verify_links.py recomputes every anchor from the sources and
+# fails if any link is stale, any plain mention of an indexed artifact is unlinked, or any anchor points
+# past EOF. Fix locally with: python3 docs/relay-verification/verify_links.py --fix
+test-doc-links:
+  needs: []
+  timeout: 5 minutes
+  tags: [ flarenetwork-md ]
+  image: python:3.12
+  rules:
+  - changes:
+    - docs/relay-verification/**/*
+    - docs/relay-verification-summary.md
+    - docs/gss-governance.md
+    - certora/README.md
+    - test-forge/fv/**/*
+    - test-forge/unit/protocol/implementation/Relay.t.sol
+    - test-forge/unit/governance/**/*
+    - test-forge/invariant/governance/**/*
+    - certora/specs/**/*
+    - scripts/bootstrap-fv.sh
+    - .gitlab-ci.yml
+  script:
+  - python3 docs/relay-verification/verify_links.py --check
 
 ##
 ## COVERAGE
@@ -184,26 +468,23 @@ test-unit-forge:
 
 coverage-hardhat:
   image: node:24
-  stage: test
-  extends:
-    - .pnpm-cache
   needs: []
   timeout: 30 minutes
-  tags: [flarenetwork-lg-cpu] # 16gb RAM
+  tags: [ flarenetwork-lg-cpu ] # 16gb RAM
+  cache: [ !reference [.partials, cache-nodejs] ]
   before_script:
-    - corepack enable
-    - pnpm install --frozen-lockfile
+  - corepack enable && pnpm install --frozen-lockfile 1>/dev/null
   script:
-    - pnpm run coverage
-    - cp coverage/cobertura-coverage.xml coverage-hardhat-cobertura.xml
+  - pnpm coverage
+  - cp coverage/cobertura-coverage.xml coverage-hardhat-cobertura.xml
   artifacts:
     name: coverage-hardhat
     when: always
     expire_in: 1 month
     paths:
-      - ./coverage/
-      - ./coverage.json
-      - coverage-hardhat-cobertura.xml
+    - ./coverage/
+    - ./coverage.json
+    - coverage-hardhat-cobertura.xml
     reports:
       coverage_report:
         coverage_format: cobertura
@@ -211,72 +492,68 @@ coverage-hardhat:
 
 
 coverage-forge-node_modules:
-  image: node:24
-  stage: test
-  extends:
-    - .pnpm-cache
+  stage: .pre
   needs: []
+  image: node:24
   timeout: 7 minutes
-  tags: [flarenetwork-lg]
+  tags: [ flarenetwork-lg ]
   variables:
     DEBIAN_FRONTEND: noninteractive
   before_script:
-    - apt-get update -y && apt-get install -y rsync
+  - apt-get update -y && apt-get install -y rsync
   script:
-    - corepack enable
-    - pnpm install --frozen-lockfile
-    - rsync -zarvm --include "*/" --include="*.sol" --include="*.js" --include="*.cjs" --include="*.mjs" --include="*.json" --exclude="*" node_modules/ node_modules.sol
+  - corepack enable && pnpm install --frozen-lockfile
+  # *.json includes the Safe v1.3.0 release artifacts the GSS production rehearsal deploys.
+  - rsync -zarvm --include "*/" --include="*.sol" --include="*.js" --include="*.cjs" --include="*.mjs" --include="*.json" --exclude="*" node_modules/ node_modules.sol
   artifacts:
     expire_in: 5 minutes
     paths:
-      - node_modules.sol
+    - node_modules.sol
 
 coverage-forge:
   image: !reference [.partials, foundry-image]
-  stage: test
   needs:
-    - job: coverage-forge-node_modules
-      artifacts: true
-  tags: [flarenetwork-lg]
+  - job: coverage-forge-node_modules
+    artifacts: true
+  tags: [ flarenetwork-lg ]
   timeout: 10 minutes
   before_script:
-    - mv node_modules.sol node_modules
-    - forge soldeer install
-    - forge install --no-git
-    - forge build
+  - mv node_modules.sol node_modules
+  - forge soldeer install
+  - forge install --no-git
+  - forge build
   script:
-    - FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov
+  - FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov
   artifacts:
     expire_in: 30 days
     paths:
-      - lcov.info
+    - lcov.info
 
 coverage-forge-reports:
   image: node:24-alpine
-  stage: test
-  timeout: 5 minutes
+  timeout: 4 minutes
   needs:
-    - job: coverage-forge
-      artifacts: true
+  - job: coverage-forge
+    artifacts: true
   before_script:
-    - echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
-    - echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-    - echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
-    - apk add --no-cache python3 py3-pip lcov 1>/dev/null
-    - apk upgrade --no-cache 1>/dev/null
-    - pip3 install --break-system-packages lcov_cobertura 1>/dev/null
+  - echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
+  - echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+  - echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
+  - apk add --no-cache python3 py3-pip lcov 1>/dev/null
+  - apk upgrade --no-cache 1>/dev/null
+  - pip3 install --break-system-packages lcov_cobertura 1>/dev/null
   script:
-    - node scripts/forge-lcov-prune.js
-    - genhtml lcov.info.pruned --branch-coverage --output-dir coverage-forge --ignore-errors inconsistent
-    - lcov_cobertura lcov.info.pruned --output coverage-forge-cobertura.xml
-    - lcov --summary lcov.info.pruned --rc branch_coverage=1 --ignore-errors inconsistent
+  - node scripts/forge-lcov-prune.js
+  - genhtml lcov.info.pruned --branch-coverage --output-dir coverage-forge --ignore-errors inconsistent
+  - lcov_cobertura lcov.info.pruned --output coverage-forge-cobertura.xml
+  - lcov --summary lcov.info.pruned --rc branch_coverage=1 --ignore-errors inconsistent
   coverage: '/  lines[\ .:]+\d+\.\d+%/' # https://regex101.com/r/KVj9Dr/1
   artifacts:
     expire_in: 30 days
     paths:
-      - lcov.info.pruned
-      - coverage-forge
-      - coverage-forge-cobertura.xml
+    - lcov.info.pruned
+    - coverage-forge
+    - coverage-forge-cobertura.xml
     reports:
       coverage_report:
         coverage_format: cobertura

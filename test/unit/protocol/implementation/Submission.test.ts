@@ -43,6 +43,12 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, (accounts) => {
       messageFinalizationWindowInRewardEpochs: 10,
       feeCollectionAddress: ZERO_ADDRESS,
       feeConfigs: [],
+      governanceSourceChainId: 0,
+      governanceSafe: "0x0000000000000000000000000000000000000000",
+      governanceThreshold: 0,
+      governanceOwners: [],
+      governanceOwnerConfigSafeNonce: 0,
+      governanceSafeNonce: 0,
     };
 
     const relay = await Relay.new(relayInitialConfig, accounts[1], ZERO_ADDRESS);

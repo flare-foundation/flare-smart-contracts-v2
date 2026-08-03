@@ -15,4 +15,10 @@ export interface RelayInitialConfig {
   messageFinalizationWindowInRewardEpochs: number;
   feeCollectionAddress: string;
   feeConfigs: FeeConfig[];
+  governanceSourceChainId: number;
+  governanceSafe: string;
+  governanceThreshold: number;
+  governanceOwners: string[];
+  governanceOwnerConfigSafeNonce: number;
+  governanceSafeNonce: number;
 }

@@ -1,0 +1,26 @@
+# The PINNED reference toolchain for the Halmos FV gate (test-forge/fv/verify_fv.py).
+# Snapshot of the engagement's reference venv (.venv-halmos: Python 3.11.6, macOS) — the
+# environment every green suite run and the doc-quoted gate output come from. Recreate:
+#   python3.11 -m venv .venv-halmos && .venv-halmos/bin/pip install -r test-forge/fv/requirements-halmos.lock
+# CI uses the same Python 3.11.6 minor and installs this entire closure before checking the
+# Halmos/z3 versions from the verification manifest. See docs/relay-verification/11-reproducibility.md.
+certifi==2026.5.20
+charset-normalizer==3.4.7
+eth-hash==0.8.0
+halmos==0.3.3
+idna==3.18
+markdown-it-py==4.2.0
+mdurl==0.1.2
+psutil==7.2.2
+Pygments==2.20.0
+python-dotenv==1.2.2
+PyYAML==6.0.3
+requests==2.34.2
+rich==14.0.0
+safe-pysha3==1.0.5
+sortedcontainers==2.4.0
+toml==0.10.2
+urllib3==2.7.0
+xxhash==3.7.0
+yices-solver==2.6.4.post23
+z3-solver==4.12.6.0

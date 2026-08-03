@@ -104,7 +104,8 @@ export async function provideRandomNumberForInitialRewardEpoch(
           isSecureRandom: true,
           merkleRoot: merkleRoot,
         };
-        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+        const chainId = await web3.eth.getChainId();
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
         const signatures = await generateSignatures([initialVoterPrivateKey], messageHash, 1);
 
         const relayMessage = {

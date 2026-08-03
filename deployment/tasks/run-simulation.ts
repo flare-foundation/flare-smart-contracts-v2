@@ -838,7 +838,8 @@ async function fakeFinalize(
       logger.info(`Voter not among registered accounts: ${voter}`);
     }
   }
-  const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+  const chainId = await web3.eth.getChainId();
+  const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
   const signatures = await generateSignatures(privateKeysInOrder, messageHash, privateKeysInOrder.length);
 
   const relayMessage = {
@@ -992,6 +993,7 @@ export function encodeContractNames(web3: Web3, names: string[]): string[] {
 export function encodeString(text: string, web3: Web3): string {
   return web3.utils.keccak256(web3.eth.abi.encodeParameters(["string"], [text]));
 }
-export function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
-  return SigningPolicy.hash(signingPolicy);
+// RLY-23: the signing-policy hash the Relay stores/verifies is chain-bound.
+export function getSigningPolicyHash(signingPolicy: ISigningPolicy, chainId: number): string {
+  return SigningPolicy.hash(signingPolicy, chainId);
 }

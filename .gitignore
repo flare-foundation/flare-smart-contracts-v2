@@ -4,7 +4,6 @@ yarn-error.log
 yarn.lock
 .pnpm-store
 db
-.idea
 
 ## Test deploys info
 deployment/deploys/scdev.json
@@ -14,7 +13,10 @@ deployment/deploys/initialRewardEpochId.txt
 # Foundry files
 cache-forge/
 artifacts-forge/
-broadcast/
+verification-reports/
+!/broadcast
+/broadcast/*/31337/
+/broadcast/**/dry-run/
 
 # coverage files
 coverage/
@@ -50,3 +52,14 @@ dependencies/
 
 # Facets deploy
 deployment/output-internal/
+
+# Certora local run artifacts
+certora/emv-*
+certora/.certora_internal
+.certora_internal
+
+# Python bytecode caches (FV gate scripts)
+__pycache__/
+
+# FV reference toolchain (recreated by scripts/bootstrap-fv.sh from test-forge/fv/requirements-halmos.lock)
+.venv-halmos/

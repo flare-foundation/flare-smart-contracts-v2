@@ -9,11 +9,13 @@ import { spewNewContractInfo } from "./deploy-utils";
 import { RelayInitialConfig } from "../utils/RelayInitialConfig";
 import { FlareSystemsManagerContract, FlareSystemsManagerInstance, RelayContract } from "../../typechain-truffle";
 import { Account } from "web3-core";
+import { signingPolicyHashForMigration } from "../utils/SigningPolicyHashMigration";
 
 export async function redeployRelay(
   hre: HardhatRuntimeEnvironment,
   contracts: Contracts,
   parameters: ChainParameters,
+  oldRelayPolicyHashScheme: string,
   quiet: boolean = false
 ) {
   const web3 = hre.web3;
@@ -43,7 +45,13 @@ export async function redeployRelay(
 
   const nextRewardEpochId = (await flareSystemsManager.getCurrentRewardEpochId()).toNumber() + 1;
   const startVotingRoundId = await flareSystemsManager.getStartVotingRoundId(nextRewardEpochId);
-  const signingPolicyHash = await oldRelay.toSigningPolicyHash(nextRewardEpochId);
+  const oldSigningPolicyHash = await oldRelay.toSigningPolicyHash(nextRewardEpochId);
+  const chainId = await web3.eth.getChainId();
+  const signingPolicyHash = signingPolicyHashForMigration(
+    oldSigningPolicyHash,
+    chainId,
+    oldRelayPolicyHashScheme
+  );
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: nextRewardEpochId,
     startingVotingRoundIdForInitialRewardEpochId: startVotingRoundId.toNumber(),
@@ -57,6 +65,12 @@ export async function redeployRelay(
     messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
     feeCollectionAddress: ZERO_ADDRESS,
     feeConfigs: [],
+    governanceSourceChainId: 0,
+    governanceSafe: "0x0000000000000000000000000000000000000000",
+    governanceThreshold: 0,
+    governanceOwners: [],
+    governanceOwnerConfigSafeNonce: 0,
+    governanceSafeNonce: 0,
   };
 
   const relay = await Relay.new(relayInitialConfig, flareSystemsManager.address, oldRelay.address);

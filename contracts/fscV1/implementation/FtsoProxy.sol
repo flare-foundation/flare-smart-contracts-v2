@@ -57,6 +57,10 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getRandom(uint256 _votingRoundId) external view returns (uint256 _randomNumber) {
+        // RLY-12 (deferred, Low, no exploit): this legacy V1 getter drops the relay's `isSecureRandom`
+        // quality flag (the IFtso V1 interface has no field for it). V1 consumers cannot distinguish
+        // secure from insecure randomness here; use the V2 Relay getters (which return the flag) when it
+        // matters. Deferred by decision (out of Relay.sol scope). See docs/relay-fixes.md.
         (_randomNumber, , ) = ftsoManager.relay().getRandomNumberHistorical(_votingRoundId);
     }
 
@@ -146,6 +150,8 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getCurrentRandom() external view returns (uint256 _currentRandom) {
+        // RLY-12 (deferred, Low, no exploit): drops the relay's `isSecureRandom` quality flag (the IFtso
+        // V1 interface has no field for it). See the note on getRandom() above; deferred by decision.
         (_currentRandom, , ) = ftsoManager.relay().getRandomNumber();
     }
 

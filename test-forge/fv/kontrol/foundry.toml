@@ -1,0 +1,11 @@
+# NOTE: the authoritative proof run is run.sh, which builds in a container-internal /proj using the
+# STANDARD test/ sub-directory layout (required so kontrol's JUnit writer emits `test%Contract` ids;
+# see run.sh). This root config is only for ad-hoc `forge build` compile-checks of the *.t.sol harnesses
+# in THIS directory (test = '.' so forge scans the current dir); do NOT run `kontrol prove` against it —
+# a root layout crashes kontrol 1.0.248's foundry_to_xml.
+[profile.default]
+src = 'src'
+out = 'out'
+test = '.'
+libs = ['lib']
+solc = '/root/.nix-profile/bin/solc'

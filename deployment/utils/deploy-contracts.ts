@@ -452,10 +452,12 @@ export async function deployContracts(
   );
   addressUpdatableContracts.push(rewardManager.address);
 
+  // RLY-23: the initial signing-policy hash must be bound to the chain this Relay is deployed on.
+  const relayChainId = await hre.web3.eth.getChainId();
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: initialSigningPolicy.rewardEpochId,
     startingVotingRoundIdForInitialRewardEpochId: initialSigningPolicy.startVotingRoundId,
-    initialSigningPolicyHash: getSigningPolicyHash(initialSigningPolicy),
+    initialSigningPolicyHash: getSigningPolicyHash(initialSigningPolicy, relayChainId),
     randomNumberProtocolId: FTSO_PROTOCOL_ID,
     firstVotingRoundStartTs: settings.firstVotingRoundStartTs,
     votingEpochDurationSeconds: settings.votingEpochDurationSeconds,
@@ -465,6 +467,12 @@ export async function deployContracts(
     messageFinalizationWindowInRewardEpochs: 100,
     feeCollectionAddress: ZERO_ADDRESS,
     feeConfigs: [],
+    governanceSourceChainId: 0,
+    governanceSafe: "0x0000000000000000000000000000000000000000",
+    governanceThreshold: 0,
+    governanceOwners: [],
+    governanceOwnerConfigSafeNonce: 0,
+    governanceSafeNonce: 0,
   };
 
   const relay = await Relay.new(relayInitialConfig, flareSystemsManager.address, ZERO_ADDRESS);
