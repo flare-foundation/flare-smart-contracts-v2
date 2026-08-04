@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 // OP-1 — symbolic internalization of the ecrecover-precompile failure ABI.
 //

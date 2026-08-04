@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
 import "../../contracts/protocol/interface/IIRelay.sol";
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 Step 1/4 (AC-1): ACCESS CONTROL on setSigningPolicy.
 // setSigningPolicy is `onlySigningPolicySetter` (Relay.sol:219-220,325): require(msg.sender ==
@@ -28,7 +32,7 @@ contract RelayAccessControlFV is RelayTestBase {
     // EXPECT: PASS (proof).
     function check_setSigningPolicy_onlySetter(address s) external {
         vm.assume(s != address(this));     // the caller (this test) is NOT the registered setter
-        Relay r = new Relay(_initialConfig(bytes32(uint256(1))), s, IRelay(address(0)));
+        Relay r = deployRelay(_initialConfig(bytes32(uint256(1))), s, IRelay(address(0)));
         IIRelay.SigningPolicy memory sp = _validPolicy(uint24(REWARD_EPOCH_ID) + 1); // valid & correct epoch
         (bool ok, ) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
         assert(!ok); // non-setter caller => revert at the onlySigningPolicySetter guard
@@ -37,7 +41,7 @@ contract RelayAccessControlFV is RelayTestBase {
     // Anti-vacuity: when the caller IS the setter, the guard passes and the (valid) policy is accepted.
     // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_setter_canCall() external {
-        Relay r = new Relay(_initialConfig(bytes32(uint256(1))), address(this), IRelay(address(0)));
+        Relay r = deployRelay(_initialConfig(bytes32(uint256(1))), address(this), IRelay(address(0)));
         IIRelay.SigningPolicy memory sp = _validPolicy(uint24(REWARD_EPOCH_ID) + 1);
         (bool ok, ) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
         assert(!ok); // EXPECT counterexample: the setter can call successfully

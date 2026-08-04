@@ -6,8 +6,13 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
-import { RelayInitialConfig } from "../utils/RelayInitialConfig";
-import { FlareSystemsManagerContract, FlareSystemsManagerInstance, RelayContract } from "../../typechain-truffle";
+import { RelayInitialConfig, safeGovernanceFromParameters } from "../utils/RelayInitialConfig";
+import {
+  FlareSystemsManagerContract,
+  FlareSystemsManagerInstance,
+  RelayContract,
+  RelayProxyContract,
+} from "../../typechain-truffle";
 import { Account } from "web3-core";
 import { signingPolicyHashForMigration } from "../utils/SigningPolicyHashMigration";
 
@@ -65,15 +70,19 @@ export async function redeployRelay(
     messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
     feeCollectionAddress: ZERO_ADDRESS,
     feeConfigs: [],
-    sourceChainId: 0,
-    governanceSafe: "0x0000000000000000000000000000000000000000",
-    governanceThreshold: 0,
-    governanceOwners: [],
-    governanceOwnerConfigSafeNonce: 0,
-    governanceSafeNonce: 0,
+    governance: safeGovernanceFromParameters(parameters, chainId),
   };
 
-  const relay = await Relay.new(relayInitialConfig, flareSystemsManager.address, oldRelay.address);
+  const RelayProxy = artifacts.require("RelayProxy") as RelayProxyContract;
+  const relayImplementation = await Relay.new();
+  const relayProxy = await RelayProxy.new(
+    relayImplementation.address,
+    relayInitialConfig,
+    flareSystemsManager.address,
+    oldRelay.address,
+    parameters.governancePublicKey
+  );
+  const relay = await Relay.at(relayProxy.address);
   spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 
   contracts.serialize();

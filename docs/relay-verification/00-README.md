@@ -21,7 +21,7 @@ precise teaches the wrong thing. The same precision serves all three.
 > It does not prove ECDSA, complete Safe digest semantics, or successful source
 > execution. Kontrol/Lean remain signing-policy-core results, and pre-GSS
 > Certora cloud reports remain historical until the current CVL is proved.
-> [`gss-governance.md`](../gss-governance.md) owns the exact boundary.
+> [`safe-governance.md`](../safe-governance.md) owns the exact boundary.
 
 > **The engagement had two goals.** (1) **Verify** `Relay.sol`'s accounting — this ladder. (2) **Harden**
 > `Relay.sol` against the audit findings — the RLY-* robustness fixes, documented in

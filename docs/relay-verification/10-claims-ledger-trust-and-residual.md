@@ -91,7 +91,7 @@ assumptions above: they are about *EVM/ABI behavior*, not cryptography.
 These are deliberate protocol and operational choices, not facts established by the
 proof tools. They bound what "secure GSS governance" means in this engagement. The full
 risk rationale, required controls, review triggers, and alternative designs are in
-[`gss-governance.md` section 16](../gss-governance.md#16-accepted-design-risks-and-alternatives).
+[`safe-governance.md` section 16](../safe-governance.md#16-accepted-design-risks-and-alternatives).
 
 | ID | Accepted boundary | Consequence for security claims |
 |---|---|---|
@@ -134,7 +134,7 @@ fidelity / lower coverage (noted).
 | 13 | **fee conservation** (`relay()` + `verify()`, incl. old-relay forwarding) | R2 Halmos | bytecode | **proven** | `RelayFeeConservationFV`, `RelayVerifyFeeFV` | OP-3, OP-4 |
 | 14 | encoding canonicality / secure-bit / return discriminator / policy hash (P3/P5/P6/P8) | R2 Halmos | bytecode | **proven** | `RelayCanonicalityFV`, `RelayIsSecureNormFV`, `RelayReturnDiscriminatorFV`, `RelayPolicyHashFV` | MC-1 |
 | 15 | functional behavior, all modes | R0/R1 Foundry | bytecode · concrete+fuzz+stateful | **tested** | full Forge tree 967 tests; exact GSS gate 36/36 with 16,384 invariant calls | — |
-| 15b | RLY-23 chain-domain binding — *structure*: the stored/verified signing-policy hash is `keccak256(sourceChainId ‖ contentFold)` | R2 Halmos | real bytecode · all symbolic policies (N≤3) | **proven** | [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L57) (`check_policyHash_equiv_NV1/2/3` compare the on-chain assembly hash to the chain-bound oracle) | MC-1 (keccak) |
+| 15b | RLY-23 chain-domain binding — *structure*: the stored/verified signing-policy hash is `keccak256(sourceChainId ‖ contentFold)` | R2 Halmos | real bytecode · all symbolic policies (N≤3) | **proven** | [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L62) (`check_policyHash_equiv_NV1/2/3` compare the on-chain assembly hash to the chain-bound oracle) | MC-1 (keccak) |
 | 15c | RLY-23 chain-domain binding — *effect*: a quorum's signatures minted for one source are rejected by a Relay bound to a *different* source (cross-source replay closed), while every mirror of the *same* source accepts them | R0 Foundry (concrete, real ECDSA) | bytecode · concrete | **proven** (tests) — deliberately *not* an R2 symbolic claim: cross-source *rejection* is cryptographic (ECDSA-binding), which the uninterpreted-`ecrecover` model cannot express (the solver could otherwise make any signature recover to a voter under any digest) | [`RelayChainDomain.t.sol`](../../test-forge/unit/protocol/implementation/RelayChainDomain.t.sol) | MC-2 (ECDSA) |
 | 16 | setter immutable / hash & root write-once **∀ function** | R3 Certora | source · ∀ seq | **historical cloud baseline; current local typecheck pass; cloud proof pending** | `RelayInvariants.spec` + [`RelayWriteOnce.spec`](../../certora/specs/RelayWriteOnce.spec) | MC-1 |
 

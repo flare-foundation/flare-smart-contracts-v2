@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
 import "../../contracts/protocol/interface/IIRelay.sol";
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 Step 4 (AC-6 core / threshold consistency): a signing policy with an out-of-band threshold is
 // REJECTED. setSigningPolicy enforces (Relay.sol:351-358):
@@ -26,7 +30,7 @@ contract RelayThresholdConsistencyFV is RelayTestBase {
     function setUp() public override {}
 
     function _deploy() internal returns (Relay r) {
-        r = new Relay(_initialConfig(bytes32(uint256(1))), address(this), IRelay(address(0)));
+        r = deployRelay(_initialConfig(bytes32(uint256(1))), address(this), IRelay(address(0)));
     }
 
     function _policy(uint16 w, uint16 t) internal pure returns (IIRelay.SigningPolicy memory sp) {

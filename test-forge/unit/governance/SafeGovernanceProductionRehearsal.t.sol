@@ -6,8 +6,12 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 import {IRelay} from "../../../contracts/userInterfaces/IRelay.sol";
-import {GnosisSafeTx} from "../../../contracts/governance/GnosisSafeTx.sol";
-import {GSSOwnerConfigurationChecker} from "../../../contracts/governance/GSSOwnerConfigurationChecker.sol";
+import {ISafeGovernance} from "../../../contracts/userInterfaces/ISafeGovernance.sol";
+import {SafeGovernance} from "../../../contracts/governance/lib/SafeGovernance.sol";
+import {SafeInstructions} from "../../../contracts/governance/implementation/SafeInstructions.sol";
+import {SafeInstructionsProxy} from "../../../contracts/governance/implementation/SafeInstructionsProxy.sol";
+import {RelayProxy} from "../../../contracts/protocol/implementation/RelayProxy.sol";
+import {IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 interface IProductionShapeSafe {
     function VERSION() external view returns (string memory);
@@ -59,7 +63,7 @@ interface IProductionShapeSafe {
     ) external payable returns (bool);
 }
 
-contract GSSGovernanceProductionRehearsalTest is Test {
+contract SafeGovernanceProductionRehearsalTest is Test {
     uint256 internal constant SOURCE_CHAIN = 14;
     uint256 internal constant CHAIN_A = 100;
     uint256 internal constant CHAIN_B = 200;
@@ -85,11 +89,11 @@ contract GSSGovernanceProductionRehearsalTest is Test {
     bytes32 internal constant FALLBACK_HANDLER_STORAGE_SLOT =
         0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
     bytes4 internal constant CHANGE_FEES =
-        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,uint256,uint256)[])"));
+        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint256,uint256)[])"));
 
     IProductionShapeSafe internal safe;
     address internal singleton;
-    GSSOwnerConfigurationChecker internal checker;
+    SafeInstructions internal checker;
     Relay internal relayA;
     Relay internal relayB;
     uint256[] internal ownerKeys;
@@ -118,16 +122,26 @@ contract GSSGovernanceProductionRehearsalTest is Test {
         safe.setup(
             owners, THRESHOLD, address(0), bytes(""), PRODUCTION_FALLBACK_HANDLER, address(0), 0, payable(address(0))
         );
-        checker = new GSSOwnerConfigurationChecker(SOURCE_CHAIN, address(safe));
-        bytes memory bootstrap =
-            abi.encodeWithSelector(checker.changeOwners.selector, safe.nonce() + 1, bytes32(0), THRESHOLD, owners);
-        _executeSafe(address(checker), bootstrap, ownerKeys);
+        SafeInstructions checkerImplementation = new SafeInstructions();
+        checker = SafeInstructions(
+            address(
+                new SafeInstructionsProxy(
+                    IGovernanceSettings(makeAddr("governanceSettings")),
+                    makeAddr("flareGovernance"),
+                    makeAddr("addressUpdater"),
+                    address(checkerImplementation),
+                    address(safe)
+                )
+            )
+        );
+        // initialize admits the live Safe configuration as generation 0 — no bootstrap
+        // transaction exists; the fresh Safe's first signed nonce (0) is a relayable action.
         ownerHash = checker.activeOwnerConfigHash();
 
         vm.chainId(CHAIN_A);
-        relayA = new Relay(_relayConfig(), address(0), IRelay(address(0)));
+        relayA = _deployRelay(_relayConfig());
         vm.chainId(CHAIN_B);
-        relayB = new Relay(_relayConfig(), address(0), IRelay(address(0)));
+        relayB = _deployRelay(_relayConfig());
     }
 
     function test_rehearsalMatchesFlareSafeVersionAndConfigurationShape() public view {
@@ -151,16 +165,16 @@ contract GSSGovernanceProductionRehearsalTest is Test {
     function test_rehearsalExecutesFeesRotationAndFeesThroughRealSafe() public {
         vm.chainId(SOURCE_CHAIN);
         bytes memory firstFeeAction =
-            abi.encodeWithSelector(CHANGE_FEES, safe.nonce() + 1, ownerHash, _feeUpdates(101, 102, 201));
-        (GnosisSafeTx.Transaction memory firstFeeTx, bytes memory firstFeeSignatures,) =
+            abi.encodeWithSelector(CHANGE_FEES, safe.nonce(), ownerHash, _feeUpdates(101, 102, 201));
+        (ISafeGovernance.SafeTx memory firstFeeTx, bytes memory firstFeeSignatures,) =
             _executeSafe(address(checker), firstFeeAction, ownerKeys);
 
         vm.chainId(CHAIN_A);
-        relayA.processGSSMessage(firstFeeTx, firstFeeSignatures);
+        relayA.processSafeMessage(firstFeeTx, firstFeeSignatures);
         assertEq(relayA.protocolFeeInWei(3), 101);
         assertEq(relayA.protocolFeeInWei(7), 102);
         vm.chainId(CHAIN_B);
-        relayB.processGSSMessage(firstFeeTx, firstFeeSignatures);
+        relayB.processSafeMessage(firstFeeTx, firstFeeSignatures);
         assertEq(relayB.protocolFeeInWei(3), 201);
 
         vm.chainId(SOURCE_CHAIN);
@@ -168,59 +182,76 @@ contract GSSGovernanceProductionRehearsalTest is Test {
         uint256 replacementKey = 2_000;
         address newOwner = vm.addr(replacementKey);
         address[] memory newOwners = _replaceOwner(owners, oldOwner, newOwner);
-        uint256 rotationNonce = safe.nonce() + 1;
-        bytes memory rotationAction =
-            abi.encodeWithSelector(checker.changeOwners.selector, rotationNonce, ownerHash, THRESHOLD, newOwners);
-        (GnosisSafeTx.Transaction memory rotationTx, bytes memory rotationSignatures,) =
-            _executeSafe(address(checker), rotationAction, ownerKeys);
-        bytes32 newOwnerHash = checker.activeOwnerConfigHash();
-
-        vm.chainId(CHAIN_A);
-        relayA.processGSSMessage(rotationTx, rotationSignatures);
-        vm.chainId(CHAIN_B);
-        relayB.processGSSMessage(rotationTx, rotationSignatures);
-        assertEq(relayA.activeOwnerConfigHash(), newOwnerHash);
-        assertEq(relayB.activeOwnerConfigHash(), newOwnerHash);
-
-        vm.chainId(SOURCE_CHAIN);
+        // Attest-after ceremony: the Safe rotates natively first (signed by the old set)...
         bytes memory nativeSwap =
             abi.encodeWithSignature("swapOwner(address,address,address)", SENTINEL_OWNERS, oldOwner, newOwner);
         _executeSafe(address(safe), nativeSwap, ownerKeys);
         uint256[] memory newOwnerKeys = _replaceOwnerKey(ownerKeys, oldOwner, replacementKey);
+        assertFalse(checker.activeOwnerConfigurationIsLive());
+
+        // ...then the old ∩ new intersection attests the live configuration (10 of 11
+        // owners are common; the threshold-6 attestation is valid for the rotated Safe
+        // AND for every target still holding the old mirror).
+        uint256 rotationNonce = safe.nonce();
+        bytes memory rotationAction =
+            abi.encodeWithSelector(checker.changeOwners.selector, rotationNonce, ownerHash, THRESHOLD, newOwners);
+        (ISafeGovernance.SafeTx memory rotationTx, bytes memory rotationSignatures,) =
+            _executeSafe(address(checker), rotationAction, _keysExcludingOwner(ownerKeys, oldOwner));
+        bytes32 newOwnerHash = checker.activeOwnerConfigHash();
         assertTrue(checker.activeOwnerConfigurationIsLive());
 
+        vm.chainId(CHAIN_A);
+        relayA.processSafeMessage(rotationTx, rotationSignatures);
+        vm.chainId(CHAIN_B);
+        relayB.processSafeMessage(rotationTx, rotationSignatures);
+        (bytes32 hashA,) = relayA.governanceOwnerConfig();
+        (bytes32 hashB,) = relayB.governanceOwnerConfig();
+        assertEq(hashA, newOwnerHash);
+        assertEq(hashB, newOwnerHash);
+
+        vm.chainId(SOURCE_CHAIN);
+
         bytes memory secondFeeAction =
-            abi.encodeWithSelector(CHANGE_FEES, safe.nonce() + 1, newOwnerHash, _feeUpdates(301, 302, 401));
-        (GnosisSafeTx.Transaction memory secondFeeTx, bytes memory secondFeeSignatures,) =
+            abi.encodeWithSelector(CHANGE_FEES, safe.nonce(), newOwnerHash, _feeUpdates(301, 302, 401));
+        (ISafeGovernance.SafeTx memory secondFeeTx, bytes memory secondFeeSignatures,) =
             _executeSafe(address(checker), secondFeeAction, newOwnerKeys);
 
         vm.chainId(CHAIN_A);
-        relayA.processGSSMessage(secondFeeTx, secondFeeSignatures);
+        relayA.processSafeMessage(secondFeeTx, secondFeeSignatures);
         assertEq(relayA.protocolFeeInWei(3), 301);
         assertEq(relayA.protocolFeeInWei(7), 302);
         vm.chainId(CHAIN_B);
-        relayB.processGSSMessage(secondFeeTx, secondFeeSignatures);
+        relayB.processSafeMessage(secondFeeTx, secondFeeSignatures);
         assertEq(relayB.protocolFeeInWei(3), 401);
     }
 
     function test_rehearsalMaximumBatchFitsRecordedFlareBlockGasLimit() public {
         vm.chainId(SOURCE_CHAIN);
-        Relay.GovernanceFeeUpdate[] memory updates = new Relay.GovernanceFeeUpdate[](256);
+        SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](256);
         for (uint256 i; i < updates.length; ++i) {
-            updates[i] = Relay.GovernanceFeeUpdate(CHAIN_A, i + 2, i + 1);
+            updates[i] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), i + 2, i + 1);
         }
-        bytes memory action = abi.encodeWithSelector(CHANGE_FEES, safe.nonce() + 1, ownerHash, updates);
-        (GnosisSafeTx.Transaction memory txData, bytes memory signatures, uint256 sourceGas) =
+        bytes memory action = abi.encodeWithSelector(CHANGE_FEES, safe.nonce(), ownerHash, updates);
+        (ISafeGovernance.SafeTx memory txData, bytes memory signatures, uint256 sourceGas) =
             _executeSafe(address(checker), action, ownerKeys);
         assertLt(sourceGas, OPERATIONAL_GAS_LIMIT, "source Safe/checker gas budget");
 
         vm.chainId(CHAIN_A);
         uint256 gasBefore = gasleft();
-        relayA.processGSSMessage(txData, signatures);
+        relayA.processSafeMessage(txData, signatures);
         uint256 targetGas = gasBefore - gasleft();
         assertLt(targetGas, OPERATIONAL_GAS_LIMIT, "target Relay gas budget");
         assertEq(relayA.protocolFeeInWei(2), 1);
         assertEq(relayA.protocolFeeInWei(257), 256);
+    }
+
+    function _deployRelay(IRelay.RelayInitialConfig memory config) internal returns (Relay) {
+        Relay relayImplementation = new Relay();
+        return Relay(
+            address(
+                new RelayProxy(address(relayImplementation), config, address(0), IRelay(address(0)), address(this))
+            )
+        );
     }
 
     function _relayConfig() internal view returns (IRelay.RelayInitialConfig memory config) {
@@ -235,28 +266,30 @@ contract GSSGovernanceProductionRehearsalTest is Test {
         config.thresholdIncreaseBIPS = 10_000;
         config.messageFinalizationWindowInRewardEpochs = 1;
         config.feeCollectionAddress = payable(address(0xFEE));
-        config.sourceChainId = SOURCE_CHAIN;
-        config.governanceSafe = address(safe);
-        config.governanceThreshold = THRESHOLD;
-        config.governanceOwners = owners;
-        config.governanceOwnerConfigSafeNonce = 1;
-        config.governanceSafeNonce = 1;
+        config.governance.sourceChainId = SOURCE_CHAIN;
+        config.governance.safe = address(safe);
+        config.governance.threshold = THRESHOLD;
+        config.governance.owners = owners;
+        // Generation 0 is admitted from the live Safe at initialize; the floor (first
+        // accepted signed nonce) is the fresh Safe's live nonce at deployment.
+        config.governance.ownerConfigSafeNonce = 0;
+        config.governance.safeNonce = 0;
     }
 
     function _feeUpdates(uint256 feeA3, uint256 feeA7, uint256 feeB3)
         internal
-        pure
-        returns (Relay.GovernanceFeeUpdate[] memory updates)
+        view
+        returns (SafeGovernance.GovernanceFeeUpdate[] memory updates)
     {
-        updates = new Relay.GovernanceFeeUpdate[](3);
-        updates[0] = Relay.GovernanceFeeUpdate(CHAIN_A, 3, feeA3);
-        updates[1] = Relay.GovernanceFeeUpdate(CHAIN_A, 7, feeA7);
-        updates[2] = Relay.GovernanceFeeUpdate(CHAIN_B, 3, feeB3);
+        updates = new SafeGovernance.GovernanceFeeUpdate[](3);
+        updates[0] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), 3, feeA3);
+        updates[1] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), 7, feeA7);
+        updates[2] = SafeGovernance.GovernanceFeeUpdate(CHAIN_B, address(relayB), 3, feeB3);
     }
 
     function _executeSafe(address to, bytes memory data, uint256[] memory signingKeys)
         internal
-        returns (GnosisSafeTx.Transaction memory txData, bytes memory signatures, uint256 gasUsed)
+        returns (ISafeGovernance.SafeTx memory txData, bytes memory signatures, uint256 gasUsed)
     {
         txData.to = to;
         txData.data = data;
@@ -352,6 +385,21 @@ contract GSSGovernanceProductionRehearsalTest is Test {
             }
             result[j] = value;
         }
+    }
+
+    /// Keys of the old ∩ new intersection after removing one owner — the signer set a
+    /// rotation attestation must use (valid on the rotated Safe AND on old-mirror targets).
+    function _keysExcludingOwner(uint256[] memory currentKeys, address excludedOwner)
+        internal
+        returns (uint256[] memory result)
+    {
+        result = new uint256[](currentKeys.length - 1);
+        uint256 position;
+        for (uint256 i; i < currentKeys.length; ++i) {
+            if (vm.addr(currentKeys[i]) == excludedOwner) continue;
+            result[position++] = currentKeys[i];
+        }
+        require(position == result.length, "owner to exclude not found");
     }
 
     function _replaceOwnerKey(uint256[] memory currentKeys, address oldOwner, uint256 newKey)

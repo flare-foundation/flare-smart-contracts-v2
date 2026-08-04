@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.35;
 
 import { Relay } from "../../../../contracts/protocol/implementation/Relay.sol";
+import { RelayProxy } from "../../../../contracts/protocol/implementation/RelayProxy.sol";
+// solhint-disable-next-line no-unused-import
+import { deployRelay, RELAY_TEST_GOVERNANCE } from "../../../utils/RelayDeploy.sol";
 import { RelayMainDeployed } from "../../../../contracts/mock/RelayMainDeployed.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
@@ -34,7 +37,7 @@ contract RelayChainDomainTest is RelayTestBase {
     // the constructor captures the CURRENT block.chainid as the immutable source; the seeded policy
     // hash (built by the helper under the same block.chainid) matches. Shared voter set.
     function _deployRelay() internal returns (Relay) {
-        return new Relay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
+        return deployRelay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
     }
 
     // relay() calldata for a Mode-2 non-random message; digest bound to the CURRENT block.chainid.
@@ -161,7 +164,7 @@ contract RelayChainDomainTest is RelayTestBase {
     function test_storedPolicyHash_isChainBound() public {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.initialRewardEpochId = 0; // setSigningPolicy requires lastInitialized + 1 == rewardEpochId
-        Relay setterRelay = new Relay(cfg, address(this), IRelay(address(0)));
+        Relay setterRelay = deployRelay(cfg, address(this), IRelay(address(0)));
 
         IIRelay.SigningPolicy memory sp;
         sp.rewardEpochId = REWARD_EPOCH_ID;
@@ -195,7 +198,7 @@ contract RelayChainDomainTest is RelayTestBase {
 
         vm.chainId(SONGBIRD_CHAIN_ID);
         Relay songbirdRelay = _deployRelay(); // identical (fully overlapping) voter set
-        vm.expectRevert("Wrong signature");
+        vm.expectRevert(IRelay.WrongSignature.selector);
         this.relayTo(songbirdRelay, rm);
         assertFalse(songbirdRelay.isFinalized(3, START_VOTING_ROUND_ID), "songbird must not finalize");
     }
@@ -221,7 +224,7 @@ contract RelayChainDomainTest is RelayTestBase {
         Relay songbirdRelay = _deployRelay();
         // The submitted current policy re-hashes consistently under Songbird's domain (content is
         // identical), so the gate reached is the signature check — which fails under the new domain.
-        vm.expectRevert("Wrong signature");
+        vm.expectRevert(IRelay.WrongSignature.selector);
         this.relayTo(songbirdRelay, rm);
         (uint32 sbEpoch,) = songbirdRelay.lastInitializedRewardEpochData();
         assertEq(sbEpoch, REWARD_EPOCH_ID, "songbird epoch must not advance");
@@ -238,7 +241,7 @@ contract RelayChainDomainTest is RelayTestBase {
 
         vm.chainId(SONGBIRD_CHAIN_ID);
         Relay songbirdRelay = _deployRelay();
-        vm.expectRevert("Verification failed");
+        vm.expectRevert(IRelay.VerificationFailed.selector);
         songbirdRelay.verifyCustomSignature(rm, mh);
     }
 
@@ -251,7 +254,7 @@ contract RelayChainDomainTest is RelayTestBase {
         bytes memory rm = abi.encodePacked(
             Relay.relay.selector, policy, message, _signatures(oldFormatDigest, _firstK(3))
         );
-        vm.expectRevert("Wrong signature");
+        vm.expectRevert(IRelay.WrongSignature.selector);
         this.relayTo(relay, rm);
     }
 
@@ -296,7 +299,9 @@ contract RelayChainDomainTest is RelayTestBase {
         oldRelay.setSigningPolicy(_policyStruct(REWARD_EPOCH_ID + 1, START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION));
         (ok,) = address(oldRelay).call(_legacyMessageRelay(policy2, START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION, keccak256("old-2")));
         assertTrue(ok, "legacy message under policy 2 failed");
-        oldRelay.setSigningPolicy(_policyStruct(REWARD_EPOCH_ID + 2, START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION));
+        oldRelay.setSigningPolicy(
+            _policyStruct(REWARD_EPOCH_ID + 2, START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION)
+        );
 
         bytes32 legacyHash = oldRelay.toSigningPolicyHash(REWARD_EPOCH_ID + 2);
         assertEq(legacyHash, _signingPolicyContentHash(policy3), "main Relay must expose the bare legacy hash");
@@ -307,7 +312,7 @@ contract RelayChainDomainTest is RelayTestBase {
         migratedConfig.initialRewardEpochId = REWARD_EPOCH_ID + 2;
         migratedConfig.startingVotingRoundIdForInitialRewardEpochId =
             START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION;
-        Relay migrated = new Relay(migratedConfig, address(this), IRelay(address(oldRelay)));
+        Relay migrated = deployRelay(migratedConfig, address(this), IRelay(address(oldRelay)));
 
         bytes memory postCutover = _chainBoundMessageRelay(
             policy3,
@@ -323,6 +328,7 @@ contract RelayChainDomainTest is RelayTestBase {
 
         // The format transition is intentional: the pre-RLY-23 deployment cannot consume the
         // chain-bound digest, even though it has the same voters and policy content.
+        // NOTE: RelayMainDeployed is the pre-conversion production contract — string reasons.
         vm.expectRevert("Wrong signature");
         this.relayToLegacy(oldRelay, postCutover);
 
@@ -350,8 +356,8 @@ contract RelayChainDomainTest is RelayTestBase {
         // Deploy the mirror on Songbird's chain (19) but explicitly configured with Flare's source id.
         vm.chainId(SONGBIRD_CHAIN_ID);
         IRelay.RelayInitialConfig memory cfg = _initialConfig(flareBoundInitialHash);
-        cfg.sourceChainId = FLARE_CHAIN_ID;
-        Relay mirror = new Relay(cfg, address(0), IRelay(address(0)));
+        cfg.governance.sourceChainId = FLARE_CHAIN_ID;
+        Relay mirror = deployRelay(cfg, address(0), IRelay(address(0)));
         assertEq(mirror.sourceChainId(), FLARE_CHAIN_ID, "mirror must bind the configured source");
 
         // The exact Flare-signed message a home Flare Relay would accept is accepted by the mirror,
@@ -367,9 +373,10 @@ contract RelayChainDomainTest is RelayTestBase {
     function test_homeDeploy_forcesMatchingSource() public {
         vm.chainId(SONGBIRD_CHAIN_ID);
         IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
-        cfg.sourceChainId = FLARE_CHAIN_ID; // foreign source on a setter (home) deployment
-        vm.expectRevert("source chain id must match on home deploy");
-        new Relay(cfg, address(this), IRelay(address(0)));
+        cfg.governance.sourceChainId = FLARE_CHAIN_ID; // foreign source on a setter (home) deployment
+        Relay implementation = new Relay();
+        vm.expectRevert(IRelay.SourceChainIdMismatchOnHomeDeploy.selector);
+        new RelayProxy(address(implementation), cfg, address(this), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
     }
 
     // Fork trade-off: the source is a deploy-time IMMUTABLE, so a chain-id-changing fork does NOT

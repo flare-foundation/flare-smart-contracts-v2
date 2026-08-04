@@ -28,9 +28,11 @@ export class SignerEmulator {
   }
 
   public async signAndEncode(messages: SignDepositMessage[]): Promise<string> {
+    // RLY-23: voters sign the chain-bound digest keccak256(chainId ‖ keccak256(message)).
+    const chainId = await this.web3.eth.getChainId();
     const signaturePayloadHexList: string[] = await Promise.all(
       messages.map(async (message) => {
-        const messageHash = web3.utils.keccak256(ProtocolMessageMerkleRoot.encode(message.messageToSign));
+        const messageHash = ProtocolMessageMerkleRoot.hash(message.messageToSign, chainId);
         const signaturePayload = {
           type: "0x00",
           message: message.messageToSign,

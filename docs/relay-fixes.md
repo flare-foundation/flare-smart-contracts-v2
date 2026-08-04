@@ -2,9 +2,9 @@
 
 > **Historical scope:** this is the `relay-fix-3` hardening log. The current
 > `relay-fix-3-gss` branch removes `governanceFeeSetup` and replaces its
-> signing-policy governance with the GSS design in
-> [`gss-governance.md`](gss-governance.md). Legacy entries below remain as
-> provenance for the deployed/pre-GSS review and are not current API guidance.
+> signing-policy governance with the Safe governance design in
+> [`safe-governance.md`](safe-governance.md). Legacy entries below remain as
+> provenance for the deployed/pre-Safe-governance review and are not current API guidance.
 
 **Branch:** `relay-fix-3` (off `origin/main` @ `264dab74`)
 **Target:** `contracts/protocol/implementation/Relay.sol` (+ its interfaces / tests)
@@ -362,7 +362,7 @@ where the protocol's voter consensus is anchored** (Flare 14 / Songbird 19):
 (constructor parameter; `0` defaults to `block.chainid`), NOT the runtime `CHAINID` — so the *same*
 signatures verify on the home Relay and on every Relay that mirrors that source to another chain (the core
 relay use case). It is **unified with the governance source**: the single `sourceChainId` immutable replaces
-the former `governanceSourceChainId` and feeds both the signing wrap and the GSS Safe digest (they name the
+the former `governanceSourceChainId` and feeds both the signing wrap and the governance Safe digest (they name the
 same origin network). Three wrap sites, one convention, the immutable threaded into the hand-written Yul as
 a parameter (`_scid`) / read once into a local before the `relay()` assembly:
 - **`calculateSigningPolicyHash`** (assembly helper tail, new `_scid` parameter) — covers both consumers at

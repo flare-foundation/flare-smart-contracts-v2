@@ -150,14 +150,15 @@ export namespace SignaturePayload {
    */
   export function verifySignaturePayloads(
     signaturePayloads: IPayloadMessage<ISignaturePayload>[],
-    signingPolicy: ISigningPolicy
+    signingPolicy: ISigningPolicy,
+    chainId: number | bigint
   ): boolean {
     if (signaturePayloads.length === 0) {
       return false;
     }
-    const web3 = new Web3();
     const message: IProtocolMessageMerkleRoot = signaturePayloads[0].payload.message;
-    const messageHash = web3.utils.keccak256(ProtocolMessageMerkleRoot.encode(message));
+    // RLY-23: voters sign the chain-bound digest.
+    const messageHash = ProtocolMessageMerkleRoot.hash(message, chainId);
     const signatures: IECDSASignature[] = [];
     for (const payload of signaturePayloads) {
       if (!ProtocolMessageMerkleRoot.equals(payload.payload.message, message)) {
@@ -175,9 +176,14 @@ export namespace SignaturePayload {
    * @param signerIndices
    * @returns
    */
-  export function augment(signaturePayload: ISignaturePayload, signerIndices: Map<string, number>) {
+  export function augment(
+    signaturePayload: ISignaturePayload,
+    signerIndices: Map<string, number>,
+    chainId: number | bigint
+  ) {
     const web3 = new Web3();
-    const messageHash = web3.utils.keccak256(ProtocolMessageMerkleRoot.encode(signaturePayload.message));
+    // RLY-23: voters sign the chain-bound digest.
+    const messageHash = ProtocolMessageMerkleRoot.hash(signaturePayload.message, chainId);
     const signer = web3.eth.accounts
       .recover(
         messageHash,
@@ -270,7 +276,8 @@ export namespace SignaturePayload {
    */
   export function sortedSignaturePayloadsBySigner(
     signaturePayloads: IPayloadMessage<ISignaturePayload>[],
-    signingPolicy: ISigningPolicy
+    signingPolicy: ISigningPolicy,
+    chainId: number | bigint
   ) {
     const signerIndex: Map<string, number> = new Map<string, number>();
     const web3 = new Web3();
@@ -287,7 +294,8 @@ export namespace SignaturePayload {
         throw Error(`Invalid payload message`);
       }
     }
-    const messageHash = web3.utils.keccak256(ProtocolMessageMerkleRoot.encode(signaturePayloads[0].payload.message));
+    // RLY-23: voters sign the chain-bound digest.
+    const messageHash = ProtocolMessageMerkleRoot.hash(signaturePayloads[0].payload.message, chainId);
     let newSignaturePayloads = signaturePayloads.map((value) => {
       const signer = web3.eth.accounts
         .recover(

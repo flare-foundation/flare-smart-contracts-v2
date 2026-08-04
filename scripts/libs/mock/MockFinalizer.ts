@@ -31,6 +31,8 @@ export interface SigningPolicyUse {
 }
 
 export class MockFinalizer {
+  // RLY-23: signatures are recovered over the chain-bound digest; set in run().
+  private chainId: number | bigint = 0;
   dataSource!: DataSource;
   epochSettings!: EpochSettings;
   logger!: Logger;
@@ -249,7 +251,7 @@ export class MockFinalizer {
         return;
       }
       const voterToIndexMap = this.voterToIndexMaps.get(matchingSigningPolicy.signingPolicy.rewardEpochId);
-      const augPayload = SignaturePayload.augment(payload, voterToIndexMap!);
+      const augPayload = SignaturePayload.augment(payload, voterToIndexMap!, this.chainId);
       if (augPayload.signer === undefined) {
         this.logger.info(
           `Signer not in the signing policy for rewardEpochId: ${matchingSigningPolicy.signingPolicy.rewardEpochId}.`
@@ -319,6 +321,7 @@ export class MockFinalizer {
   }
 
   public async run() {
+    this.chainId = await this.web3.eth.getChainId();
     this.dataSource = await getDataSource(true);
     this.epochSettings = await extractEpochSettings(this.flareSystemsManagerAddress);
     let endTimeSec = Math.floor(Date.now() / 1000);

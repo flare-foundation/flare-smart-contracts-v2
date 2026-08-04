@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
 
@@ -18,7 +20,9 @@ contract RelayConstructorFV is RelayTestBase {
     function setUp() public override {}
 
     function _tryDeploy(IRelay.RelayInitialConfig memory cfg) internal returns (bool ok) {
-        try new Relay(cfg, address(this), IRelay(address(0))) returns (Relay) { ok = true; }
+        Relay implementation = new Relay();
+        try new RelayProxy(address(implementation), cfg, address(this), IRelay(address(0)), RELAY_TEST_GOVERNANCE)
+            returns (RelayProxy) { ok = true; }
         catch { ok = false; }
     }
 
@@ -60,7 +64,7 @@ contract RelayConstructorFV is RelayTestBase {
     function check_ctor_homeForce_rejectsForeignSource(uint256 src) external {
         vm.assume(src != 0 && src != block.chainid);
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
-        cfg.sourceChainId = src;
+        cfg.governance.sourceChainId = src;
         assert(!_tryDeploy(cfg));
     }
 

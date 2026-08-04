@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 Step 5 (M2 + M3/M8): Merkle PROOF-PATH soundness for the random-number proof
 // (processRandomMerkleProof, Relay.sol:700-730). P4 (RelayRandomBindingFV) proved the LEAF VALUE cannot be
@@ -29,7 +33,7 @@ contract RelayMerkleProofFV is RelayTestBase {
             pks.push(0);
         }
         policy = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
-        relay = new Relay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
+        relay = deployRelay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
     }
 
     function _sortedPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase + encoding helpers
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase-1 PARAMETRIC proof of OBLIGATION P3 — Canonicality gating. See docs/relay-fv.md §4 (P3).
 //
@@ -48,7 +52,7 @@ contract RelayCanonicalityFV is RelayTestBase {
 
     function _deploy(uint16 w0, uint16 thr) internal returns (Relay r, bytes memory p) {
         p = _policy(w0, thr);
-        r = new Relay(_initialConfig(_signingPolicyHash(p)), address(0), IRelay(address(0)));
+        r = deployRelay(_initialConfig(_signingPolicyHash(p)), address(0), IRelay(address(0)));
     }
 
     function _sig(uint8 v, bytes32 r, bytes32 s, uint16 index) internal pure returns (bytes memory) {

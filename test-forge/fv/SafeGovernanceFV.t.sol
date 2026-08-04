@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
 import {Test} from "forge-std/Test.sol";
 import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import { RelayProxy } from "../../contracts/protocol/implementation/RelayProxy.sol";
+// solhint-disable-next-line no-unused-import
+import { deployRelay, RELAY_TEST_GOVERNANCE } from "../utils/RelayDeploy.sol";
 import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
-import {GSSGovernance} from "../../contracts/governance/GSSGovernance.sol";
+import {SafeGovernance} from "../../contracts/governance/lib/SafeGovernance.sol";
+import {RelayProxy} from "../../contracts/protocol/implementation/RelayProxy.sol";
 
-/// @dev Verification-only child exposing the two internal boundaries used by processGSSMessage.
+/// @dev Verification-only child exposing the two internal boundaries used by processSafeMessage.
 /// Production callers can reach neither function on Relay itself.
-contract RelayGSSFormalHarness is Relay {
-    constructor(IRelay.RelayInitialConfig memory config) Relay(config, address(0), IRelay(address(0))) {}
-
+contract RelaySafeGovernanceFormalHarness is Relay {
     function processVerifiedGovernanceAction(bytes calldata action, uint256 safeTxNonce) external {
         _processVerifiedGovernanceAction(action, safeTxNonce);
     }
@@ -22,12 +24,12 @@ contract RelayGSSFormalHarness is Relay {
     }
 }
 
-/// @notice Bounded symbolic proofs for the GSS authorization/state-transition boundary.
+/// @notice Bounded symbolic proofs for the Safe authorization/state-transition boundary.
 /// @dev ECDSA recovery is deliberately outside this harness. These checks prove that recovered
 /// signers must form a sorted, distinct threshold subset of the active owners and that an action
 /// admitted after signature verification preserves the target-side nonce, generation, locality,
 /// and atomicity rules. Safe digest equivalence is checked differentially against Safe v1.3.0.
-contract GSSGovernanceFV is Test {
+contract SafeGovernanceFV is Test {
     uint256 internal constant SOURCE_CHAIN = 14;
     uint256 internal constant TARGET_CHAIN = 100;
     uint256 internal constant OTHER_CHAIN = 200;
@@ -41,7 +43,7 @@ contract GSSGovernanceFV is Test {
 
     bytes4 internal constant CHANGE_OWNERS = bytes4(keccak256("changeOwners(uint256,bytes32,uint256,address[])"));
     bytes4 internal constant CHANGE_FEES =
-        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,uint256,uint256)[])"));
+        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint256,uint256)[])"));
 
     function setUp() public {}
 
@@ -71,54 +73,61 @@ contract GSSGovernanceFV is Test {
         config.thresholdIncreaseBIPS = 10_000;
         config.messageFinalizationWindowInRewardEpochs = 1;
         config.feeCollectionAddress = payable(address(0xFEE));
-        config.sourceChainId = SOURCE_CHAIN;
-        config.governanceSafe = SAFE;
-        config.governanceThreshold = THRESHOLD;
-        config.governanceOwners = _owners();
-        config.governanceOwnerConfigSafeNonce = REPLAY_FLOOR;
-        config.governanceSafeNonce = REPLAY_FLOOR;
+        config.governance.sourceChainId = SOURCE_CHAIN;
+        config.governance.safe = SAFE;
+        config.governance.threshold = THRESHOLD;
+        config.governance.owners = _owners();
+        config.governance.ownerConfigSafeNonce = REPLAY_FLOOR;
+        config.governance.safeNonce = REPLAY_FLOOR;
     }
 
-    function _deploy() internal returns (RelayGSSFormalHarness target) {
+    function _deploy() internal returns (RelaySafeGovernanceFormalHarness target) {
         vm.chainId(TARGET_CHAIN);
-        target = new RelayGSSFormalHarness(_config());
+        RelaySafeGovernanceFormalHarness harnessImplementation = new RelaySafeGovernanceFormalHarness();
+        target = RelaySafeGovernanceFormalHarness(
+            address(
+                new RelayProxy(
+                    address(harnessImplementation), _config(), address(0), IRelay(address(0)), address(0x600D)
+                )
+            )
+        );
     }
 
     function _ownerHash(uint256 generation, address[] memory owners) internal pure returns (bytes32) {
-        return GSSGovernance.ownerConfigHash(SOURCE_CHAIN, SAFE, generation, THRESHOLD, owners);
+        return SafeGovernance.ownerConfigHash(SOURCE_CHAIN, SAFE, generation, THRESHOLD, owners);
     }
 
-    function _feeAction(uint256 nonce, bytes32 configHash, uint256 targetChain, uint256 fee)
+    function _feeAction(uint256 nonce, bytes32 configHash, uint256 targetChain, address targetAddress, uint256 fee)
         internal
         pure
         returns (bytes memory action)
     {
-        Relay.GovernanceFeeUpdate[] memory updates = new Relay.GovernanceFeeUpdate[](1);
-        updates[0] = Relay.GovernanceFeeUpdate(targetChain, 3, fee);
+        SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](1);
+        updates[0] = SafeGovernance.GovernanceFeeUpdate(targetChain, targetAddress, 3, fee);
         return abi.encodeWithSelector(CHANGE_FEES, nonce, configHash, updates);
     }
 
-    function _callAction(RelayGSSFormalHarness target, bytes memory action, uint256 safeTxNonce)
+    function _callAction(RelaySafeGovernanceFormalHarness target, bytes memory action, uint256 safeTxNonce)
         internal
         returns (bool ok)
     {
         (ok,) = address(target)
             .call(
                 abi.encodeWithSelector(
-                    RelayGSSFormalHarness.processVerifiedGovernanceAction.selector, action, safeTxNonce
+                    RelaySafeGovernanceFormalHarness.processVerifiedGovernanceAction.selector, action, safeTxNonce
                 )
             );
     }
 
-    function _callSigners(RelayGSSFormalHarness target, address[] memory signers) internal view returns (bool ok) {
+    function _callSigners(RelaySafeGovernanceFormalHarness target, address[] memory signers) internal view returns (bool ok) {
         (ok,) = address(target)
-            .staticcall(abi.encodeWithSelector(RelayGSSFormalHarness.validateGovernanceSigners.selector, signers));
+            .staticcall(abi.encodeWithSelector(RelaySafeGovernanceFormalHarness.validateGovernanceSigners.selector, signers));
     }
 
     // Any recovered signer list shorter than the active threshold is rejected.
     // EXPECT: PASS.
     function check_gss_signers_belowThreshold_rejected() external {
-        RelayGSSFormalHarness target = _deploy();
+        RelaySafeGovernanceFormalHarness target = _deploy();
         address[] memory signers = new address[](1);
         signers[0] = OWNER_1;
         assert(!_callSigners(target, signers));
@@ -127,7 +136,7 @@ contract GSSGovernanceFV is Test {
     // Duplicate recovered owners cannot satisfy the threshold.
     // EXPECT: PASS.
     function check_gss_duplicateSigner_rejected() external {
-        RelayGSSFormalHarness target = _deploy();
+        RelaySafeGovernanceFormalHarness target = _deploy();
         address[] memory signers = new address[](2);
         signers[0] = OWNER_1;
         signers[1] = OWNER_1;
@@ -138,7 +147,7 @@ contract GSSGovernanceFV is Test {
     // EXPECT: PASS.
     function check_gss_nonOwnerSigner_rejected(address outsider) external {
         vm.assume(outsider > OWNER_1 && outsider < OWNER_2);
-        RelayGSSFormalHarness target = _deploy();
+        RelaySafeGovernanceFormalHarness target = _deploy();
         address[] memory signers = new address[](2);
         signers[0] = OWNER_1;
         signers[1] = outsider;
@@ -148,7 +157,7 @@ contract GSSGovernanceFV is Test {
     // Owner signatures must be in the same strict order required by Safe v1.3.0.
     // EXPECT: PASS.
     function check_gss_unorderedSigners_rejected() external {
-        RelayGSSFormalHarness target = _deploy();
+        RelaySafeGovernanceFormalHarness target = _deploy();
         address[] memory signers = new address[](2);
         signers[0] = OWNER_2;
         signers[1] = OWNER_1;
@@ -158,39 +167,42 @@ contract GSSGovernanceFV is Test {
     // A relevant canonical fee action updates only the local protocol and consumes its nonce.
     // EXPECT: PASS.
     function check_gss_relevantFee_atomicAndConsumed(uint128 fee) external {
-        RelayGSSFormalHarness target = _deploy();
-        bytes memory action = _feeAction(2, _ownerHash(REPLAY_FLOOR, _owners()), TARGET_CHAIN, fee);
-        bool ok = _callAction(target, action, 1);
+        RelaySafeGovernanceFormalHarness target = _deploy();
+        bytes memory action = _feeAction(2, _ownerHash(REPLAY_FLOOR, _owners()), TARGET_CHAIN, address(target), fee);
+        bool ok = _callAction(target, action, 2);
         assert(ok);
         assert(target.protocolFeeInWei(3) == fee);
-        assert(target.lastGovernanceSafeNonce() == 2);
+        (, uint256 lastNonce) = target.governanceNonces();
+        assert(lastNonce == 2);
         assert(target.governanceSafeNonceConsumed(2));
     }
 
     // A valid action with no local target entry is a complete target-side no-op.
     // EXPECT: PASS.
     function check_gss_irrelevantFee_doesNotConsume(uint128 fee) external {
-        RelayGSSFormalHarness target = _deploy();
-        bytes memory action = _feeAction(2, _ownerHash(REPLAY_FLOOR, _owners()), OTHER_CHAIN, fee);
-        bool ok = _callAction(target, action, 1);
+        RelaySafeGovernanceFormalHarness target = _deploy();
+        bytes memory action = _feeAction(2, _ownerHash(REPLAY_FLOOR, _owners()), OTHER_CHAIN, address(target), fee);
+        bool ok = _callAction(target, action, 2);
         assert(ok);
         assert(target.protocolFeeInWei(3) == 0);
-        assert(target.lastGovernanceSafeNonce() == REPLAY_FLOOR);
+        (, uint256 lastNonce) = target.governanceNonces();
+        assert(lastNonce == REPLAY_FLOOR);
         assert(!target.governanceSafeNonceConsumed(2));
     }
 
     // A duplicate fee key is rejected before any local write occurs.
     // EXPECT: PASS.
     function check_gss_nonCanonicalFee_isAtomic(uint128 firstFee, uint128 secondFee) external {
-        RelayGSSFormalHarness target = _deploy();
-        Relay.GovernanceFeeUpdate[] memory updates = new Relay.GovernanceFeeUpdate[](2);
-        updates[0] = Relay.GovernanceFeeUpdate(TARGET_CHAIN, 3, firstFee);
-        updates[1] = Relay.GovernanceFeeUpdate(TARGET_CHAIN, 3, secondFee);
+        RelaySafeGovernanceFormalHarness target = _deploy();
+        SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](2);
+        updates[0] = SafeGovernance.GovernanceFeeUpdate(TARGET_CHAIN, address(target), 3, firstFee);
+        updates[1] = SafeGovernance.GovernanceFeeUpdate(TARGET_CHAIN, address(target), 3, secondFee);
         bytes memory action =
             abi.encodeWithSelector(CHANGE_FEES, uint256(2), _ownerHash(REPLAY_FLOOR, _owners()), updates);
-        assert(!_callAction(target, action, 1));
+        assert(!_callAction(target, action, 2));
         assert(target.protocolFeeInWei(3) == 0);
-        assert(target.lastGovernanceSafeNonce() == REPLAY_FLOOR);
+        (, uint256 lastNonce) = target.governanceNonces();
+        assert(lastNonce == REPLAY_FLOOR);
         assert(!target.governanceSafeNonceConsumed(2));
     }
 
@@ -198,15 +210,17 @@ contract GSSGovernanceFV is Test {
     // EXPECT: PASS.
     function check_gss_ownerRotation_advancesGeneration(uint32 nonceSeed) external {
         uint256 nonce = uint256(nonceSeed) + 2;
-        RelayGSSFormalHarness target = _deploy();
+        RelaySafeGovernanceFormalHarness target = _deploy();
         address[] memory nextOwners = _newOwners();
         bytes memory action =
             abi.encodeWithSelector(CHANGE_OWNERS, nonce, _ownerHash(REPLAY_FLOOR, _owners()), THRESHOLD, nextOwners);
-        assert(_callAction(target, action, nonce - 1));
-        assert(target.activeOwnerConfigSafeNonce() == nonce);
-        assert(target.activeOwnerConfigHash() == _ownerHash(nonce, nextOwners));
+        assert(_callAction(target, action, nonce));
+        (bytes32 activeHash, uint256 activeNonce) = target.governanceOwnerConfig();
+        (, uint256 lastNonce) = target.governanceNonces();
+        assert(activeNonce == nonce);
+        assert(activeHash == _ownerHash(nonce, nextOwners));
         assert(target.governanceSafeNonceConsumed(nonce));
-        assert(target.lastGovernanceSafeNonce() == nonce);
+        assert(lastNonce == nonce);
     }
 
     // A proposed configuration cannot install itself by supplying any hash other than the active one.
@@ -214,41 +228,45 @@ contract GSSGovernanceFV is Test {
     function check_gss_wrongCurrentHash_cannotRotate(bytes32 wrongHash) external {
         bytes32 currentHash = _ownerHash(REPLAY_FLOOR, _owners());
         vm.assume(wrongHash != currentHash);
-        RelayGSSFormalHarness target = _deploy();
+        RelaySafeGovernanceFormalHarness target = _deploy();
         bytes memory action = abi.encodeWithSelector(CHANGE_OWNERS, uint256(2), wrongHash, THRESHOLD, _newOwners());
-        assert(!_callAction(target, action, 1));
-        assert(target.activeOwnerConfigSafeNonce() == REPLAY_FLOOR);
-        assert(target.activeOwnerConfigHash() == currentHash);
+        assert(!_callAction(target, action, 2));
+        (bytes32 activeHash, uint256 activeNonce) = target.governanceOwnerConfig();
+        assert(activeNonce == REPLAY_FLOOR);
+        assert(activeHash == currentHash);
         assert(!target.governanceSafeNonceConsumed(2));
     }
 
     // A relevant action consumes its nonce globally, so a conflicting action cannot execute later.
     // EXPECT: PASS.
     function check_gss_consumedNonce_excludesConflict(uint128 fee) external {
-        RelayGSSFormalHarness target = _deploy();
+        RelaySafeGovernanceFormalHarness target = _deploy();
         bytes32 currentHash = _ownerHash(REPLAY_FLOOR, _owners());
-        assert(_callAction(target, _feeAction(2, currentHash, TARGET_CHAIN, fee), 1));
+        assert(_callAction(target, _feeAction(2, currentHash, TARGET_CHAIN, address(target), fee), 2));
         bytes memory ownerAction =
             abi.encodeWithSelector(CHANGE_OWNERS, uint256(2), currentHash, THRESHOLD, _newOwners());
-        assert(!_callAction(target, ownerAction, 1));
+        assert(!_callAction(target, ownerAction, 2));
         assert(target.protocolFeeInWei(3) == fee);
-        assert(target.activeOwnerConfigHash() == currentHash);
+        (bytes32 activeHash,) = target.governanceOwnerConfig();
+        assert(activeHash == currentHash);
         assert(target.governanceSafeNonceConsumed(2));
     }
 
     // A delayed lower-nonce rotation may progress but cannot regress the global fee high-water mark.
     // EXPECT: PASS.
     function check_gss_delayedRotation_preservesFeeHighWater(uint128 fee) external {
-        RelayGSSFormalHarness target = _deploy();
+        RelaySafeGovernanceFormalHarness target = _deploy();
         bytes32 currentHash = _ownerHash(REPLAY_FLOOR, _owners());
-        assert(_callAction(target, _feeAction(5, currentHash, TARGET_CHAIN, fee), 4));
+        assert(_callAction(target, _feeAction(5, currentHash, TARGET_CHAIN, address(target), fee), 5));
         address[] memory nextOwners = _newOwners();
         bytes memory ownerAction =
             abi.encodeWithSelector(CHANGE_OWNERS, uint256(3), currentHash, THRESHOLD, nextOwners);
-        assert(_callAction(target, ownerAction, 2));
-        assert(target.lastGovernanceSafeNonce() == 5);
-        assert(target.activeOwnerConfigSafeNonce() == 3);
-        assert(target.activeOwnerConfigHash() == _ownerHash(3, nextOwners));
+        assert(_callAction(target, ownerAction, 3));
+        (bytes32 activeHash, uint256 activeNonce) = target.governanceOwnerConfig();
+        (, uint256 lastNonce) = target.governanceNonces();
+        assert(lastNonce == 5);
+        assert(activeNonce == 3);
+        assert(activeHash == _ownerHash(3, nextOwners));
         assert(target.governanceSafeNonceConsumed(3));
         assert(target.governanceSafeNonceConsumed(5));
     }
@@ -256,30 +274,32 @@ contract GSSGovernanceFV is Test {
     // Once a higher relevant fee action lands, a lower fee nonce cannot overwrite it.
     // EXPECT: PASS.
     function check_gss_lowerFeeNonce_cannotRegress(uint128 highFee, uint128 lowFee) external {
-        RelayGSSFormalHarness target = _deploy();
+        RelaySafeGovernanceFormalHarness target = _deploy();
         bytes32 currentHash = _ownerHash(REPLAY_FLOOR, _owners());
-        assert(_callAction(target, _feeAction(5, currentHash, TARGET_CHAIN, highFee), 4));
-        assert(!_callAction(target, _feeAction(3, currentHash, TARGET_CHAIN, lowFee), 2));
+        assert(_callAction(target, _feeAction(5, currentHash, TARGET_CHAIN, address(target), highFee), 5));
+        assert(!_callAction(target, _feeAction(3, currentHash, TARGET_CHAIN, address(target), lowFee), 3));
         assert(target.protocolFeeInWei(3) == highFee);
-        assert(target.lastGovernanceSafeNonce() == 5);
+        (, uint256 lastNonce) = target.governanceNonces();
+        assert(lastNonce == 5);
         assert(!target.governanceSafeNonceConsumed(3));
     }
 
     // The action nonce is exactly Safe.nonce + 1; no other outer nonce can authorize it.
     // EXPECT: PASS.
     function check_gss_actionNonce_boundToSafeNonce(uint64 wrongSafeTxNonce) external {
-        vm.assume(wrongSafeTxNonce != 1);
-        RelayGSSFormalHarness target = _deploy();
-        bytes memory action = _feeAction(2, _ownerHash(REPLAY_FLOOR, _owners()), TARGET_CHAIN, 7);
+        vm.assume(wrongSafeTxNonce != 2);
+        RelaySafeGovernanceFormalHarness target = _deploy();
+        bytes memory action = _feeAction(2, _ownerHash(REPLAY_FLOOR, _owners()), TARGET_CHAIN, address(target), 7);
         assert(!_callAction(target, action, wrongSafeTxNonce));
-        assert(target.lastGovernanceSafeNonce() == REPLAY_FLOOR);
+        (, uint256 lastNonce) = target.governanceNonces();
+        assert(lastNonce == REPLAY_FLOOR);
         assert(!target.governanceSafeNonceConsumed(2));
     }
 
     // Anti-vacuity: a sorted threshold subset of active owners is accepted by the signer validator.
     // EXPECT: COUNTEREXAMPLE.
     function check_reach_gss_validSignerSet() external {
-        RelayGSSFormalHarness target = _deploy();
+        RelaySafeGovernanceFormalHarness target = _deploy();
         address[] memory signers = new address[](2);
         signers[0] = OWNER_1;
         signers[1] = OWNER_2;
@@ -289,8 +309,8 @@ contract GSSGovernanceFV is Test {
     // Anti-vacuity: a valid local fee action reaches the successful state transition.
     // EXPECT: COUNTEREXAMPLE.
     function check_reach_gss_validFeeAction() external {
-        RelayGSSFormalHarness target = _deploy();
-        bytes memory action = _feeAction(2, _ownerHash(REPLAY_FLOOR, _owners()), TARGET_CHAIN, 7);
+        RelaySafeGovernanceFormalHarness target = _deploy();
+        bytes memory action = _feeAction(2, _ownerHash(REPLAY_FLOOR, _owners()), TARGET_CHAIN, address(target), 7);
         assert(!_callAction(target, action, 1));
     }
 }

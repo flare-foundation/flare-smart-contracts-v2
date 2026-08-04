@@ -1,3 +1,4 @@
+import { deployRelayProxy, testGovernanceConfig } from "../utils/relay-deploy";
 import { globSync } from "glob";
 import { readFileSync } from "node:fs";
 import { constants, expectEvent, expectRevert, time } from "@openzeppelin/test-helpers";
@@ -393,7 +394,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       isSecureRandom: false,
       merkleRoot: message,
     };
-    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+    // RLY-23: the signed digest is chain-bound.
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
 
     const signatures = await generateSignatures(
       privateKeys.slice(30, 34).map((x) => x.privateKey),
@@ -771,15 +773,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
       feeCollectionAddress: constants.ZERO_ADDRESS,
       feeConfigs: [],
-      sourceChainId: 0,
-      governanceSafe: "0x0000000000000000000000000000000000000000",
-      governanceThreshold: 0,
-      governanceOwners: [],
-      governanceOwnerConfigSafeNonce: 0,
-      governanceSafeNonce: 0,
+      governance: testGovernanceConfig(chainId),
     };
 
-    relay = await Relay.new(relayInitialConfig, flareSystemsManager.address, constants.ZERO_ADDRESS);
+    relay = await deployRelayProxy(relayInitialConfig, flareSystemsManager.address, constants.ZERO_ADDRESS);
 
     const relayInitialConfig2: RelayInitialConfig = {
       initialRewardEpochId: initialSigningPolicy.rewardEpochId,
@@ -795,15 +792,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       // RLY-10: relay-mode (zero signingPolicySetter) requires a non-zero fee-collection address
       feeCollectionAddress: "0x000000000000000000000000000000000000dEaD",
       feeConfigs: [],
-      sourceChainId: 0,
-      governanceSafe: "0x0000000000000000000000000000000000000000",
-      governanceThreshold: 0,
-      governanceOwners: [],
-      governanceOwnerConfigSafeNonce: 0,
-      governanceSafeNonce: 0,
+      governance: testGovernanceConfig(chainId),
     };
 
-    relay2 = await Relay.new(relayInitialConfig2, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
+    relay2 = await deployRelayProxy(relayInitialConfig2, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
 
     submission = await Submission.new(governanceSettings.address, accounts[0], addressUpdater.address, false);
     addressUpdatableContracts.push(submission.address);

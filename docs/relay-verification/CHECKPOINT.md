@@ -99,7 +99,7 @@ while the security model deliberately treats the owner threshold itself as autho
 An adversarial pass on `relay-fix-3-gss` re-derived the GSS protocol from
 out-of-order delivery, owner-set reincarnation, Safe cancellation, target
 deployment timing, and production migration. The detailed finding ledger and
-runbooks are in [`docs/gss-governance.md`](../gss-governance.md), section 17.
+runbooks are in [`docs/safe-governance.md`](../safe-governance.md), section 17.
 
 Implemented hardening:
 
@@ -157,14 +157,14 @@ remain authorized on lagging targets, and signatures are not bound to one Relay 
 Safe modules can also perturb the helper checker. Cryptographic closure requires
 a Flare execution proof or a separately signed
 expiry/revocation/deployment epoch. The current controls and alternative designs
-are recorded in [`gss-governance.md` section 16](../gss-governance.md#16-accepted-design-risks-and-alternatives).
+are recorded in [`safe-governance.md` section 16](../safe-governance.md#16-accepted-design-risks-and-alternatives).
 
 ## ⭐ 2026-07-24 — GSS governance branch and proof boundary
 
 Branch `relay-fix-3-gss` removes the unused legacy `governanceFeeSetup` path and
 adds Safe v1.3.0 governance for owner configuration and target-specific protocol
 fees. The implementation specification and current security boundary are in
-[`docs/gss-governance.md`](../gss-governance.md).
+[`docs/safe-governance.md`](../safe-governance.md).
 
 The core Halmos manifest is now 86 checks (58 proofs and 28 reachability
 controls); the deleted legacy nonce harness is not relabeled as a GSS proof.

@@ -9,7 +9,7 @@
 > controls and an exact 36-test real-Safe/stateful gate. It does not prove ECDSA,
 > canonical source execution, or the complete Safe digest algorithm. Existing
 > Certora cloud links predate GSS; the current rules pass only the local
-> compile/typecheck gate. See [`gss-governance.md`](gss-governance.md).
+> compile/typecheck gate. See [`safe-governance.md`](safe-governance.md).
 
 This is the map of the whole verification effort on `contracts/protocol/implementation/Relay.sol`. It
 states what is proven, by which tool, at what scope, under what assumptions, and — just as importantly —
@@ -129,7 +129,7 @@ also confirms the elaborate setup genuinely reaches acceptance.
    exhaust fee updates. These behaviors require threshold action or asynchronous
    target lag, not an unprivileged threshold bypass. Acceptance depends on the
    signing, rotation, migration, and single-authoritative-Relay controls in
-   [`gss-governance.md` section 16](gss-governance.md#16-accepted-design-risks-and-alternatives).
+   [`safe-governance.md` section 16](safe-governance.md#16-accepted-design-risks-and-alternatives).
    That section also details stronger alternatives, including source execution
    proofs, signed deployment domains, nonce bounds, per-protocol sequencing, and
    recoverable owner transitions.

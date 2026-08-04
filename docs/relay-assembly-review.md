@@ -3,7 +3,7 @@
 > **Historical scope:** this review is frozen to `relay-fix-3` before GSS
 > governance. Its “exactly three” mutation-surface statement is not a claim
 > about `relay-fix-3-gss`, which adds `processGSSMessage` and removes
-> `governanceFeeSetup`. See [`gss-governance.md`](gss-governance.md) for the
+> `governanceFeeSetup`. See [`safe-governance.md`](safe-governance.md) for the
 > current extension.
 
 A static read pass over `contracts/protocol/implementation/Relay.sol` (1747 lines) that *scopes*

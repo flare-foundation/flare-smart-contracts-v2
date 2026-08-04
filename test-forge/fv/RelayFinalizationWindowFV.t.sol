@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
 import "../../contracts/protocol/interface/IIRelay.sol";
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 Step 4 (L3): message FINALIZATION WINDOW gate (Relay.sol:929-947), MULTI-STEP.
 // To bound the influence of participants in OLD signing policies, relay() rejects a message that is more
@@ -46,7 +50,7 @@ contract RelayFinalizationWindowFV is RelayTestBase {
             pks.push(0);
         }
         policy1 = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED); // thr 260
-        relay = new Relay(_initialConfig(_signingPolicyHash(policy1)), address(this), IRelay(address(0)));
+        relay = deployRelay(_initialConfig(_signingPolicyHash(policy1)), address(this), IRelay(address(0)));
         // advance lastInitialized 1 -> 7 by initialising epochs 2..7
         for (uint24 e = uint24(REWARD_EPOCH_ID) + 1; e <= LAST_EPOCH; e++) {
             relay.setSigningPolicy(_structPolicy(e));

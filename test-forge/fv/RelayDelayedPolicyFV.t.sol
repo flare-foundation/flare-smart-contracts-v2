@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 Step 4 (L-decision-matrix): the "DELAYED SIGN POLICY" gate (Relay.sol:956).
 // In the same-epoch case (messageRewardEpochId == policyEpoch) a Mode-2 message whose votingRoundId is
@@ -31,7 +35,7 @@ contract RelayDelayedPolicyFV is RelayTestBase {
         }
         // policy validity starts at DELAYED_START (its startVotingRoundId field)
         policy = _buildSigningPolicy(REWARD_EPOCH_ID, DELAYED_START, THRESHOLD, SEED);
-        relay = new Relay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
+        relay = deployRelay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
     }
 
     function _sig(Sig calldata x, uint16 i) internal pure returns (bytes memory) {

@@ -807,6 +807,29 @@
             "description": "The reward manager id is used to identify the reward manager contract in the Flare Systems Manager contract (e.g. chain id).",
             "type": "integer"
         },
+        "safeGovernanceOwnerConfigSafeNonce": {
+            "description": "The generation ordinal of the admitted owner configuration: 0 for the\ndeployment-admitted generation (all initial deployments — SafeInstructions admits the\nlive Safe as generation 0 at initialize), otherwise the signed Safe nonce of the\nrotation that installed it (targets deployed after a rotation).",
+            "type": "number"
+        },
+        "safeGovernanceOwners": {
+            "description": "The admitted Safe owners, strictly ascending by address.",
+            "items": {
+                "type": "string"
+            },
+            "type": "array"
+        },
+        "safeGovernanceSafe": {
+            "description": "The Safe governance Safe proxy address.",
+            "type": "string"
+        },
+        "safeGovernanceSafeNonce": {
+            "description": "The deployment-time Safe nonce (governance replay floor).",
+            "type": "number"
+        },
+        "safeGovernanceThreshold": {
+            "description": "The admitted Safe signature threshold.",
+            "type": "number"
+        },
         "sampleIncreaseLimit": {
             "description": "The sample increase limit.",
             "type": "string"
@@ -867,6 +890,10 @@
             "description": "The default fee for TEE operations. In Wei.",
             "type": "string"
         },
+        "teeEmergencyUnpauseGracePeriodSeconds": {
+            "description": "Grace period (in seconds) applied after each per-extension emergency unpause.\nWhile this window is open, the third-party expired-availability branch of\nIMachineManager.pause() is blocked, so machine owners have time to refresh\ntheir availability attestation without anyone immediately suspending their\nstill-PRODUCTION machines. Must be in [30 min (1800s), 24h (86400s)] on-chain.",
+            "type": "integer"
+        },
         "teeOperationFees": {
             "description": "The TEE operation fees.",
             "items": {
@@ -895,10 +922,6 @@
         "teePublicExtensionCreationEnabled": {
             "description": "If true, anyone can call IExtensionManager.register() from day 1 (the global\nextension-owner allowlist starts in \"allow all\" mode). If false, registration\nis closed at deploy time and governance must seed / open the allowlist later.\nReserved-id minting via registerReserved() is always governance-only and is\nunaffected by this flag.",
             "type": "boolean"
-        },
-        "teeEmergencyUnpauseGracePeriodSeconds": {
-            "description": "Grace period (in seconds) applied after each per-extension emergency unpause.\nWhile this window is open, the third-party expired-availability branch of\nIMachineManager.pause() is blocked, so machine owners have time to refresh\ntheir availability attestation without anyone immediately suspending their\nstill-PRODUCTION machines. Must be in [30 min (1800s), 24h (86400s)] on-chain.",
-            "type": "integer"
         },
         "teeSigningPolicyValidityDurationInRewardEpochs": {
             "description": "The signing policy validity duration, in reward epochs (e.g. 10).\nUsed when extending availability or putting tee machine into production:\n- in case of registration, the check is done for the initial signing policy,\n- in other cases, the check is done for the last confirmed signing policy.",
@@ -1061,3 +1084,4 @@
     ],
     "type": "object"
 }
+

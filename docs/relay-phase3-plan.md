@@ -3,7 +3,7 @@
 > **Historical scope:** this completed plan describes `relay-fix-3` before the
 > GSS governance redesign. Legacy governance rows are retained as an engagement
 > record and are not current requirements. See
-> [`gss-governance.md`](gss-governance.md).
+> [`safe-governance.md`](safe-governance.md).
 
 Phases 1–2 proved the signature-accounting core (Halmos bounded P1–P8 + Kontrol unbounded-in-K
 signature-loop weight invariant and random-pointer monotonicity, on a faithful Solidity model).

@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
 import "../../contracts/protocol/interface/IIRelay.sol";
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 Step 4 (L8): cross-epoch "MUST USE NEW SIGN POLICY" gate (Relay.sol:960-974), MULTI-STEP.
 // In the cross-epoch path (messageRewardEpochId > policyEpoch) the contract branches on lastInitialized:
@@ -38,7 +42,7 @@ contract RelayMustUseNewPolicyFV is RelayTestBase {
         }
         policy1 = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
         // setter mode so setSigningPolicy can advance lastInitialized to 2
-        relay = new Relay(_initialConfig(_signingPolicyHash(policy1)), address(this), IRelay(address(0)));
+        relay = deployRelay(_initialConfig(_signingPolicyHash(policy1)), address(this), IRelay(address(0)));
         // step 2: initialise epoch 2 (lastInitialized 1 -> 2, startingVotingRoundIds[2] = START_E2)
         IIRelay.SigningPolicy memory p2;
         p2.rewardEpochId = uint24(REWARD_EPOCH_ID) + 1; // 2

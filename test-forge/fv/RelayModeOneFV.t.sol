@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 (AC-6 FULL): Mode-1 (relay-only) new-signing-policy relay — threshold consistency on the REAL
 // protocolId==0 path (Relay.sol:1004-1160), not just the setter-formula equivalent.
@@ -40,7 +44,8 @@ contract RelayModeOneFV is RelayTestBase {
             pks.push(0);
         }
         oldPolicy = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
-        relay = new Relay(_initialConfig(_signingPolicyHash(oldPolicy)), address(0), IRelay(address(0))); // relay-only
+        relay =
+            deployRelay(_initialConfig(_signingPolicyHash(oldPolicy)), address(0), IRelay(address(0))); // relay-only
     }
 
     // new policy bytes (1 voter), same packed layout as a signing policy:

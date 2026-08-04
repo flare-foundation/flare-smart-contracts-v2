@@ -8,6 +8,12 @@ trustPolicyExclude:
   - 'chokidar@4.0.3'
   - 'detect-port@1.6.1'
   - 'graphql@15.10.2'
+# OZ 5.7.0 (Create3 + current proxy utils + OwnableUpgradeable) is deliberately adopted
+# before the 7-day quarantine elapses; OpenZeppelin's npm publishing is trusted enough to
+# exempt.
+minimumReleaseAgeExclude:
+  - "@openzeppelin/contracts"
+  - "@openzeppelin/contracts-upgradeable"
 onlyBuiltDependencies:
   - sqlite3
   - keccak

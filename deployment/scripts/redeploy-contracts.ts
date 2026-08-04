@@ -12,7 +12,7 @@ import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
-import { RelayInitialConfig } from "../utils/RelayInitialConfig";
+import { RelayInitialConfig, safeGovernanceFromParameters } from "../utils/RelayInitialConfig";
 import {
   PChainStakeMirrorVerifierContract,
   PChainStakeMirrorVerifierInstance,
@@ -47,6 +47,7 @@ import {
   VoterPreRegistryContract,
   SFlrCustomFeedContract,
   StXrpCustomFeedContract,
+  RelayProxyContract,
 } from "../../typechain-truffle";
 import { Account } from "web3-core";
 import { signingPolicyHashForMigration } from "../utils/SigningPolicyHashMigration";
@@ -171,9 +172,10 @@ export async function redeployContracts(
       throw Error("Old Relay policy hash scheme must be explicitly set for Relay migration");
     }
     const oldSigningPolicyHash = await oldRelay.toSigningPolicyHash(currentRewardEpochId);
+    const relayChainId = await web3.eth.getChainId();
     const signingPolicyHash = signingPolicyHashForMigration(
       oldSigningPolicyHash,
-      await web3.eth.getChainId(),
+      relayChainId,
       oldRelayPolicyHashScheme
     );
     const relayInitialConfig: RelayInitialConfig = {
@@ -189,15 +191,19 @@ export async function redeployContracts(
       messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
       feeCollectionAddress: ZERO_ADDRESS,
       feeConfigs: [],
-      sourceChainId: 0,
-      governanceSafe: "0x0000000000000000000000000000000000000000",
-      governanceThreshold: 0,
-      governanceOwners: [],
-      governanceOwnerConfigSafeNonce: 0,
-      governanceSafeNonce: 0,
+      governance: safeGovernanceFromParameters(parameters, relayChainId),
     };
 
-    relay = await Relay.new(relayInitialConfig, flareSystemsManager.address, oldRelay.address);
+    const RelayProxy = artifacts.require("RelayProxy") as RelayProxyContract;
+    const relayImplementation = await Relay.new();
+    const relayProxy = await RelayProxy.new(
+      relayImplementation.address,
+      relayInitialConfig,
+      flareSystemsManager.address,
+      oldRelay.address,
+      parameters.governancePublicKey
+    );
+    relay = await Relay.at(relayProxy.address);
     spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 
     rewardManager = await RewardManager.new(

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 Step 4 (decision matrix, final gate): "WRONG SIGN POLICY REWARD EPOCH" (Relay.sol:925-927).
 // A signing policy for reward epoch R can sign messages in epoch R or LATER, never earlier:
@@ -35,7 +39,7 @@ contract RelayWrongEpochFV is RelayTestBase {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
         cfg.initialRewardEpochId = uint32(POLICY_EPOCH);            // lastInitialized = 2, hash stored at [2]
         cfg.startingVotingRoundIdForInitialRewardEpochId = E2_START; // satisfies ctor: 0 + 2*3360 <= 6720
-        relay = new Relay(cfg, address(0), IRelay(address(0)));
+        relay = deployRelay(cfg, address(0), IRelay(address(0)));
     }
 
     function _sig(Sig calldata x, uint16 i) internal pure returns (bytes memory) {

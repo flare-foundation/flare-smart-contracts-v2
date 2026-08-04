@@ -1,3 +1,5 @@
+import { expectCustomError } from "../../../utils/custom-errors";
+import { deployRelayProxy, testGovernanceConfig } from "../../../utils/relay-deploy";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { constants, expectEvent, expectRevert } from "@openzeppelin/test-helpers";
 import { artifacts, config, contract, ethers, expect } from "hardhat";
@@ -136,6 +138,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   let signers: SignerWithAddress[];
   const accountPrivateKeys = (config.networks.hardhat.accounts as HardhatNetworkAccountConfig[]).map(x => x.privateKey);
   let relay: RelayInstance;
+  // ethers handle bound to the IRelay ABI — used only to decode typed custom errors in matchers.
+  let relayIface: any;
   // RLY-23: policy hashes and signed message digests are chain-bound; set in before().
   let chainId: number;
   const selector = ethers.keccak256(ethers.toUtf8Bytes("relay()")).slice(0, 10);
@@ -204,19 +208,15 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
       feeCollectionAddress: BURN_ADDRESS,
       feeConfigs: [],
-      sourceChainId: 0,
-      governanceSafe: "0x0000000000000000000000000000000000000000",
-      governanceThreshold: 0,
-      governanceOwners: [],
-      governanceOwnerConfigSafeNonce: 0,
-      governanceSafeNonce: 0
+      governance: testGovernanceConfig(chainId)
     }
 
-    relay = await Relay.new(
+    relay = await deployRelayProxy(
       relayInitialConfig,
       constants.ZERO_ADDRESS,
       constants.ZERO_ADDRESS
     );
+    relayIface = await ethers.getContractAt("IRelay", relay.address);
   });
 
   let merkleRoot: string;
@@ -403,7 +403,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("zero merkle root");
+    ).to.be.revertedWithCustomError(relayIface, "ZeroMerkleRoot");
   });
 
   it("Should fail to relay a message due to non increasing signature indices", async () => {
@@ -433,7 +433,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("Index out of order");
+    ).to.be.revertedWithCustomError(relayIface, "IndexOutOfOrder");
   });
 
   it("Should fail to relay a message due signature indices out of range", async () => {
@@ -463,7 +463,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("Index out of range");
+    ).to.be.revertedWithCustomError(relayIface, "IndexOutOfRange");
   });
 
   it("Should fail to relay a message due too short data for metadata", async () => {
@@ -473,7 +473,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + "0000",
       })
-    ).to.be.revertedWith("Invalid sign policy metadata");
+    ).to.be.revertedWithCustomError(relayIface, "InvalidSignPolicyMetadata");
   });
 
   it("Should fail to relay a message on mismatch of signing policy length", async () => {
@@ -485,7 +485,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + signingPolicy.slice(0, -2),
       })
-    ).to.be.revertedWith("Invalid sign policy length");
+    ).to.be.revertedWithCustomError(relayIface, "InvalidSignPolicyLength");
   });
 
   it("Should fail due to signing policy hash mismatch", async () => {
@@ -498,7 +498,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + tweakedSigningPolicy + "00",
       })
-    ).to.be.revertedWith("Signing policy hash mismatch");
+    ).to.be.revertedWithCustomError(relayIface, "SigningPolicyHashMismatch");
   });
 
   it("Should fail to relay a message due to too short message", async () => {
@@ -510,7 +510,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + signingPolicy + fullMessage.slice(0, -2),
       })
-    ).to.be.revertedWith("Too short message");
+    ).to.be.revertedWithCustomError(relayIface, "TooShortMessage");
   });
 
   it("Should fail to relay message due to delayed signing policy", async () => {
@@ -532,15 +532,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
       feeCollectionAddress: BURN_ADDRESS,
       feeConfigs: [],
-      sourceChainId: 0,
-      governanceSafe: "0x0000000000000000000000000000000000000000",
-      governanceThreshold: 0,
-      governanceOwners: [],
-      governanceOwnerConfigSafeNonce: 0,
-      governanceSafeNonce: 0
+      governance: testGovernanceConfig(chainId)
     }
 
-    const relay2 = await Relay.new(
+    const relay2 = await deployRelayProxy(
       relayInitialConfig,
       constants.ZERO_ADDRESS,
       constants.ZERO_ADDRESS
@@ -554,7 +549,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay2.address,
         data: selector + signingPolicy.slice(2) + fullMessage
       })
-    ).to.be.revertedWith("Delayed sign policy");
+    ).to.be.revertedWithCustomError(relayIface, "DelayedSignPolicy");
 
   });
 
@@ -571,7 +566,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + signingPolicy + fullMessage
       })
-    ).to.be.revertedWith("Invalid voting round id");
+    ).to.be.revertedWithCustomError(relayIface, "InvalidVotingRoundId");
 
     newMessageData.votingRoundId = votingRoundId - rewardEpochDurationInVotingEpochs; // shift to one epoch after next reward epoch
     fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
@@ -582,7 +577,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + signingPolicy + fullMessage
       })
-    ).to.be.revertedWith("Wrong sign policy reward epoch");
+    ).to.be.revertedWithCustomError(relayIface, "WrongSignPolicyRewardEpoch");
 
 
     newMessageData.votingRoundId = votingRoundId + 2 * rewardEpochDurationInVotingEpochs; // shift to one epoch after next reward epoch
@@ -606,7 +601,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + signingPolicy + fullMessage
       })
-    ).to.be.revertedWith("No signature count");
+    ).to.be.revertedWithCustomError(relayIface, "NoSignatureCount");
 
     // should be able to use previous reward epoch signing policy, but since 0 are provided, it should fail
     await expect(
@@ -745,15 +740,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
       feeCollectionAddress: BURN_ADDRESS,
       feeConfigs: [],
-      sourceChainId: 0,
-      governanceSafe: "0x0000000000000000000000000000000000000000",
-      governanceThreshold: 0,
-      governanceOwners: [],
-      governanceOwnerConfigSafeNonce: 0,
-      governanceSafeNonce: 0
+      governance: testGovernanceConfig(chainId)
     }
 
-    const relay2 = await Relay.new(
+    const relay2 = await deployRelayProxy(
       relayInitialConfig,
       constants.ZERO_ADDRESS,
       constants.ZERO_ADDRESS
@@ -824,7 +814,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay2.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("Message too old");
+    ).to.be.revertedWithCustomError(relayIface, "MessageTooOld");
 
   });
 
@@ -862,7 +852,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("Already relayed");
+    ).to.be.revertedWithCustomError(relayIface, "AlreadyRelayed");
   });
 
   it("Should relay a message with new signing policy", async () => {
@@ -993,7 +983,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("Must use new sign policy");
+    ).to.be.revertedWithCustomError(relayIface, "MustUseNewSignPolicy");
   });
 
 
@@ -1016,7 +1006,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData,
       })
-    ).to.be.revertedWith("No new sign policy size");
+    ).to.be.revertedWithCustomError(relayIface, "NoNewSignPolicySize");
   });
 
   it("Should fail to relay a new signing policy due to wrong size of new signing policy", async () => {
@@ -1039,7 +1029,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData,
       })
-    ).to.be.revertedWith("Wrong size for new sign policy");
+    ).to.be.revertedWithCustomError(relayIface, "WrongSizeForNewSignPolicy");
 
   });
 
@@ -1075,7 +1065,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("Not next reward epoch");
+    ).to.be.revertedWithCustomError(relayIface, "NotNextRewardEpoch");
   });
 
   it("Should fail to relay a new signing policy due to provided new signing policy for a wrong reward epoch", async () => {
@@ -1110,7 +1100,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("Not with last intialized");
+    ).to.be.revertedWithCustomError(relayIface, "NotWithLastInitialized");
   });
 
   it("Should fail to relay a new signing policy due to wrong length of signature data", async () => {
@@ -1141,7 +1131,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData,
       })
-    ).to.be.revertedWith("Not enough signatures");
+    ).to.be.revertedWithCustomError(relayIface, "NotEnoughSignatures");
   });
 
   it("Should fail to relay a new signing policy due to a wrong signature", async () => {
@@ -1172,7 +1162,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData,
       })
-    ).to.be.revertedWith("Wrong signature");
+    ).to.be.revertedWithCustomError(relayIface, "WrongSignature");
   });
   it("Should fail to relay a message due to message already relayed", async () => {
     // "Already relayed"
@@ -1199,7 +1189,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("Already relayed");
+    ).to.be.revertedWithCustomError(relayIface, "AlreadyRelayed");
   });
 
   describe("Direct signing policy setup", () => {
@@ -1217,15 +1207,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay2 = await Relay.new(
+      const relay2 = await deployRelayProxy(
         relayInitialConfig,
         signers[0].address,
         constants.ZERO_ADDRESS
@@ -1271,15 +1256,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay2 = await Relay.new(
+      const relay2 = await deployRelayProxy(
         relayInitialConfig,
         signers[0].address,
         constants.ZERO_ADDRESS
@@ -1287,9 +1267,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
       const newSigningPolicyData = { ...signingPolicyData };
 
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "not next reward epoch");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "NotNextRewardEpoch");
       newSigningPolicyData.rewardEpochId += 2;
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "not next reward epoch");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "NotNextRewardEpoch");
 
     });
 
@@ -1309,15 +1289,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay2 = await Relay.new(
+      const relay2 = await deployRelayProxy(
         relayInitialConfig2,
         signers[0].address,
         constants.ZERO_ADDRESS
@@ -1336,15 +1311,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay3 = await Relay.new(
+      const relay3 = await deployRelayProxy(
         relayInitialConfig3,
         constants.ZERO_ADDRESS,
         constants.ZERO_ADDRESS
@@ -1354,14 +1324,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       newSigningPolicyData.rewardEpochId += 1;
       newSigningPolicyData.voters = [];
       newSigningPolicyData.weights = [];
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "must be non-trivial");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "SigningPolicyEmpty");
       await expect(
         signers[0].sendTransaction({
           from: signers[0].address,
           to: relay3.address,
           data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
         })
-      ).to.be.revertedWith("must be non-trivial");
+      ).to.be.revertedWithCustomError(relayIface, "SigningPolicyEmpty");
     });
 
     it("Should fail due to voters and weights length mismatch", async () => {
@@ -1379,15 +1349,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay2 = await Relay.new(
+      const relay2 = await deployRelayProxy(
         relayInitialConfig,
         signers[0].address,
         constants.ZERO_ADDRESS
@@ -1396,7 +1361,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
       newSigningPolicyData.weights = [];
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "size mismatch");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "VotersWeightsSizeMismatch");
 
     });
 
@@ -1415,15 +1380,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay2 = await Relay.new(
+      const relay2 = await deployRelayProxy(
         relayInitialConfig,
         signers[0].address,
         constants.ZERO_ADDRESS
@@ -1431,7 +1391,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData, { from: signers[1].address }), "only sign policy setter");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData, { from: signers[1].address }), "OnlySigningPolicySetterRole");
     });
 
     it("Should fail to directly set the signing policy due to sum of weight being below threshold", async () => {
@@ -1449,15 +1409,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay2 = await Relay.new(
+      const relay2 = await deployRelayProxy(
         relayInitialConfig,
         signers[0].address,
         constants.ZERO_ADDRESS
@@ -1469,10 +1424,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         newSigningPolicyData.weights[i] = Math.floor(newSigningPolicyData.weights[i] / 3);
         totalWeight += newSigningPolicyData.weights[i];
       }
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too big threshold");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "ThresholdTooHigh");
       const dif = newSigningPolicyData.threshold - totalWeight;
       newSigningPolicyData.weights[0] += dif;
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too big threshold");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "ThresholdTooHigh");
       // newSigningPolicyData.weights[0] += 1;
       // expectEvent(await relay2.setSigningPolicy(newSigningPolicyData), "SigningPolicyInitialized",
       //   {
@@ -1501,15 +1456,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay2 = await Relay.new(
+      const relay2 = await deployRelayProxy(
         relayInitialConfig,
         signers[0].address,
         constants.ZERO_ADDRESS
@@ -1544,7 +1494,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           to: relay2.address,
           data: selector + fullData.slice(2),
         })
-      ).to.be.revertedWith("Sign policy relay disabled");
+      ).to.be.revertedWithCustomError(relayIface, "SignPolicyRelayDisabled");
     });
 
     it("Should fail directly setup voters with wrong number of voters", async () => {
@@ -1568,15 +1518,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay2 = await Relay.new(
+      const relay2 = await deployRelayProxy(
         relayInitialConfig2,
         signers[0].address,
         constants.ZERO_ADDRESS
@@ -1595,28 +1540,23 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay3 = await Relay.new(
+      const relay3 = await deployRelayProxy(
         relayInitialConfig3,
         constants.ZERO_ADDRESS,
         constants.ZERO_ADDRESS
       );
 
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too many voters");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "TooManyVoters");
       await expect(
         signers[0].sendTransaction({
           from: signers[0].address,
           to: relay3.address,
           data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
         })
-      ).to.be.revertedWith("too many voters");
+      ).to.be.revertedWithCustomError(relayIface, "TooManyVoters");
 
       newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 300);
       newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 300);
@@ -1667,15 +1607,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay2 = await Relay.new(
+      const relay2 = await deployRelayProxy(
         relayInitialConfig2,
         signers[0].address,
         constants.ZERO_ADDRESS
@@ -1694,51 +1629,46 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay3 = await Relay.new(
+      const relay3 = await deployRelayProxy(
         relayInitialConfig3,
         constants.ZERO_ADDRESS,
         constants.ZERO_ADDRESS
       );
 
       newSigningPolicyData.weights[0] = 2 ** 16 - 1;
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "total weight too big");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "TotalWeightTooBig");
       await expect(
         signers[0].sendTransaction({
           from: signers[0].address,
           to: relay3.address,
           data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
         })
-      ).to.be.revertedWith("total weight too big");
+      ).to.be.revertedWithCustomError(relayIface, "TotalWeightTooBig");
 
       newSigningPolicyData.weights[0] = newSigningPolicyData.weights[1] + 1;
       newSigningPolicyData.threshold = Math.floor(totalWeight / 2);
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too small threshold");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "ThresholdTooLow");
       await expect(
         signers[0].sendTransaction({
           from: signers[0].address,
           to: relay3.address,
           data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
         })
-      ).to.be.revertedWith("too small threshold");
+      ).to.be.revertedWithCustomError(relayIface, "ThresholdTooLow");
 
       newSigningPolicyData.weights[0] = newSigningPolicyData.weights[1];
       newSigningPolicyData.threshold = Math.floor(totalWeight / 2) - 1;
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too small threshold");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "ThresholdTooLow");
       await expect(
         signers[0].sendTransaction({
           from: signers[0].address,
           to: relay3.address,
           data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
         })
-      ).to.be.revertedWith("too small threshold");
+      ).to.be.revertedWithCustomError(relayIface, "ThresholdTooLow");
 
 
       expect(totalWeight).to.equal(50000);  // further tests are designed assuming 50000!
@@ -1768,14 +1698,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
       newSigningPolicyData.rewardEpochId += 1;
       newSigningPolicyData.threshold = Math.floor(totalWeight * 0.66) + 1;
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too big threshold");
+      await expectCustomError(relay2.setSigningPolicy(newSigningPolicyData), "ThresholdTooHigh");
       await expect(
         signers[0].sendTransaction({
           from: signers[0].address,
           to: relay3.address,
           data: selector + (await prepareFullData(lastRelayedSigningPolicy, newSigningPolicyData)).slice(2),
         })
-      ).to.be.revertedWith("too big threshold");
+      ).to.be.revertedWithCustomError(relayIface, "ThresholdTooHigh");
 
 
       newSigningPolicyData.threshold = Math.floor(totalWeight * 0.66);
@@ -1832,15 +1762,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           protocolId: 17,
           feeInWei: "1000"
         }],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay = await Relay.new(
+      const relay = await deployRelayProxy(
         relayInitialConfig,
         constants.ZERO_ADDRESS,
         constants.ZERO_ADDRESS
@@ -1909,8 +1834,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         data: selector + fullData.slice(2),
       })
 
-      await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof), "too low fee");
-      await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: "999" }), "too low fee");
+      await expectCustomError(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof), "TooLowFee");
+      await expectCustomError(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: "999" }), "TooLowFee");
       await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: "1000" });
       const newBalance = Number(await web3.eth.getBalance(BURN_ADDRESS));
       expect(newBalance - oldBalance).to.equal(1000);
@@ -1940,19 +1865,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       };
-      const relay = await Relay.new(relayInitialConfig, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
+      const relay = await deployRelayProxy(relayInitialConfig, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
       // Nothing relayed for protocol 16 / round 12345 -> stored root is zero. A zero leaf with an
       // empty proof would previously have returned true; it must now revert.
-      await expectRevert(
+      await expectCustomError(
         relay.verify(randomNumberProtocolId + 1, 12345, constants.ZERO_BYTES32, []),
-        "not finalized"
+        "NotFinalized"
       );
     });
   });
@@ -1975,41 +1895,36 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       };
     }
 
     it("Should deploy with a valid config (sanity)", async () => {
-      await Relay.new(baseConfig(), constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
+      await deployRelayProxy(baseConfig(), constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
     });
 
     it("RLY-11: rejects zero rewardEpochDurationInVotingEpochs", async () => {
       const cfg = baseConfig();
       cfg.rewardEpochDurationInVotingEpochs = 0;
-      await expectRevert(Relay.new(cfg, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS), "reward epoch duration zero");
+      await expectCustomError(deployRelayProxy(cfg, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS), "RewardEpochDurationZero");
     });
 
     it("RLY-11: rejects zero votingEpochDurationSeconds", async () => {
       const cfg = baseConfig();
       cfg.votingEpochDurationSeconds = 0;
-      await expectRevert(Relay.new(cfg, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS), "voting epoch duration zero");
+      await expectCustomError(deployRelayProxy(cfg, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS), "VotingEpochDurationZero");
     });
 
     it("RLY-10: rejects zero feeCollectionAddress in relay mode", async () => {
       const cfg = baseConfig();
       cfg.feeCollectionAddress = constants.ZERO_ADDRESS;
-      await expectRevert(Relay.new(cfg, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS), "fee collection address zero");
+      await expectCustomError(deployRelayProxy(cfg, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS), "FeeCollectionAddressZero");
     });
 
     it("RLY-10: allows zero feeCollectionAddress in setter mode", async () => {
       const cfg = baseConfig();
       cfg.feeCollectionAddress = constants.ZERO_ADDRESS;
-      await Relay.new(cfg, signers[0].address, constants.ZERO_ADDRESS); // signingPolicySetter != 0
+      await deployRelayProxy(cfg, signers[0].address, constants.ZERO_ADDRESS); // signingPolicySetter != 0
     });
   });
 
@@ -2038,15 +1953,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay = await Relay.new(
+      const relay = await deployRelayProxy(
         relayInitialConfig,
         constants.ZERO_ADDRESS,
         constants.ZERO_ADDRESS
@@ -2082,19 +1992,19 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       expect(parseInt(result.slice(66), 16)).to.equal(rewardEpochId);
       newMessageData.votingRoundId = 1;
       fullData = RelayMessage.encode(relayMessage);
-      await expectRevert(web3.eth.sendTransaction({
+      await expectCustomError(web3.eth.sendTransaction({
         from: signers[0].address,
         to: relay.address,
         data: selector + fullData.slice(2),
-      }), "Wrong message format");
+      }), "WrongMessageFormat");
       newMessageData.votingRoundId = 0;
       newMessageData.isSecureRandom = true;
       fullData = RelayMessage.encode(relayMessage);
-      await expectRevert(web3.eth.sendTransaction({
+      await expectCustomError(web3.eth.sendTransaction({
         from: signers[0].address,
         to: relay.address,
         data: selector + fullData.slice(2),
-      }), "Wrong message format2");
+      }), "WrongMessageFormat2");
     });
   });
 
@@ -2123,15 +2033,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay = await Relay.new(
+      const relay = await deployRelayProxy(
         relayInitialConfig,
         constants.ZERO_ADDRESS,
         constants.ZERO_ADDRESS
@@ -2199,7 +2104,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (votingRoundId + 1));
           expect(_isSecureRandom).to.equal(isSecure.get(votingRoundId));
         } else {
-          await expectRevert(relay.getRandomNumberHistorical(votingRoundId), "no random number");
+          await expectCustomError(relay.getRandomNumberHistorical(votingRoundId), "NoRandomNumber");
         }
       }
     });
@@ -2220,107 +2125,102 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relay1 = await Relay.new(
+      const relay1 = await deployRelayProxy(
         relayInitialConfig1,
         signers[0].address,
         constants.ZERO_ADDRESS
       );
 
-      await expectRevert(
-        Relay.new(
+      await expectCustomError(
+        deployRelayProxy(
           relayInitialConfig1,
           constants.ZERO_ADDRESS,
           relay1.address
-        ), "old relay incompatible"
+        ), "OldRelayIncompatible"
       )
 
-      await expectRevert(
-        Relay.new(
+      await expectCustomError(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             thresholdIncreaseBIPS: 9000
           },
           signers[1].address,
           relay1.address
-        ), "threshold increase too small"
+        ), "ThresholdIncreaseTooSmall"
       )
 
-      await expectRevert(
-        Relay.new(
+      await expectCustomError(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             startingVotingRoundIdForInitialRewardEpochId: 0
           },
           signers[1].address,
           relay1.address
-        ), "invalid initial starting voting round id"
+        ), "InvalidInitialStartingVotingRoundId"
       )
 
-      await expectRevert(
-        Relay.new(
+      await expectCustomError(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             firstRewardEpochStartVotingRoundId: 1000000000
           },
           signers[1].address,
           relay1.address
-        ), "invalid initial starting voting round id"
+        ), "InvalidInitialStartingVotingRoundId"
       )
 
-      await expectRevert(
-        Relay.new(
+      await expectCustomError(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             initialRewardEpochId: 100000
           },
           signers[1].address,
           relay1.address
-        ), "invalid initial starting voting round id"
+        ), "InvalidInitialStartingVotingRoundId"
       )
 
-      await expectRevert(
-        Relay.new(
+      await expectCustomError(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             rewardEpochDurationInVotingEpochs: 10000
           },
           signers[1].address,
           relay1.address
-        ), "invalid initial starting voting round id"
+        ), "InvalidInitialStartingVotingRoundId"
       )
 
-      await expectRevert(
-        Relay.new(
+      await expectCustomError(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             startingVotingRoundIdForInitialRewardEpochId: 0
           },
           signers[1].address,
           relay1.address
-        ), "invalid initial starting voting round id"
+        ), "InvalidInitialStartingVotingRoundId"
       )
 
       await expectRevert(
-        Relay.new(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             randomNumberProtocolId: 0
           },
           signers[1].address,
           relay1.address
-        ), "random number protocol id must be > 1"
+        ), "InvalidRandomNumberProtocolId"
       )
 
       await expectRevert(
-        Relay.new(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             feeConfigs: [{
@@ -2330,11 +2230,11 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           },
           signers[1].address,
           relay1.address
-        ), "fee cannot be set"
+        ), "FeeConfigNotAllowed"
       )
 
       await expectRevert(
-        Relay.new(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             feeConfigs: [{
@@ -2344,51 +2244,51 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           },
           constants.ZERO_ADDRESS,
           relay1.address
-        ), "invalid protocol id"
+        ), "InvalidProtocolId"
       )
 
       await expectRevert(
-        Relay.new(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             firstVotingRoundStartTs: relayInitialConfig1.firstVotingRoundStartTs + 1
           },
           signers[1].address,
           relay1.address
-        ), "wrong start ts"
+        ), "OldRelayWrongStartTs"
       )
 
       await expectRevert(
-        Relay.new(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             rewardEpochDurationInVotingEpochs: relayInitialConfig1.rewardEpochDurationInVotingEpochs - 1
           },
           signers[1].address,
           relay1.address
-        ), "wrong reward epoch duration"
+        ), "OldRelayWrongRewardEpochDuration"
       )
 
       await expectRevert(
-        Relay.new(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             firstRewardEpochStartVotingRoundId: relayInitialConfig1.firstRewardEpochStartVotingRoundId - 1
           },
           signers[1].address,
           relay1.address
-        ), "wrong first reward epoch start"
+        ), "OldRelayWrongFirstRewardEpochStart"
       )
 
       await expectRevert(
-        Relay.new(
+        deployRelayProxy(
           {
             ...relayInitialConfig1,
             votingEpochDurationSeconds: relayInitialConfig1.votingEpochDurationSeconds - 1
           },
           signers[1].address,
           relay1.address
-        ), "wrong voting epoch duration"
+        ), "OldRelayWrongVotingEpochDuration"
       )
 
     })
@@ -2419,12 +2319,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
       const relayInitialConfigNewFlare: RelayInitialConfig = {
@@ -2440,15 +2335,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
         feeCollectionAddress: BURN_ADDRESS,
         feeConfigs: [],
-        sourceChainId: 0,
-        governanceSafe: "0x0000000000000000000000000000000000000000",
-        governanceThreshold: 0,
-        governanceOwners: [],
-        governanceOwnerConfigSafeNonce: 0,
-        governanceSafeNonce: 0
+        governance: testGovernanceConfig(chainId)
       }
 
-      const relayOldFlare = await Relay.new(
+      const relayOldFlare = await deployRelayProxy(
         relayInitialConfigOldFlare,
         signers[0].address,
         constants.ZERO_ADDRESS
@@ -2458,13 +2348,13 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         ...relayInitialConfigOldFlare,
       }
 
-      const relayOldRelay = await Relay.new(
+      const relayOldRelay = await deployRelayProxy(
         relayInitialConfigOldRelay,
         constants.ZERO_ADDRESS,
         constants.ZERO_ADDRESS
       );
 
-      const relayNewFlare = await Relay.new(
+      const relayNewFlare = await deployRelayProxy(
         relayInitialConfigNewFlare,
         signers[0].address,
         relayOldFlare.address
@@ -2474,7 +2364,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         ...relayInitialConfigNewFlare,
       }
 
-      const relayNewRelay = await Relay.new(
+      const relayNewRelay = await deployRelayProxy(
         relayInitialConfigNewRelay,
         constants.ZERO_ADDRESS,
         relayOldRelay.address
@@ -2785,7 +2675,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           to: relay.address,
           data: fullCalldata,
         })
-      ).to.be.revertedWith("ecrecover returned bad data");
+      ).to.be.revertedWithCustomError(relayIface, "EcrecoverReturnedBadData");
 
       expect(
         await relay.isFinalized(messageData.protocolId, messageData.votingRoundId)
@@ -2829,7 +2719,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           to: relay.address,
           data: fullCalldata,
         })
-      ).to.be.revertedWith("ecrecover returned bad data");
+      ).to.be.revertedWithCustomError(relayIface, "EcrecoverReturnedBadData");
 
       expect(
         await relay.isFinalized(messageData.protocolId, messageData.votingRoundId)
@@ -2869,7 +2759,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           to: relay.address,
           data: fullCalldata,
         })
-      ).to.be.revertedWith("Bad v");
+      ).to.be.revertedWithCustomError(relayIface, "BadV");
     });
 
     it("High-s forged signature is rejected [RLY-16]", async () => {
@@ -2900,7 +2790,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           to: relay.address,
           data: fullCalldata,
         })
-      ).to.be.revertedWith("Bad s");
+      ).to.be.revertedWithCustomError(relayIface, "BadS");
     });
   });
 });

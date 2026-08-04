@@ -450,7 +450,7 @@ test-doc-links:
   - changes:
     - docs/relay-verification/**/*
     - docs/relay-verification-summary.md
-    - docs/gss-governance.md
+    - docs/safe-governance.md
     - certora/README.md
     - test-forge/fv/**/*
     - test-forge/unit/protocol/implementation/Relay.t.sol

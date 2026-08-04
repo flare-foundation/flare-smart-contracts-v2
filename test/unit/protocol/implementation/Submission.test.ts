@@ -1,3 +1,5 @@
+import { expectCustomError } from "../../../utils/custom-errors";
+import { deployRelayProxy, testGovernanceConfig } from "../../../utils/relay-deploy";
 import { expectRevert } from "@openzeppelin/test-helpers";
 import { Contracts } from "../../../../deployment/scripts/Contracts";
 import { RelayInitialConfig } from "../../../../deployment/utils/RelayInitialConfig";
@@ -30,6 +32,7 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, (accounts) => {
   });
 
   it("Should revert 1", async () => {
+    const chainId = await web3.eth.getChainId();
     const relayInitialConfig: RelayInitialConfig = {
       initialRewardEpochId: 0,
       startingVotingRoundIdForInitialRewardEpochId: 0,
@@ -43,19 +46,16 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, (accounts) => {
       messageFinalizationWindowInRewardEpochs: 10,
       feeCollectionAddress: ZERO_ADDRESS,
       feeConfigs: [],
-      sourceChainId: 0,
-      governanceSafe: "0x0000000000000000000000000000000000000000",
-      governanceThreshold: 0,
-      governanceOwners: [],
-      governanceOwnerConfigSafeNonce: 0,
-      governanceSafeNonce: 0,
+      governance: testGovernanceConfig(chainId),
     };
 
-    const relay = await Relay.new(relayInitialConfig, accounts[1], ZERO_ADDRESS);
+    const relay = await deployRelayProxy(relayInitialConfig, accounts[1], ZERO_ADDRESS);
 
     await submission.setSubmitAndPassData(relay.address, web3.utils.keccak256("relay()").slice(0, 10)); // first 4 bytes is function selector
     const startBalance = BigInt(await web3.eth.getBalance(accounts[0]));
-    await expectRevert(submission.submitAndPass(web3.utils.keccak256("some data")), "Invalid sign policy length");
+    // Relay's typed custom errors cannot be decoded by Submission._getRevertMsg (it parses
+    // Error(string) only), so the inner failure surfaces as the generic fallback reason.
+    await expectRevert(submission.submitAndPass(web3.utils.keccak256("some data")), "Transaction reverted silently");
     console.log(`tx fee (wei): ${startBalance - BigInt(await web3.eth.getBalance(accounts[0]))}`);
   });
 

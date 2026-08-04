@@ -38,7 +38,7 @@ paths = "contracts/rNat/implementation/RNatAccount.sol"
 via_ir = false
 
 [[profile.default.compilation_restrictions]]
-paths = "dependencies/@openzeppelin-contracts-5.6.1/utils/cryptography/P256.sol"
+paths = "dependencies/@openzeppelin-contracts-5.7.0/utils/cryptography/P256.sol"
 via_ir = false
 
 [[profile.default.compilation_restrictions]]
@@ -56,8 +56,9 @@ fail_on_revert = true
 
 [dependencies]
 forge-std = "1.10.0"
-"@openzeppelin-contracts" = "5.6.1"
+"@openzeppelin-contracts" = "5.7.0"
 flare-periphery = "0.1.38"
+"@openzeppelin-contracts-upgradeable" = "5.7.0"
 
 [soldeer]
 remappings_generate = false
@@ -93,7 +94,7 @@ paths = "contracts/tee/implementation/TeePaymentsUtxo.sol"
 via_ir = true
 
 [[profile.coverage.compilation_restrictions]]
-paths = "dependencies/@openzeppelin-contracts-5.6.1/utils/cryptography/P256.sol"
+paths = "dependencies/@openzeppelin-contracts-5.7.0/utils/cryptography/P256.sol"
 via_ir = true
 
 [[profile.coverage.compilation_restrictions]]

@@ -112,6 +112,7 @@ import {
   WNatDelegationFeeContract,
   WNatDelegationFeeInstance,
   WNatInstance,
+  RelayProxyContract,
 } from "../../typechain-truffle";
 
 import { AbiItem } from "web3-utils";
@@ -467,15 +468,28 @@ export async function deployContracts(
     messageFinalizationWindowInRewardEpochs: 100,
     feeCollectionAddress: ZERO_ADDRESS,
     feeConfigs: [],
-    sourceChainId: 0,
-    governanceSafe: "0x0000000000000000000000000000000000000000",
-    governanceThreshold: 0,
-    governanceOwners: [],
-    governanceOwnerConfigSafeNonce: 0,
-    governanceSafeNonce: 0,
+    // Inert Safe governance block (required in setter mode; the single owner has no known
+    // private key). Mirrors the scdev.json simulation dummies.
+    governance: {
+      sourceChainId: relayChainId,
+      safe: "0x1000000000000000000000000000000000000002",
+      threshold: 1,
+      owners: ["0x1000000000000000000000000000000000000003"],
+      ownerConfigSafeNonce: 0,
+      safeNonce: 0,
+    },
   };
 
-  const relay = await Relay.new(relayInitialConfig, flareSystemsManager.address, ZERO_ADDRESS);
+  const RelayProxy = hre.artifacts.require("RelayProxy") as RelayProxyContract;
+  const relayImplementation = await Relay.new();
+  const relayProxy = await RelayProxy.new(
+    relayImplementation.address,
+    relayInitialConfig,
+    flareSystemsManager.address,
+    ZERO_ADDRESS,
+    governanceAccount.address
+  );
+  const relay = await Relay.at(relayProxy.address);
 
   const submission = await Submission.new(
     governanceSettings.address,

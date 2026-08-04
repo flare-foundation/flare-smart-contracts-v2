@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase-2 (bounded, Halmos): no-double-count and threshold soundness on the CROSS-EPOCH path, where the
 // threshold-INCREASE applies. Relay.sol:960 enters when messageRewardEpochId > policy rewardEpochId, and
@@ -33,7 +37,7 @@ contract RelayCrossEpochFV is RelayTestBase {
 
     function _deploy(uint16 w0, uint16 w1, uint16 w2, uint16 thr) internal returns (Relay r, bytes memory p) {
         p = _policy(w0, w1, w2, thr);
-        r = new Relay(_initialConfig(_signingPolicyHash(p)), address(0), IRelay(address(0)));
+        r = deployRelay(_initialConfig(_signingPolicyHash(p)), address(0), IRelay(address(0)));
     }
 
     function _sig(Sig calldata x, uint16 i) internal pure returns (bytes memory) {

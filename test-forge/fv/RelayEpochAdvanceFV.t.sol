@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
 import "../../contracts/protocol/interface/IIRelay.sol";
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 Step 4 (L1): signing-policy LIFECYCLE — strict sequential reward-epoch advance.
 // setSigningPolicy (Relay.sol:321) requires, BEFORE any other validation (Relay.sol:331-334):
@@ -16,7 +20,7 @@ contract RelayEpochAdvanceFV is RelayTestBase {
     function setUp() public override {}
 
     function _deploySetter() internal returns (Relay r) {
-        r = new Relay(_initialConfig(bytes32(uint256(1))), address(this), IRelay(address(0)));
+        r = deployRelay(_initialConfig(bytes32(uint256(1))), address(this), IRelay(address(0)));
     }
 
     // a fully-valid single-voter policy at the given epoch (passes every non-epoch require).

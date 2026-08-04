@@ -18,7 +18,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     // Keep the constructor tuple byte-for-byte compatible with the deployed main-branch Relay.
-    // The current IRelay.RelayInitialConfig contains new GSS fields and must not leak into this mock.
+    // The current IRelay.RelayInitialConfig contains new Safe fields and must not leak into this mock.
     struct MainDeployedInitialConfig {
         uint32 initialRewardEpochId;
         uint32 startingVotingRoundIdForInitialRewardEpochId;

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase-2 (bounded multi-transaction, Halmos): random monotonicity across a SEQUENCE of relay() calls.
 // The live random pointer stateData.randomVotingRoundId only advances for a strictly-newer round
@@ -34,7 +38,7 @@ contract RelayRandomMonotonicityFV is RelayTestBase {
             pks.push(0);
         }
         policy = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
-        relay = new Relay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
+        relay = deployRelay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
     }
 
     function _sp(bytes32 a, bytes32 b) internal pure returns (bytes32) {

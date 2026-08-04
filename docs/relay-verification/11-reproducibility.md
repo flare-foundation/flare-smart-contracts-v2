@@ -43,7 +43,7 @@ trust settings, or that compatibility surface therefore appear as explicit manif
 forge build --force --ast --extra-output storageLayout metadata
 forge test -vvv --match-path 'test-forge/unit/protocol/implementation/Relay.t.sol'
 forge test -vvv --match-path 'test-forge/unit/protocol/implementation/RelayChainDomain.t.sol'
-forge test -vvv --match-path 'test-forge/unit/governance/GSSGovernance.t.sol'
+forge test -vvv --match-path 'test-forge/unit/governance/SafeGovernance.t.sol'
 forge test -vvv --match-path 'test-forge/unit/governance/GSSGovernanceProductionRehearsal.t.sol'
 forge test -vvv --match-path 'test-forge/invariant/governance/GSSGovernanceInvariant.t.sol'
 forge coverage --match-path 'test-forge/unit/protocol/implementation/Relay.t.sol'

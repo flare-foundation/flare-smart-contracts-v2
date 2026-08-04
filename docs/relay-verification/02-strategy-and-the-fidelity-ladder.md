@@ -214,7 +214,7 @@ The stack is sound *because* of how the rungs are chosen around this:
   barrier for the loop mechanism.
 - The **per-sequence** forms of the core storage invariants are proven on the
   real bytecode (for example,
-  [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L15)
+  [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L19)
   for the epoch pointer). GSS signer and action transitions now have dedicated
   bounded Halmos proofs, while Safe digest equivalence and source execution stay
   outside that symbolic boundary.

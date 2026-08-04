@@ -2,7 +2,7 @@
 
 > **Scope note:** sections centered on the currently deployed pre-GSS contract
 > retain their historical labels. The current branch's GSS residuals and exact
-> proof boundary are in [`gss-governance.md`](../gss-governance.md). Its section
+> proof boundary are in [`safe-governance.md`](../safe-governance.md). Its section
 > 16 records each current GSS residual as a conditionally accepted design choice,
 > with required controls and stronger design alternatives. The current combined
 > Halmos gate is 102 checks (72 proofs, 30 controls).
@@ -41,7 +41,7 @@ contradictory or destructive actions. A confirmed source-Safe receipt is useful 
 in depth but cannot be the security boundary of permissionless Relay submission. The
 accepted items therefore remain visible risks with review triggers; they have not been
 reclassified as proven properties. See the canonical
-[`DR-01` through `DR-14` register](../gss-governance.md#162-accepted-design-risk-register)
+[`DR-01` through `DR-14` register](../safe-governance.md#162-accepted-design-risk-register)
 for source-proof, nonce, deployment-domain, owner-transition, fee-policy, signature-mode,
 and gas-cap alternatives.
 
@@ -80,7 +80,7 @@ Low severity for the most part, but **live** — a maintainer or integrator shou
   accepted design risk DR-08/TIM-A7: a threshold-signed `uint256.max` Safe nonce
   can exhaust remote fee updates because gaps are intentionally allowed. It is
   governance self-harm, not an unprivileged bypass; on-chain alternatives are
-  listed in [`gss-governance.md`](../gss-governance.md#162-accepted-design-risk-register).
+  listed in [`safe-governance.md`](../safe-governance.md#162-accepted-design-risk-register).
 - **`messageFinalizationWindowInRewardEpochs` unvalidated in the constructor** (`Relay.sol:266`): `0` ⇒ only the current epoch can ever finalize; very large ⇒ staleness protection is effectively off. It sits a few lines from the RLY-11 duration checks that *do* bound their inputs — an inconsistent-hardening gap a cheap `require` would close.
 
 **T1-e · Off-chain-dependent residuals the contract cannot enforce:**

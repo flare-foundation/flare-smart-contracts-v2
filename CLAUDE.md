@@ -601,7 +601,7 @@ The upgrade script:
 
 This branch also carries the **formal verification + hardening of
 `contracts/protocol/implementation/Relay.sol`** (originally branch `relay-fix-3`, MR !135,
-plus the GSS governance work from `relay-fix-3-gss`, merged here).
+plus the Safe (formerly GSS) governance work from `relay-fix-3-gss`, merged here).
 
 ## Read in this order
 
@@ -645,7 +645,7 @@ install has been observed to misreport nonlinear proofs at identical package ver
 | Doc links | `python3 docs/relay-verification/verify_links.py --check` (`--fix` to repair) | symbol-addressed code links in the docs stay current |
 | Kontrol | `test-forge/fv/kontrol/run.sh` in the Docker image (see its README) | 14 proofs + 6 CEX-by-design vs its manifest (signature loop at N=3 **and** N=5, plus random monotonicity) |
 
-**NOTE (GSS-upgradeable refactor):** the Relay/GSS refactor on this branch (GSSGoverned base,
+**NOTE (Safe-governance upgradeable refactor):** the Relay/Safe-governance refactor on this branch (SafeGoverned base,
 UUPS proxies, solc 0.8.35) deliberately leaves the FV gates red pending a full re-baseline
 (manifest hash pins, Lean Yul snapshot, Certora munge, Kontrol, compiler re-pins). Do not
 "fix" the gates piecemeal; the re-baseline is a dedicated follow-up task.

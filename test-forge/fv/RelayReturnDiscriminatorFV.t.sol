@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase + encoding helpers
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase-1 symbolic proof of OBLIGATION P6 — the 35-byte return discriminator. See docs/relay-fv.md §4 (P6).
 //
@@ -48,7 +52,7 @@ contract RelayReturnDiscriminatorFV is RelayTestBase {
             pks.push(0); // unused (ecrecover uninterpreted)
         }
         policy = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
-        relay = new Relay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
+        relay = deployRelay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
     }
 
     function _sig(Sig calldata x, uint16 index) internal pure returns (bytes memory) {

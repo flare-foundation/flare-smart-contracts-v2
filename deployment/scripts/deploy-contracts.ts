@@ -33,9 +33,10 @@ import {
   FdcInflationConfigurationsContract,
   FdcRequestFeeConfigurationsContract,
   IISupplyGovernanceContract,
+  RelayProxyContract,
 } from "../../typechain-truffle";
 import { generateOffers, runOfferRewards } from "./offer-rewards";
-import { RelayInitialConfig } from "../utils/RelayInitialConfig";
+import { RelayInitialConfig, safeGovernanceFromParameters } from "../utils/RelayInitialConfig";
 import fs from "fs";
 import { Account } from "web3-core";
 
@@ -286,15 +287,19 @@ export async function deployContracts(
     messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
     feeCollectionAddress: ZERO_ADDRESS,
     feeConfigs: [],
-    sourceChainId: 0,
-    governanceSafe: "0x0000000000000000000000000000000000000000",
-    governanceThreshold: 0,
-    governanceOwners: [],
-    governanceOwnerConfigSafeNonce: 0,
-    governanceSafeNonce: 0,
+    governance: safeGovernanceFromParameters(parameters, relayChainId),
   };
 
-  const relay = await Relay.new(relayInitialConfig, flareSystemsManager.address, ZERO_ADDRESS);
+  const RelayProxy = artifacts.require("RelayProxy") as RelayProxyContract;
+  const relayImplementation = await Relay.new();
+  const relayProxy = await RelayProxy.new(
+    relayImplementation.address,
+    relayInitialConfig,
+    flareSystemsManager.address,
+    ZERO_ADDRESS,
+    parameters.governancePublicKey
+  );
+  const relay = await Relay.at(relayProxy.address);
 
   spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 

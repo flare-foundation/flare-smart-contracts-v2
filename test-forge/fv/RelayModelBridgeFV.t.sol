@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 Step 3 (T1, bounded bridge): model<->bytecode equivalence for the signature-loop weight invariant.
 //
@@ -53,7 +57,7 @@ contract RelayModelBridgeFV is RelayTestBase {
 
     function _deploy(uint16 w0, uint16 w1, uint16 w2, uint16 thr) internal returns (Relay r, bytes memory p) {
         p = _policy(w0, w1, w2, thr);
-        r = new Relay(_initialConfig(_signingPolicyHash(p)), address(0), IRelay(address(0)));
+        r = deployRelay(_initialConfig(_signingPolicyHash(p)), address(0), IRelay(address(0)));
     }
 
     function _sig(Sig calldata x, uint16 i) internal pure returns (bytes memory) {

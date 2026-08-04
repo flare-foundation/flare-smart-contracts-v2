@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.35;
 
-import { GnosisSafeTx } from "../governance/GnosisSafeTx.sol";
+import { ISafeGovernance } from "./ISafeGovernance.sol";
 
-interface IRelayGovernance {
+/**
+ * Relay-specific extension of the generic Safe governance interface: the only app-specific
+ * action Relay understands is `changeProtocolFees`.
+ */
+interface IRelayGovernance is ISafeGovernance {
+
     event GovernanceFeeUpdated(
         uint256 indexed targetChainId,
         uint256 indexed protocolId,
@@ -12,56 +17,34 @@ interface IRelayGovernance {
         bytes32 indexed ownerConfigHash
     );
 
-    event GovernanceOwnerConfigUpdated(
-        bytes32 indexed previousOwnerConfigHash,
-        bytes32 indexed ownerConfigHash,
+    event GovernanceFeeExemptionUpdated(
+        uint256 indexed targetChainId,
+        address indexed account,
+        bool exempt,
         uint256 safeNonce,
-        uint256 threshold,
-        address[] owners
+        bytes32 indexed ownerConfigHash
     );
 
-    event GovernanceInitialized(
-        bytes32 indexed ownerConfigHash,
-        uint256 ownerConfigSafeNonce,
-        uint256 replayFloor,
-        uint256 threshold,
-        address[] owners
+    event GovernanceFeeCollectionUpdated(
+        uint256 indexed targetChainId,
+        address indexed feeCollectionAddress,
+        uint256 safeNonce,
+        bytes32 indexed ownerConfigHash
     );
 
-    error InvalidGovernanceSource();
-    error InvalidGovernanceDeployment();
-    error InvalidGovernanceOwnerConfiguration();
-    error InvalidGovernanceTransaction();
+    /// @dev Deprecated: signature failures now revert with the typed ISafeGovernance errors
+    /// (or OpenZeppelin ECDSA errors). Retained only for FV-harness compile compatibility
+    /// until the formal-verification re-baseline.
     error InvalidGovernanceSignatures();
-    error UnknownGovernanceAction(bytes4 selector);
-    error GovernanceOwnerHashMismatch(bytes32 supplied, bytes32 active);
-    error GovernanceNonceNotMonotonic(uint256 supplied, uint256 lastAccepted);
-    error GovernanceNonceBeforeReplayFloor(uint256 supplied, uint256 replayFloor);
-    error GovernanceNonceAlreadyConsumed(uint256 supplied);
-    error GovernanceOwnerConfigNonceNotIncreasing(uint256 supplied, uint256 active);
 
-    function processGSSMessage(
-        GnosisSafeTx.Transaction calldata txData,
-        bytes calldata signatures
-    ) external;
+    /// Renouncing ownership is disabled: it would permanently freeze the implementation.
+    /// Ownership only moves via `transferOwnership`.
+    error RenounceOwnershipDisabled();
 
+    /// Returns the configured source-network id (RLY-23 origin binding): the network whose
+    /// voter quorum and Safe this Relay verifies. Equals block.chainid on home deployments.
     function sourceChainId() external view returns (uint256);
 
-    function governanceSafe() external view returns (address);
-
-    function activeOwnerConfigHash() external view returns (bytes32);
-
-    function activeOwnerConfigSafeNonce() external view returns (uint256);
-
-    function lastGovernanceSafeNonce() external view returns (uint256);
-
-    function governanceReplayFloor() external view returns (uint256);
-
-    function governanceSafeNonceConsumed(uint256 nonce) external view returns (bool);
-
-    function governanceThreshold() external view returns (uint256);
-
-    function governanceOwnersLength() external view returns (uint256);
-
-    function governanceOwner(uint256 index) external view returns (address);
+    /// Returns whether `account` may call `verify()` without paying the protocol fee.
+    function feeExemptAddress(address account) external view returns (bool);
 }

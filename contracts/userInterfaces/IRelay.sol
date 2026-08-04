@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import { ISafeGovernance } from "./ISafeGovernance.sol";
 import { RandomNumberV2Interface } from "./LTS/RandomNumberV2Interface.sol";
 
 /**
@@ -29,14 +30,12 @@ interface IRelay is RandomNumberV2Interface {
                                                                // the protocol messages.
         address payable feeCollectionAddress;                  // Fee collection address
         FeeConfig[] feeConfigs;                                // Fee configurations
-        // RLY-23 source network id (shared by signing + governance). Zero => block.chainid (home);
-        // a home deploy (signingPolicySetter set) forces it to equal block.chainid.
-        uint256 sourceChainId;
-        address governanceSafe;
-        uint256 governanceThreshold;
-        address[] governanceOwners;
-        uint256 governanceOwnerConfigSafeNonce;
-        uint256 governanceSafeNonce;
+        // Safe governance configuration. Its sourceChainId is the RLY-23 source network id
+        // (shared by signing + governance) and must be explicit and nonzero on EVERY
+        // deployment; a home deploy (signingPolicySetter set) forces it to equal
+        // block.chainid and requires the governance fields to be populated (unless it is
+        // block.chainid; governance itself is mandatory on every deployment).
+        ISafeGovernance.GovernanceConfig governance;
     }
 
     // Event is emitted when a new signing policy is initialized by the signing policy setter.
@@ -77,6 +76,142 @@ interface IRelay is RandomNumberV2Interface {
         uint256 randomNumber,               // The relayed (Merkle-proven) random number value
         bool isSecureRandom                 // Whether the random is secure
     );
+
+
+    // ---- Typed failure ABI (replaces the pre-2026-08 string reasons; the legacy string is
+    // ---- noted per error). relay() raises these from its assembly via 4-byte selectors.
+    /// Legacy reason: "Already relayed".
+    error AlreadyRelayed();
+    /// Legacy reason: "Bad s".
+    error BadS();
+    /// Legacy reason: "Bad v".
+    error BadV();
+    /// Legacy reason: "Delayed sign policy".
+    error DelayedSignPolicy();
+    /// Legacy reason: "ecrecover error".
+    error EcrecoverError();
+    /// Legacy reason: "ecrecover returned bad data".
+    error EcrecoverReturnedBadData();
+    /// Legacy reason: "fee collection address zero".
+    error FeeCollectionAddressZero();
+    /// Legacy reason: "fee cannot be set".
+    error FeeConfigNotAllowed();
+    /// Legacy reason: "Transfer failed".
+    error FeeTransferFailed();
+    /// Legacy reason: "before the start".
+    error HistoryBeforeStart();
+    /// Legacy reason: "Incorrect merkle proof".
+    error IncorrectMerkleProof();
+    /// Legacy reason: "Index out of order".
+    error IndexOutOfOrder();
+    /// Legacy reason: "Index out of range".
+    error IndexOutOfRange();
+    /// Legacy reason: "initial signing policy hash zero".
+    error InitialSigningPolicyHashZero();
+    /// Legacy reason: "Invalid config hash".
+    error InvalidConfigHash();
+    /// Legacy reason: "invalid initial starting voting round id".
+    error InvalidInitialStartingVotingRoundId();
+    /// Legacy reason: "invalid protocol id".
+    error InvalidProtocolId();
+    /// Legacy reason: "Invalid random number proof".
+    error InvalidRandomNumberProof();
+    /// Legacy reason: "random number protocol id must be > 1".
+    error InvalidRandomNumberProtocolId();
+    /// Legacy reason: "Invalid sign policy length".
+    error InvalidSignPolicyLength();
+    /// Legacy reason: "Invalid sign policy metadata".
+    error InvalidSignPolicyMetadata();
+    /// Legacy reason: "Invalid voting round id".
+    error InvalidVotingRoundId();
+    /// Legacy reason: "merkle proof invalid".
+    error MerkleProofInvalid();
+    /// Legacy reason: "Message too old".
+    error MessageTooOld();
+    /// Legacy reason: "Must use new sign policy".
+    error MustUseNewSignPolicy();
+    /// Legacy reason: "no access to merkle roots".
+    error NoAccessToMerkleRoots();
+    /// Legacy reason: "no access to signing policy hashes".
+    error NoAccessToSigningPolicyHashes();
+    /// Legacy reason: "No new sign policy size".
+    error NoNewSignPolicySize();
+    /// Legacy reason: "No random number" / "no random number".
+    error NoRandomNumber();
+    /// Legacy reason: "No signature count".
+    error NoSignatureCount();
+    /// Legacy reason: "Not enough signatures".
+    error NotEnoughSignatures();
+    /// Legacy reason: "not finalized".
+    error NotFinalized();
+    /// Legacy reason: "Not next reward epoch" / "not next reward epoch".
+    error NotNextRewardEpoch();
+    /// Legacy reason: "Not with last intialized".
+    error NotWithLastInitialized();
+    /// Legacy reason: "old relay incompatible".
+    error OldRelayIncompatible();
+    /// Legacy reason: "old relay verification failed".
+    error OldRelayVerificationFailed();
+    /// Legacy reason: "wrong first reward epoch start".
+    error OldRelayWrongFirstRewardEpochStart();
+    /// Legacy reason: "wrong reward epoch duration".
+    error OldRelayWrongRewardEpochDuration();
+    /// Legacy reason: "wrong start ts".
+    error OldRelayWrongStartTs();
+    /// Legacy reason: "wrong voting epoch duration".
+    error OldRelayWrongVotingEpochDuration();
+    /// Legacy reason: "only sign policy setter".
+    error OnlySigningPolicySetterRole();
+    /// Legacy reason: "Refund failed".
+    error RefundFailed();
+    /// Legacy reason: "reward epoch duration zero".
+    error RewardEpochDurationZero();
+    /// Legacy reason: "Sign policy relay disabled".
+    error SignPolicyRelayDisabled();
+    /// Legacy reason: "must be non-trivial".
+    error SigningPolicyEmpty();
+    /// Legacy reason: "Signing policy hash mismatch".
+    error SigningPolicyHashMismatch();
+    /// Legacy reason: "source chain id must match on home deploy".
+    error SourceChainIdMismatchOnHomeDeploy();
+    /// Legacy reason: "threshold increase too small".
+    error ThresholdIncreaseTooSmall();
+    /// Legacy reason: "too big threshold".
+    error ThresholdTooHigh();
+    /// Legacy reason: "too small threshold".
+    error ThresholdTooLow();
+    /// Legacy reason: "too low fee".
+    error TooLowFee();
+    /// Legacy reason: "too many voters".
+    error TooManyVoters();
+    /// Legacy reason: "Too short message".
+    error TooShortMessage();
+    /// Legacy reason: "total weight too big".
+    error TotalWeightTooBig();
+    /// Legacy reason: "This should never happen".
+    error UnreachableCode();
+    /// Legacy reason: "Verification failed".
+    error VerificationFailed();
+    /// Legacy reason: "size mismatch".
+    error VotersWeightsSizeMismatch();
+    /// Legacy reason: "voting epoch duration zero".
+    error VotingEpochDurationZero();
+    /// Legacy reason: "Wrong message format".
+    error WrongMessageFormat();
+    /// Legacy reason: "Wrong message format2".
+    error WrongMessageFormat2();
+    /// Legacy reason: "Wrong sign policy reward epoch".
+    error WrongSignPolicyRewardEpoch();
+    /// Legacy reason: "Wrong signature".
+    error WrongSignature();
+    /// Legacy reason: "Wrong size for new sign policy".
+    error WrongSizeForNewSignPolicy();
+    /// Legacy reason: "Wrong verification data".
+    error WrongVerificationData();
+    /// Legacy reason: "zero merkle root".
+    error ZeroMerkleRoot();
+    /// Legacy reason: "Zero signer".
+    error ZeroSigner();
 
     /**
      * Checks the relay message for sufficient weight of signatures for the _messageHash

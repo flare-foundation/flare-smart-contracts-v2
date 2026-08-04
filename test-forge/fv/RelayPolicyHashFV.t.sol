@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
 
 import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase + encoding helpers
+// solhint-disable-next-line no-unused-import
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
 
 // ============================================================================================
 // P8 — Signing-policy-hash equivalence (Halmos, bounded symbolic). See docs/relay-fv.md §4 (P8).
@@ -59,7 +64,7 @@ contract RelayPolicyHashFV is RelayTestBase {
     // (Relay.sol:513-522): Error(string) selector || offset(0x20) || length(28) || right-padded msg.
     // length "Signing policy hash mismatch" == 28 (matches Relay.sol:828).
     function _mismatchReturndata() internal pure returns (bytes memory) {
-        return abi.encodeWithSignature("Error(string)", "Signing policy hash mismatch");
+        return abi.encodeWithSelector(IRelay.SigningPolicyHashMismatch.selector);
     }
 
     // True iff the call result is EXACTLY the "Signing policy hash mismatch" revert. Any other
@@ -100,7 +105,7 @@ contract RelayPolicyHashFV is RelayTestBase {
     // The hash check (Relay.sol:822) is reached before any signature processing, so 0 signatures
     // suffice; any later revert ("Verification failed", etc.) is NOT the mismatch revert.
     function _callRelay(bytes32 storedHash, bytes memory p) internal returns (bool ok, bytes memory ret) {
-        Relay r = new Relay(_initialConfig(storedHash), address(0), IRelay(address(0)));
+        Relay r = deployRelay(_initialConfig(storedHash), address(0), IRelay(address(0)));
         bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("fv-root"));
         bytes memory sigs = abi.encodePacked(uint16(0)); // zero signatures: count prefix only
         (ok, ret) = address(r).call(abi.encodePacked(Relay.relay.selector, p, message, sigs));

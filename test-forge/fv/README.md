@@ -8,11 +8,11 @@ mathematician / computer scientist but *not* yet fluent in the verification tool
 run, and trust everything here.
 
 > **Scope:** the exact manifest covers the signing-policy, `relay()`, Merkle,
-> randomness, verification-fee core, and the bounded post-recovery GSS signer
-> and action state machines. Safe EIP-712 digest equivalence and successful Safe
-> execution are differential/concrete boundaries, not Halmos claims. The exact
+> randomness, verification-fee core, and the bounded post-recovery Safe-governance
+> signer and action state machines. Safe EIP-712 digest equivalence and successful
+> Safe execution are differential/concrete boundaries, not Halmos claims. The exact
 > boundary and residuals are recorded in
-> [`docs/gss-governance.md`](../../docs/gss-governance.md).
+> [`docs/safe-governance.md`](../../docs/safe-governance.md).
 
 ---
 
@@ -220,7 +220,7 @@ The full trust base — every assumption, where it lives, and how it is discharg
 (the shared `RelayTestBase` calldata encoders, reused by the Halmos harnesses) ·
 [`verify_fv.py`](verify_fv.py) (the CI gate) · [`lean/`](lean/) (R4 Lean proofs) · [`kontrol/`](kontrol/).
 
-**GSS governance.** [`GSSGovernanceFV.t.sol`](GSSGovernanceFV.t.sol) contributes
+**Safe governance.** [`SafeGovernanceFV.t.sol`](SafeGovernanceFV.t.sol) contributes
 13 proofs and 2 reachability controls for the internal post-recovery signer and
 verified-action boundaries. [`verify_gss_governance.py`](verify_gss_governance.py)
 requires the exact 36-test real-Safe, production-rehearsal, and stateful-invariant
@@ -229,7 +229,7 @@ pins the production Safe shape at one fixed Flare block.
 
 The full Halmos inventory is 101 checks: 71 proofs and 30 validated reachability
 controls. Do not cite it as a proof of ECDSA, the complete Safe digest algorithm,
-successful source execution, or GSS behavior beyond the exposed bounded state
-machines. Kontrol and Lean still cover only the signing-policy relay core. The
+successful source execution, or Safe-governance behavior beyond the exposed bounded
+state machines. Kontrol and Lean still cover only the signing-policy relay core. The
 current Certora rules pass the local compile/typecheck gate; cloud proof remains
 pending.

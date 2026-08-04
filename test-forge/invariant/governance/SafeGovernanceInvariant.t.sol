@@ -7,9 +7,12 @@ import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {Test} from "forge-std/Test.sol";
 import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 import {IRelay} from "../../../contracts/userInterfaces/IRelay.sol";
-import {GSSGovernance} from "../../../contracts/governance/GSSGovernance.sol";
-import {GnosisSafeTx} from "../../../contracts/governance/GnosisSafeTx.sol";
-import {GSSOwnerConfigurationChecker} from "../../../contracts/governance/GSSOwnerConfigurationChecker.sol";
+import {ISafeGovernance} from "../../../contracts/userInterfaces/ISafeGovernance.sol";
+import {SafeGovernance} from "../../../contracts/governance/lib/SafeGovernance.sol";
+import {SafeInstructions} from "../../../contracts/governance/implementation/SafeInstructions.sol";
+import {SafeInstructionsProxy} from "../../../contracts/governance/implementation/SafeInstructionsProxy.sol";
+import {RelayProxy} from "../../../contracts/protocol/implementation/RelayProxy.sol";
+import {IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import {GnosisSafeL2} from "@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol";
 import {GnosisSafeProxy} from "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
 
@@ -52,7 +55,7 @@ interface IInvariantSafe {
     ) external payable returns (bool);
 }
 
-contract GSSGovernanceInvariantHandler is Test {
+contract SafeGovernanceInvariantHandler is Test {
     struct PendingMessage {
         bytes data;
         bytes signatures;
@@ -85,7 +88,7 @@ contract GSSGovernanceInvariantHandler is Test {
     uint8 internal constant KIND_OWNERS = 2;
     bytes4 internal constant CHANGE_OWNERS = bytes4(keccak256("changeOwners(uint256,bytes32,uint256,address[])"));
     bytes4 internal constant CHANGE_FEES =
-        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,uint256,uint256)[])"));
+        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint256,uint256)[])"));
 
     Relay public immutable relayA;
     Relay public immutable relayB;
@@ -131,10 +134,10 @@ contract GSSGovernanceInvariantHandler is Test {
         keysB = keysB_;
         _setSourceKeys(keysA_);
         sourceHash = initialHash;
-        sourceGeneration = replayFloor_;
+        sourceGeneration = replayFloor_ - 1;
         nextActionNonce = replayFloor_;
-        modelA = TargetModel(initialHash, replayFloor_, replayFloor_, 0, 0);
-        modelB = TargetModel(initialHash, replayFloor_, replayFloor_, 0, 0);
+        modelA = TargetModel(initialHash, replayFloor_ - 1, replayFloor_, 0, 0);
+        modelB = TargetModel(initialHash, replayFloor_ - 1, replayFloor_, 0, 0);
     }
 
     function createFee(uint8 gapSeed, uint256 feeA, uint256 feeB, uint8 maskSeed) external {
@@ -166,13 +169,13 @@ contract GSSGovernanceInvariantHandler is Test {
 
         uint256[] memory nextKeys = sourceUsesB ? _copy(keysA) : _copy(keysB);
         address[] memory nextOwners = _ownersForKeys(nextKeys);
-        bytes32 nextHash = GSSGovernance.ownerConfigHash(SOURCE_CHAIN, safe, actionNonce, THRESHOLD, nextOwners);
+        bytes32 nextHash = SafeGovernance.ownerConfigHash(SOURCE_CHAIN, safe, actionNonce, THRESHOLD, nextOwners);
         bytes memory data = abi.encodeWithSelector(CHANGE_OWNERS, actionNonce, sourceHash, THRESHOLD, nextOwners);
         pending.push(
             PendingMessage({
                 data: data,
-                signatures: _sign(data, actionNonce - 1, sourceKeys),
-                safeTxNonce: actionNonce - 1,
+                signatures: _sign(data, actionNonce, sourceKeys),
+                safeTxNonce: actionNonce,
                 actionNonce: actionNonce,
                 sourceHash: sourceHash,
                 nextHash: nextHash,
@@ -201,7 +204,7 @@ contract GSSGovernanceInvariantHandler is Test {
         PendingMessage storage message = pending[uint256(messageSeed) % pending.length];
         bool toA = targetSeed % 2 == 0;
         Relay target = toA ? relayA : relayB;
-        GnosisSafeTx.Transaction memory txData = _transaction(message);
+        ISafeGovernance.SafeTx memory txData = _transaction(message);
         uint8 field = fieldSeed % 7;
         if (field == 0) {
             txData.to = address(uint160(txData.to) ^ 1);
@@ -220,7 +223,9 @@ contract GSSGovernanceInvariantHandler is Test {
         }
 
         vm.chainId(toA ? CHAIN_A : CHAIN_B);
-        (bool ok,) = address(target).call(abi.encodeCall(Relay.processGSSMessage, (txData, message.signatures)));
+        (bool ok,) = address(target).call(
+            abi.encodeCall(ISafeGovernance.processSafeMessage, (txData, message.signatures))
+        );
         assertFalse(ok, "mutated signed transaction accepted");
         ++mutationRejections;
         _assertTarget(target, toA ? modelA : modelB, toA);
@@ -241,23 +246,23 @@ contract GSSGovernanceInvariantHandler is Test {
 
     function _appendFeeMessage(uint256 actionNonce, uint256 feeA, uint256 feeB, uint8 feeMask) internal {
         uint256 count = feeMask == 0 ? 1 : ((feeMask & 1 == 0 ? 0 : 1) + (feeMask & 2 == 0 ? 0 : 1));
-        Relay.GovernanceFeeUpdate[] memory updates = new Relay.GovernanceFeeUpdate[](count);
+        SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](count);
         uint256 position;
         if (feeMask & 1 != 0) {
-            updates[position++] = Relay.GovernanceFeeUpdate(CHAIN_A, 3, feeA);
+            updates[position++] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), 3, feeA);
         }
         if (feeMask & 2 != 0) {
-            updates[position++] = Relay.GovernanceFeeUpdate(CHAIN_B, 4, feeB);
+            updates[position++] = SafeGovernance.GovernanceFeeUpdate(CHAIN_B, address(relayB), 4, feeB);
         }
         if (feeMask == 0) {
-            updates[0] = Relay.GovernanceFeeUpdate(OTHER_CHAIN, 5, feeA ^ feeB);
+            updates[0] = SafeGovernance.GovernanceFeeUpdate(OTHER_CHAIN, HELPER, 5, feeA ^ feeB);
         }
         bytes memory data = abi.encodeWithSelector(CHANGE_FEES, actionNonce, sourceHash, updates);
         pending.push(
             PendingMessage({
                 data: data,
-                signatures: _sign(data, actionNonce - 1, sourceKeys),
-                safeTxNonce: actionNonce - 1,
+                signatures: _sign(data, actionNonce, sourceKeys),
+                safeTxNonce: actionNonce,
                 actionNonce: actionNonce,
                 sourceHash: sourceHash,
                 nextHash: bytes32(0),
@@ -278,20 +283,22 @@ contract GSSGovernanceInvariantHandler is Test {
         uint256 targetChain = toA ? CHAIN_A : CHAIN_B;
 
         bool hashMatches = message.sourceHash == model.ownerHash;
-        bool nonceAvailable = message.actionNonce > replayFloor && !consumed[message.actionNonce];
+        bool nonceAvailable = message.actionNonce >= replayFloor && !consumed[message.actionNonce];
         bool expectedSuccess;
         bool relevant;
         if (message.kind == KIND_OWNERS) {
             expectedSuccess = hashMatches && nonceAvailable && message.actionNonce > model.ownerGeneration;
             relevant = expectedSuccess;
         } else {
-            expectedSuccess = hashMatches && nonceAvailable && message.actionNonce > model.lastNonce;
+            expectedSuccess = hashMatches && nonceAvailable && message.actionNonce >= model.lastNonce;
             relevant = expectedSuccess && _isRelevant(message.feeMask, toA);
         }
 
-        GnosisSafeTx.Transaction memory txData = _transaction(message);
+        ISafeGovernance.SafeTx memory txData = _transaction(message);
         vm.chainId(targetChain);
-        (bool ok,) = address(target).call(abi.encodeCall(Relay.processGSSMessage, (txData, message.signatures)));
+        (bool ok,) = address(target).call(
+            abi.encodeCall(ISafeGovernance.processSafeMessage, (txData, message.signatures))
+        );
         assertEq(ok, expectedSuccess, "Relay/reference-model result mismatch");
 
         if (!ok) {
@@ -319,7 +326,7 @@ contract GSSGovernanceInvariantHandler is Test {
     function _transaction(PendingMessage storage message)
         internal
         view
-        returns (GnosisSafeTx.Transaction memory txData)
+        returns (ISafeGovernance.SafeTx memory txData)
     {
         txData.to = HELPER;
         txData.data = message.data;
@@ -330,15 +337,43 @@ contract GSSGovernanceInvariantHandler is Test {
         internal
         returns (bytes memory signatures)
     {
-        GnosisSafeTx.Transaction memory txData;
+        ISafeGovernance.SafeTx memory txData;
         txData.to = HELPER;
         txData.data = data;
         txData.nonce = safeTxNonce;
-        bytes32 digest = GnosisSafeTx.digest(txData, SOURCE_CHAIN, safe);
+        bytes32 digest = _safeTxDigest(txData, SOURCE_CHAIN, safe);
         for (uint256 i; i < THRESHOLD; ++i) {
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingKeys[i], digest);
             signatures = bytes.concat(signatures, abi.encodePacked(r, s, v));
         }
+    }
+
+    /// Test-local replica of the Safe v1.3.0 EIP-712 digest (differentially pinned against the
+    /// real GnosisSafeL2 in SafeGoverned.t.sol / SafeGovernance.t.sol).
+    function _safeTxDigest(ISafeGovernance.SafeTx memory txData, uint256 chainId, address safeAddress)
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes32 domain = keccak256(abi.encode(
+            keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"), chainId, safeAddress
+        ));
+        bytes32 structHash = keccak256(abi.encode(
+            // solhint-disable-next-line max-line-length
+            // solhint-disable-next-line max-line-length
+            keccak256("SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"),
+            txData.to,
+            txData.value,
+            keccak256(txData.data),
+            txData.operation,
+            txData.safeTxGas,
+            txData.baseGas,
+            txData.gasPrice,
+            txData.gasToken,
+            txData.refundReceiver,
+            txData.nonce
+        ));
+        return keccak256(abi.encodePacked("\x19\x01", domain, structHash));
     }
 
     function _setSourceKeys(uint256[] memory values) internal {
@@ -375,23 +410,22 @@ contract GSSGovernanceInvariantHandler is Test {
     }
 
     function _assertTarget(Relay target, TargetModel storage model, bool isA) internal view {
-        assertEq(target.activeOwnerConfigHash(), model.ownerHash, "owner hash");
-        assertEq(target.activeOwnerConfigSafeNonce(), model.ownerGeneration, "owner generation");
-        assertEq(target.lastGovernanceSafeNonce(), model.lastNonce, "last nonce");
+        (bytes32 activeHash, uint256 activeNonce) = target.governanceOwnerConfig();
+        (, uint256 lastNonce) = target.governanceNonces();
+        assertEq(activeHash, model.ownerHash, "owner hash");
+        assertEq(activeNonce, model.ownerGeneration, "owner generation");
+        assertEq(lastNonce, model.lastNonce, "last nonce");
         assertEq(target.protocolFeeInWei(3), model.fee3, "protocol 3 fee");
         assertEq(target.protocolFeeInWei(4), model.fee4, "protocol 4 fee");
-        assertGe(model.ownerGeneration, replayFloor, "owner generation regressed");
+        assertGe(model.ownerGeneration + 1, replayFloor, "owner generation regressed");
         assertGe(model.lastNonce, replayFloor, "last nonce regressed");
 
-        address[] memory owners = new address[](target.governanceOwnersLength());
-        for (uint256 i; i < owners.length; ++i) {
-            owners[i] = target.governanceOwner(i);
-            if (i > 0) {
-                assertLt(uint256(uint160(owners[i - 1])), uint256(uint160(owners[i])), "owners not canonical");
-            }
+        (,, address[] memory owners) = target.governanceSigners();
+        for (uint256 i = 1; i < owners.length; ++i) {
+            assertLt(uint256(uint160(owners[i - 1])), uint256(uint160(owners[i])), "owners not canonical");
         }
         assertEq(
-            GSSGovernance.ownerConfigHash(SOURCE_CHAIN, safe, model.ownerGeneration, THRESHOLD, owners),
+            SafeGovernance.ownerConfigHash(SOURCE_CHAIN, safe, model.ownerGeneration, THRESHOLD, owners),
             model.ownerHash,
             "owner hash is not derived from stored generation/config"
         );
@@ -404,17 +438,17 @@ contract GSSGovernanceInvariantHandler is Test {
     }
 }
 
-contract GSSGovernanceInvariantTest is StdInvariant, Test {
+contract SafeGovernanceInvariantTest is StdInvariant, Test {
     uint256 internal constant SOURCE_CHAIN = 14;
     uint256 internal constant CHAIN_A = 100;
     uint256 internal constant CHAIN_B = 200;
     uint256 internal constant THRESHOLD = 3;
 
     IInvariantSafe internal safe;
-    GSSOwnerConfigurationChecker internal checker;
+    SafeInstructions internal checker;
     Relay internal relayA;
     Relay internal relayB;
-    GSSGovernanceInvariantHandler internal handler;
+    SafeGovernanceInvariantHandler internal handler;
     uint256[] internal keysA;
     uint256[] internal keysB;
     address[] internal ownersA;
@@ -429,18 +463,26 @@ contract GSSGovernanceInvariantTest is StdInvariant, Test {
         GnosisSafeProxy proxy = new GnosisSafeProxy(address(singleton));
         safe = IInvariantSafe(address(proxy));
         safe.setup(ownersA, THRESHOLD, address(0), bytes(""), address(0), address(0), 0, payable(address(0)));
-        checker = new GSSOwnerConfigurationChecker(SOURCE_CHAIN, address(safe));
-        bytes memory bootstrap =
-            abi.encodeWithSelector(checker.changeOwners.selector, uint256(1), bytes32(0), THRESHOLD, ownersA);
-        _executeSafe(address(checker), bootstrap, 0, keysA);
-
+        SafeInstructions checkerImplementation = new SafeInstructions();
+        checker = SafeInstructions(
+            address(
+                new SafeInstructionsProxy(
+                    IGovernanceSettings(makeAddr("governanceSettings")),
+                    makeAddr("flareGovernance"),
+                    makeAddr("addressUpdater"),
+                    address(checkerImplementation),
+                    address(safe)
+                )
+            )
+        );
+        // initialize admits the live Safe configuration as generation 0 — no bootstrap.
         bytes32 initialHash = checker.activeOwnerConfigHash();
         vm.chainId(CHAIN_A);
-        relayA = new Relay(_config(initialHash), address(0), IRelay(address(0)));
+        relayA = _deployRelay(_config(initialHash));
         vm.chainId(CHAIN_B);
-        relayB = new Relay(_config(initialHash), address(0), IRelay(address(0)));
+        relayB = _deployRelay(_config(initialHash));
 
-        handler = new GSSGovernanceInvariantHandler(relayA, relayB, address(safe), 1, initialHash, keysA, keysB);
+        handler = new SafeGovernanceInvariantHandler(relayA, relayB, address(safe), 1, initialHash, keysA, keysB);
         targetContract(address(handler));
 
         bytes4[] memory selectors = new bytes4[](5);
@@ -481,6 +523,15 @@ contract GSSGovernanceInvariantTest is StdInvariant, Test {
         handler.assertAll();
     }
 
+    function _deployRelay(IRelay.RelayInitialConfig memory config) internal returns (Relay) {
+        Relay relayImplementation = new Relay();
+        return Relay(
+            address(
+                new RelayProxy(address(relayImplementation), config, address(0), IRelay(address(0)), address(this))
+            )
+        );
+    }
+
     function _config(bytes32 initialHash) internal view returns (IRelay.RelayInitialConfig memory config) {
         config.initialRewardEpochId = 1;
         config.startingVotingRoundIdForInitialRewardEpochId = 1;
@@ -493,23 +544,13 @@ contract GSSGovernanceInvariantTest is StdInvariant, Test {
         config.thresholdIncreaseBIPS = 10_000;
         config.messageFinalizationWindowInRewardEpochs = 1;
         config.feeCollectionAddress = payable(address(0xFEE));
-        config.sourceChainId = SOURCE_CHAIN;
-        config.governanceSafe = address(safe);
-        config.governanceThreshold = THRESHOLD;
-        config.governanceOwners = ownersA;
-        config.governanceOwnerConfigSafeNonce = 1;
-        config.governanceSafeNonce = 1;
-        assertEq(GSSGovernance.ownerConfigHash(SOURCE_CHAIN, address(safe), 1, THRESHOLD, ownersA), initialHash);
-    }
-
-    function _executeSafe(address to, bytes memory data, uint256 nonce, uint256[] memory signingKeys) internal {
-        bytes32 digest = safe.getTransactionHash(to, 0, data, 0, 0, 0, 0, address(0), address(0), nonce);
-        bytes memory signatures;
-        for (uint256 i; i < THRESHOLD; ++i) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingKeys[i], digest);
-            signatures = bytes.concat(signatures, abi.encodePacked(r, s, v));
-        }
-        assertTrue(safe.execTransaction(to, 0, data, 0, 0, 0, 0, address(0), payable(address(0)), signatures));
+        config.governance.sourceChainId = SOURCE_CHAIN;
+        config.governance.safe = address(safe);
+        config.governance.threshold = THRESHOLD;
+        config.governance.owners = ownersA;
+        config.governance.ownerConfigSafeNonce = 0;
+        config.governance.safeNonce = 1;
+        assertEq(SafeGovernance.ownerConfigHash(SOURCE_CHAIN, address(safe), 0, THRESHOLD, ownersA), initialHash);
     }
 
     function _keys(uint256 a, uint256 b, uint256 c, uint256 d, uint256 e)
