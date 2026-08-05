@@ -337,4 +337,6 @@ for (const [type, count] of Object.entries(counts)) {
   console.log(`    ${type}: ${count}`);
 }
 
-process.exit(counts["High"] || 0);
+// Exit status must be a boolean pass/fail, not the finding count: exit codes are taken mod 256,
+// so exactly 256 high-impact findings would exit 0 and pass.
+process.exit(counts["High"] ? 1 : 0);
