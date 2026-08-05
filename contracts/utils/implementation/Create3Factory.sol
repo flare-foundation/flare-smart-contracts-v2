@@ -23,13 +23,19 @@ contract Create3Factory {
 
     event ContractDeployed(address indexed deployer, bytes32 indexed salt, address deployed);
 
+    /// The (deployer, salt) pair already holds a contract; addresses are single-use.
+    error SaltAlreadyUsed(bytes32 salt);
+    /// The init code returned no runtime code; reverting keeps the single-use salt usable.
+    error EmptyRuntimeCode();
+
     /**
      * Deploys `_initCode` via CREATE3 under the caller-scoped `_salt`.
      * @param _salt The deployer-chosen salt (scoped to `msg.sender`).
      * @param _initCode The full creation code (including constructor arguments); it does NOT
      * influence the resulting address.
      * @return _deployed The deployed contract address; any attached value is forwarded to the
-     * constructor. Reverts if the (deployer, salt) pair was already used on this chain.
+     * constructor. Reverts with `SaltAlreadyUsed` if the (deployer, salt) pair was already used
+     * on this chain, and with `EmptyRuntimeCode` if the init code returns no runtime code.
      */
     function deploy(
         bytes32 _salt,
@@ -38,7 +44,10 @@ contract Create3Factory {
         external payable
         returns (address _deployed)
     {
-        _deployed = Create3.deploy(msg.value, _guardedSalt(msg.sender, _salt), _initCode);
+        bytes32 guardedSalt = _guardedSalt(msg.sender, _salt);
+        require(Create3.computeAddress(guardedSalt).code.length == 0, SaltAlreadyUsed(_salt));
+        _deployed = Create3.deploy(msg.value, guardedSalt, _initCode);
+        require(_deployed.code.length > 0, EmptyRuntimeCode());
         emit ContractDeployed(msg.sender, _salt, _deployed);
     }
 

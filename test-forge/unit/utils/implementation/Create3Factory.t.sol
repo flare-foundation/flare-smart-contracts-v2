@@ -52,8 +52,19 @@ contract Create3FactoryTest is Test {
 
     function test_duplicateDeployReverts() public {
         factory.deploy(SALT, abi.encodePacked(type(Create3Probe).creationCode, abi.encode(uint256(1))));
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(Create3Factory.SaltAlreadyUsed.selector, SALT));
         factory.deploy(SALT, abi.encodePacked(type(Create3Probe).creationCode, abi.encode(uint256(2))));
+    }
+
+    function test_emptyRuntimeRevertsAndKeepsSaltUsable() public {
+        // PUSH1 0 PUSH1 0 RETURN: init code that succeeds while returning no runtime code.
+        vm.expectRevert(Create3Factory.EmptyRuntimeCode.selector);
+        factory.deploy(SALT, hex"60006000f3");
+
+        // The revert rolled the inner proxy back too, so the salt still works.
+        address deployed =
+            factory.deploy(SALT, abi.encodePacked(type(Create3Probe).creationCode, abi.encode(uint256(9))));
+        assertEq(Create3Probe(deployed).value(), 9);
     }
 
     function test_valueForwarding() public {
