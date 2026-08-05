@@ -349,10 +349,14 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
             _signingPolicySetter != address(0) || _initialConfig.feeCollectionAddress != address(0),
             FeeCollectionAddressZero()
         );
+        if (_initialConfig.feeCollectionAddress != address(0)) {
+            emit FeeCollectionAddressSet(_initialConfig.feeCollectionAddress);
+        }
         for (uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {
             uint8 protocolId = _initialConfig.feeConfigs[i].protocolId;
             require(protocolId > 1, InvalidProtocolId());
             protocolFeeInWei[protocolId] = _initialConfig.feeConfigs[i].feeInWei;
+            emit ProtocolFeeSet(protocolId, _initialConfig.feeConfigs[i].feeInWei);
         }
         // Seed initial verify() fee exemptions (e.g. DVN adapters) so they are exempt from block
         // one, with no post-deploy governance round-trip. Relay mode only — the setter-mode branch
@@ -361,7 +365,7 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
             address exemptAccount = _initialConfig.feeExemptAddresses[i];
             require(exemptAccount != address(0), FeeExemptAddressZero());
             feeExemptAddress[exemptAccount] = true;
-            emit FeeExemptionInitialized(exemptAccount);
+            emit FeeExemptionSet(exemptAccount, true);
         }
         // Safe governance is mandatory on every deployment — home, mirror and old-relay
         // migration alike (the same artifact ships to every chain). The base validates the
@@ -612,21 +616,23 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
         ) {
             revert InvalidGovernanceTransaction();
         }
-        SafeGovernance.validateFeeUpdates(updates);
-        // Single pass: the list is fully validated and a revert rolls back partial writes.
+        // Single pass, validating ONLY the entries addressed to this deployment as they are
+        // applied — the canonical ABI encoding is pinned above, and each target enforces its own
+        // entries. Whole-list ordering/bounds are the source SafeInstructions gate's job; other
+        // chains' entries are irrelevant here, and duplicates for this deployment resolve to a
+        // deterministic last-write-wins (the bytes were governance-signed). A revert on an invalid
+        // relevant entry rolls back the whole action (nonce included), so application stays atomic.
         for (uint256 i; i < updates.length; ++i) {
             if (updates[i].targetChainId != block.chainid || updates[i].targetAddress != address(this)) {
                 continue;
             }
             _relevant = true;
+            require(updates[i].protocolId > 1, InvalidProtocolId());
             protocolFeeInWei[updates[i].protocolId] = updates[i].feeInWei;
-            emit GovernanceFeeUpdated(
-                block.chainid,
-                updates[i].protocolId,
-                updates[i].feeInWei,
-                nonce,
-                configHash
-            );
+            emit ProtocolFeeSet(updates[i].protocolId, updates[i].feeInWei);
+        }
+        if (_relevant) {
+            emit GovernanceSettingsApplied(nonce, configHash);
         }
     }
 
@@ -646,21 +652,19 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
         ) {
             revert InvalidGovernanceTransaction();
         }
-        SafeGovernance.validateFeeExemptions(updates);
-        // Single pass — see _applyGovernanceFees for the atomicity/relevance reasoning.
+        // Single pass, per-entry validation of this deployment's entries only — see
+        // _applyGovernanceFees for the scoping/atomicity reasoning.
         for (uint256 i; i < updates.length; ++i) {
             if (updates[i].targetChainId != block.chainid || updates[i].targetAddress != address(this)) {
                 continue;
             }
             _relevant = true;
+            require(updates[i].account != address(0), FeeExemptAddressZero());
             feeExemptAddress[updates[i].account] = updates[i].exempt;
-            emit GovernanceFeeExemptionUpdated(
-                block.chainid,
-                updates[i].account,
-                updates[i].exempt,
-                nonce,
-                configHash
-            );
+            emit FeeExemptionSet(updates[i].account, updates[i].exempt);
+        }
+        if (_relevant) {
+            emit GovernanceSettingsApplied(nonce, configHash);
         }
     }
 
@@ -684,20 +688,20 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
         ) {
             revert InvalidGovernanceTransaction();
         }
-        SafeGovernance.validateFeeCollections(updates);
-        // Single pass — see _applyGovernanceFees for the atomicity/relevance reasoning.
+        // Single pass, per-entry validation of this deployment's entries only — see
+        // _applyGovernanceFees for the scoping/atomicity reasoning. The nonzero recipient guard
+        // is load-bearing: a zero recipient would burn every collected fee.
         for (uint256 i; i < updates.length; ++i) {
             if (updates[i].targetChainId != block.chainid || updates[i].targetAddress != address(this)) {
                 continue;
             }
             _relevant = true;
+            require(updates[i].feeCollectionAddress != address(0), FeeCollectionAddressZero());
             feeCollectionAddress = payable(updates[i].feeCollectionAddress);
-            emit GovernanceFeeCollectionUpdated(
-                block.chainid,
-                updates[i].feeCollectionAddress,
-                nonce,
-                configHash
-            );
+            emit FeeCollectionAddressSet(updates[i].feeCollectionAddress);
+        }
+        if (_relevant) {
+            emit GovernanceSettingsApplied(nonce, configHash);
         }
     }
 

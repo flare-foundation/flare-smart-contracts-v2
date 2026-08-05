@@ -65,7 +65,7 @@ contract SafeGovernanceTest is Test {
     uint256 internal constant NEW_OWNER_KEY = 16;
     address internal constant SENTINEL_OWNERS = address(0x1);
     bytes4 internal constant CHANGE_FEES =
-        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint256,uint256)[])"));
+        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint8,uint256)[])"));
     bytes4 internal constant CHANGE_EXEMPTIONS =
         bytes4(keccak256("changeFeeExemptions(uint256,bytes32,(uint256,address,address,bool)[])"));
     bytes4 internal constant CHANGE_FEE_COLLECTION =
@@ -401,25 +401,29 @@ contract SafeGovernanceTest is Test {
         assertTrue(relayB.governanceSafeNonceConsumed(safeNonce));
     }
 
-    function test_checkerAndRelayRejectNonCanonicalFeeCollectionList() public {
+    function test_sourceRejectsNonCanonicalFeeCollectionListButTargetAppliesLastWins() public {
         vm.chainId(SOURCE_CHAIN);
+        address cx = makeAddr("collectorX");
+        address cy = makeAddr("collectorY");
         SafeGovernance.GovernanceFeeCollection[] memory updates = new SafeGovernance.GovernanceFeeCollection[](2);
-        // duplicate (chainId, targetAddress) pair — one recipient per deployment
-        updates[0] = SafeGovernance.GovernanceFeeCollection(CHAIN_A, address(relayA), makeAddr("collectorX"));
-        updates[1] = SafeGovernance.GovernanceFeeCollection(CHAIN_A, address(relayA), makeAddr("collectorY"));
+        // duplicate (chainId, targetAddress) pair — rejected at the source gate, last-write-wins on target
+        updates[0] = SafeGovernance.GovernanceFeeCollection(CHAIN_A, address(relayA), cx);
+        updates[1] = SafeGovernance.GovernanceFeeCollection(CHAIN_A, address(relayA), cy);
         bytes memory action = abi.encodeWithSelector(CHANGE_FEE_COLLECTION, safe.nonce(), ownerHash, updates);
         ISafeGovernance.SafeTx memory txData = _txTo(address(checker), action, safe.nonce());
         bytes memory signatures = _signWith(txData, _ownerKeys(), THRESHOLD);
 
+        // Source SafeInstructions rejects the non-canonical (duplicate) list — quality gate intact.
         vm.expectRevert();
         safe.execTransaction(
             txData.to, 0, action, 0, 0, 0, 0, address(0), payable(address(0)), signatures
         );
 
+        // A relayer could still carry the signed action to a target; it applies only its own
+        // entries, last-write-wins for the duplicate (recipient nonzero, so no burn).
         vm.chainId(CHAIN_A);
-        vm.expectRevert(ISafeGovernance.InvalidGovernanceTransaction.selector);
         relayA.processSafeMessage(txData, signatures);
-        assertEq(relayA.feeCollectionAddress(), address(0xfee));
+        assertEq(relayA.feeCollectionAddress(), cy);
     }
 
     function test_setterModeRelayCarriesSafeGovernanceAndAppliesExemptionsButNeverFees() public {
@@ -466,11 +470,12 @@ contract SafeGovernanceTest is Test {
         assertEq(lastNonce, exemptionNonce);
     }
 
-    function test_checkerAndRelayRejectNonCanonicalExemptionList() public {
+    function test_sourceRejectsNonCanonicalExemptionListButTargetApplies() public {
         address dvn = makeAddr("dvnAdapter");
         vm.chainId(SOURCE_CHAIN);
         SafeGovernance.GovernanceFeeExemption[] memory updates =
             new SafeGovernance.GovernanceFeeExemption[](2);
+        // CHAIN_B before CHAIN_A — non-canonical, rejected at the source gate.
         updates[0] = SafeGovernance.GovernanceFeeExemption(CHAIN_B, address(relayB), dvn, true);
         updates[1] = SafeGovernance.GovernanceFeeExemption(CHAIN_A, address(relayA), dvn, true);
         bytes memory action = abi.encodeWithSelector(CHANGE_EXEMPTIONS, safe.nonce(), ownerHash, updates);
@@ -482,10 +487,10 @@ contract SafeGovernanceTest is Test {
             txData.to, 0, action, 0, 0, 0, 0, address(0), payable(address(0)), signatures
         );
 
+        // The target applies its own entry (CHAIN_A) regardless of the list's global ordering.
         vm.chainId(CHAIN_A);
-        vm.expectRevert(ISafeGovernance.InvalidGovernanceTransaction.selector);
         relayA.processSafeMessage(txData, signatures);
-        assertFalse(relayA.feeExemptAddress(dvn));
+        assertTrue(relayA.feeExemptAddress(dvn));
     }
 
     function test_extraNonOwnerSignatureRevertsEvenWithThresholdOwners() public {
@@ -554,30 +559,34 @@ contract SafeGovernanceTest is Test {
         relayA.processSafeMessage(txData, highS);
     }
 
-    function test_rejectsDuplicateLocalFeeWithoutPartialUpdate() public {
+    function test_duplicateLocalFeeAppliesLastWins() public {
         vm.chainId(SOURCE_CHAIN);
+        uint256 n = safe.nonce();
         SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](2);
         updates[0] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), 3, 111);
         updates[1] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), 3, 222);
-        bytes memory action = abi.encodeWithSelector(CHANGE_FEES, safe.nonce(), ownerHash, updates);
-        ISafeGovernance.SafeTx memory txData = _txTo(address(checker), action, safe.nonce());
+        bytes memory action = abi.encodeWithSelector(CHANGE_FEES, n, ownerHash, updates);
+        ISafeGovernance.SafeTx memory txData = _txTo(address(checker), action, n);
         bytes memory signatures = _signWith(txData, _ownerKeys(), THRESHOLD);
 
+        // The source rejects duplicates; if a signed duplicate still reaches a target it applies
+        // deterministically (last write wins) and consumes the nonce — no partial-state hazard.
         vm.chainId(CHAIN_A);
-        vm.expectRevert(ISafeGovernance.InvalidGovernanceTransaction.selector);
         relayA.processSafeMessage(txData, signatures);
-        assertEq(relayA.protocolFeeInWei(3), 0);
+        assertEq(relayA.protocolFeeInWei(3), 222);
         (, uint256 lastNonce) = relayA.governanceNonces();
-        assertEq(lastNonce, ownerConfigSafeNonce);
+        assertEq(lastNonce, n);
     }
 
-    function test_checkerAndRelayRejectNonCanonicalFeeList() public {
+    function test_sourceRejectsNonCanonicalFeeListButTargetApplies() public {
         vm.chainId(SOURCE_CHAIN);
+        uint256 n = safe.nonce();
         SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](2);
+        // CHAIN_B before CHAIN_A — non-canonical, rejected at the source gate.
         updates[0] = SafeGovernance.GovernanceFeeUpdate(CHAIN_B, address(relayB), 4, 222);
         updates[1] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), 3, 111);
-        bytes memory action = abi.encodeWithSelector(CHANGE_FEES, safe.nonce(), ownerHash, updates);
-        ISafeGovernance.SafeTx memory txData = _txTo(address(checker), action, safe.nonce());
+        bytes memory action = abi.encodeWithSelector(CHANGE_FEES, n, ownerHash, updates);
+        ISafeGovernance.SafeTx memory txData = _txTo(address(checker), action, n);
         bytes memory signatures = _signWith(txData, _ownerKeys(), THRESHOLD);
 
         vm.expectRevert();
@@ -594,31 +603,36 @@ contract SafeGovernanceTest is Test {
             signatures
         );
 
+        // The target applies its own entry (CHAIN_A, protocol 3) regardless of global ordering.
         vm.chainId(CHAIN_A);
-        vm.expectRevert(ISafeGovernance.InvalidGovernanceTransaction.selector);
         relayA.processSafeMessage(txData, signatures);
-        assertEq(relayA.protocolFeeInWei(3), 0);
+        assertEq(relayA.protocolFeeInWei(3), 111);
         (, uint256 lastNonce) = relayA.governanceNonces();
-        assertEq(lastNonce, ownerConfigSafeNonce);
+        assertEq(lastNonce, n);
     }
 
-    function test_rejectsEmptyFeeList() public {
+    function test_emptyFeeListIsForeignNoOpOnTarget() public {
         vm.chainId(SOURCE_CHAIN);
+        uint256 n = safe.nonce();
         SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](0);
-        bytes memory action = abi.encodeWithSelector(CHANGE_FEES, safe.nonce(), ownerHash, updates);
-        ISafeGovernance.SafeTx memory txData = _txTo(address(checker), action, safe.nonce());
+        bytes memory action = abi.encodeWithSelector(CHANGE_FEES, n, ownerHash, updates);
+        ISafeGovernance.SafeTx memory txData = _txTo(address(checker), action, n);
         bytes memory signatures = _signWith(txData, _ownerKeys(), THRESHOLD);
 
+        // The source rejects an empty list; on a target no entry matches, so the action is
+        // foreign — verified but not consumed, no state change (same as any irrelevant action).
         vm.chainId(CHAIN_A);
-        vm.expectRevert(ISafeGovernance.InvalidGovernanceTransaction.selector);
         relayA.processSafeMessage(txData, signatures);
+        assertFalse(relayA.governanceSafeNonceConsumed(n));
     }
 
     function test_maximumCanonicalFeeBatchIsExecutable() public {
         vm.chainId(SOURCE_CHAIN);
-        SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](256);
+        // protocolId is uint8, so the maximum strictly-increasing (canonical) batch for one
+        // deployment is protocol ids 2..255 = 254 entries.
+        SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](254);
         for (uint256 i; i < updates.length; ++i) {
-            updates[i] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), i + 2, i + 1);
+            updates[i] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), uint8(i + 2), i + 1);
         }
         bytes memory action = abi.encodeWithSelector(CHANGE_FEES, safe.nonce(), ownerHash, updates);
         (ISafeGovernance.SafeTx memory txData, bytes memory signatures) =
@@ -627,22 +641,29 @@ contract SafeGovernanceTest is Test {
         vm.chainId(CHAIN_A);
         relayA.processSafeMessage(txData, signatures);
         assertEq(relayA.protocolFeeInWei(2), 1);
-        assertEq(relayA.protocolFeeInWei(257), 256);
+        assertEq(relayA.protocolFeeInWei(255), 254);
     }
 
-    function test_rejectsFeeBatchAboveLimit() public {
+    function test_feeBatchAboveSourceLimitStillAppliesOnTarget() public {
         vm.chainId(SOURCE_CHAIN);
+        uint256 n = safe.nonce();
+        // 257 entries exceeds the source's 256-entry MAX bound; the target has no cap and allows
+        // duplicates, so protocol ids repeat within uint8 (last-write-wins) and the batch applies.
         SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](257);
         for (uint256 i; i < updates.length; ++i) {
-            updates[i] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), i + 2, i + 1);
+            updates[i] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), uint8(2 + (i % 250)), i + 1);
         }
-        bytes memory action = abi.encodeWithSelector(CHANGE_FEES, safe.nonce(), ownerHash, updates);
-        ISafeGovernance.SafeTx memory txData = _txTo(address(checker), action, safe.nonce());
+        bytes memory action = abi.encodeWithSelector(CHANGE_FEES, n, ownerHash, updates);
+        ISafeGovernance.SafeTx memory txData = _txTo(address(checker), action, n);
         bytes memory signatures = _signWith(txData, _ownerKeys(), THRESHOLD);
 
+        // The source SafeInstructions bounds the batch to 256; a target has no explicit cap
+        // (gas self-limits), so a hand-signed 257-entry batch applies (nonce consumed).
         vm.chainId(CHAIN_A);
-        vm.expectRevert(ISafeGovernance.InvalidGovernanceTransaction.selector);
         relayA.processSafeMessage(txData, signatures);
+        assertTrue(relayA.governanceSafeNonceConsumed(n));
+        // protocol id 2 appears at i = 0 and i = 250; last write (i = 250) wins.
+        assertEq(relayA.protocolFeeInWei(2), 251);
     }
 
     function test_gappedSafeNonceIsAccepted() public {

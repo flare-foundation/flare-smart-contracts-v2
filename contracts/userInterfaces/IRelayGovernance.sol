@@ -9,33 +9,33 @@ import { ISafeGovernance } from "./ISafeGovernance.sol";
  */
 interface IRelayGovernance is ISafeGovernance {
 
-    event GovernanceFeeUpdated(
-        uint256 indexed targetChainId,
-        uint256 indexed protocolId,
-        uint256 feeInWei,
-        uint256 safeNonce,
-        bytes32 indexed ownerConfigHash
+    /// A protocol verify() fee was set — at deployment (seeded config) or by a governance
+    /// action. Reports only WHAT was set; the authorizing nonce/owner-configuration is reported
+    /// once per governance action by `GovernanceSettingsApplied`.
+    event ProtocolFeeSet(
+        uint8 indexed protocolId,
+        uint256 feeInWei
     );
 
-    event GovernanceFeeExemptionUpdated(
-        uint256 indexed targetChainId,
+    /// A verify() fee exemption was set — at deployment (seeded config) or by a governance action.
+    event FeeExemptionSet(
         address indexed account,
-        bool exempt,
-        uint256 safeNonce,
-        bytes32 indexed ownerConfigHash
+        bool exempt
     );
 
-    event GovernanceFeeCollectionUpdated(
-        uint256 indexed targetChainId,
-        address indexed feeCollectionAddress,
-        uint256 safeNonce,
-        bytes32 indexed ownerConfigHash
+    /// The verify() fee-collection recipient was set — at deployment (seeded config) or by a
+    /// governance action.
+    event FeeCollectionAddressSet(
+        address indexed feeCollectionAddress
     );
 
-    /// A verify() fee exemption seeded at deployment (relay mode only), before any governance
-    /// action; distinct from `GovernanceFeeExemptionUpdated`, which carries a Safe nonce.
-    event FeeExemptionInitialized(
-        address indexed account
+    /// Emitted once per governance action after its settings are applied on this deployment,
+    /// identifying the Safe nonce and admitted owner configuration it was authorized under. The
+    /// chain id is not reported — an action only ever applies on its own chain. Not emitted at
+    /// deployment (no governance action then; the genesis configuration is `GovernanceInitialized`).
+    event GovernanceSettingsApplied(
+        uint256 safeNonce,
+        bytes32 indexed ownerConfigHash
     );
 
     /// @dev Deprecated: signature failures now revert with the typed ISafeGovernance errors

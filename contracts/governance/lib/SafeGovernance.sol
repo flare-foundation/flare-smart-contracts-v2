@@ -19,7 +19,8 @@ library SafeGovernance {
     struct GovernanceFeeUpdate {
         uint256 targetChainId;
         address targetAddress;
-        uint256 protocolId;
+        uint8 protocolId;       // Protocol id is a single byte in relay messages, so a fee for a
+                                // protocolId > 255 is unmatchable dead state; keep it uint8.
         uint256 feeInWei;
     }
 
@@ -56,7 +57,7 @@ library SafeGovernance {
         bytes4(keccak256("changeOwners(uint256,bytes32,uint256,address[])"));
     /// The Relay-specific protocol-fee action.
     bytes4 internal constant CHANGE_PROTOCOL_FEES_SELECTOR =
-        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint256,uint256)[])"));
+        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint8,uint256)[])"));
     /// The Relay-specific verify-fee-exemption action.
     bytes4 internal constant CHANGE_FEE_EXEMPTIONS_SELECTOR =
         bytes4(keccak256("changeFeeExemptions(uint256,bytes32,(uint256,address,address,bool)[])"));

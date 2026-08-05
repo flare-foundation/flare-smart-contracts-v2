@@ -88,7 +88,7 @@ contract SafeGovernanceInvariantHandler is Test {
     uint8 internal constant KIND_OWNERS = 2;
     bytes4 internal constant CHANGE_OWNERS = bytes4(keccak256("changeOwners(uint256,bytes32,uint256,address[])"));
     bytes4 internal constant CHANGE_FEES =
-        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint256,uint256)[])"));
+        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint8,uint256)[])"));
 
     Relay public immutable relayA;
     Relay public immutable relayB;

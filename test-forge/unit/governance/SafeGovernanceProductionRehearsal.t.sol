@@ -89,7 +89,7 @@ contract SafeGovernanceProductionRehearsalTest is Test {
     bytes32 internal constant FALLBACK_HANDLER_STORAGE_SLOT =
         0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
     bytes4 internal constant CHANGE_FEES =
-        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint256,uint256)[])"));
+        bytes4(keccak256("changeProtocolFees(uint256,bytes32,(uint256,address,uint8,uint256)[])"));
 
     IProductionShapeSafe internal safe;
     address internal singleton;
@@ -227,9 +227,11 @@ contract SafeGovernanceProductionRehearsalTest is Test {
 
     function test_rehearsalMaximumBatchFitsRecordedFlareBlockGasLimit() public {
         vm.chainId(SOURCE_CHAIN);
-        SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](256);
+        // protocolId is uint8, so the maximum strictly-increasing (canonical) single-deployment
+        // batch is protocol ids 2..255 = 254 entries.
+        SafeGovernance.GovernanceFeeUpdate[] memory updates = new SafeGovernance.GovernanceFeeUpdate[](254);
         for (uint256 i; i < updates.length; ++i) {
-            updates[i] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), i + 2, i + 1);
+            updates[i] = SafeGovernance.GovernanceFeeUpdate(CHAIN_A, address(relayA), uint8(i + 2), i + 1);
         }
         bytes memory action = abi.encodeWithSelector(CHANGE_FEES, safe.nonce(), ownerHash, updates);
         (ISafeGovernance.SafeTx memory txData, bytes memory signatures, uint256 sourceGas) =
@@ -242,7 +244,7 @@ contract SafeGovernanceProductionRehearsalTest is Test {
         uint256 targetGas = gasBefore - gasleft();
         assertLt(targetGas, OPERATIONAL_GAS_LIMIT, "target Relay gas budget");
         assertEq(relayA.protocolFeeInWei(2), 1);
-        assertEq(relayA.protocolFeeInWei(257), 256);
+        assertEq(relayA.protocolFeeInWei(255), 254);
     }
 
     function _deployRelay(IRelay.RelayInitialConfig memory config) internal returns (Relay) {
