@@ -26,7 +26,10 @@ abstract contract TokenPoolBase is IITokenPool {
 
     /**
      * Burn all funds that came from self-destructor sending a balance to this contract.
+     * @dev Reads `msg.value` deliberately: payable `mustBalance` entries must not have incoming value burned
+     * as proceeds; non-payable entries read zero and the check degrades correctly.
      */
+    //slither-disable-next-line msg-value-in-nonpayable
     function _handleSelfDestructProceeds() private {
         uint256 expectedBalance = _getExpectedBalance() + msg.value;
         uint256 currentBalance = address(this).balance;
