@@ -198,7 +198,7 @@ export async function redeployContracts(
     const relayImplementation = await Relay.new();
     const relayProxy = await RelayProxy.new(
       relayImplementation.address,
-      relayInitialConfig,
+      { ...relayInitialConfig, feeExemptAddresses: relayInitialConfig.feeExemptAddresses ?? [] },
       flareSystemsManager.address,
       oldRelay.address,
       parameters.governancePublicKey

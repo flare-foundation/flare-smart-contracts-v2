@@ -30,6 +30,9 @@ interface IRelay is RandomNumberV2Interface {
                                                                // the protocol messages.
         address payable feeCollectionAddress;                  // Fee collection address
         FeeConfig[] feeConfigs;                                // Fee configurations
+        address[] feeExemptAddresses;                          // Accounts exempt from the verify() fee at
+                                                               // deployment (e.g. DVN adapters). Relay mode
+                                                               // only; must be empty on a home deploy.
         // Safe governance configuration. Its sourceChainId is the RLY-23 source network id
         // (shared by signing + governance) and must be explicit and nonzero on EVERY
         // deployment; a home deploy (signingPolicySetter set) forces it to equal
@@ -96,6 +99,10 @@ interface IRelay is RandomNumberV2Interface {
     error FeeCollectionAddressZero();
     /// Legacy reason: "fee cannot be set".
     error FeeConfigNotAllowed();
+    /// An initial fee-exempt address is the zero address.
+    error FeeExemptAddressZero();
+    /// Initial fee-exempt addresses supplied on a setter-mode (home) deploy, which charges no fee.
+    error FeeExemptionsNotAllowed();
     /// Legacy reason: "Transfer failed".
     error FeeTransferFailed();
     /// Legacy reason: "before the start".

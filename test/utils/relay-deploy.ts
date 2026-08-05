@@ -44,7 +44,7 @@ export async function deployRelayProxy(
   const implementation = await Relay.new();
   const proxy = await RelayProxy.new(
     implementation.address,
-    relayInitialConfig,
+    { ...relayInitialConfig, feeExemptAddresses: relayInitialConfig.feeExemptAddresses ?? [] },
     signingPolicySetter,
     oldRelay,
     initialOwner

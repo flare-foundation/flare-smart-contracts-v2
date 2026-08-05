@@ -484,7 +484,7 @@ export async function deployContracts(
   const relayImplementation = await Relay.new();
   const relayProxy = await RelayProxy.new(
     relayImplementation.address,
-    relayInitialConfig,
+    { ...relayInitialConfig, feeExemptAddresses: relayInitialConfig.feeExemptAddresses ?? [] },
     flareSystemsManager.address,
     ZERO_ADDRESS,
     governanceAccount.address

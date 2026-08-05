@@ -511,6 +511,55 @@ contract RelayVerifyTest is RelayTestBase {
         assertEq(address(this).balance, selfBefore, "exempt caller net cost is zero");
     }
 
+    // A verify() fee exemption can be SEEDED in the deploy config (relay mode): the DVN adapter
+    // is exempt from block one with no governance round-trip. Governance can still revoke later.
+    function test_initialFeeExemption_seededAtDeployPaysNothing() public {
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeConfigs = new IRelay.FeeConfig[](1);
+        cfg.feeConfigs[0] = IRelay.FeeConfig(3, 1000);
+        cfg.feeExemptAddresses = new address[](1);
+        cfg.feeExemptAddresses[0] = address(this);
+        Relay r = deployRelay(cfg, address(0), IRelay(address(0)));
+
+        // Exempt immediately at deployment, before any governance action.
+        assertTrue(r.feeExemptAddress(address(this)), "seeded exemption active at deploy");
+
+        // Finalize a root and verify for free.
+        bytes32 leaf = keccak256("claim");
+        bytes32 sibling = keccak256("sib");
+        bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, _sortedPair(leaf, sibling));
+        bytes memory sigs = _signatures(_ethSignedHash(message), _firstK(3));
+        (bool ok,) = address(r).call(abi.encodePacked(Relay.relay.selector, policy, message, sigs));
+        require(ok, "relay failed");
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = sibling;
+
+        uint256 feeCollBefore = feeCollection.balance;
+        assertTrue(r.verify{value: 0}(3, START_VOTING_ROUND_ID, leaf, proof), "free verification");
+        assertEq(feeCollection.balance, feeCollBefore, "no fee forwarded for seeded-exempt caller");
+    }
+
+    // Setter-mode (home) deploys charge no verify() fee, so seeding exemptions there is a config
+    // mistake and is rejected (mirrors the feeConfigs restriction).
+    function test_initialFeeExemption_rejectedOnHomeDeploy() public {
+        address impl = address(new Relay());
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeExemptAddresses = new address[](1);
+        cfg.feeExemptAddresses[0] = address(0xDA0);
+        vm.expectRevert(IRelay.FeeExemptionsNotAllowed.selector);
+        new RelayProxy(impl, cfg, address(0xF5), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
+    }
+
+    // A zero address in the initial exemption list is rejected.
+    function test_initialFeeExemption_rejectsZeroAddress() public {
+        address impl = address(new Relay());
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeExemptAddresses = new address[](1);
+        cfg.feeExemptAddresses[0] = address(0);
+        vm.expectRevert(IRelay.FeeExemptAddressZero.selector);
+        new RelayProxy(impl, cfg, address(0), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
+    }
+
     function _deployFeeExemptionFixture() internal returns (Relay r, bytes32 leaf, bytes32[] memory proof) {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
         cfg.feeConfigs = new IRelay.FeeConfig[](1);

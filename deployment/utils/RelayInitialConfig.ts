@@ -35,6 +35,10 @@ export interface RelayInitialConfig {
   messageFinalizationWindowInRewardEpochs: number;
   feeCollectionAddress: string;
   feeConfigs: FeeConfig[];
+  // Accounts exempt from the verify() fee at deployment (relay mode only; must be empty/absent on
+  // a home deploy). Optional here — deploy boundaries default it to [] — so existing configs and
+  // test fixtures that never seed exemptions need not list it.
+  feeExemptAddresses?: string[];
   governance: GovernanceConfig;
 }
 

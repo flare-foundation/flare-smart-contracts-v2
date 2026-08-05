@@ -32,6 +32,12 @@ interface IRelayGovernance is ISafeGovernance {
         bytes32 indexed ownerConfigHash
     );
 
+    /// A verify() fee exemption seeded at deployment (relay mode only), before any governance
+    /// action; distinct from `GovernanceFeeExemptionUpdated`, which carries a Safe nonce.
+    event FeeExemptionInitialized(
+        address indexed account
+    );
+
     /// @dev Deprecated: signature failures now revert with the typed ISafeGovernance errors
     /// (or OpenZeppelin ECDSA errors). Retained only for FV-harness compile compatibility
     /// until the formal-verification re-baseline.

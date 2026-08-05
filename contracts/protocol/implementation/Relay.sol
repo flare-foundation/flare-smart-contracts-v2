@@ -338,6 +338,9 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
         stateData.messageFinalizationWindowInRewardEpochs = _initialConfig.messageFinalizationWindowInRewardEpochs;
         if (_signingPolicySetter != address(0)) {
             require(_initialConfig.feeConfigs.length == 0, FeeConfigNotAllowed());
+            // Setter-mode deployments never charge a verify() fee, so fee exemptions are
+            // meaningless here; reject them to catch a misconfigured home config (mirrors feeConfigs).
+            require(_initialConfig.feeExemptAddresses.length == 0, FeeExemptionsNotAllowed());
             stateData.noSigningPolicyRelay = true;
         }
         feeCollectionAddress = _initialConfig.feeCollectionAddress;
@@ -350,6 +353,15 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
             uint8 protocolId = _initialConfig.feeConfigs[i].protocolId;
             require(protocolId > 1, InvalidProtocolId());
             protocolFeeInWei[protocolId] = _initialConfig.feeConfigs[i].feeInWei;
+        }
+        // Seed initial verify() fee exemptions (e.g. DVN adapters) so they are exempt from block
+        // one, with no post-deploy governance round-trip. Relay mode only — the setter-mode branch
+        // above requires this list empty. Governance can grant/revoke later via changeFeeExemptions.
+        for (uint256 i = 0; i < _initialConfig.feeExemptAddresses.length; i++) {
+            address exemptAccount = _initialConfig.feeExemptAddresses[i];
+            require(exemptAccount != address(0), FeeExemptAddressZero());
+            feeExemptAddress[exemptAccount] = true;
+            emit FeeExemptionInitialized(exemptAccount);
         }
         // Safe governance is mandatory on every deployment — home, mirror and old-relay
         // migration alike (the same artifact ships to every chain). The base validates the
