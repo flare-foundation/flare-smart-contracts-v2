@@ -374,7 +374,8 @@
         {"feedId": {"category": 1, "name": "BERA/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "PUMP/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "XPL/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
-        {"feedId": {"category": 1, "name": "MON/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
+        {"feedId": {"category": 1, "name": "MON/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "NIGHT/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
     ],
     "defaultFeeWei": "1",
     "ftsoProxies": [

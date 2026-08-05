@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * FIP-16: `WNatDelegationFee` enforces a `minFeeBIPS` lower bound on voter fees (default 20%), settable in the constructor
 * `FlareSystemsCalculator` and `WNatDelegationFee` improvements: added setter events,
   governance setter for signing policy sign durations, and revert strings replaced with custom errors
+* USDX/USD feed delisted on Flare and Coston2
 
 ### Fixed
 
