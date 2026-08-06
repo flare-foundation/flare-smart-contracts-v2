@@ -34,12 +34,13 @@ if (network === "unknown") {
   throw new Error("Network name not found in output");
 }
 
-const allowedBaseNetworks = ["coston2", "coston", "flare", "songbird", "scdev"];
-const isValidNetwork =
-  allowedBaseNetworks.includes(network) ||
-  (network.endsWith("-staging") && allowedBaseNetworks.includes(network.replace(/-staging$/, "")));
+// Networks are identified by name: the Flare-family bases (flare/songbird/coston/coston2/scdev,
+// optionally "-staging"), or a relay mirror name from the source config's `mirrors` map (e.g.
+// "arbitrum", "arbitrum-sepolia"). Restrict to a filename-safe lowercase token so the value is
+// safe to use as `deploys/<network>.json` (no path separators or dots).
+const isValidNetwork = /^[a-z0-9][a-z0-9-]*$/.test(network);
 if (!isValidNetwork) {
-  throw new Error(`Invalid network: ${network}`);
+  throw new Error(`Invalid network name: ${network}`);
 }
 
 const isMock = process.argv[2] === "mock";

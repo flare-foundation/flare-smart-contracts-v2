@@ -1,0 +1,23 @@
+{
+  "$schema": "./relay-parameters.json",
+  "expectedDeployer": "0x0000000000000000000000000000000000000000",
+  "home": {
+    "oldRelayPolicyHashScheme": "legacy"
+  },
+  "mirrors": {
+    "arbitrum": {
+      "chainId": 42161,
+      "relayOwner": "0x0000000000000000000000000000000000000000",
+      "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
+      "feeConfigs": [],
+      "feeExemptAddresses": []
+    },
+    "optimism": {
+      "chainId": 10,
+      "relayOwner": "0x0000000000000000000000000000000000000000",
+      "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
+      "feeConfigs": [],
+      "feeExemptAddresses": []
+    }
+  }
+}

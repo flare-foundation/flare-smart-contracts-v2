@@ -878,16 +878,105 @@ without a front-running or squatting window. Chain of custody:
 2. `Create3Factory` (ownerless, permissionless, wraps OpenZeppelin 5.7 `Create3`), deployed
    through (1) with a fixed salt ⇒ identical factory address everywhere; front-running it is
    harmless (byte-identical, no privileged state);
-3. the Relay proxy, deployed through the factory under a **deployer-scoped salt**
-   (`keccak256(msg.sender, salt)`): only the designated deployer account can ever mint the
-   official address on a chain where it is not yet deployed. The address depends only on
-   (factory, deployer, salt) — NOT on the implementation or per-chain initializer data.
+3. the Relay proxy, deployed through the factory under a **deployer-scoped, source-scoped salt**
+   (`keccak256(msg.sender, keccak256(base, sourceChainId))`): only the designated deployer
+   account can ever mint the official address on a chain where it is not yet deployed. The
+   address depends only on (factory, deployer, source chain id) — NOT on the target chain, the
+   implementation or per-chain initializer data.
+
+Because the salt is keyed by the **source** chain rather than a single global constant, every
+deployment that mirrors the same source shares one address (the Flare home Relay and all of its
+mirrors — including a Flare mirror hosted on another Flare-family chain — coincide), while a
+network's own home Relay (a different source) has its own address. A single chain can therefore
+host both its own home Relay and mirrors of other sources without an address clash — e.g.
+Songbird can run its home Relay and a mirror of Flare side by side.
 
 The deployer account is therefore the permanent address authority and must be kept in cold
 storage: compromise allows deploying arbitrary code at the official address on
 NOT-yet-deployed chains only; loss forfeits address continuity for future chains. Existing
 deployments are unaffected by either. No trustless scheme can reserve an address on chains
 that do not exist yet.
+
+### Forge deployment scripts
+
+The production deployment path is `forge script`, under
+[`deployment/scripts/relay/`](../deployment/scripts/relay/) (the legacy `redeploy-relay.ts`
+Truffle path is kept for local simulation only). All scripts share
+[`RelayDeployBase`](../deployment/scripts/relay/RelayDeployBase.s.sol), which centralizes the
+factory address derivation, the registry address reads, the live governance-stack read (§15.1
+steps 4–6), the post-deploy verify suite, and the manifest writer.
+
+Each **Flare-family network runs its own protocol instance (own FlareSystemsManager, own
+governance Safe), so flare, songbird, coston and coston2 are each a home deployment** — not
+mirrors. On any Flare network every protocol address is read from the on-chain
+FlareContractRegistry (the governance Safe via `GovernanceSettings.getGovernanceAddress()`,
+`FlareSystemsManager`, the old `Relay`, `AddressUpdater`), so no addresses live in config.
+
+Parameters live in **one config per source** —
+[`deployment/chain-config/relay/<source>.json`](../deployment/chain-config/relay/README.md) —
+holding the source's `home` settings plus a `mirrors` map (keyed by chain name) of every target
+that mirrors it, with a shared top-level `expectedDeployer`. This single inventory keeps mirrors
+from drifting from a shared base and lets every field be required. The `deploy-relay.sh` wrapper
+(`pnpm deploy_relay <step> <arg>`) broadcasts and records every deployed address into
+`deployment/deploys/<targetNetwork>.json` and `.../all/<targetNetwork>.json` via
+`save-deployed-addresses.ts`.
+
+| Script | Chain | Role |
+|--------|-------|------|
+| `DeployCreate3Factory` | any | Idempotent: deploys the `Create3Factory` through the keyless CREATE2 deployer from the **frozen** initcode ([`deployment/create3/`](../deployment/create3/README.md)); no-op if already present. |
+| `DeployRelayHome` | each Flare-family net | Reads the source config's `home`. `SafeInstructions` impl + proxy, then Relay impl + `RelayProxy` (via factory) in **setter mode** (`signingPolicySetter = FlareSystemsManager`, `oldRelay` handshake, no fee configs, `governance.sourceChainId` forced to `block.chainid`). All addresses from the registry. |
+| `PrepareRelaySourceSnapshot` | source (read-only) | Snapshots the live source stack (owner generation, epoch anchors, source-bound policy hash) to `deployment/deploys/relay/source-snapshot-<source>.json` (per source) for the mirrors. Asserts the admitted owner generation is live, so late-joining mirrors adopt the then-current generation. |
+| `DeployRelayMirror` | every mirror target | Names **both** ends: `RELAY_SOURCE` picks `source-snapshot-<source>.json` + `<source>.json`, `RELAY_MIRROR` picks `mirrors["<name>"]`. Asserts the snapshot's source maps back to `RELAY_SOURCE` and the entry's `chainId` equals the live chain — a wrong-source snapshot or wrong RPC fails before broadcast. Relay impl + `RelayProxy` (via factory) in **relay mode** from the snapshot + the entry's per-chain owner/fees/`feeExemptAddresses` (no `oldRelay`). Same deployer- and source-scoped salt ⇒ the SAME address as every mirror of that source and its home Relay. |
+
+The frozen factory initcode, canonical factory address, salt labels, and the home/mirror deploy
+flow are pinned by
+[`RelayDeployAddress.t.sol`](../test-forge/unit/deployment/RelayDeployAddress.t.sol),
+[`RelayDeployFlow.t.sol`](../test-forge/unit/deployment/RelayDeployFlow.t.sol) and
+[`RelayConfigParsing.t.sol`](../test-forge/unit/deployment/RelayConfigParsing.t.sol) (config
+key-paths). Each deployment writes a manifest to `deployment/deploys/relay/` feeding the §15
+checklist.
+
+### Safe version compatibility
+
+The cross-chain design couples to the governance Safe through a deliberately small surface — the
+target-side digest reconstruction in [`SafeGoverned._safeTxDigest`](../contracts/governance/implementation/SafeGoverned.sol)
+plus one behavioural assumption in [`SafeInstructions`](../contracts/governance/implementation/SafeInstructions.sol):
+
+1. the EIP-712 domain typehash `EIP712Domain(uint256 chainId,address verifyingContract)`
+   (`keccak256` = `0x47e79534…79469218`) — note: no `name`/`version` fields;
+2. the `SafeTx` typehash `SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)`
+   (`keccak256` = `0xbb8310d4…f941286d8`);
+3. the digest framing `keccak256(0x19 0x01 ‖ domainSeparator ‖ structHash)`;
+4. `execTransaction` incrementing `nonce` **before** the inner call, so `SafeInstructions` reads
+   the signed nonce as `Safe.nonce() - 1`.
+
+All four are **identical in Safe v1.3.0, v1.4.0/1.4.1 and v1.5.0** (verified against the canonical
+`safe-global/safe-smart-account` sources, Aug 2026: the two typehash strings hash to the values
+above on every version, and `nonce++` precedes `execute` in each `execTransaction`). An in-place
+governance upgrade across these versions (same proxy address, new singleton) is therefore
+transparent to the protocol — the digest a target reconstructs still matches what the upgraded Safe
+produces, and `verifyingContract` (the proxy address) is unchanged. **No contract change is required
+for such an upgrade.**
+
+The only version-specific artifact is the rehearsal fixture:
+[`SafeGovernanceProductionRehearsal.t.sol`](../test-forge/unit/governance/SafeGovernanceProductionRehearsal.t.sol)
+is a **local** test — it deploys the pinned v1.3.0 release bytecode, reproduces the recorded
+production shape (11 EOA owners, threshold 6, no modules, zero guard, the recorded fallback handler)
+with **synthetic** owner keys, and drives fee → rotation → fee through the genuine Safe's
+`execTransaction`. It does **not** read the live on-chain governance Safe or its owners; that check
+belongs to deploy time (`activeOwnerConfigurationIsLive()` and independent owner-hash recomputation
+in the deploy scripts) and to the §15.1 ceremony. On a version bump, repoint the fixture at the new
+release artifacts and refresh the recorded runtime hashes — a fixture refresh, not a redesign.
+
+Before adopting any future Safe version, re-verify the four points above against that exact release.
+If any changed, it is a one-line constant update in `SafeGoverned` plus a re-baseline of the
+rehearsal / FV fixtures.
+
+Independently of the Safe version, cross-chain verification recovers **EOA** signatures only
+(EIP-712 `v = 27/28` and eth_sign `v = 31/32`); EIP-1271 contract owners, pre-approved hashes and
+passkey/WebAuthn signers cannot be verified on a target (DR-02). The governance Safe must keep EOA
+owners for the mirrors to remain governable — a signer-type constraint, not a version one, and the
+more likely hazard as the Safe setup modernises.
 
 ### Formal-verification status of this refactor
 

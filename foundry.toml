@@ -8,6 +8,7 @@ evm_version = 'cancun'
 fs_permissions = [
     { access = "read", path = "./artifacts-forge/"},
     { access = "read", path = "./deployment/chain-config/"},
+    { access = "read", path = "./deployment/create3/"},
     { access = "read", path = "./deployment/cuts/"},
     { access = "read-write", path = "./deployment/deploys/"},
     { access = "read-write", path = "./deployment/output-internal/"},
@@ -29,6 +30,14 @@ skip = ['*.yul']
 name = "no-via-ir"
 via_ir = false
 
+# Metadata-free profile for the frozen Create3Factory only (inherits default via_ir/optimizer/
+# evm_version; strips just the solc metadata hash so the factory initcode — and thus its CREATE2
+# address — is deterministic across unrelated metadata changes).
+[[profile.default.additional_compiler_profiles]]
+name = "no-metadata"
+via_ir = true
+bytecode_hash = "None"
+
 [[profile.default.compilation_restrictions]]
 paths = "contracts/rNat/implementation/RNat.sol"
 via_ir = false
@@ -48,6 +57,16 @@ via_ir = false
 [[profile.default.compilation_restrictions]]
 paths = "contracts/mock/*.sol"
 via_ir = false
+
+# Create3Factory is deployed via the keyless CREATE2 deployer, so its address is
+# keccak(initcode)-dependent and must be metadata-independent to stay identical on every chain.
+# Strip the solc metadata hash for this one contract so the frozen initcode
+# (deployment/create3/Create3Factory.initcode.hex) does not drift with unrelated metadata changes.
+# Everything else keeps its metadata; the Relay proxy/mirrors use CREATE3 (address independent of
+# bytecode) so they need no stripping.
+[[profile.default.compilation_restrictions]]
+paths = "contracts/utils/implementation/Create3Factory.sol"
+bytecode_hash = "None"
 
 [invariant]
 runs = 128

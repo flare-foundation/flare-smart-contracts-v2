@@ -1,0 +1,16 @@
+{
+  "$schema": "./relay-parameters.json",
+  "expectedDeployer": "0x0000000000000000000000000000000000000000",
+  "home": {
+    "oldRelayPolicyHashScheme": "legacy"
+  },
+  "mirrors": {
+    "arbitrum-sepolia": {
+      "chainId": 421614,
+      "relayOwner": "0x0000000000000000000000000000000000000000",
+      "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
+      "feeConfigs": [],
+      "feeExemptAddresses": []
+    }
+  }
+}

@@ -1,0 +1,110 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "additionalProperties": false,
+    "definitions": {
+        "RelayFeeConfig": {
+            "additionalProperties": false,
+            "description": "A single protocol-fee configuration for a mirror (relay-mode) Relay deployment.",
+            "properties": {
+                "feeInWei": {
+                    "description": "Fee in wei charged for verify() of this protocol. Decimal string (may exceed 2^64).",
+                    "type": "string"
+                },
+                "protocolId": {
+                    "description": "Protocol id the fee applies to. A single byte in relay messages (uint8), and must be > 1.",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "feeInWei",
+                "protocolId"
+            ],
+            "type": "object"
+        },
+        "RelayHomeConfig": {
+            "additionalProperties": false,
+            "description": "The source's own home (setter-mode) Relay deployment settings. Protocol addresses are read\nfrom the on-chain FlareContractRegistry and the epoch/protocol params are inherited from the\ncurrently deployed Relay's stateData() (four are handshake-enforced to match it anyway; the\nrest are preserved across a redeploy), so the ONLY thing configured here is the migration\nscheme, which is not recoverable from a stored hash.",
+            "properties": {
+                "oldRelayPolicyHashScheme": {
+                    "description": "How to interpret the old Relay's stored signing-policy hash: \"legacy\" wraps a pre-RLY-23\ncontent hash once with the source chain id, \"chain-bound\" passes an already-wrapped hash\nthrough. See docs/safe-governance.md §15.1.",
+                    "enum": [
+                        "chain-bound",
+                        "legacy"
+                    ],
+                    "type": "string"
+                }
+            },
+            "required": [
+                "oldRelayPolicyHashScheme"
+            ],
+            "type": "object"
+        },
+        "RelayMirrorConfig": {
+            "additionalProperties": false,
+            "description": "One mirror (relay-mode) target of a source. Keyed in `mirrors` by a human blockchain name\n(e.g. \"arbitrum\"); the `chainId` here is asserted against the live `block.chainid` at deploy\ntime, so running the deploy against the wrong RPC fails fast.",
+            "properties": {
+                "chainId": {
+                    "description": "The target chain id. Checked against `block.chainid` at deploy time.",
+                    "type": "integer"
+                },
+                "feeCollectionAddress": {
+                    "description": "Recipient of collected verify() fees. Must be nonzero (a zero recipient would burn fees).",
+                    "type": "string"
+                },
+                "feeConfigs": {
+                    "description": "Per-protocol verify() fees seeded at deployment.",
+                    "items": {
+                        "$ref": "#/definitions/RelayFeeConfig"
+                    },
+                    "type": "array"
+                },
+                "feeExemptAddresses": {
+                    "description": "Accounts exempt from the verify() fee, seeded at deployment (e.g. DVN adapters), so they\nare exempt from block one with no governance round-trip. May be empty.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "relayOwner": {
+                    "description": "The per-chain UUPS upgrade owner (Relay.owner()): the chain's designated multisig. Does\nnot exist on the Flare registry, so it is configured here.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "chainId",
+                "feeCollectionAddress",
+                "feeConfigs",
+                "feeExemptAddresses",
+                "relayOwner"
+            ],
+            "type": "object"
+        }
+    },
+    "description": "Per-SOURCE parameters for the Safe-governed Relay Forge deployment scripts in\ndeployment/scripts/relay/. One file per source chain (flare.json, coston2.json, …): it holds\nthe source's own home deployment plus the full list of mirror targets that mirror this source\n— a single reviewed inventory, so mirror deployments cannot drift from a shared base and every\nfield can be required.\n\nNo protocol ADDRESSES are configured for the home deployment: on a Flare network every address\n(the governance Safe via GovernanceSettings.getGovernanceAddress(), FlareSystemsManager, the\nold Relay, AddressUpdater) is read from the on-chain FlareContractRegistry, and the Safe owner\nset/threshold/nonces are read live from the Safe. Mirrors carry only their own chain-specific\naddresses (relayOwner, feeCollectionAddress) plus the shared `expectedDeployer`; their protocol\nparameters come from the live source snapshot, so they cannot drift per chain.",
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "expectedDeployer": {
+            "description": "The designated deployer EOA — the permanent address authority for the deployer- and\nsource-scoped Relay proxy CREATE3 salt. Shared by the home deployment and EVERY mirror of\nthis source: the SAME EOA must perform all of them for the source's Relay address to match\nacross chains. Must be present, nonzero, and equal to the broadcasting key.",
+            "type": "string"
+        },
+        "home": {
+            "$ref": "#/definitions/RelayHomeConfig",
+            "description": "This source's own home (setter-mode) deployment."
+        },
+        "mirrors": {
+            "additionalProperties": {
+                "$ref": "#/definitions/RelayMirrorConfig"
+            },
+            "description": "Relay-mode mirror targets of this source, keyed by blockchain name. Optional — a source may\nhave no mirrors. The deploy selects an entry by name and asserts its `chainId` matches the\nlive chain.",
+            "type": "object"
+        }
+    },
+    "required": [
+        "expectedDeployer",
+        "home"
+    ],
+    "type": "object"
+}
+
