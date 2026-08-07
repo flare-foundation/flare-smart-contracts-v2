@@ -49,6 +49,9 @@ library Instructions {
         return keccak256(abi.encode(_extensionId, counter, blockhash(block.number - 1)));
     }
 
+    // False positive: slither sees the library alone, not the `external payable` facet callers,
+    // which each call this exactly once - a second call would forward the same `msg.value` twice.
+    //slither-disable-next-line msg-value-in-nonpayable
     function sendInstructions(
         bytes32 _instructionId,
         address[] memory _teeIds,
@@ -167,6 +170,8 @@ library Instructions {
         }
     }
 
+    // False positive: `msg.value` goes into the event payload only. Private, one call site.
+    //slither-disable-next-line msg-value-in-nonpayable
     function _emitInstructionsSent(
         bytes32 _instructionId,
         uint256 _extensionId,

@@ -213,6 +213,9 @@ library Verification {
         emit IVerification.TeeAttestationRequested(_teeId, challenge);
     }
 
+    // False positive: slither sees the library alone, not its one `external payable` caller,
+    // `VerificationFacet.requestAvailabilityCheckAttestation`, which calls this exactly once.
+    //slither-disable-next-line msg-value-in-nonpayable
     function requestFdc2Attestation(
         address _testOnTeeId,
         address[] memory _cosigners,
