@@ -10,7 +10,12 @@ for (let line of forgeLcovFile.split("\n")) {
   if (
     line.includes("flattened/FlareSmartContracts.sol") ||
     line.includes("test-forge/mock/") ||
-    line.includes("contracts/mock")
+    line.includes("contracts/mock") ||
+    // Soldeer dependencies: `forge coverage` can emit records for them, but genhtml reads every
+    // source file it reports on, and the reports job gets only lcov.info - `dependencies/` is
+    // gitignored and installed in the coverage job, not this one. Third-party code should not
+    // count toward this repo's coverage anyway.
+    line.includes("dependencies/")
   ) {
     del = true;
   } else if (line.includes("end_of_record") && del) {
