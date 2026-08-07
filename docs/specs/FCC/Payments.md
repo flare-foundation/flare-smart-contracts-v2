@@ -24,7 +24,7 @@ Supporting contracts, all outside the diamond:
 
 - `accountHashToWalletId` — `keccak256(abi.encode(sourceId, accountAddress))` → `walletId`.
 - `walletAccounts` — the list of `PMWMultisigAccount` per wallet.
-- `authorizationAddresses` — the address allowed to submit payment instructions for an account (set at registration).
+- `authorizationAddresses` — the address allowed to submit payment instructions for an account (set at registration, immutable — see **Authorization** below).
 - `paymentHashes` — `keccak256(abi.encode(paymentInstruction, paymentId))` per `(accountHash, paymentId)`, recorded at `pay` time so a later reissue can prove it is re-sending a known payment.
 
 **Registration** (`addPMWMultisigAccount`, model-specific) follows the same shape in both contracts:
@@ -36,6 +36,14 @@ Supporting contracts, all outside the diamond:
 Because the whole FDC2 proof (header + request body + response body) is signature-verified together, the payment contracts read the verified fields **straight from the calldata `proof`** — there is no returned struct.
 
 **Authorization** — `pay`/`reissue` are gated by `_checkAuthorizationAddress` (`authorizationAddresses[accountHash] == msg.sender`); registration and `addAnchors` are gated by wallet ownership.
+
+The authorization address is **immutable for the account's lifetime** — there is no rotation entry point, and an account hash can never be re-registered (`PMWMultisigAccountAddressAlreadySet`). This is a deliberate separation of spend authority from admin authority, not an omission:
+
+- **The wallet owner key is an admin key, not a spend key.** After registration the owner can pause the wallet (`pay`/`reissue` require `PRODUCTION` status) but cannot move funds — only the authorization address can. A compromised owner key therefore cannot drain registered accounts. An owner-gated rotation setter would collapse exactly this separation: whoever holds the owner key could re-point the authorization address to themselves.
+- **Immutability makes the authorization contract a trust anchor.** Because the binding cannot change, a counterparty can audit the authorization contract once — its multisig, its validation rules — and know those guarantees hold for the account's lifetime. If the owner could swap the address at will, the authorization contract's properties would prove nothing.
+- **Rotation belongs *inside* the authorization contract.** Projects that need key rotation register a contract with its own key management as the authorization address and rotate behind it, under that contract's own visible rules. [`TeeExtensionInstructionsSenderMock`](../../../contracts/tee/mock/TeeExtensionInstructionsSenderMock.sol) demonstrates the pattern: it holds its own owner-rotatable authorization mapping and forwards calls, while the on-chain binding to the account never changes.
+- **A bare EOA is accepted but risky.** If its key is lost, the account can never `pay`/`reissue` again, and — since the TEE-held multisig keys sign only in response to these instructions — funds on the external-chain account are permanently stranded. This is accepted operational risk for projects that choose an EOA over the contract pattern.
+- **Project ownership transfer transfers admin authority only.** `proposeNewOwner`/`confirmOwnership` (see [Wallet Management](./WalletManagement.md)) is intended for rotating the owner's own keys or moving to a team-managed wallet; authorization addresses are untouched by it, and spend authority deliberately does not follow the owner key.
 
 **Recipient address validation** — `pay` (both models) calls `_requireValidRecipientAddress(sourceId, recipientAddress)`, which reverts `InvalidRecipientAddress()` unless [`AddressValidator.isValidAddress(sourceId, recipientAddress)`](../../../contracts/tee/implementation/AddressValidator.sol) returns true. The validator (injected via `AddressUpdatable` as `"AddressValidator"`) maps each `sourceId`, by governance config, to a `{chainKind, network}` profile and runs the matching stateless validator: Bitcoin (Base58Check legacy + Bech32/Bech32m SegWit) and Dogecoin (Base58Check only), both network-enforced; XRPL (classic r-addresses — network-agnostic by format — and X-addresses whose `X`/`T` prefix network is enforced, with reserved tag flags rejected); or EVM (canonical EIP-55, network-agnostic). It is fail-closed — an unconfigured `sourceId` is rejected — so governance must configure every active source. `reissue` re-sends an already-paid (already-validated) instruction and is not re-checked.
 

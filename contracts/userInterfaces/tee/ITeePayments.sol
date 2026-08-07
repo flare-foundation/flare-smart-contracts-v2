@@ -41,6 +41,14 @@ interface ITeePayments is ITeePaymentsBase {
     /**
      * Method for adding the PMW multisig account to the wallet.
      * Emits PMWMultisigAccountAdded event.
+     *
+     * The authorization address is IMMUTABLE for the account's lifetime: there is no rotation
+     * entry point and the account can never be re-registered. This is deliberate — the wallet
+     * owner key stays an admin key with no spend authority (it can pause the wallet but not move
+     * funds), and counterparties can audit the authorization contract once, knowing the owner
+     * cannot swap it out. Register a contract with its own key management and rotate behind it
+     * (see the sample instructions sender pattern); a bare EOA risks permanently stranding the
+     * account's funds if its key is lost.
      * @param _walletId The wallet id.
      * @param _proof The PMW multisig account configured proof.
      * @param _authorizationAddress The address authorized to submit payment instructions for the account.

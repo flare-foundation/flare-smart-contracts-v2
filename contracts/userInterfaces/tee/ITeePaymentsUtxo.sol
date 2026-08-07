@@ -109,6 +109,14 @@ interface ITeePaymentsUtxo is ITeePaymentsBase {
      * proof, then stores the account index and anchors taken from the proof together with the
      * authorization address allowed to submit payments. Initializes the batch size to 1.
      * Emits PMWMultisigUtxoAccountAdded and UtxoBatchSettingsSet.
+     *
+     * The authorization address is IMMUTABLE for the account's lifetime: there is no rotation
+     * entry point and the account can never be re-registered. This is deliberate — the wallet
+     * owner key stays an admin key with no spend authority (it can pause the wallet but not move
+     * funds), and counterparties can audit the authorization contract once, knowing the owner
+     * cannot swap it out. Register a contract with its own key management and rotate behind it
+     * (see the sample instructions sender pattern); a bare EOA risks permanently stranding the
+     * account's funds if its key is lost.
      * @param _walletId The wallet id the account belongs to.
      * @param _proof The UTXO-configured attestation proof carrying the account index and anchors.
      * @param _authorizationAddress The address authorized to submit payments for this account.
