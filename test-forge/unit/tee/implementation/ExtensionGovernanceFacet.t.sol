@@ -396,6 +396,17 @@ contract ExtensionGovernanceFacetTest is Test {
         flareTeeManager.setNewTeeGovernanceSafe(extensionId, makeAddr("notAContract"));
     }
 
+    function testSetNewTeeGovernanceSafeRevertSafeDomainSeparatorMismatch() public {
+        // A wallet whose live domainSeparator() differs from the Safe >= 1.3.0 formula (older
+        // Safe version, or not a Safe at all) fails registration fast — its SafeTxHashes could
+        // never be reconstructed by confirmMachinePathListSafeApproval or TEE nodes.
+        MockSafe safe = new MockSafe(signers, 1);
+        safe.setDomainSeparatorOverride(keccak256("pre-1.3.0 domain"));
+        vm.expectRevert(IExtensionGovernance.SafeDomainSeparatorMismatch.selector);
+        vm.prank(realOwnerExtension1);
+        flareTeeManager.setNewTeeGovernanceSafe(extensionId, address(safe));
+    }
+
     // =========================================================================
     // Test helpers
     // =========================================================================

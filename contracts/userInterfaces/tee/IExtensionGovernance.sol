@@ -42,6 +42,7 @@ interface IExtensionGovernance is ITeeCommonErrors {
     error NoSigners();
     error SignerAlreadyExists(address signer);
     error InvalidSigner();
+    error SafeDomainSeparatorMismatch();
 
     /**
      * Sets new TEE governance for the extension.
@@ -73,11 +74,21 @@ interface IExtensionGovernance is ITeeCommonErrors {
      * the latest-hash pointer, mirroring `setNewTeeGovernance`. After the Safe rotates owners or
      * changes its threshold, call this again to register the new snapshot (new hash) and re-register
      * machines to bind it.
+     *
+     * The Safe's `domainSeparator()` must equal the Safe >= 1.3.0 formula
+     * (`keccak256(abi.encode(typeHash, block.chainid, safe))`) — `SafeDomainSeparatorMismatch`
+     * otherwise. `IMachinePathManager.confirmMachinePathListSafeApproval` and TEE nodes
+     * reconstruct SafeTxHashes under exactly this domain, so an incompatible wallet fails fast at
+     * registration instead of producing approvals that can never be confirmed. The owners should
+     * be EOAs: a contract owner can produce neither the ECDSA signature chunk the confirmation
+     * verifies nor an EIP-191 signature for `signMachinePathList` (not enforceable on-chain — a
+     * registration-time code check would miss owners that become contracts later).
      * Emits NewTeeSafeGovernanceSet.
      * @param _extensionId The id of the extension.
-     * @param _safe The Safe multisig contract. Its owners must be non-empty, unique and non-zero,
-     *      and its threshold must satisfy 0 < threshold <= owners.length (a genuine Safe guarantees
-     *      all of this; it is validated defensively since the address is only claimed to be a Safe).
+     * @param _safe The Safe multisig contract (version >= 1.3.0). Its owners must be non-empty,
+     *      unique and non-zero, and its threshold must satisfy 0 < threshold <= owners.length (a
+     *      genuine Safe guarantees all of this; it is validated defensively since the address is
+     *      only claimed to be a Safe).
      * Can only be called by the extension owner.
      */
     function setNewTeeGovernanceSafe(

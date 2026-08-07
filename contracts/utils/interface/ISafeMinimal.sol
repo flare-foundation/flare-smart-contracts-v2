@@ -3,9 +3,8 @@ pragma solidity >=0.7.6 <0.9;
 
 /**
  * @title ISafeMinimal
- * @notice Minimal read-only view of a Safe (Gnosis Safe) multisig contract, used to snapshot its
- *         owner set and confirmation threshold when registering a Safe-backed TEE governance and
- *         to check snapshot satisfiability when the Safe approves a machine path list.
+ * @notice Minimal read-only view of a Safe (Gnosis Safe) multisig contract: the owner set,
+ *         the confirmation threshold, the transaction nonce and the EIP-712 domain separator.
  * @dev External-protocol interface; matches Safe >= 1.3.0 (`OwnerManager` + the transaction nonce).
  */
 interface ISafeMinimal {
@@ -18,6 +17,17 @@ interface ISafeMinimal {
     function nonce()
         external view
         returns (uint256);
+
+    /**
+     * Returns the Safe's EIP-712 domain separator. For Safe >= 1.3.0 this is
+     * `keccak256(abi.encode(keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"),
+     * block.chainid, safe))` — checked at Safe-backed governance registration so that a Safe whose
+     * SafeTxHash the protocol cannot reconstruct (older version, or a different wallet altogether)
+     * fails fast instead of producing unverifiable approvals later.
+     */
+    function domainSeparator()
+        external view
+        returns (bytes32);
 
     /**
      * Returns the list of Safe owners.

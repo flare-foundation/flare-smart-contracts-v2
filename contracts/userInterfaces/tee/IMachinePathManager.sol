@@ -44,6 +44,18 @@ interface IMachinePathManager {
         uint32 safeNonce;
     }
 
+    /// A verified Safe-approval artifact stored by `confirmMachinePathListSafeApproval`: the signed
+    /// Safe nonce plus the packed 65-byte owner signatures extracted from the Safe `execTransaction`
+    /// calldata. Together with data the verifier already holds (this contract's address, the list's
+    /// paths, the Safe address and owner snapshot bound into the governance hash, and the chain id)
+    /// it is the COMPLETE artifact a TEE node needs — the fixed transaction shape (`operation ==
+    /// CALL`, zero value/gas fields — see `approveMachinePathList`) supplies every other SafeTxHash
+    /// ingredient, so the artifact is fully chain-served with no historical transaction lookup.
+    struct SafeApprovalArtifact {
+        uint256 safeNonce;
+        bytes signatures;
+    }
+
     event MachinePathListStarted(
         uint256 indexed extensionId,
         uint256 indexed nonce
@@ -70,12 +82,26 @@ interface IMachinePathManager {
 
     /// `safeNonce` is the signed Safe nonce (see `Approval.safeNonce`) — together with the log's
     /// block number this makes the event a complete artifact pointer for relay clients.
+    /// `satisfiedGovernanceHashes` lists the involved snapshots the calling Safe's live quorum
+    /// could still cover at approval time — an advisory screening result; the governances are
+    /// marked Safe-approved only by `confirmMachinePathListSafeApproval`.
     event MachinePathListApproved(
         uint256 indexed extensionId,
         uint256 indexed nonce,
         address indexed safe,
         uint32 safeNonce,
         bytes32[] satisfiedGovernanceHashes
+    );
+
+    /// Emitted by `confirmMachinePathListSafeApproval` when the owner signatures of a recorded
+    /// Safe approval have been verified on-chain against the frozen snapshot of `governanceHash`.
+    /// The verified artifact is stored and retrievable via `getMachinePathListSafeApprovalArtifact`.
+    event MachinePathListSafeApprovalConfirmed(
+        uint256 indexed extensionId,
+        uint256 indexed nonce,
+        bytes32 indexed governanceHash,
+        address safe,
+        uint256 safeNonce
     );
 
     event MachinePathListSigned(
@@ -99,6 +125,12 @@ interface IMachinePathManager {
     error GovernanceHashZero(address teeId);
     error MessageHashMismatch();
     error SafeGovernanceStale();
+    error SafeApprovalNotRecorded();
+    error SafeApprovalAlreadyConfirmed();
+    error InvalidSignaturesLength();
+    error InvalidSignatureType();
+    error UnorderedSignatures();
+    error ThresholdNotReached(uint256 required, uint256 counted);
 
     /**
      * Creates a new (empty) machine-path list for the given extension and returns its nonce.
@@ -150,7 +182,8 @@ interface IMachinePathManager {
      * Submits a signature for a finalized list. The signature is counted toward every involved
      * governance the signer is a member of. The list becomes "signed" (and promoted to active iff
      * its nonce exceeds the current active) once every involved governance is satisfied — its
-     * signature count reached its threshold, or its Safe approved via `approveMachinePathList`.
+     * signature count reached its threshold, or its Safe approval was confirmed via
+     * `confirmMachinePathListSafeApproval`.
      * Signatures may still be submitted after the list is signed (evidence collection for
      * off-chain verifiers, e.g. snapshot owners bridging an old governance hash); activation and
      * active-nonce promotion happen only on the first transition, so MachinePathListSigned is
@@ -169,52 +202,53 @@ interface IMachinePathManager {
         external;
 
     /**
-     * msg.sender counterpart of `signMachinePathList` for Safe-backed governances (see
-     * `IExtensionGovernance.setNewTeeGovernanceSafe`). The calling Safe cannot produce an ECDSA
-     * signature, so its caller identity is the approval: every involved governance whose
-     * registered Safe address equals `msg.sender` AND whose owner/threshold snapshot is still
-     * satisfiable by the Safe's live quorum (live threshold not below the snapshot threshold, and
-     * at least snapshot-threshold-many snapshot signers still live owners) is marked
-     * Safe-approved — a satisfaction path independent of the ECDSA signature counts, which this
-     * function never touches (`getMachinePathListSignatureCount` always reflects real signatures
-     * only). A Safe-approved governance counts as satisfied for activation, since the Safe
-     * executes only after threshold-many owner confirmations.
-     * Unsatisfiable snapshots are skipped; if every matching snapshot is unsatisfiable the call
-     * reverts `SafeGovernanceStale` (bridge via direct snapshot-owner signatures through
-     * `signMachinePathList`, or re-register governance and machines). Callers matching no involved
-     * governance revert `UnrecognizedSigner`. Repeat approvals — including after the list is
-     * signed — are permitted and idempotent on the flags (no per-signer dedup: a contract can
-     * never produce the ECDSA signature the dedup exists for); each call appends another
-     * `Approval` entry, giving relays a fresh artifact pointer (e.g. after an owner rotation).
-     * Activation and active-nonce promotion happen only on the first transition, so
-     * MachinePathListSigned is emitted at most once per list.
+     * First step of the Safe counterpart of `signMachinePathList` for Safe-backed governances
+     * (see `IExtensionGovernance.setNewTeeGovernanceSafe`). The calling Safe cannot produce an
+     * ECDSA signature, so the flow is split in two: this call — executed BY the Safe as one
+     * ordinary Safe transaction — records that the Safe executed the approval (an `Approval`
+     * entry + the `MachinePathListApproved` event, a complete artifact pointer), and
+     * `confirmMachinePathListSafeApproval` — callable by anyone — verifies the owner signatures
+     * from that Safe transaction on-chain against the frozen governance snapshot and marks the
+     * governance Safe-approved. This call alone NEVER satisfies a governance and never touches
+     * the ECDSA signature counts (`getMachinePathListSignatureCount` always reflects real
+     * signatures only).
+     *
+     * Screening (advisory only): every involved governance whose registered Safe address equals
+     * `msg.sender` AND whose owner/threshold snapshot is still satisfiable by the Safe's live
+     * quorum (live threshold not below the snapshot threshold, and at least
+     * snapshot-threshold-many snapshot signers still live owners) counts as screened. Both
+     * screening inputs are under the Safe's own control, so the screen is NOT an authorization
+     * check — it exists to fail an honestly-stale Safe fast, BEFORE its nonce is consumed on an
+     * approval that `confirmMachinePathListSafeApproval` could never accept. If no matching
+     * snapshot passes, the call reverts `SafeGovernanceStale` (bridge via direct snapshot-owner
+     * signatures through `signMachinePathList`, or re-register governance and machines). Callers
+     * matching no involved governance revert `UnrecognizedSigner`. Repeat approvals are
+     * permitted; each appends another `Approval` entry — the recovery path when an earlier Safe
+     * transaction turns out unconfirmable (executed by an owner, or proposed with a nonzero
+     * value/gas field): execute a fresh approval at a new Safe nonce and confirm that one.
      *
      * `_messageHash` must equal the list's stored messageHash (`MessageHashMismatch` otherwise).
      * Embedding it in the transaction calldata makes the Safe owners' signatures over the Safe
-     * transaction hash bind the full path-list content: off-chain verifiers (TEE nodes) recompute
-     * the expected messageHash from the received paths, check the Safe transaction's `to` (this
-     * contract), `operation` (CALL) and calldata (this selector, extensionId, nonce, messageHash),
-     * recompute the EIP-712 SafeTxHash under the Safe's domain (safe address + chainId) and recover
-     * at least threshold-many distinct snapshot owners from the packed signatures (rejecting
-     * approved-hash `v=1` and contract-signature `v=0` entries). Execute the Safe transaction from
-     * a non-owner account so all threshold signatures are real ECDSA signatures. The recorded
-     * `Approval.blockNumber` (see `getMachinePathListApprovals`) locates the transaction, and
-     * `Approval.safeNonce` supplies the signed Safe nonce — the one SafeTxHash ingredient not
-     * present in the `execTransaction` calldata (captured here as `safe.nonce() - 1`, since the
-     * Safe increments its nonce before making the inner call). Batched execution (e.g. MultiSend,
-     * which runs as a delegatecall to the MultiSend contract) is NOT supported: the approval must
-     * be its own direct Safe transaction, or offline verifiers reject the artifact (`to` /
-     * `operation` mismatch). On-chain the call would still count (msg.sender is the Safe either
-     * way), so submitters must take care — a batched approval is valid on-chain but useless as a
-     * node artifact.
+     * transaction hash bind the full path-list content.
      *
-     * When old and new snapshots of the same Safe are involved in one list, the extension owner
-     * must coordinate the confirming owners so that they satisfy each involved snapshot's threshold
-     * within that snapshot's owner set — the chain enforces satisfiability, not the actual choice
-     * of confirmers; nodes bound to a snapshot the confirmers do not satisfy will reject the
-     * artifact (fail-closed; bridge via direct snapshot-owner signatures, a fresh list nonce, or
-     * machine re-registration).
-     * Emits MachinePathListApproved; emits MachinePathListSigned when activation occurs.
+     * REQUIRED TRANSACTION SHAPE — the on-chain confirmation and TEE nodes reconstruct the
+     * EIP-712 SafeTxHash from a fixed recipe, so the Safe transaction MUST be proposed as a plain
+     * single contract interaction: `to` = this contract, `operation` = CALL, `data` = this
+     * selector + (extensionId, nonce, messageHash), and `value` / `safeTxGas` / `baseGas` /
+     * `gasPrice` / `gasToken` / `refundReceiver` all zero. Batched execution (e.g. MultiSend,
+     * which runs as a delegatecall to the MultiSend contract) is NOT supported, and neither are
+     * gas-refund parameters — the approval executes on-chain either way (msg.sender is the Safe),
+     * but its signatures can then never be confirmed nor verified by TEE nodes (`to` / `operation`
+     * / gas-field mismatch), so the consumed Safe nonce is wasted. Execute the Safe transaction
+     * from a NON-OWNER account so all threshold signatures in the blob are real ECDSA signatures
+     * (an executing owner is represented by an approved-hash `v=1` entry, which neither the
+     * confirmation nor TEE nodes accept). The recorded `Approval.blockNumber` (see
+     * `getMachinePathListApprovals`) locates the transaction, and `Approval.safeNonce` supplies
+     * the signed Safe nonce — the one SafeTxHash ingredient not present in the `execTransaction`
+     * calldata (captured here as `safe.nonce() - 1`, since the Safe increments its nonce before
+     * making the inner call).
+     *
+     * Emits MachinePathListApproved.
      * @param _extensionId The extension id.
      * @param _nonce The list nonce.
      * @param _messageHash Must match `getMachinePathListMessageHash(_extensionId, _nonce)`.
@@ -223,6 +257,71 @@ interface IMachinePathManager {
         uint256 _extensionId,
         uint256 _nonce,
         bytes32 _messageHash
+    )
+        external;
+
+    /**
+     * Second step of the Safe approval flow: verifies, fully on-chain, that the owner signatures
+     * of a Safe approval recorded via `approveMachinePathList` meet the frozen snapshot of
+     * `_governanceHash`, then marks the governance Safe-approved. Callable by ANYONE — the caller
+     * only relays data the Safe transaction already published: `_signatures` is the packed
+     * signature blob from the `execTransaction` calldata (already sorted by the Safe's own
+     * validation; copy it verbatim) and `_safeNonce` is the signed Safe nonce from the matching
+     * `Approval` entry / `MachinePathListApproved` event.
+     *
+     * Verification is against the SNAPSHOT, not the live Safe — no live Safe state is read, so
+     * later owner rotations of the Safe can neither help nor harm a confirmation:
+     * 1. `_governanceHash` must be involved on the list and Safe-backed (`UnrecognizedSigner`
+     *    otherwise).
+     * 2. An `Approval` entry with the governance's Safe and `_safeNonce` must exist
+     *    (`SafeApprovalNotRecorded` otherwise) — the Safe really executed the approval at that
+     *    nonce; a signature blob collected off-chain but never executed can never confirm.
+     *    (Entries store the nonce as uint32, so the match is modulo 2^32 — non-load-bearing,
+     *    since a wrong `_safeNonce` fails signature recovery below.)
+     * 3. The EIP-712 SafeTxHash is reconstructed from the fixed transaction shape documented at
+     *    `approveMachinePathList` (this contract, CALL, the approval calldata with the list's
+     *    stored messageHash, zero value/gas fields, `_safeNonce`) under the Safe's domain
+     *    (chainId + Safe address, Safe >= 1.3.0).
+     * 4. `_signatures` must parse into 65-byte `{r,s,v}` chunks (`InvalidSignaturesLength`),
+     *    each an ECDSA signature over the SafeTxHash (`v` in {27,28}) or over its
+     *    EIP-191-prefixed form (`v` in {31,32}); approved-hash `v=1` and contract-signature
+     *    `v=0` chunks revert `InvalidSignatureType` (not verifiable — trim them off, and execute
+     *    approvals from a non-owner account so they never appear). Recovered signers must be
+     *    strictly ascending (`UnorderedSignatures`) — the Safe's own ordering rule, which also
+     *    guarantees uniqueness; genuine blobs already satisfy it.
+     * 5. At least snapshot-threshold-many recovered signers must be members of the snapshot's
+     *    signer set (`ThresholdNotReached(required, counted)` otherwise). Recovered non-members
+     *    are skipped, not rejected — the executing quorum may span several snapshots of the same
+     *    Safe; each snapshot counts only its own members.
+     *
+     * On success the governance is marked Safe-approved (`isMachinePathListSafeApproved`) — a
+     * satisfaction path independent of the ECDSA signature counts — and the verified artifact
+     * `{safeNonce, signatures}` is stored for chain-served retrieval
+     * (`getMachinePathListSafeApprovalArtifact`). Confirmation is ONE-SHOT per governance hash
+     * (`SafeApprovalAlreadyConfirmed` on a repeat): the artifact verifies against the frozen
+     * snapshot, so it stays valid forever — a replacement could never be fresher, and
+     * immutability lets consumers cache it.
+     * When several snapshots of the same Safe are involved, confirm each governance hash
+     * separately with the same `(_safeNonce, _signatures)` — the extension owner must coordinate
+     * the confirming owners so they satisfy each involved snapshot's threshold within that
+     * snapshot's owner set (fail-closed per snapshot; bridge via direct snapshot-owner signatures,
+     * a fresh list nonce, or machine re-registration).
+     *
+     * Emits MachinePathListSafeApprovalConfirmed; emits MachinePathListSigned when the list
+     * becomes fully signed (activation and active-nonce promotion happen only on the first
+     * transition, so MachinePathListSigned is emitted at most once per list).
+     * @param _extensionId The extension id.
+     * @param _nonce The list nonce.
+     * @param _governanceHash The involved Safe-backed governance hash to confirm.
+     * @param _safeNonce The Safe nonce the owners signed (from the `Approval` entry).
+     * @param _signatures The packed 65-byte owner signatures from the `execTransaction` calldata.
+     */
+    function confirmMachinePathListSafeApproval(
+        uint256 _extensionId,
+        uint256 _nonce,
+        bytes32 _governanceHash,
+        uint256 _safeNonce,
+        bytes calldata _signatures
     )
         external;
 
@@ -267,7 +366,7 @@ interface IMachinePathManager {
 
     /**
      * Returns true iff the (extensionId, nonce) list has been signed — every involved governance
-     * was satisfied (signature threshold reached, or Safe-approved) at least once.
+     * was satisfied (signature threshold reached, or its Safe approval confirmed) at least once.
      */
     function isMachinePathListSigned(
         uint256 _extensionId,
@@ -337,7 +436,8 @@ interface IMachinePathManager {
 
     /**
      * Returns true iff the given involved governance has been marked Safe-approved on the list
-     * via `approveMachinePathList`. A Safe-approved governance counts as satisfied for activation
+     * via `confirmMachinePathListSafeApproval` (on-chain verification of the owner signatures
+     * against the frozen snapshot). A Safe-approved governance counts as satisfied for activation
      * regardless of its ECDSA signature count.
      */
     function isMachinePathListSafeApproved(
@@ -349,11 +449,31 @@ interface IMachinePathManager {
         returns (bool);
 
     /**
+     * Returns the verified Safe-approval artifact stored by `confirmMachinePathListSafeApproval`
+     * for the given involved governance — the signed Safe nonce plus the packed owner signatures
+     * (see `SafeApprovalArtifact`). Zero nonce and empty signatures if the governance has not been
+     * confirmed; immutable once set (confirmation is one-shot per governance hash). Relay clients
+     * serve TEE nodes from this getter alone — no historical transaction or log lookup is needed.
+     * @param _extensionId The extension id.
+     * @param _nonce The list nonce.
+     * @param _governanceHash The involved Safe-backed governance hash.
+     * @return _artifact The verified artifact (`safeNonce`, `signatures`).
+     */
+    function getMachinePathListSafeApprovalArtifact(
+        uint256 _extensionId,
+        uint256 _nonce,
+        bytes32 _governanceHash
+    )
+        external view
+        returns (SafeApprovalArtifact memory _artifact);
+
+    /**
      * Returns the msg.sender approvals recorded via `approveMachinePathList`, in submission order
-     * (one entry per call — repeat approvals append). Complements the ECDSA `_signatures` returned
-     * by `getMachinePathList`: relay clients use each approval's block number to locate the Safe
-     * `execTransaction` transaction (owner signatures + transaction parameters) and its safeNonce
-     * to complete the SafeTxHash preimage forwarded to TEE nodes.
+     * (one entry per call — repeat approvals append). Each entry is the execution evidence that
+     * `confirmMachinePathListSafeApproval` cross-checks (Safe + signed nonce), and its block
+     * number locates the Safe `execTransaction` transaction — the submission path for the
+     * signature blob, and a fallback artifact source next to
+     * `getMachinePathListSafeApprovalArtifact`.
      * @param _extensionId The extension id.
      * @param _nonce The list nonce.
      * @return _approvals The recorded approvals.

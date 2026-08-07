@@ -16,6 +16,9 @@ contract MockSafe {
     uint256 public nonce = 1;
     address[] internal owners;
     uint256 internal threshold;
+    /// When set, `domainSeparator()` returns this instead of the real >= 1.3.0 formula — lets
+    /// tests simulate an incompatible (pre-1.3.0 / non-Safe) wallet at registration.
+    bytes32 internal domainSeparatorOverride;
 
     constructor(address[] memory _owners, uint256 _threshold) {
         owners = _owners;
@@ -32,6 +35,10 @@ contract MockSafe {
 
     function setNonce(uint256 _nonce) external {
         nonce = _nonce;
+    }
+
+    function setDomainSeparatorOverride(bytes32 _override) external {
+        domainSeparatorOverride = _override;
     }
 
     function exec(address _target, bytes calldata _data) external returns (bytes memory) {
@@ -63,5 +70,17 @@ contract MockSafe {
             }
         }
         return false;
+    }
+
+    /// Real Safe >= 1.3.0 formula: keccak256(abi.encode(typeHash, chainId, address(this))).
+    function domainSeparator() external view returns (bytes32) {
+        if (domainSeparatorOverride != bytes32(0)) {
+            return domainSeparatorOverride;
+        }
+        return keccak256(abi.encode(
+            keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"),
+            block.chainid,
+            address(this)
+        ));
     }
 }

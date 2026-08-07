@@ -45,6 +45,12 @@ library MachinePathManager {
         /// Per-governance Safe-approval flags — an alternative satisfaction path that never
         /// touches `signatureCount`. Appended field — mapping values are append-safe.
         mapping(bytes32 governanceHash => bool) safeApproved;
+        /// Per-governance verified Safe-approval artifacts (signed Safe nonce + packed owner
+        /// signatures), written by `confirmMachinePathListSafeApproval` at most once per
+        /// governance hash and only after full on-chain verification — the storage never holds
+        /// an unverified blob and never changes once set. Appended field — mapping values are
+        /// append-safe.
+        mapping(bytes32 governanceHash => IMachinePathManager.SafeApprovalArtifact) safeApprovalArtifacts;
     }
 
     /// @custom:storage-location erc7201:tee.MachinePathManager.State

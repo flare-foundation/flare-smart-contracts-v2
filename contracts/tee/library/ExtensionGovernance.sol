@@ -2,7 +2,7 @@
 pragma solidity ^0.8.35;
 
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
-import { ISafeMinimal } from "../interface/ISafeMinimal.sol";
+import { ISafeMinimal } from "../../utils/interface/ISafeMinimal.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
@@ -101,9 +101,13 @@ library ExtensionGovernance {
      * under `_governanceHash`: the live threshold must not be below the snapshot threshold, and at
      * least `snapshotThreshold` snapshot signers must still be live owners of `_safe` (checked by
      * staticcalling `isOwner` per stored signer, early-exiting once the threshold is reached — the
-     * stored set is unique by construction, so no duplicate handling is needed). Advisory only:
-     * a rogue Safe can misreport ownership; off-chain verifiers recover the actual owner
-     * signatures from the Safe transaction.
+     * stored set is unique by construction, so no duplicate handling is needed). SCREENING ONLY,
+     * never an authorization check: both inputs are under the Safe's own control, so a Safe whose
+     * ownership has since changed can satisfy any historical snapshot by reconfiguring itself
+     * beforehand. Authorization comes from
+     * `IMachinePathManager.confirmMachinePathListSafeApproval`, which verifies the actual owner
+     * signatures against the frozen snapshot; this screen only fails an honestly-stale Safe fast,
+     * before it consumes a nonce on an unconfirmable approval.
      */
     function isSnapshotSatisfiable(
         uint256 _extensionId,

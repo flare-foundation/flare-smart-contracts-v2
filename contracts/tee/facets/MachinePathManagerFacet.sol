@@ -5,10 +5,11 @@ import { IMachinePathManager, TEE_MACHINE_PATH_LIST } from "../../userInterfaces
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { SignedPayload } from "../../utils/lib/SignedPayload.sol";
-import { ISafeMinimal } from "../interface/ISafeMinimal.sol";
+import { ISafeMinimal } from "../../utils/interface/ISafeMinimal.sol";
 import { MachinePathManager } from "../library/MachinePathManager.sol";
 import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
+import { SafeTransactionVerifier } from "../library/SafeTransactionVerifier.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -161,14 +162,17 @@ contract MachinePathManagerFacet is IMachinePathManager {
         }
         require(anySafeMatch, UnrecognizedSigner());
 
-        // Phase 2: mark Safe-approved every involved snapshot the caller Safe's live quorum can
-        // still cover (one Safe call represents threshold-many owner confirmations). The flags are
-        // a satisfaction path independent of the ECDSA signature counts, which stay untouched.
-        // Repeat approvals — including after activation — are idempotent (no per-signer dedup is
-        // needed here, a contract can never produce the ECDSA signature the dedup exists for) and
-        // each appends a fresh Approval entry for relays. Snapshots the live quorum can no longer
-        // satisfy are skipped — they can still be covered by direct snapshot-owner signatures via
-        // `signMachinePathList`.
+        // Phase 2: screen every involved snapshot registered to the caller Safe against its live
+        // quorum. ADVISORY ONLY — both screening inputs (live threshold, live owner set) are under
+        // the Safe's own control, so nothing here authorizes anything: the `safeApproved` flags
+        // are set exclusively by `confirmMachinePathListSafeApproval`, which verifies the owner
+        // signatures against the frozen snapshot. The screen exists to fail an honestly-stale
+        // Safe fast — reverting BEFORE its nonce is consumed on an approval the confirmation
+        // could never accept. Repeat approvals — including after activation — are permitted (no
+        // per-signer dedup is needed here, a contract can never produce the ECDSA signature the
+        // dedup exists for) and each appends a fresh Approval entry for relays. Snapshots the
+        // live quorum can no longer satisfy are skipped — they can still be covered by direct
+        // snapshot-owner signatures via `signMachinePathList`.
         uint256 liveThreshold = ISafeMinimal(msg.sender).getThreshold();
         bytes32[] memory satisfied = new bytes32[](hashes.length);
         uint256 satisfiedLen;
@@ -179,7 +183,6 @@ contract MachinePathManagerFacet is IMachinePathManager {
                     _extensionId, hashes[i], ISafeMinimal(msg.sender), liveThreshold
                 )
             ) {
-                pathList.safeApproved[hashes[i]] = true;
                 satisfied[satisfiedLen] = hashes[i];
                 satisfiedLen++;
             }
@@ -204,6 +207,67 @@ contract MachinePathManagerFacet is IMachinePathManager {
         // solhint-disable-next-line no-inline-assembly
         assembly { mstore(satisfied, satisfiedLen) }
         emit MachinePathListApproved(_extensionId, _nonce, msg.sender, safeNonce, satisfied);
+    }
+
+    /// @inheritdoc IMachinePathManager
+    function confirmMachinePathListSafeApproval(
+        uint256 _extensionId,
+        uint256 _nonce,
+        bytes32 _governanceHash,
+        uint256 _safeNonce,
+        bytes calldata _signatures
+    )
+        external
+    {
+        MachinePathManager.MachinePathList storage pathList = MachinePathManager.list(_extensionId, _nonce);
+        require(pathList.messageHash != bytes32(0), ListNotFinalized());
+        require(pathList.involvedGovernanceHashes.contains(_governanceHash), UnrecognizedSigner());
+        // One-shot per governance hash: a confirmed artifact is verified against the frozen
+        // snapshot and stays valid forever (nodes verify against the same frozen anchors), so a
+        // replacement could never be "fresher" — immutability lets consumers cache it.
+        require(!pathList.safeApproved[_governanceHash], SafeApprovalAlreadyConfirmed());
+        address safe = ExtensionGovernance.getTeeGovernanceSafeAddress(_extensionId, _governanceHash);
+        require(safe != address(0), UnrecognizedSigner());
+
+        // The Safe must have executed the approval at the claimed nonce — a recorded Approval
+        // entry ties the confirmation to a consumed Safe nonce, so a signature blob collected
+        // off-chain but never executed (cancelled, replaced, or leaked from the Safe Transaction
+        // Service) can never confirm. Entries store the nonce as uint32; the modulo-2^32 match is
+        // non-load-bearing — a mismatching `_safeNonce` yields a SafeTxHash the owners never
+        // signed and fails recovery below.
+        Approval[] storage approvals = pathList.approvals;
+        bool approvalRecorded = false;
+        for (uint256 i = 0; i < approvals.length; i++) {
+            if (approvals[i].signer == safe && approvals[i].safeNonce == _safeNonce) {
+                approvalRecorded = true;
+                break;
+            }
+        }
+        require(approvalRecorded, SafeApprovalNotRecorded());
+
+        // Reconstruct the SafeTxHash from the fixed transaction shape (plain single CALL, zero
+        // value/gas fields — see the interface NatSpec) and verify the blob against the FROZEN
+        // snapshot: no live Safe state is read, so post-snapshot owner rotations of the Safe can
+        // neither forge nor block a confirmation.
+        bytes32 safeTxHash = SafeTransactionVerifier.callSafeTxHash(
+            safe,
+            address(this),
+            abi.encodeCall(IMachinePathManager.approveMachinePathList, (_extensionId, _nonce, pathList.messageHash)),
+            _safeNonce
+        );
+        address[] memory signers = SafeTransactionVerifier.recoverOrderedSigners(safeTxHash, _signatures);
+        uint64 threshold = ExtensionGovernance.getTeeGovernanceThreshold(_extensionId, _governanceHash);
+        uint256 counted = 0;
+        for (uint256 i = 0; i < signers.length && counted < threshold; i++) {
+            if (ExtensionGovernance.isTeeGovernanceSigner(_extensionId, _governanceHash, signers[i])) {
+                counted++;
+            }
+        }
+        require(counted >= threshold, ThresholdNotReached(threshold, counted));
+
+        pathList.safeApproved[_governanceHash] = true;
+        pathList.safeApprovalArtifacts[_governanceHash] = SafeApprovalArtifact(_safeNonce, _signatures);
+        emit MachinePathListSafeApprovalConfirmed(_extensionId, _nonce, _governanceHash, safe, _safeNonce);
 
         _activateWhenFullySigned(_extensionId, _nonce, pathList);
     }
@@ -326,6 +390,18 @@ contract MachinePathManagerFacet is IMachinePathManager {
         returns (bool)
     {
         return MachinePathManager.list(_extensionId, _nonce).safeApproved[_governanceHash];
+    }
+
+    /// @inheritdoc IMachinePathManager
+    function getMachinePathListSafeApprovalArtifact(
+        uint256 _extensionId,
+        uint256 _nonce,
+        bytes32 _governanceHash
+    )
+        external view
+        returns (SafeApprovalArtifact memory _artifact)
+    {
+        _artifact = MachinePathManager.list(_extensionId, _nonce).safeApprovalArtifacts[_governanceHash];
     }
 
     // =========================================================================

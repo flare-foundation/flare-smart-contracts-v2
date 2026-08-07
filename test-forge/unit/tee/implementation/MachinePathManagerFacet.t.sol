@@ -73,6 +73,17 @@ contract TestMachinePathHelperFacet is ITestMachinePathHelper {
 // solhint-disable-next-line max-states-count
 contract MachinePathManagerFacetTest is Test {
 
+    /// Bundle of a Safe-backed governance under test whose owners have known private keys
+    /// (sorted ascending by owner address — the packed-blob order the Safe encoding requires).
+    struct SafeCtx {
+        MockSafe safe;
+        bytes32 govHash;
+        address teeS1;
+        address teeS2;
+        address[] owners;
+        uint256[] keys;
+    }
+
     IIFlareTeeManager private flareTeeManager;
     ITestMachinePathHelper private helper;
 
@@ -722,7 +733,10 @@ contract MachinePathManagerFacetTest is Test {
     // approveMachinePathList (Safe-backed governance)
     // =========================================================================
 
-    function testApproveMachinePathListSafeActivates() public {
+    function testApproveMachinePathListRecordsWithoutSatisfying() public {
+        // The approval is step one of two: it screens the snapshots, consumes the Safe nonce and
+        // records the artifact pointer, but satisfies NOTHING — activation waits for the on-chain
+        // owner-signature verification in confirmMachinePathListSafeApproval.
         (MockSafe safe, bytes32 govHashS, address teeS1, address teeS2) =
             _setupSafeGovernance(_makeOwners("S", 3), 2, "S");
         uint256 nonce = _newFinalizedList(teeS1, teeS2);
@@ -733,33 +747,33 @@ contract MachinePathManagerFacetTest is Test {
         emit IMachinePathManager.MachinePathListApproved(
             extensionId, nonce, address(safe), 1, _h1(govHashS)
         );
-        vm.expectEmit();
-        emit IMachinePathManager.MachinePathListSigned(extensionId, nonce);
         // Realistic caller: the Safe contract itself executes the approval call.
         safe.exec(
             address(flareTeeManager),
             abi.encodeCall(IMachinePathManager.approveMachinePathList, (extensionId, nonce, hash))
         );
 
-        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
-        assertEq(flareTeeManager.getActiveMachinePathListNonce(extensionId), nonce);
-        // The approval satisfies the governance via the safeApproved flag; the ECDSA signature
-        // count stays untouched (honest zero).
-        assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashS));
+        assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+        assertFalse(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashS));
         assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashS), 0);
+        assertEq(flareTeeManager.getMachinePathListApprovals(extensionId, nonce).length, 1);
+        vm.expectRevert(IMachinePathManager.NoActiveMachinePathList.selector);
+        flareTeeManager.getActiveMachinePathListNonce(extensionId);
     }
 
     function testApproveMachinePathListMixedGovernancesRequiresAll() public {
-        (MockSafe safe,, address teeS1,) = _setupSafeGovernance(_makeOwners("S", 3), 2, "S");
-        // Path spanning plain governance A (teeA1) and the Safe governance (teeS1).
-        uint256 nonce = _newFinalizedList(teeA1, teeS1);
+        // Path spanning plain governance A (teeA1) and a Safe governance: the plain signature
+        // satisfies A, the Safe approval alone satisfies nothing — the list signs only once the
+        // Safe approval is confirmed on-chain.
+        SafeCtx memory c = _setupSafeGovernanceCtx("S", 3, 2);
+        uint256 nonce = _newFinalizedList(teeA1, c.teeS1);
         bytes32 hash = _listMessageHash(extensionId, nonce);
 
-        vm.prank(address(safe));
-        flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+        flareTeeManager.signMachinePathList(extensionId, nonce, _sign(hash, privKeysA[0]));
         assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
 
-        flareTeeManager.signMachinePathList(extensionId, nonce, _sign(hash, privKeysA[0]));
+        _confirm(c, nonce, signedNonce, 2);
         assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
     }
 
@@ -782,37 +796,54 @@ contract MachinePathManagerFacetTest is Test {
         assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashS), 2);
     }
 
-    function testApproveMachinePathListApprovesAllFeasibleSameSafeGovernances() public {
-        // Same Safe, small rotation (1 of 4 owners swapped, threshold unchanged): both the old and
-        // the new snapshot stay satisfiable by the live quorum, so one approval marks both.
-        (MockSafe safe, bytes32 govHashOld, address teeOld,) =
-            _setupSafeGovernance(_makeOwners("R", 4), 2, "Rold");
-        address[] memory rotated = _makeOwners("R", 4);
+    function testApproveThenConfirmAllFeasibleSameSafeGovernances() public {
+        // Same Safe, small rotation (1 of 4 owners swapped, threshold unchanged): both snapshots
+        // are screened by the single approval, and one signature blob — signed by owners in the
+        // snapshots' intersection — confirms each snapshot separately (coordination rule).
+        SafeCtx memory c = _setupSafeGovernanceCtx("R", 4, 2);      // old snapshot
+        bytes32 govHashOld = c.govHash;
+        address teeOld = c.teeS1;
+        address[] memory rotated = new address[](4);
+        rotated[0] = c.owners[0];
+        rotated[1] = c.owners[1];
+        rotated[2] = c.owners[2];
         rotated[3] = makeAddr("ownerR_replacement");
-        safe.setOwners(rotated);
-        (bytes32 govHashNew, address teeNew,) = _registerSafeGovernance(safe, "Rnew");
+        c.safe.setOwners(rotated);
+        (bytes32 govHashNew, address teeNew,) = _registerSafeGovernance(c.safe, "Rnew");
 
         uint256 nonce = _newFinalizedList(teeOld, teeNew);
-        bytes32 hash = _listMessageHash(extensionId, nonce);
 
         vm.expectEmit();
         emit IMachinePathManager.MachinePathListApproved(
-            extensionId, nonce, address(safe), 0, _h2(govHashOld, govHashNew)
+            extensionId, nonce, address(c.safe), 1, _h2(govHashOld, govHashNew)
         );
-        vm.prank(address(safe));
-        flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+        // Screening only — nothing satisfied yet.
+        assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
 
-        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+        // owners[0..1] (sorted keys) belong to BOTH snapshots: the same blob confirms each hash.
+        bytes memory blob = _packSignatures(
+            _approvalSafeTxHash(address(c.safe), nonce, signedNonce), _firstKeys(c.keys, 2)
+        );
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, govHashOld, signedNonce, blob
+        );
         assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashOld));
+        assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, govHashNew, signedNonce, blob
+        );
         assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashNew));
+        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
         assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashOld), 0);
         assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashNew), 0);
     }
 
     function testApproveMachinePathListSkipsUnsatisfiableSnapshot() public {
         // Full owner replacement: the old snapshot is no longer satisfiable by the live quorum, so
-        // the approval counts only the new snapshot; the old one is bridged by direct signatures
-        // from the snapshot owners.
+        // the approval screens only the new snapshot; the new one is then confirmed on-chain and
+        // the old one is bridged by direct signatures from the snapshot owners.
         (address o1, uint256 k1) = makeAddrAndKey("ownerU1");
         (address o2, uint256 k2) = makeAddrAndKey("ownerU2");
         uint256 nonce;
@@ -823,24 +854,31 @@ contract MachinePathManagerFacetTest is Test {
             address[] memory owners = new address[](2);
             owners[0] = o1;
             owners[1] = o2;
-            (MockSafe safe, bytes32 govHashOld, address teeOld,) = _setupSafeGovernance(owners, 2, "Uold");
-            safe.setOwners(_makeOwners("Unew", 2));
-            (bytes32 govHashNew, address teeNew,) = _registerSafeGovernance(safe, "Unew");
+            SafeCtx memory c;
+            bytes32 govHashOld;
+            address teeOld;
+            (c.safe, govHashOld, teeOld,) = _setupSafeGovernance(owners, 2, "Uold");
+            (c.owners, c.keys) = _makeOwnerKeys("Unew", 2);
+            c.safe.setOwners(c.owners);
+            (c.govHash, c.teeS1, c.teeS2) = _registerSafeGovernance(c.safe, "Unew");
 
-            nonce = _newFinalizedList(teeOld, teeNew);
+            nonce = _newFinalizedList(teeOld, c.teeS1);
             hash = _listMessageHash(extensionId, nonce);
 
-            // Only the satisfiable (current) snapshot is marked approved; the stale one is skipped.
+            // Only the satisfiable (current) snapshot is screened; the stale one is skipped.
             vm.expectEmit();
             emit IMachinePathManager.MachinePathListApproved(
-                extensionId, nonce, address(safe), 0, _h1(govHashNew)
+                extensionId, nonce, address(c.safe), 1, _h1(c.govHash)
             );
-            vm.prank(address(safe));
-            flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
+            uint256 signedNonce = _execApproval(c.safe, nonce);
 
             assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
-            assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashNew));
+            // Screening marks nothing — the new snapshot needs its confirmation.
+            assertFalse(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, c.govHash));
+            _confirm(c, nonce, signedNonce, 2);
+            assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, c.govHash));
             assertFalse(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashOld));
+            assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
             assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashOld), 0);
         }
 
@@ -882,25 +920,23 @@ contract MachinePathManagerFacetTest is Test {
         // Approvals may still be recorded after activation — a refreshed Safe transaction gives
         // relays a newer artifact (e.g. after an owner rotation). Activation happened once and the
         // list simply stays signed; no second MachinePathListSigned.
-        (MockSafe safe, bytes32 govHashS, address teeS1, address teeS2) =
-            _setupSafeGovernance(_makeOwners("S", 2), 2, "S");
-        uint256 nonce = _newFinalizedList(teeS1, teeS2);
-        bytes32 hash = _listMessageHash(extensionId, nonce);
+        SafeCtx memory c = _setupSafeGovernanceCtx("S", 2, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
 
-        vm.prank(address(safe));
-        flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+        _confirm(c, nonce, signedNonce, 2);
         assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
         assertEq(flareTeeManager.getActiveMachinePathListNonce(extensionId), nonce);
 
         vm.roll(vm.getBlockNumber() + 100);
         // The refreshed approval carries the newer Safe nonce (5 signed → nonce() reads 6).
-        safe.setNonce(6);
+        c.safe.setNonce(5);
         vm.expectEmit();
         emit IMachinePathManager.MachinePathListApproved(
-            extensionId, nonce, address(safe), 5, _h1(govHashS)
+            extensionId, nonce, address(c.safe), 5, _h1(c.govHash)
         );
-        vm.prank(address(safe));
-        flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
+        uint256 signedNonce2 = _execApproval(c.safe, nonce);
+        assertEq(signedNonce2, 5);
 
         IMachinePathManager.Approval[] memory approvals =
             flareTeeManager.getMachinePathListApprovals(extensionId, nonce);
@@ -965,10 +1001,11 @@ contract MachinePathManagerFacetTest is Test {
     }
 
     function testApproveMachinePathListRepeatApprovalAllowed() public {
-        // No per-signer dedup on the approval path: repeat approvals are idempotent on the flags
-        // and each appends another Approval entry (fresher artifact pointer for relays).
+        // No per-signer dedup on the approval path: repeat approvals are permitted and each
+        // appends another Approval entry (fresher artifact pointer for relays). None of them
+        // satisfies anything — the safeApproved flag is set only by the confirmation.
         (MockSafe safe, bytes32 govHashS, address teeS1,) = _setupSafeGovernance(_makeOwners("S", 2), 2, "S");
-        // Mixed list (plain governance A + Safe governance) so the first approval does not activate.
+        // Mixed list (plain governance A + Safe governance).
         uint256 nonce = _newFinalizedList(teeA1, teeS1);
         bytes32 hash = _listMessageHash(extensionId, nonce);
 
@@ -977,44 +1014,39 @@ contract MachinePathManagerFacetTest is Test {
         vm.prank(address(safe));
         flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
 
-        assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashS));
+        assertFalse(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashS));
         assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashS), 0);
         assertEq(flareTeeManager.getMachinePathListApprovals(extensionId, nonce).length, 2);
         assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
 
-        // Plain governance A completes the list as usual.
+        // Plain governance A signs as usual; the list still waits for the Safe confirmation.
         flareTeeManager.signMachinePathList(extensionId, nonce, _sign(hash, privKeysA[0]));
-        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+        assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
     }
 
     function testApproveMachinePathListMixedWithOwnerSignatures() public {
-        // Partial direct owner signatures followed by the Safe approval: the two satisfaction
-        // paths are independent — the signature count keeps its honest value and the safeApproved
-        // flag satisfies the governance for activation.
-        (address o1, uint256 k1) = makeAddrAndKey("ownerM1");
-        (address o2, ) = makeAddrAndKey("ownerM2");
-        address[] memory owners = new address[](2);
-        owners[0] = o1;
-        owners[1] = o2;
-        (MockSafe safe, bytes32 govHashS, address teeS1, address teeS2) =
-            _setupSafeGovernance(owners, 2, "M");
-        uint256 nonce = _newFinalizedList(teeS1, teeS2);
+        // Partial direct owner signatures followed by the confirmed Safe approval: the two
+        // satisfaction paths are independent — the signature count keeps its honest value and the
+        // confirmed safeApproved flag satisfies the governance for activation.
+        SafeCtx memory c = _setupSafeGovernanceCtx("M", 2, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
         bytes32 hash = _listMessageHash(extensionId, nonce);
 
-        flareTeeManager.signMachinePathList(extensionId, nonce, _sign(hash, k1));
-        assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashS), 1);
+        flareTeeManager.signMachinePathList(extensionId, nonce, _sign(hash, c.keys[0]));
+        assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, c.govHash), 1);
         assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
 
-        vm.prank(address(safe));
-        flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
-        assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashS), 1);
-        assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashS));
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+        assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+        _confirm(c, nonce, signedNonce, 2);
+        assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, c.govHash), 1);
+        assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, c.govHash));
         assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
     }
 
     function testApproveMachinePathListAfterOwnerThresholdReached() public {
         // Owners individually reach the snapshot threshold first; a subsequent Safe approval still
-        // records the flag and the Approval entry, and the honest count is untouched.
+        // records the Approval entry, and the honest count is untouched.
         (address o1, uint256 k1) = makeAddrAndKey("ownerN1");
         (address o2, uint256 k2) = makeAddrAndKey("ownerN2");
         address[] memory owners = new address[](2);
@@ -1038,7 +1070,8 @@ contract MachinePathManagerFacetTest is Test {
         flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
 
         assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, govHashS), 2);
-        assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashS));
+        // The unconfirmed approval sets no flag; the governance is satisfied by the count alone.
+        assertFalse(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, govHashS));
         assertEq(flareTeeManager.getMachinePathListApprovals(extensionId, nonce).length, 1);
         assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
     }
@@ -1089,6 +1122,307 @@ contract MachinePathManagerFacetTest is Test {
         vm.prank(address(safe));
         vm.expectRevert(stdError.arithmeticError);
         flareTeeManager.approveMachinePathList(extensionId, nonce, hash);
+    }
+
+    // =========================================================================
+    // confirmMachinePathListSafeApproval
+    // =========================================================================
+
+    function testConfirmMachinePathListSafeApprovalActivates() public {
+        SafeCtx memory c = _setupSafeGovernanceCtx("S", 3, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+
+        bytes memory blob = _packSignatures(
+            _approvalSafeTxHash(address(c.safe), nonce, signedNonce), _firstKeys(c.keys, 2)
+        );
+        vm.expectEmit();
+        emit IMachinePathManager.MachinePathListSafeApprovalConfirmed(
+            extensionId, nonce, c.govHash, address(c.safe), signedNonce
+        );
+        vm.expectEmit();
+        emit IMachinePathManager.MachinePathListSigned(extensionId, nonce);
+        // Anyone may relay the blob — the signatures carry the authority.
+        vm.prank(makeAddr("anyRelayer"));
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce, blob
+        );
+
+        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+        assertTrue(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, c.govHash));
+        assertEq(flareTeeManager.getActiveMachinePathListNonce(extensionId), nonce);
+        // Honest signature count: the confirmation never touches it.
+        assertEq(flareTeeManager.getMachinePathListSignatureCount(extensionId, nonce, c.govHash), 0);
+        // The verified artifact is chain-served for relays.
+        IMachinePathManager.SafeApprovalArtifact memory artifact =
+            flareTeeManager.getMachinePathListSafeApprovalArtifact(extensionId, nonce, c.govHash);
+        assertEq(artifact.safeNonce, signedNonce);
+        assertEq(artifact.signatures, blob);
+    }
+
+    function testConfirmMachinePathListSafeApprovalEthSignVariant() public {
+        // v in {31,32}: eth_sign-flow chunks recover over the EIP-191-prefixed SafeTxHash with v-4.
+        SafeCtx memory c = _setupSafeGovernanceCtx("E", 2, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+
+        bytes32 prefixed = keccak256(abi.encodePacked(
+            "\x19Ethereum Signed Message:\n32", _approvalSafeTxHash(address(c.safe), nonce, signedNonce)
+        ));
+        bytes memory blob;
+        for (uint256 i = 0; i < 2; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(c.keys[i], prefixed);
+            blob = abi.encodePacked(blob, r, s, v + 4);
+        }
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce, blob
+        );
+        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+    }
+
+    function testConfirmMachinePathListSafeApprovalSkipsNonMemberSigners() public {
+        // The blob may include valid signatures from signers outside this snapshot (e.g. live
+        // owners admitted after a rotation): they are skipped, not rejected — only snapshot
+        // members count toward the threshold.
+        (address[] memory all, uint256[] memory keys) = _makeOwnerKeys("NM", 3);
+        address[] memory members = new address[](2);
+        members[0] = all[0];
+        members[1] = all[2];
+        (MockSafe safe, bytes32 govHash, address teeS1, address teeS2) =
+            _setupSafeGovernance(members, 2, "NM");
+        uint256 nonce = _newFinalizedList(teeS1, teeS2);
+        uint256 signedNonce = _execApproval(safe, nonce);
+
+        // All three (sorted) signatures; all[1] is not a snapshot member.
+        bytes memory blob = _packSignatures(_approvalSafeTxHash(address(safe), nonce, signedNonce), keys);
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, govHash, signedNonce, blob
+        );
+        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+    }
+
+    function testConfirmMachinePathListSafeApprovalRevertThresholdNotReached() public {
+        SafeCtx memory c = _setupSafeGovernanceCtx("T", 2, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+
+        bytes memory blob = _packSignatures(
+            _approvalSafeTxHash(address(c.safe), nonce, signedNonce), _firstKeys(c.keys, 1)
+        );
+        vm.expectRevert(abi.encodeWithSelector(IMachinePathManager.ThresholdNotReached.selector, 2, 1));
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce, blob
+        );
+    }
+
+    function testConfirmMachinePathListSafeApprovalRevertOwnerRotationAttack() public {
+        // The auditors' owner-rotation sequence: a Safe fully taken over AFTER the snapshot can
+        // pass the advisory screening in approveMachinePathList by reconfiguring itself, but it
+        // cannot produce the snapshot owners' signatures — satisfaction is gated by the on-chain
+        // confirmation, which fails.
+        SafeCtx memory c = _setupSafeGovernanceCtx("H", 3, 2);          // snapshot {A,B,C}, threshold 2
+        (address[] memory attackers, uint256[] memory attackerKeys) = _makeOwnerKeys("D", 3);
+
+        // D holds sole control and stages the screen: owners {D, D1, D2, A, B} with threshold 3 —
+        // the live threshold is not below 2 and two snapshot signers are live owners.
+        address[] memory staged = new address[](5);
+        staged[0] = attackers[0];
+        staged[1] = attackers[1];
+        staged[2] = attackers[2];
+        staged[3] = c.owners[0];
+        staged[4] = c.owners[1];
+        c.safe.setOwners(staged);
+        c.safe.setThreshold(3);
+
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        uint256 signedNonce = _execApproval(c.safe, nonce);    // succeeds: the screen is advisory
+
+        // ...but satisfies nothing.
+        assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+        assertFalse(flareTeeManager.isMachinePathListSafeApproved(extensionId, nonce, c.govHash));
+
+        // D confirms with the keys it actually holds — zero snapshot members recover.
+        bytes memory attackerBlob = _packSignatures(
+            _approvalSafeTxHash(address(c.safe), nonce, signedNonce), attackerKeys
+        );
+        vm.expectRevert(abi.encodeWithSelector(IMachinePathManager.ThresholdNotReached.selector, 2, 0));
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce, attackerBlob
+        );
+        assertFalse(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+
+        // Contrast: signatures from the genuine snapshot owners — exactly what the attacker
+        // lacks — do confirm.
+        bytes memory ownerBlob = _packSignatures(
+            _approvalSafeTxHash(address(c.safe), nonce, signedNonce), _firstKeys(c.keys, 2)
+        );
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce, ownerBlob
+        );
+        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+    }
+
+    function testConfirmMachinePathListSafeApprovalRevertSafeApprovalNotRecorded() public {
+        SafeCtx memory c = _setupSafeGovernanceCtx("P", 2, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        bytes memory blob = _packSignatures(
+            _approvalSafeTxHash(address(c.safe), nonce, 1), _firstKeys(c.keys, 2)
+        );
+
+        // No approval executed at all: a blob collected off-chain but never executed by the Safe
+        // (cancelled, replaced, or leaked from the Safe Transaction Service) can never confirm.
+        vm.expectRevert(IMachinePathManager.SafeApprovalNotRecorded.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(extensionId, nonce, c.govHash, 1, blob);
+
+        // Approval executed at Safe nonce 1; confirming with a different claimed nonce fails too.
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+        assertEq(signedNonce, 1);
+        vm.expectRevert(IMachinePathManager.SafeApprovalNotRecorded.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(extensionId, nonce, c.govHash, 2, blob);
+    }
+
+    function testConfirmMachinePathListSafeApprovalRevertListNotFinalized() public {
+        SafeCtx memory c = _setupSafeGovernanceCtx("L", 2, 2);
+        uint256 nonce = _newListWithPath(c.teeS1, c.teeS2);
+        vm.expectRevert(IMachinePathManager.ListNotFinalized.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(extensionId, nonce, c.govHash, 1, "");
+    }
+
+    function testConfirmMachinePathListSafeApprovalRevertUnrecognizedSigner() public {
+        SafeCtx memory c = _setupSafeGovernanceCtx("U", 2, 2);
+        // Plain-only list: govHashA is involved but has no Safe behind it.
+        uint256 plainNonce = _newFinalizedList(teeA1, teeA2);
+        vm.expectRevert(IMachinePathManager.UnrecognizedSigner.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(extensionId, plainNonce, govHashA, 1, "");
+
+        // Safe-governance hash that is NOT involved on the list.
+        vm.expectRevert(IMachinePathManager.UnrecognizedSigner.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(extensionId, plainNonce, c.govHash, 1, "");
+    }
+
+    function testConfirmMachinePathListSafeApprovalRevertInvalidSignaturesLength() public {
+        SafeCtx memory c = _setupSafeGovernanceCtx("IL", 2, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+
+        vm.expectRevert(IMachinePathManager.InvalidSignaturesLength.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce, ""
+        );
+        vm.expectRevert(IMachinePathManager.InvalidSignaturesLength.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce, new bytes(64)
+        );
+    }
+
+    function testConfirmMachinePathListSafeApprovalRevertInvalidSignatureType() public {
+        // Approved-hash (v=1) and contract-signature (v=0) chunks carry no ECDSA signature to
+        // verify: they appear when an owner executes the Safe transaction itself — execute from a
+        // non-owner account instead.
+        SafeCtx memory c = _setupSafeGovernanceCtx("IT", 2, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+
+        // r = padded owner address, like a real approved-hash / contract-signature chunk.
+        bytes32 rOwner = bytes32(uint256(uint160(c.owners[0])));
+        vm.expectRevert(IMachinePathManager.InvalidSignatureType.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce,
+            abi.encodePacked(rOwner, bytes32(0), uint8(1))
+        );
+        vm.expectRevert(IMachinePathManager.InvalidSignatureType.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce,
+            abi.encodePacked(rOwner, bytes32(0), uint8(0))
+        );
+    }
+
+    function testConfirmMachinePathListSafeApprovalRevertUnorderedSignatures() public {
+        SafeCtx memory c = _setupSafeGovernanceCtx("UO", 2, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+        bytes32 safeTxHash = _approvalSafeTxHash(address(c.safe), nonce, signedNonce);
+
+        // Descending signer order.
+        uint256[] memory reversed = new uint256[](2);
+        reversed[0] = c.keys[1];
+        reversed[1] = c.keys[0];
+        vm.expectRevert(IMachinePathManager.UnorderedSignatures.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce, _packSignatures(safeTxHash, reversed)
+        );
+
+        // Duplicate signer (equal is not strictly ascending) — one signature cannot count twice.
+        uint256[] memory duplicated = new uint256[](2);
+        duplicated[0] = c.keys[0];
+        duplicated[1] = c.keys[0];
+        vm.expectRevert(IMachinePathManager.UnorderedSignatures.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce, _packSignatures(safeTxHash, duplicated)
+        );
+    }
+
+    function testConfirmMachinePathListSafeApprovalRevertWrongPayloadSignature() public {
+        // A signature over anything but the exact reconstructed SafeTxHash (here: the owners
+        // signed Safe nonce 99, not the executed nonce) recovers to a non-member address.
+        SafeCtx memory c = _setupSafeGovernanceCtx("WP", 2, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        uint256 signedNonce = _execApproval(c.safe, nonce);
+
+        bytes memory blob = _packSignatures(
+            _approvalSafeTxHash(address(c.safe), nonce, 99), _firstKeys(c.keys, 1)
+        );
+        vm.expectRevert(abi.encodeWithSelector(IMachinePathManager.ThresholdNotReached.selector, 2, 0));
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, nonce, c.govHash, signedNonce, blob
+        );
+    }
+
+    function testConfirmMachinePathListSafeApprovalRevertAlreadyConfirmed() public {
+        // Confirmation is one-shot per governance hash: the artifact verifies against the frozen
+        // snapshot and stays valid forever, so a replacement could never be fresher — the stored
+        // artifact is immutable and consumers may cache it. Repeat APPROVALS stay permitted (the
+        // pre-confirm recovery path), but a second confirmation reverts and changes nothing.
+        SafeCtx memory c = _setupSafeGovernanceCtx("RO", 3, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        uint256 firstNonce = _execApproval(c.safe, nonce);
+        _confirm(c, nonce, firstNonce, 2);
+        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+        IMachinePathManager.SafeApprovalArtifact memory artifact =
+            flareTeeManager.getMachinePathListSafeApprovalArtifact(extensionId, nonce, c.govHash);
+
+        // A later approval at a newer Safe nonce is recorded, but its confirmation is rejected.
+        c.safe.setNonce(7);
+        uint256 secondNonce = _execApproval(c.safe, nonce);
+        assertEq(secondNonce, 7);
+        uint256[] memory subset = new uint256[](2);
+        subset[0] = c.keys[1];
+        subset[1] = c.keys[2];
+        bytes memory blob2 = _packSignatures(_approvalSafeTxHash(address(c.safe), nonce, 7), subset);
+        vm.expectRevert(IMachinePathManager.SafeApprovalAlreadyConfirmed.selector);
+        flareTeeManager.confirmMachinePathListSafeApproval(extensionId, nonce, c.govHash, 7, blob2);
+
+        // The stored artifact is untouched.
+        IMachinePathManager.SafeApprovalArtifact memory unchanged =
+            flareTeeManager.getMachinePathListSafeApprovalArtifact(extensionId, nonce, c.govHash);
+        assertEq(unchanged.safeNonce, artifact.safeNonce);
+        assertEq(unchanged.signatures, artifact.signatures);
+        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, nonce));
+        assertEq(flareTeeManager.getActiveMachinePathListNonce(extensionId), nonce);
+    }
+
+    function testGetMachinePathListSafeApprovalArtifactEmptyBeforeConfirm() public {
+        SafeCtx memory c = _setupSafeGovernanceCtx("G", 2, 2);
+        uint256 nonce = _newFinalizedList(c.teeS1, c.teeS2);
+        IMachinePathManager.SafeApprovalArtifact memory artifact =
+            flareTeeManager.getMachinePathListSafeApprovalArtifact(extensionId, nonce, c.govHash);
+        assertEq(artifact.safeNonce, 0);
+        assertEq(artifact.signatures.length, 0);
+    }
+
+    function testGetMachinePathListSafeApprovalArtifactRevertInvalidNonce() public {
+        vm.expectRevert(ITeeCommonErrors.InvalidNonce.selector);
+        flareTeeManager.getMachinePathListSafeApprovalArtifact(extensionId, 999, govHashA);
     }
 
     // =========================================================================
@@ -1249,6 +1583,73 @@ contract MachinePathManagerFacetTest is Test {
         );
     }
 
+    /**
+     * @dev Deploys + registers a Safe-backed governance whose owners have known private keys
+     *      (sorted ascending by owner address — the packed-blob order the Safe encoding requires)
+     *      and binds two fresh TEE machines to its hash.
+     */
+    function _setupSafeGovernanceCtx(
+        string memory _seed,
+        uint256 _ownerCount,
+        uint256 _threshold
+    )
+        private
+        returns (SafeCtx memory _c)
+    {
+        (_c.owners, _c.keys) = _makeOwnerKeys(_seed, _ownerCount);
+        (_c.safe, _c.govHash, _c.teeS1, _c.teeS2) = _setupSafeGovernance(_c.owners, _threshold, _seed);
+    }
+
+    /// @dev Keyed owner addresses, sorted ascending (insertion sort) so blobs packed from `_keys`
+    ///      prefixes recover in the strictly-ascending order the confirmation requires.
+    function _makeOwnerKeys(
+        string memory _seed,
+        uint256 _count
+    )
+        private
+        returns (
+            address[] memory _owners,
+            uint256[] memory _keys
+        )
+    {
+        _owners = new address[](_count);
+        _keys = new uint256[](_count);
+        for (uint256 i = 0; i < _count; i++) {
+            (_owners[i], _keys[i]) = makeAddrAndKey(string.concat("keyedOwner", _seed, "_", vm.toString(i)));
+        }
+        for (uint256 i = 1; i < _count; i++) {
+            for (uint256 j = i; j > 0 && _owners[j - 1] > _owners[j]; j--) {
+                (_owners[j - 1], _owners[j]) = (_owners[j], _owners[j - 1]);
+                (_keys[j - 1], _keys[j]) = (_keys[j], _keys[j - 1]);
+            }
+        }
+    }
+
+    /// @dev Executes the approval through the Safe (msg.sender == the Safe) at its current nonce
+    ///      and returns the SIGNED nonce — the pre-execution value; MockSafe pre-increments in
+    ///      `exec`, mirroring the real Safe.
+    function _execApproval(MockSafe _safe, uint256 _listNonce) private returns (uint256 _signedNonce) {
+        _signedNonce = _safe.nonce();
+        _safe.exec(
+            address(flareTeeManager),
+            abi.encodeCall(
+                IMachinePathManager.approveMachinePathList,
+                (extensionId, _listNonce, _listMessageHash(extensionId, _listNonce))
+            )
+        );
+    }
+
+    /// @dev Confirms `_c.govHash` on the list with the first `_numSigs` owner signatures.
+    function _confirm(SafeCtx memory _c, uint256 _listNonce, uint256 _signedNonce, uint256 _numSigs) private {
+        bytes memory blob = _packSignatures(
+            _approvalSafeTxHash(address(_c.safe), _listNonce, _signedNonce),
+            _firstKeys(_c.keys, _numSigs)
+        );
+        flareTeeManager.confirmMachinePathListSafeApproval(
+            extensionId, _listNonce, _c.govHash, _signedNonce, blob
+        );
+    }
+
     function _newList() private returns (uint256 _nonce) {
         vm.prank(owner);
         _nonce = flareTeeManager.createNewMachinePathList(extensionId);
@@ -1322,6 +1723,45 @@ contract MachinePathManagerFacetTest is Test {
         );
     }
 
+    /// @dev Independent reimplementation of the on-chain SafeTxHash reconstruction (test oracle):
+    ///      a plain single CALL to the diamond carrying the approval calldata, zero value/gas
+    ///      fields, under the Safe >= 1.3.0 domain (chainId + Safe address).
+    function _approvalSafeTxHash(
+        address _safe,
+        uint256 _listNonce,
+        uint256 _safeNonce
+    )
+        private view
+        returns (bytes32)
+    {
+        bytes memory data = abi.encodeCall(
+            IMachinePathManager.approveMachinePathList,
+            (extensionId, _listNonce, _listMessageHash(extensionId, _listNonce))
+        );
+        bytes32 safeTxHash = keccak256(abi.encode(
+            keccak256(
+                "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,"
+                "uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+            ),
+            address(flareTeeManager),
+            uint256(0),
+            keccak256(data),
+            uint8(0),
+            uint256(0),
+            uint256(0),
+            uint256(0),
+            address(0),
+            address(0),
+            _safeNonce
+        ));
+        bytes32 domainSep = keccak256(abi.encode(
+            keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"),
+            block.chainid,
+            _safe
+        ));
+        return keccak256(abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSep, safeTxHash));
+    }
+
     function _onePath(address _src, address _dst)
         private pure
         returns (IMachinePathManager.MachinePath[] memory _paths)
@@ -1345,6 +1785,21 @@ contract MachinePathManagerFacetTest is Test {
         _r = new bytes32[](2);
         _r[0] = _a;
         _r[1] = _b;
+    }
+
+    /// @dev Packs `{r,s,v}` chunks in key order (keys must be pre-sorted by signer address).
+    function _packSignatures(bytes32 _hash, uint256[] memory _keys) private pure returns (bytes memory _blob) {
+        for (uint256 i = 0; i < _keys.length; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(_keys[i], _hash);
+            _blob = abi.encodePacked(_blob, r, s, v);
+        }
+    }
+
+    function _firstKeys(uint256[] memory _keys, uint256 _n) private pure returns (uint256[] memory _r) {
+        _r = new uint256[](_n);
+        for (uint256 i = 0; i < _n; i++) {
+            _r[i] = _keys[i];
+        }
     }
 
     function _sign(bytes32 _hash, uint256 _privKey) private pure returns (Signature memory) {

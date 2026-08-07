@@ -389,7 +389,7 @@ library FlareTeeManagerDeployer {
 
         // 17: MachinePathManagerFacet
         {
-            bytes4[] memory s = new bytes4[](15);
+            bytes4[] memory s = new bytes4[](17);
             s[0] = IMachinePathManager.createNewMachinePathList.selector;
             s[1] = IMachinePathManager.addMachinePaths.selector;
             s[2] = IMachinePathManager.finalizeMachinePathList.selector;
@@ -405,6 +405,8 @@ library FlareTeeManagerDeployer {
             s[12] = IMachinePathManager.approveMachinePathList.selector;
             s[13] = IMachinePathManager.getMachinePathListApprovals.selector;
             s[14] = IMachinePathManager.isMachinePathListSafeApproved.selector;
+            s[15] = IMachinePathManager.confirmMachinePathListSafeApproval.selector;
+            s[16] = IMachinePathManager.getMachinePathListSafeApprovalArtifact.selector;
             cuts[15] = IDiamond.FacetCut(
                 address(new MachinePathManagerFacet()), IDiamond.FacetCutAction.Add, s
             );

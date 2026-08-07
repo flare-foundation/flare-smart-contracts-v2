@@ -3,9 +3,10 @@ pragma solidity ^0.8.35;
 
 import { IExtensionGovernance } from "../../userInterfaces/tee/IExtensionGovernance.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
-import { ISafeMinimal } from "../interface/ISafeMinimal.sol";
+import { ISafeMinimal } from "../../utils/interface/ISafeMinimal.sol";
 import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
+import { SafeTransactionVerifier } from "../library/SafeTransactionVerifier.sol";
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
@@ -60,6 +61,15 @@ contract ExtensionGovernanceFacet is IExtensionGovernance {
         uint256 threshold = ISafeMinimal(_safe).getThreshold();
         require(owners.length > 0, NoSigners());
         require(threshold > 0 && threshold <= owners.length, ITeeCommonErrors.InvalidThreshold());
+        // Fail fast on incompatible wallets: `confirmMachinePathListSafeApproval` and TEE nodes
+        // reconstruct SafeTxHashes under the Safe >= 1.3.0 domain formula, so a Safe whose live
+        // domain separator differs (older version, or not a Safe at all) would only ever produce
+        // approvals that can never be confirmed. Not a security check — registration already
+        // trusts `_safe` for its owner snapshot — just an early, explicit failure.
+        require(
+            ISafeMinimal(_safe).domainSeparator() == SafeTransactionVerifier.domainSeparator(_safe),
+            SafeDomainSeparatorMismatch()
+        );
         // Lossless: threshold <= owners.length, and a decoded memory array can never have
         // 2^64 elements (solc caps memory allocations below 2^64 bytes, i.e. length < 2^59).
         uint64 signersThreshold = uint64(threshold);
