@@ -13,6 +13,8 @@ for (let line of forgeLcovFile.split("\n")) {
     // forge reports them like any other source. They currently sit below the contract average,
     // so leaving them in understated the figure rather than inflating it.
     line.includes("test-forge/") ||
+    // Any mock tree, not just contracts/mock: seven more sit under contracts/<module>/mock/.
+    line.includes("/mock/") ||
     line.includes("contracts/mock") ||
     // Soldeer dependencies: `forge coverage` can emit records for them, but genhtml reads every
     // source file it reports on, and the reports job gets only lcov.info - `dependencies/` is

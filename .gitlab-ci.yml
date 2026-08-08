@@ -277,12 +277,17 @@ coverage-forge-viair:
     - forge soldeer install
     - forge install --no-git
   script:
+    # The protocol suites are skipped individually rather than by directory: only three of the
+    # eleven import contracts/mock, and a blanket skip also silenced NodePossessionVerifier.t.sol -
+    # which, since coverage-forge skips that contract as well, left it measured by neither pass.
     - >
       FOUNDRY_PROFILE=coverage-viair forge coverage --report lcov --report-file lcov-viair.info
       --skip '**/contracts/mock/**'
       --skip '**/contracts/rNat/**'
       --skip '**/test-forge/unit/rNat/**'
-      --skip '**/test-forge/unit/protocol/**'
+      --skip '**/test-forge/unit/protocol/implementation/EntityManager.t.sol'
+      --skip '**/test-forge/unit/protocol/implementation/FlareSystemsManager.t.sol'
+      --skip '**/test-forge/unit/protocol/implementation/Submission.t.sol'
       --skip '**/test-forge/unit/ftso/**'
       --skip '**/test-forge/unit/fscV1/**'
       --skip '**/test-forge/unit/fdc/**'
