@@ -21,6 +21,9 @@ coverage/
 coverage-forge/
 lcov.info
 lcov.info.pruned
+# the second coverage pass, and the merge target it is combined into
+lcov-viair.info
+lcov-merged.info
 coverage.json
 
 # Hardhat files
