@@ -244,11 +244,59 @@ coverage-forge:
     - forge install --no-git
     - forge build
   script:
-    - FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov
+    # The three skipped contracts hit "stack too deep" under coverage (which forces viaIR off); the
+    # four skipped suites load them through vm.deployCode and would fail setUp(). Both are measured
+    # by coverage-forge-viair instead, and all of them still run in test-unit-forge.
+    - >
+      FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov
+      --skip 'contracts/tee/implementation/TeePayments.sol'
+      --skip 'contracts/tee/implementation/TeePaymentsUtxo.sol'
+      --skip 'contracts/protocol/implementation/NodePossessionVerifier.sol'
+      --skip 'test-forge/unit/tee/implementation/TeePayments.t.sol'
+      --skip 'test-forge/unit/tee/implementation/TeePaymentsUtxo.t.sol'
+      --skip 'test-forge/integration/WalletPayments.t.sol'
+      --skip 'test-forge/unit/protocol/implementation/NodePossessionVerifier.t.sol'
   artifacts:
     expire_in: 30 days
     paths:
       - lcov.info
+
+coverage-forge-viair:
+  # Covers the three contracts coverage-forge must skip. Everything is pinned to viaIR here, so
+  # contracts/mock (legacy pragmas) and contracts/rNat (Yul stack issues) drop out along with the
+  # suites importing them - coverage-forge measures those. The two reports are merged downstream.
+  image: !reference [.partials, foundry-image]
+  stage: test
+  needs:
+    - job: coverage-forge-node_modules
+      artifacts: true
+  tags: [flarenetwork-lg]
+  timeout: 10 minutes
+  before_script:
+    - mv node_modules.sol node_modules
+    - forge soldeer install
+    - forge install --no-git
+  script:
+    - >
+      FOUNDRY_PROFILE=coverage-viair forge coverage --report lcov --report-file lcov-viair.info
+      --skip '**/contracts/mock/**'
+      --skip '**/contracts/rNat/**'
+      --skip '**/test-forge/unit/rNat/**'
+      --skip '**/test-forge/unit/protocol/**'
+      --skip '**/test-forge/unit/ftso/**'
+      --skip '**/test-forge/unit/fscV1/**'
+      --skip '**/test-forge/unit/fdc/**'
+      --skip '**/test-forge/unit/fastUpdates/**'
+      --skip '**/test-forge/unit/governance/**'
+      --skip '**/test-forge/unit/staking/**'
+      --skip '**/test-forge/unit/customFeeds/**'
+      --skip '**/test-forge/unit/adapters/**'
+      --skip '**/test-forge/unit/utils/**'
+      --skip '**/test-forge/integration/PollingFoundation.t.sol'
+  artifacts:
+    expire_in: 30 days
+    paths:
+      - lcov-viair.info
 
 coverage-forge-reports:
   image: node:24-alpine
@@ -256,6 +304,8 @@ coverage-forge-reports:
   timeout: 5 minutes
   needs:
     - job: coverage-forge
+      artifacts: true
+    - job: coverage-forge-viair
       artifacts: true
   before_script:
     - echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
@@ -265,6 +315,13 @@ coverage-forge-reports:
     - apk upgrade --no-cache 1>/dev/null
     - pip3 install --break-system-packages lcov_cobertura 1>/dev/null
   script:
+    # Neither pass sees the whole tree on its own - each measures what the other has to skip - so the
+    # reported figure is their union. The two agree line-for-line on every file they share, so `-a`
+    # only ever adds files or turns an unhit line into a hit one.
+    # --rc branch_coverage=1 is required on the merge itself: without it `lcov -a` silently drops
+    # every BRDA record, and the genhtml/summary steps below then report no branch data at all.
+    - lcov -a lcov.info -a lcov-viair.info -o lcov-merged.info --rc branch_coverage=1 --ignore-errors inconsistent
+    - mv lcov-merged.info lcov.info
     - node scripts/forge-lcov-prune.js
     - genhtml lcov.info.pruned --branch-coverage --output-dir coverage-forge --ignore-errors inconsistent
     - lcov_cobertura lcov.info.pruned --output coverage-forge-cobertura.xml
