@@ -244,9 +244,10 @@ coverage-forge:
     - forge install --no-git
     - forge build
   script:
-    # The three skipped contracts hit "stack too deep" under coverage (which forces viaIR off); the
-    # four skipped suites load them through vm.deployCode and would fail setUp(). Both are measured
-    # by coverage-forge-viair instead, and all of them still run in test-unit-forge.
+    # The three skipped contracts hit "stack too deep" under coverage, which forces viaIR off. The
+    # four skipped suites import those contracts directly, so they cannot compile once the contracts
+    # are gone. All of it is measured by coverage-forge-viair instead, and still runs in
+    # test-unit-forge either way.
     - >
       FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov
       --skip 'contracts/tee/implementation/TeePayments.sol'
@@ -277,17 +278,17 @@ coverage-forge-viair:
     - forge soldeer install
     - forge install --no-git
   script:
-    # The protocol suites are skipped individually rather than by directory: only three of the
-    # eleven import contracts/mock, and a blanket skip also silenced NodePossessionVerifier.t.sol -
-    # which, since coverage-forge skips that contract as well, left it measured by neither pass.
+    # contracts/mock (legacy 0.6.12/0.7.6 pragmas, where viaIR does not exist) and contracts/rNat
+    # (Yul stack issues) cannot be compiled under the blanket viaIR pinning, so they and their
+    # suites are skipped. The remaining test skips are scope, not necessity: this pass exists to
+    # measure the three contracts coverage-forge cannot, and everything else it would report is
+    # already covered there. test-forge/unit/protocol is deliberately NOT skipped - that is where
+    # NodePossessionVerifier.t.sol lives, and it is one of those three.
     - >
       FOUNDRY_PROFILE=coverage-viair forge coverage --report lcov --report-file lcov-viair.info
       --skip '**/contracts/mock/**'
       --skip '**/contracts/rNat/**'
       --skip '**/test-forge/unit/rNat/**'
-      --skip '**/test-forge/unit/protocol/implementation/EntityManager.t.sol'
-      --skip '**/test-forge/unit/protocol/implementation/FlareSystemsManager.t.sol'
-      --skip '**/test-forge/unit/protocol/implementation/Submission.t.sol'
       --skip '**/test-forge/unit/ftso/**'
       --skip '**/test-forge/unit/fscV1/**'
       --skip '**/test-forge/unit/fdc/**'
