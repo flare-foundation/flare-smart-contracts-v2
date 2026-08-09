@@ -21,8 +21,11 @@ contract RelayConstructorFV is RelayTestBase {
 
     function _tryDeploy(IRelay.RelayInitialConfig memory cfg) internal returns (bool ok) {
         Relay implementation = new Relay();
+        // No `returns (RelayProxy)` clause on the try: Foundry's dynamic test linking
+        // preprocessor rewrites typed try-new deployments through a generated non-payable
+        // address-to-contract conversion, which solc rejects for RelayProxy (payable fallback).
         try new RelayProxy(address(implementation), cfg, address(this), IRelay(address(0)), RELAY_TEST_GOVERNANCE)
-            returns (RelayProxy) { ok = true; }
+        { ok = true; }
         catch { ok = false; }
     }
 
