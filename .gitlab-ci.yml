@@ -241,7 +241,7 @@ coverage-forge:
     - job: coverage-forge-node_modules
       artifacts: true
   tags: [flarenetwork-lg]
-  timeout: 10 minutes
+  timeout: 15 minutes  # one pass compiles both compiler-profile groups
   before_script:
     - mv node_modules.sol node_modules
     - forge soldeer install

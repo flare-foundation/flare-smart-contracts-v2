@@ -74,7 +74,8 @@ staging = "${STAGING_RPC}"
 # This splits the build into two compilation jobs on one solc version. Until foundry-rs/foundry#16084
 # was fixed, that silently corrupted the report - sources in one job overwrote same-numbered sources
 # in the other - and we worked around it with two passes and an lcov merge. The fix keys coverage by
-# build ID, so the split is safe again and one pass measures everything. Requires forge with
+# build ID, so the split is safe again and one pass measures both compiler-profile groups. (Files holding only
+# file-level free functions still get no records at all - foundry-rs/foundry#16085, unrelated.) Requires forge with
 # https://github.com/foundry-rs/foundry/pull/16100 (nightly eb4bf9b4 or later).
 [[profile.coverage.additional_compiler_profiles]]
 name = "via-ir"

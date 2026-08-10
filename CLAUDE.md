@@ -116,10 +116,10 @@ scripts/                # Utility scripts, protocol libs
 
 ## Build & Test
 
-- **Solidity version**: 0.8.27+; the TEE / diamond / governance namespaced-storage contracts require **0.8.35** for the built-in `erc7201(...)` helper, so the toolchain compiles with **0.8.35**
+- **Solidity version**: 0.8.27+; the TEE / diamond / governance namespaced-storage contracts require **0.8.35** for the built-in `erc7201(...)` helper, so **0.8.35** is the floor. Hardhat is pinned there; forge resolves the newest compatible release its `svm` list carries, currently 0.8.36
 - **EVM version**: cancun
-- **Node**: >=22
-- **Foundry**: forge must be in PATH (default: `~/.foundry/bin/forge`); **nightly `eb4bf9b4` (1.8.0-nightly, 2026-08-10) or later required**. Two reasons: its `svm` list ships solc `0.8.35` (first available in 1.7.1; 1.7.0 stops at 0.8.34), and it carries [foundry-rs/foundry#16100](https://github.com/foundry-rs/foundry/pull/16100), without which `forge coverage` silently drops sources whenever one solc version has two compilation jobs — which `[profile.coverage]` deliberately creates, so coverage is wrong on anything older. `stable` is still v1.7.1 and satisfies neither. Install with `foundryup --install nightly-eb4bf9b4a0ca13f5e3ed5b5be221f37bff56a4f9`.
+- **Node**: >=24 (`engines` in `package.json`)
+- **Foundry**: forge must be in PATH (default: `~/.foundry/bin/forge`); **nightly `eb4bf9b4` (1.8.0-nightly, 2026-08-10) or later required**. `stable` (v1.7.1) does carry solc `0.8.35`, but predates two things this repo needs: solar >= v0.2.0, without which the `erc7201(...)` builtin is rejected, and [foundry-rs/foundry#16100](https://github.com/foundry-rs/foundry/pull/16100), without which `forge coverage` silently drops sources whenever one solc version has two compilation jobs — which `[profile.coverage]` deliberately creates, so coverage is wrong on anything older. Install with `foundryup --install nightly-eb4bf9b4a0ca13f5e3ed5b5be221f37bff56a4f9`.
 - **Hardhat**: **2.28.6** (pinned in `package.json`) — earlier 2.x mis-resolves solc `0.8.35` to the `0.8.35-pre.1` build that upstream lists first, which fails the `^0.8.35` pragma. Hardhat 3.x is a breaking rewrite and is not supported.
 - **Optimizer**: enabled, 200 runs, `via_ir = true` — needed to keep `TeePaymentsUtxo` under the contract size limit. RNat, OZ's `P256`, `NodePossessionVerifier` and the mocks are pinned back to `via_ir = false` by `compilation_restrictions` (Yul stack / unimplemented-feature issues); `[profile.coverage]` inverts this, since coverage forces viaIR off and a few contracts only compile with it.
 

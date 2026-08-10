@@ -30,9 +30,10 @@ If you're interested in contributing, please see [CONTRIBUTING.md](./CONTRIBUTIN
 
 Building and testing requires:
 
-- **Node** >= 22
-- **Solidity** 0.8.35 — auto-downloaded by both toolchains; required for the built-in `erc7201(...)` storage-slot helper used by the TEE / diamond / governance contracts
-- **Foundry** >= 1.7.1 — the first stable release whose `svm` list includes solc 0.8.35 (1.7.0 only supports up to 0.8.34). Install with `foundryup -U && foundryup -i 1.7.1`
+- **Node** >= 24
+- **Solidity** 0.8.35 or newer — auto-downloaded by both toolchains; 0.8.35 is the floor, required for the built-in `erc7201(...)` storage-slot helper used by the TEE / diamond / governance contracts. Hardhat is pinned to 0.8.35; forge picks the newest compatible release it has, currently 0.8.36
+- **Foundry** nightly `eb4bf9b4` or later — `stable` (v1.7.1) carries solc 0.8.35 but predates two things this repo needs: solar >= v0.2.0, without which `forge build` rejects the `erc7201(...)` builtin, and [foundry-rs/foundry#16100](https://github.com/foundry-rs/foundry/pull/16100), without which `forge coverage` silently drops sources on this repo's coverage profile and reports a wrong figure. Install with `foundryup --install nightly-eb4bf9b4a0ca13f5e3ed5b5be221f37bff56a4f9`
+- **LCOV** >= 2.0 (2.3.1 tested) — `pnpm coverage-forge` uses the system `lcov` and `genhtml`; 1.x rejects the `--ignore-errors inconsistent` the script passes (`brew install lcov` / `apt install lcov`)
 - **Hardhat** 2.28.6 (pinned) — earlier 2.x mis-resolves solc 0.8.35 to the `0.8.35-pre.1` prerelease listed first upstream; Hardhat 3.x is a breaking rewrite and is not supported
 
 ## Security
