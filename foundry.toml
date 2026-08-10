@@ -110,6 +110,15 @@ staging = "${STAGING_RPC}"
 name = "via-ir"
 via_ir = true
 
+# Satisfies the Create3Factory pin restriction below (optimized viaIR, metadata-free —
+# byte-identical to the default profile's output, so the frozen-initcode pin holds).
+[[profile.coverage.additional_compiler_profiles]]
+name = "factory-pin"
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+bytecode_hash = "None"
+
 [[profile.coverage.compilation_restrictions]]
 paths = "contracts/tee/implementation/TeePayments.sol"
 via_ir = true
@@ -125,3 +134,13 @@ via_ir = true
 [[profile.coverage.compilation_restrictions]]
 paths = "contracts/protocol/implementation/NodePossessionVerifier.sol"
 via_ir = true
+
+# The frozen-initcode pin (RelayDeployAddress.t.sol) must hold under coverage too: compile
+# Create3Factory exactly like the default profile (optimized viaIR, metadata stripped) so
+# type(Create3Factory).creationCode matches the committed pin. Costs line coverage for this
+# one 71-line contract — same trade as the viaIR pins above.
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/utils/implementation/Create3Factory.sol"
+via_ir = true
+optimizer_runs = 200
+bytecode_hash = "None"
