@@ -20,6 +20,7 @@ import * as util from "../../test/utils/key-to-address";
 import type { TeePaymentsConfiguration, TeePaymentsUtxoConfiguration } from "../chain-config/chain-parameters";
 import { PChainStakeMirrorVerifierInstance } from "../../typechain-truffle";
 import { MockContractInstance, VoterRegistryInstance } from "../../typechain-truffle";
+import { MerkleTree } from "../../test/utils/MerkleTree";
 import { EpochSettings } from "../utils/EpochSettings";
 import { DeployedContracts, deployContracts, serializeDeployedContractsAddresses } from "../utils/deploy-contracts";
 import { errorString } from "../utils/error";
@@ -390,10 +391,10 @@ export async function runSimulation(
 
   logger.info(`Syncing network time with system time`);
   const firstEpochStartMs = epochSettings.rewardEpochStartMs(1);
-  if (Date.now() > firstEpochStartMs) await time.increaseTo(Math.floor(Date.now() / 1000));
-  else {
-    while (Date.now() < firstEpochStartMs) await sleep(500);
-  }
+  while (Date.now() < firstEpochStartMs) await sleep(500);
+  // Also pull the network clock up to real time: the setup steps above left it several
+  // seconds behind, and the daemon only starts reward epoch 1 once block time reaches it.
+  await time.increaseTo(Math.floor(Date.now() / 1000));
 
   await c.flareDaemon.trigger({ gas: 20000000 });
 
@@ -820,12 +821,20 @@ async function fakeFinalize(
   const votingRoundId = epochSettings.votingEpochForTime(now);
   const rewardEpochId = epochSettings.rewardEpochForTime(now);
 
-  const fakeMerkleRoot = web3.utils.keccak256("root1" + votingRoundId);
+  // The finalized protocol is the random-number protocol, so relay() requires the RLY-03
+  // random trailer: the Merkle-proven random leaf must be part of the finalized root and
+  // the (randomNumber || merkleProof) trailer appended after the signatures.
+  const toHex32 = (x: string | number) => web3.utils.leftPad(web3.utils.toHex(x), 64);
+  const randomNumber = web3.utils.keccak256("random" + votingRoundId);
+  const randomLeaf = web3.utils.soliditySha3(
+    toHex32(votingRoundId) + toHex32(randomNumber).slice(2) + toHex32(1).slice(2)
+  )!;
+  const merkleTree = new MerkleTree([randomLeaf, web3.utils.keccak256("decoy" + votingRoundId)]);
   const messageData: IProtocolMessageMerkleRoot = {
     protocolId: FTSO_PROTOCOL_ID,
     votingRoundId: votingRoundId,
     isSecureRandom: true,
-    merkleRoot: fakeMerkleRoot,
+    merkleRoot: merkleTree.root!,
   };
 
   const signingPolicy = signingPolicies.get(rewardEpochId)!;
@@ -846,6 +855,9 @@ async function fakeFinalize(
     signingPolicy: signingPolicy,
     signatures,
     protocolMessageMerkleRoot: messageData,
+    isRandomNumberGeneratingProtocolMessage: true,
+    randomNumber,
+    merkleProof: merkleTree.getProof(randomLeaf)!,
   };
 
   const fullData = RelayMessage.encode(relayMessage);

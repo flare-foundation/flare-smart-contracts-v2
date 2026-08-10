@@ -92,7 +92,13 @@ free_port_8545() {
       taskkill //F //T //PID "$p" >/dev/null 2>&1 || true
     done
   else
-    fuser -k 8545/tcp 2>/dev/null || true
+    # lsof works on both macOS and Linux; macOS fuser does not support the -k pid/tcp form.
+    local pids
+    pids=$(lsof -nP -ti :8545 2>/dev/null || true)
+    for p in $pids; do
+      echo "      killing stale pid $p"
+      kill -9 "$p" 2>/dev/null || true
+    done
   fi
   sleep 2
   if port_in_use; then
