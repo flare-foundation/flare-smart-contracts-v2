@@ -119,9 +119,9 @@ scripts/                # Utility scripts, protocol libs
 - **Solidity version**: 0.8.27+; the TEE / diamond / governance namespaced-storage contracts require **0.8.35** for the built-in `erc7201(...)` helper, so the toolchain compiles with **0.8.35**
 - **EVM version**: cancun
 - **Node**: >=22
-- **Foundry**: forge must be in PATH (default: `~/.foundry/bin/forge`); **>= 1.7.1 required** — it is the first stable release whose `svm` list ships solc `0.8.35` (1.7.0 only goes up to 0.8.34). Update with `foundryup -U && foundryup -i 1.7.1`.
+- **Foundry**: forge must be in PATH (default: `~/.foundry/bin/forge`); needs solc `0.8.35` support (>= 1.7.1) **and** a `solar` frontend >= 0.2.0 that understands the `erc7201(...)` builtin — older solar fails `forge build`/`forge lint`/`forge coverage` with "unresolved symbol erc7201". Stable 1.7.1 predates solar 0.2.0, so CI pins the nightly at commit `160b6026` (see `.gitlab-ci.yml`); install the same one locally with `foundryup -i nightly-160b60260db63ce6204f2ee15764aca3e9ef04fe`. Retire the nightly for `stable` once a stable release past 1.7.1 carries solar 0.2.0.
 - **Hardhat**: **2.28.6** (pinned in `package.json`) — earlier 2.x mis-resolves solc `0.8.35` to the `0.8.35-pre.1` build that upstream lists first, which fails the `^0.8.35` pragma. Hardhat 3.x is a breaking rewrite and is not supported.
-- **Optimizer**: enabled, 200 runs, `via_ir = false`
+- **Optimizer**: enabled, 200 runs, `via_ir = true` for normal builds (off under coverage; a few contracts pinned the other way — see `foundry.toml` / `hardhat.config.ts`)
 
 ### Forge
 
@@ -423,7 +423,7 @@ bytes32 internal constant STATE_POSITION = bytes32(erc7201("<namespace>.<LibName
 ```
 
 - **`@custom:storage-location` annotation is mandatory** on every namespaced State struct. The string after `erc7201:` must match the `erc7201(...)` argument verbatim — tooling (Foundry, OZ upgrade tooling, static analyzers) relies on the match to verify storage layout.
-- **Toolchain note:** the `erc7201(...)` builtin is not yet understood by Forge's `solar` frontend, so `forge lint`/`forge coverage` report a false-positive "unresolved symbol erc7201" on these contracts (solc compiles them fine). `foundry.toml` sets `lint_on_build = false` for this; `forge coverage` is affected until solar adds support.
+- **Toolchain note:** the `erc7201(...)` builtin requires Forge's `solar` frontend >= 0.2.0 (see the Foundry entry in [Build & Test](#build--test)); older solar reports a false-positive "unresolved symbol erc7201" on these contracts even though solc compiles them fine. With the pinned nightly, `forge lint` and `forge coverage` work normally and lint-on-build stays at its default (enabled).
 - **Namespace prefix indicates scope.** Module-specific libraries use the module name (e.g. `tee.MachineManager.State` for [contracts/tee/library/MachineManager.sol](contracts/tee/library/MachineManager.sol)). Project-wide libraries use the `flare` prefix (e.g. `flare.FlareGovernance.State`, `flare.LibDiamond.DiamondStorage`, `flare.diamond.AddressUpdatable.ADDRESS_STORAGE_POSITION`).
 - Each library has its own isolated storage slot — no collision between libraries sharing Diamond's storage context.
 - State struct contains all mappings/arrays/values for that domain.
