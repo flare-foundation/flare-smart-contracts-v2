@@ -58,6 +58,13 @@ via_ir = false
 paths = "contracts/mock/*.sol"
 via_ir = false
 
+# The flattened v1 bundle is pinned to solc 0.7.6, whose viaIR pipeline was experimental and
+# cannot compile it ("Unimplemented feature"). It is only reached through the 0.7.x mocks in
+# contracts/mock/ (already viaIR-off above), so pin it off too.
+[[profile.default.compilation_restrictions]]
+paths = "flattened/*.sol"
+via_ir = false
+
 # Create3Factory is deployed via the keyless CREATE2 deployer, so its address is
 # keccak(initcode)-dependent and must be metadata-independent to stay identical on every chain.
 # Strip the solc metadata hash for this one contract so the frozen initcode
