@@ -11,8 +11,7 @@ fs_permissions = [
     { access = "read", path = "./deployment/create3/"},
     { access = "read", path = "./deployment/cuts/"},
     { access = "read-write", path = "./deployment/deploys/"},
-    { access = "read-write", path = "./deployment/output-internal/"},
-    { access = "read", path = "./node_modules/@gnosis.pm/safe-contracts/build/artifacts/"}
+    { access = "read-write", path = "./deployment/output-internal/"}
 ]
 optimizer = true
 optimizer_runs = 200
