@@ -20,9 +20,11 @@ contract RelayConfigParsingTest is Test {
         string memory cfg = _read("flare");
         assertTrue(vm.keyExistsJson(cfg, ".expectedDeployer"));
         assertTrue(vm.keyExistsJson(cfg, ".home"));
-        // Home carries ONLY the migration scheme; epoch/protocol params are read from the
-        // currently deployed Relay's stateData() at deploy time, not the config.
+        // Home carries ONLY the migration scheme + the owner-timelock duration; epoch/protocol
+        // params are read from the currently deployed Relay's stateData() at deploy time, not
+        // the config.
         assertEq(vm.parseJsonString(cfg, ".home.oldRelayPolicyHashScheme"), "legacy");
+        vm.parseJsonUint(cfg, ".home.timelockDurationSeconds");
         assertFalse(vm.keyExistsJson(cfg, ".home.randomNumberProtocolId"));
         assertFalse(vm.keyExistsJson(cfg, ".home.rewardEpochDurationInVotingEpochs"));
         assertFalse(vm.keyExistsJson(cfg, ".home.messageFinalizationWindowInRewardEpochs"));
@@ -33,9 +35,10 @@ contract RelayConfigParsingTest is Test {
         string memory base = ".mirrors[\"arbitrum\"]";
         assertTrue(vm.keyExistsJson(cfg, base));
         assertEq(vm.parseJsonUint(cfg, string.concat(base, ".chainId")), 42161);
-        // required address + array fields parse (placeholders are the zero address / empty arrays)
+        // required address + scalar + array fields parse (placeholders: zero address / empty arrays)
         vm.parseJsonAddress(cfg, string.concat(base, ".relayOwner"));
         vm.parseJsonAddress(cfg, string.concat(base, ".feeCollectionAddress"));
+        vm.parseJsonUint(cfg, string.concat(base, ".timelockDurationSeconds"));
         assertEq(vm.parseJsonAddressArray(cfg, string.concat(base, ".feeExemptAddresses")).length, 0);
     }
 

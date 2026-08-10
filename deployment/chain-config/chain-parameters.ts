@@ -88,41 +88,6 @@ export interface ChainParameters {
   governanceExecutorPublicKey: string;
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Safe governance (Relay)
-  //
-  // The Gnosis Safe that signs cross-chain Relay governance actions. REQUIRED for EVERY
-  // Relay deployment (home deploys, mirrors and old-relay migration redeployments alike):
-  // Relay.initialize validates the full governance configuration.
-
-  /**
-   * The Safe governance Safe proxy address.
-   */
-  safeGovernanceSafe?: string;
-
-  /**
-   * The admitted Safe signature threshold.
-   */
-  safeGovernanceThreshold?: integer;
-
-  /**
-   * The admitted Safe owners, strictly ascending by address.
-   */
-  safeGovernanceOwners?: string[];
-
-  /**
-   * The generation ordinal of the admitted owner configuration: 0 for the
-   * deployment-admitted generation (all initial deployments — SafeInstructions admits the
-   * live Safe as generation 0 at initialize), otherwise the signed Safe nonce of the
-   * rotation that installed it (targets deployed after a rotation).
-   */
-  safeGovernanceOwnerConfigSafeNonce?: integer;
-
-  /**
-   * The deployment-time Safe nonce (governance replay floor).
-   */
-  safeGovernanceSafeNonce?: integer;
-
-  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Flare systems protocol
 
   /**

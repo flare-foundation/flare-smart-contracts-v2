@@ -6,7 +6,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
-import { RelayInitialConfig, safeGovernanceFromParameters } from "../utils/RelayInitialConfig";
+import { RelayInitialConfig } from "../utils/RelayInitialConfig";
 import {
   FlareSystemsManagerContract,
   FlareSystemsManagerInstance,
@@ -52,11 +52,7 @@ export async function redeployRelay(
   const startVotingRoundId = await flareSystemsManager.getStartVotingRoundId(nextRewardEpochId);
   const oldSigningPolicyHash = await oldRelay.toSigningPolicyHash(nextRewardEpochId);
   const chainId = await web3.eth.getChainId();
-  const signingPolicyHash = signingPolicyHashForMigration(
-    oldSigningPolicyHash,
-    chainId,
-    oldRelayPolicyHashScheme
-  );
+  const signingPolicyHash = signingPolicyHashForMigration(oldSigningPolicyHash, chainId, oldRelayPolicyHashScheme);
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: nextRewardEpochId,
     startingVotingRoundIdForInitialRewardEpochId: startVotingRoundId.toNumber(),
@@ -70,7 +66,10 @@ export async function redeployRelay(
     messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
     feeCollectionAddress: ZERO_ADDRESS,
     feeConfigs: [],
-    governance: safeGovernanceFromParameters(parameters, chainId),
+    // Home deploys via this path put the owner behind Flare governance (itself timelocked),
+    // so the extra owner-timelock stays off; forge scripts are the parameterized path.
+    sourceChainId: chainId,
+    timelockDurationSeconds: 0,
   };
 
   const RelayProxy = artifacts.require("RelayProxy") as RelayProxyContract;

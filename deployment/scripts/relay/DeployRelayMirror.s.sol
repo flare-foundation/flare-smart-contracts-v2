@@ -13,11 +13,11 @@ import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 //
 // RELAY MODE: no signing-policy setter, no oldRelay. Both ends are named EXPLICITLY: RELAY_SOURCE
 // selects the source (its `source-snapshot-<source>.json` + `<source>.json` config), RELAY_MIRROR
-// names the entry under that config's `mirrors` map. The snapshot supplies the Safe governance
-// config, epoch anchors and source-bound initial policy hash; the reader asserts the snapshot's
+// names the entry under that config's `mirrors` map. The snapshot supplies the source chain id,
+// epoch anchors and source-bound initial policy hash; the reader asserts the snapshot's
 // sourceChainId maps back to RELAY_SOURCE, and the entry's `chainId` is asserted against the live
 // chain — so neither a wrong-source snapshot nor a wrong RPC can slip through. Per-chain
-// owner/fees/exemptions come from the entry.
+// owner/fees/exemptions/timelock come from the entry.
 //
 // Usage — prefer the wrapper (sets RELAY_SOURCE + RELAY_MIRROR, derives the RPC from the mirror
 // name; dry run unless --broadcast):
@@ -49,10 +49,10 @@ contract DeployRelayMirror is RelayDeployBase {
         // name), then load that source's config — so an unintended source can never slip through.
         SourceSnapshot memory snapshot = _readSourceSnapshot(sourceName);
         require(
-            snapshot.stack.sourceChainId != block.chainid,
+            snapshot.sourceChainId != block.chainid,
             "mirror deploy: source chain id equals this chain - use DeployRelayHome for the home chain"
         );
-        (string memory cfg, ) = _readSourceConfig(snapshot.stack.sourceChainId);
+        (string memory cfg, ) = _readSourceConfig(snapshot.sourceChainId);
 
         // Bracket-quote the dynamic key so names with hyphens (e.g. "arbitrum-sepolia") parse.
         string memory base = string.concat(".mirrors[\"", mirrorName, "\"]");
@@ -68,7 +68,10 @@ contract DeployRelayMirror is RelayDeployBase {
         address relayOwner = vm.parseJsonAddress(cfg, string.concat(base, ".relayOwner"));
         address payable feeCollectionAddress =
             payable(vm.parseJsonAddress(cfg, string.concat(base, ".feeCollectionAddress")));
-        IRelay.RelayInitialConfig memory config = _buildMirrorConfig(cfg, base, snapshot, feeCollectionAddress);
+        uint256 timelockDurationSeconds =
+            vm.parseJsonUint(cfg, string.concat(base, ".timelockDurationSeconds"));
+        IRelay.RelayInitialConfig memory config =
+            _buildMirrorConfig(cfg, base, snapshot, feeCollectionAddress, timelockDurationSeconds);
 
         vm.startBroadcast(deployerPrivateKey);
         address relayImpl = address(new Relay());
@@ -76,7 +79,7 @@ contract DeployRelayMirror is RelayDeployBase {
         // Mirror: salt (and address) is scoped to the SOURCE chain, so every mirror of the same
         // source shares one address — distinct from this chain's own home Relay, if any.
         address relay = _deployRelayProxyViaFactory(
-            deployer, snapshot.stack.sourceChainId, relayImpl, config, address(0), address(0), relayOwner
+            deployer, snapshot.sourceChainId, relayImpl, config, address(0), address(0), relayOwner
         );
         _logDeployed("Relay", "RelayProxy.sol", relay);
         vm.stopBroadcast();
@@ -86,7 +89,8 @@ contract DeployRelayMirror is RelayDeployBase {
             relayImpl,
             relayOwner,
             address(0),
-            snapshot.stack,
+            snapshot.sourceChainId,
+            timelockDurationSeconds,
             config.initialRewardEpochId,
             config.startingVotingRoundIdForInitialRewardEpochId
         );
@@ -102,14 +106,14 @@ contract DeployRelayMirror is RelayDeployBase {
             relay: relay,
             owner: relayOwner,
             signingPolicySetter: address(0),
-            safeInstructions: snapshot.stack.instructions,
-            safeInstructionsImplementation: address(0),
+            sourceChainId: snapshot.sourceChainId,
+            timelockDurationSeconds: timelockDurationSeconds,
             initialRewardEpochId: config.initialRewardEpochId,
             startingVotingRoundId: config.startingVotingRoundIdForInitialRewardEpochId,
             initialSigningPolicyHash: config.initialSigningPolicyHash,
             deployer: deployer
         });
-        _writeRelayManifest(string.concat(mirrorName, "-mirror"), manifest, snapshot.stack);
+        _writeRelayManifest(string.concat(mirrorName, "-mirror"), manifest);
     }
 
     /**
@@ -129,6 +133,7 @@ contract DeployRelayMirror is RelayDeployBase {
         _requireField(_cfg, string.concat(_base, ".chainId"));
         _requireField(_cfg, string.concat(_base, ".relayOwner"));
         _requireField(_cfg, string.concat(_base, ".feeCollectionAddress"));
+        _requireField(_cfg, string.concat(_base, ".timelockDurationSeconds"));
         require(
             vm.parseJsonAddress(_cfg, string.concat(_base, ".relayOwner")) != address(0),
             "relayOwner is zero"
@@ -143,7 +148,8 @@ contract DeployRelayMirror is RelayDeployBase {
         string memory _cfg,
         string memory _base,
         SourceSnapshot memory _snapshot,
-        address payable _feeCollectionAddress
+        address payable _feeCollectionAddress,
+        uint256 _timelockDurationSeconds
     )
         internal view
         returns (IRelay.RelayInitialConfig memory _config)
@@ -161,7 +167,9 @@ contract DeployRelayMirror is RelayDeployBase {
         _config.feeCollectionAddress = _feeCollectionAddress;
         _config.feeConfigs = _readFeeConfigs(_cfg, _base);
         _config.feeExemptAddresses = _readFeeExemptAddresses(_cfg, _base);
-        _config.governance = _governanceConfig(_snapshot.stack);
+        // RLY-23: the mirror binds to the snapshotted source, not to its own chain.
+        _config.sourceChainId = _snapshot.sourceChainId;
+        _config.timelockDurationSeconds = _timelockDurationSeconds;
     }
 
     /// Per-chain protocol fee configs. Parsed element-by-element (feeInWei may exceed 64 bits, so

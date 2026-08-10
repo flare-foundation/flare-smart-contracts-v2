@@ -1,16 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { IIRelay } from "../protocol/interface/IIRelay.sol";
 import { IRelay } from "../userInterfaces/IRelay.sol";
-import { RandomNumberV2Interface } from "../userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
  * Relay (finalization) contract.
+ *
+ * Standalone frozen replica of the deployed main-branch Relay (no repo interfaces): the
+ * current IIRelay carries the owner-timelock governance surface, which the deployed contract
+ * does not have and this mock must not gain. The structs/events below are verbatim copies of
+ * the interface declarations as deployed.
  */
-contract RelayMainDeployed is IIRelay {
+contract RelayMainDeployed {
     using MerkleProof for bytes32[];
+
+    struct SigningPolicy {
+        uint24 rewardEpochId;       // Reward epoch id.
+        uint32 startVotingRoundId;  // First voting round id of validity.
+                                    // Usually it is the first voting round of reward epoch rID.
+                                    // It can be later,
+                                    // if the confirmation of the signing policy on Flare blockchain gets delayed.
+        uint16 threshold;           // Confirmation threshold (absolute value of noramalised weights).
+        uint256 seed;               // Random seed.
+        address[] voters;           // The list of eligible voters in the canonical order.
+        uint16[] weights;           // The corresponding list of normalised signing weights of eligible voters.
+                                    // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
+                                    // while approximately keeping the weight relations.
+    }
 
     struct MainDeployedFeeConfig {
         uint8 protocolId;
@@ -229,6 +246,18 @@ contract RelayMainDeployed is IIRelay {
     /// The starting voting round id for the initial
     uint32 public immutable startingVotingRoundIdForInitialRewardEpochId;
 
+    // Event is emitted when a new signing policy is initialized by the signing policy setter.
+    event SigningPolicyInitialized(
+        uint24 indexed rewardEpochId,   // Reward epoch id
+        uint32 startVotingRoundId,      // First voting round id of validity.
+        uint16 threshold,               // Confirmation threshold (absolute value of noramalised weights).
+        uint256 seed,                   // Random seed.
+        address[] voters,               // The list of eligible voters in the canonical order.
+        uint16[] weights,               // The corresponding list of normalised signing weights of eligible voters.
+        bytes signingPolicyBytes,       // The full signing policy byte encoded.
+        uint64 timestamp                // Timestamp when this happened
+    );
+
     /// Only signingPolicySetter address/contract can call this method.
     modifier onlySigningPolicySetter() {
         require(msg.sender == signingPolicySetter, "only sign policy setter");
@@ -281,7 +310,7 @@ contract RelayMainDeployed is IIRelay {
         }
         oldRelay = _oldRelay;
         // new relay must be deployed in a compatible way (policy setter or not)
-        if(oldRelay != IIRelay(address(0))) {
+        if(oldRelay != IRelay(address(0))) {
             require(
                 (signingPolicySetter != address(0) && oldRelay.signingPolicySetter() != address(0)) ||
                 (signingPolicySetter == address(0) && oldRelay.signingPolicySetter() == address(0)),
@@ -315,7 +344,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc IIRelay
+     * Mirrors the deployed main-branch IIRelay method.
      */
     function setSigningPolicy(
         // using memory instead of calldata as called from another contract where signing policy is already in memory
@@ -446,7 +475,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc IRelay
+     * Mirrors the deployed main-branch IRelay method.
      */
     function verifyCustomSignature(
         bytes calldata _relayMessage,
@@ -456,7 +485,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc IRelay
+     * Mirrors the deployed main-branch IRelay method.
      */
     function relay() external returns (bytes memory){
         // solhint-disable-next-line no-inline-assembly
@@ -1395,7 +1424,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc IRelay
+     * Mirrors the deployed main-branch IRelay method.
      */
     function verify(uint256 _protocolId, uint256 _votingRoundId, bytes32 _leaf, bytes32[] calldata _proof)
         external payable
@@ -1423,7 +1452,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc IRelay
+     * Mirrors the deployed main-branch IRelay method.
      */
     function isFinalized(uint256 _protocolId, uint256 _votingRoundId)
         external view
@@ -1436,7 +1465,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc IRelay
+     * Mirrors the deployed main-branch IRelay method.
      */
     function merkleRoots(uint256 _protocolId, uint256 _votingRoundId)
         external view
@@ -1450,7 +1479,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc RandomNumberV2Interface
+     * Mirrors the deployed main-branch RandomNumberV2Interface method.
      */
     function getRandomNumber()
         external view
@@ -1471,7 +1500,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc RandomNumberV2Interface
+     * Mirrors the deployed main-branch RandomNumberV2Interface method.
      */
     function getRandomNumberHistorical(uint256 _votingRoundId)
         external view
@@ -1499,7 +1528,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc IRelay
+     * Mirrors the deployed main-branch IRelay method.
      */
     function getVotingRoundId(uint256 _timestamp) external view returns (uint256) {
         require(_timestamp >= stateData.firstVotingRoundStartTs, "before the start");
@@ -1507,7 +1536,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc IRelay
+     * Mirrors the deployed main-branch IRelay method.
      */
     function toSigningPolicyHash(uint256 _rewardEpochId) external view returns (bytes32) {
         if (oldRelay != IRelay(address(0)) && _rewardEpochId < initialRewardEpochId) {
@@ -1518,7 +1547,7 @@ contract RelayMainDeployed is IIRelay {
     }
 
     /**
-     * @inheritdoc IRelay
+     * Mirrors the deployed main-branch IRelay method.
      */
     function lastInitializedRewardEpochData()
         external view

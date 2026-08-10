@@ -5,18 +5,15 @@ import { IIRelay } from "../interface/IIRelay.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 // solhint-disable-next-line no-unused-import
 import { RandomNumberV2Interface } from "../../userInterfaces/LTS/RandomNumberV2Interface.sol";
-import { IRelayGovernance } from "../../userInterfaces/IRelayGovernance.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import { SafeGovernance } from "../../governance/lib/SafeGovernance.sol";
-import { SafeGoverned } from "../../governance/implementation/SafeGoverned.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { OwnableWithTimelock } from "../../utils/implementation/OwnableWithTimelock.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 /**
  * Relay (finalization) contract.
  */
-contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, OwnableUpgradeable {
+contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     using MerkleProof for bytes32[];
     /**
      * State variables for the relay contract.
@@ -270,8 +267,14 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
     /// The starting voting round id for the initial
     uint32 public startingVotingRoundIdForInitialRewardEpochId;
     /// Addresses allowed to call verify() without paying the protocol fee (e.g. DVN
-    /// adapters). Safe-governed via the changeFeeExemptions action.
+    /// adapters). Owner-set via setFeeExemptions.
     mapping(address account => bool) public override feeExemptAddress;
+    /// RLY-23: the source network id bound into every stored signing-policy hash and, via the
+    /// analogous wrap in relay(), every signed protocol-message digest —
+    /// keccak256(sourceChainId ‖ contentHash) — so policies and messages minted for another
+    /// network are rejected even under a fully overlapping voter set. Explicit and nonzero on
+    /// every deployment, set once in initialize; home deploys force it to block.chainid.
+    uint256 public override sourceChainId;
 
     /// Only signingPolicySetter address/contract can call this method.
     modifier onlySigningPolicySetter() {
@@ -286,14 +289,14 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
 
     /**
      * Initializes the Relay behind its proxy. One atomic call configures EVERYTHING —
-     * protocol config, Safe governance config and the per-chain owner (upgrade
-     * authority) — and it runs inside the proxy constructor (see RelayProxy), so the
+     * protocol config, the RLY-23 source binding, the owner-timelock duration and the
+     * per-chain owner — and it runs inside the proxy constructor (see RelayProxy), so the
      * deterministic proxy address never exists uninitialized.
      * @param _initialConfig The initial configuration of the relay.
      * @param _signingPolicySetter The address of the signing policy setter.
      * @param _oldRelay The old relay contract (can be address(0)).
-     * @param _initialOwner The per-chain owner (multisig): authorizes upgrades via
-     * `upgradeToAndCall` (OZ Ownable); distinct from the cross-chain Safe governance.
+     * @param _initialOwner The per-chain owner (multisig): authorizes the fee setters and
+     * upgrades through the OwnableWithTimelock queue (see IOwnableWithTimelock).
      */
     function initialize(
         RelayInitialConfig memory _initialConfig,
@@ -320,6 +323,9 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
         startingVotingRoundIdForInitialRewardEpochId =
             _initialConfig.startingVotingRoundIdForInitialRewardEpochId;
         signingPolicySetter = _signingPolicySetter;
+        if (_signingPolicySetter != address(0)) {
+            emit SigningPolicySetterSet(_signingPolicySetter);
+        }
         // Migration handshake: lastInitializedRewardEpoch is seeded to initialRewardEpochId, and setSigningPolicy
         // strictly requires the next call to be exactly initialRewardEpochId + 1 ("not next reward epoch"). The
         // deployer (redeploy-relay.ts) must therefore cut over so the trusted setter's next policy is that epoch;
@@ -360,27 +366,34 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
         }
         // Seed initial verify() fee exemptions (e.g. DVN adapters) so they are exempt from block
         // one, with no post-deploy governance round-trip. Relay mode only — the setter-mode branch
-        // above requires this list empty. Governance can grant/revoke later via changeFeeExemptions.
+        // above requires this list empty. The owner can grant/revoke later via setFeeExemptions.
         for (uint256 i = 0; i < _initialConfig.feeExemptAddresses.length; i++) {
             address exemptAccount = _initialConfig.feeExemptAddresses[i];
             require(exemptAccount != address(0), FeeExemptAddressZero());
             feeExemptAddress[exemptAccount] = true;
             emit FeeExemptionSet(exemptAccount, true);
         }
-        // Safe governance is mandatory on every deployment — home, mirror and old-relay
-        // migration alike (the same artifact ships to every chain). The base validates the
-        // full configuration, including the RLY-23 source-network id (explicit and nonzero;
-        // the single stored copy, exposed via sourceChainId()). Fee actions never apply on
-        // setter-mode deployments (see _applyGovernanceFees), but chain-agnostic actions
-        // such as fee exemptions do.
-        initializeSafeGoverned(_initialConfig.governance);
+        // RLY-23: the source-network id is mandatory on every deployment — home, mirror and
+        // old-relay migration alike (the same artifact ships to every chain).
+        require(_initialConfig.sourceChainId != 0, SourceChainIdZero());
+        sourceChainId = _initialConfig.sourceChainId;
         // RLY-23 home-force: a live signing-policy setter (home deploy) must bind this chain.
         if (_signingPolicySetter != address(0)) {
             require(
-                _initialConfig.governance.sourceChainId == block.chainid,
+                _initialConfig.sourceChainId == block.chainid,
                 SourceChainIdMismatchOnHomeDeploy()
             );
         }
+        // The owner-timelock duration is deploy-configured so the owner (a multisig) needs no
+        // post-deploy ceremony call. Writing the ERC-7201 namespaced state via the base's
+        // internal getState() keeps the inherited OwnableWithTimelock file byte-identical to
+        // its origin; the guard mirrors setTimelockDuration.
+        require(
+            _initialConfig.timelockDurationSeconds <= MAX_TIMELOCK_DURATION_SECONDS,
+            TimelockDurationTooLong()
+        );
+        getState().timelockDurationSeconds = _initialConfig.timelockDurationSeconds;
+        emit TimelockDurationSet(_initialConfig.timelockDurationSeconds);
         oldRelay = _oldRelay;
         // new relay must be deployed in a compatible way (policy setter or not)
         if (address(_oldRelay) != address(0)) {
@@ -540,7 +553,7 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
         // source network: keccak256(sourceChainId ‖ contentHash). Signatures over policies (and, via
         // the analogous wrap in relay(), over protocol messages) minted for another network are thereby
         // rejected even under a fully overlapping voter set. On a home deploy sourceChainId == block.chainid.
-        currentHash = keccak256(abi.encodePacked(_safeSourceChainId(), currentHash));
+        currentHash = keccak256(abi.encodePacked(sourceChainId, currentHash));
         toSigningPolicyHashPrivate[_signingPolicy.rewardEpochId] = currentHash;
         stateData.lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
         startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy.startVotingRoundId;
@@ -569,140 +582,82 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
     }
 
     /**
-     * @dev The SafeGoverned app-action hook: Relay understands three app-specific actions,
-     * `changeProtocolFees`, `changeFeeExemptions` and `changeFeeCollectionAddresses`.
-     * Signature verification, nonce rules and the owner-config binding were already
-     * enforced by the base before this is called. Every fee entry addresses ONE deployment
-     * — (targetChainId, targetAddress) must equal (block.chainid, address(this)) — so
-     * several deployments on one chain are governed independently by the same message.
+     * @inheritdoc IIRelay
+     * @dev Relay-mode only: setter-mode (home) deployments never charge verify() fees, so
+     * the setter fail-closes there (mirrors the initialize() seeding rule). With a nonzero
+     * timelock duration the call is queued for permissionless execution after its ETA;
+     * with zero it applies immediately (see IOwnableWithTimelock).
      */
-    function _processGovernanceAction(
-        bytes4 _selector,
-        bytes calldata _action
+    function setProtocolFees(
+        FeeConfig[] calldata _feeConfigs
     )
-        internal override
-        returns (bool _relevant)
+        external
+        onlyOwnerWithTimelock
     {
-        if (_selector == SafeGovernance.CHANGE_PROTOCOL_FEES_SELECTOR) {
-            return _applyGovernanceFees(_action);
-        }
-        if (_selector == SafeGovernance.CHANGE_FEE_EXEMPTIONS_SELECTOR) {
-            return _applyGovernanceFeeExemptions(_action);
-        }
-        if (_selector == SafeGovernance.CHANGE_FEE_COLLECTION_SELECTOR) {
-            return _applyGovernanceFeeCollection(_action);
-        }
-        revert UnknownGovernanceAction(_selector);
-    }
-
-    /**
-     * @dev Applies the fee updates addressed to this deployment. Returns false (nothing
-     * consumed) when no update targets this chain AND address, so the same signed action
-     * can serve other deployments without burning the nonce here. Setter-mode (home)
-     * deployments never charge verify() fees, so fee actions are always foreign there.
-     */
-    function _applyGovernanceFees(bytes calldata _action) internal returns (bool _relevant) {
-        if (signingPolicySetter != address(0)) {
-            return false;
-        }
-        (uint256 nonce, bytes32 configHash, SafeGovernance.GovernanceFeeUpdate[] memory updates) =
-            abi.decode(_action[4:], (uint256, bytes32, SafeGovernance.GovernanceFeeUpdate[]));
-        // Exact re-encoding pins the action to the canonical ABI encoding of its fields.
-        if (
-            keccak256(_action) !=
-            keccak256(
-                abi.encodeWithSelector(SafeGovernance.CHANGE_PROTOCOL_FEES_SELECTOR, nonce, configHash, updates)
-            )
-        ) {
-            revert InvalidGovernanceTransaction();
-        }
-        // Single pass, validating ONLY the entries addressed to this deployment as they are
-        // applied — the canonical ABI encoding is pinned above, and each target enforces its own
-        // entries. Whole-list ordering/bounds are the source SafeInstructions gate's job; other
-        // chains' entries are irrelevant here, and duplicates for this deployment resolve to a
-        // deterministic last-write-wins (the bytes were governance-signed). A revert on an invalid
-        // relevant entry rolls back the whole action (nonce included), so application stays atomic.
-        for (uint256 i; i < updates.length; ++i) {
-            if (updates[i].targetChainId != block.chainid || updates[i].targetAddress != address(this)) {
-                continue;
-            }
-            _relevant = true;
-            require(updates[i].protocolId > 1, InvalidProtocolId());
-            protocolFeeInWei[updates[i].protocolId] = updates[i].feeInWei;
-            emit ProtocolFeeSet(updates[i].protocolId, updates[i].feeInWei);
-        }
-        if (_relevant) {
-            emit GovernanceSettingsApplied(nonce, configHash);
+        require(signingPolicySetter == address(0), FeeConfigNotAllowed());
+        for (uint256 i = 0; i < _feeConfigs.length; i++) {
+            uint8 protocolId = _feeConfigs[i].protocolId;
+            require(protocolId > 1, InvalidProtocolId());
+            protocolFeeInWei[protocolId] = _feeConfigs[i].feeInWei;
+            emit ProtocolFeeSet(protocolId, _feeConfigs[i].feeInWei);
         }
     }
 
     /**
-     * @dev Applies the fee-exemption updates addressed to this deployment (same relevance
-     * and consumption semantics as fee updates); applies on ALL deployment modes.
+     * @inheritdoc IIRelay
+     * @dev Relay-mode only — setter-mode deployments charge no fee, so exemptions are
+     * meaningless there (mirrors the initialize() seeding rule); same timelock semantics
+     * as setProtocolFees.
      */
-    function _applyGovernanceFeeExemptions(bytes calldata _action) internal returns (bool _relevant) {
-        (uint256 nonce, bytes32 configHash, SafeGovernance.GovernanceFeeExemption[] memory updates) =
-            abi.decode(_action[4:], (uint256, bytes32, SafeGovernance.GovernanceFeeExemption[]));
-        // Exact re-encoding pins the action to the canonical ABI encoding of its fields.
-        if (
-            keccak256(_action) !=
-            keccak256(
-                abi.encodeWithSelector(SafeGovernance.CHANGE_FEE_EXEMPTIONS_SELECTOR, nonce, configHash, updates)
-            )
-        ) {
-            revert InvalidGovernanceTransaction();
-        }
-        // Single pass, per-entry validation of this deployment's entries only — see
-        // _applyGovernanceFees for the scoping/atomicity reasoning.
-        for (uint256 i; i < updates.length; ++i) {
-            if (updates[i].targetChainId != block.chainid || updates[i].targetAddress != address(this)) {
-                continue;
-            }
-            _relevant = true;
-            require(updates[i].account != address(0), FeeExemptAddressZero());
-            feeExemptAddress[updates[i].account] = updates[i].exempt;
-            emit FeeExemptionSet(updates[i].account, updates[i].exempt);
-        }
-        if (_relevant) {
-            emit GovernanceSettingsApplied(nonce, configHash);
+    function setFeeExemptions(
+        FeeExemption[] calldata _exemptions
+    )
+        external
+        onlyOwnerWithTimelock
+    {
+        require(signingPolicySetter == address(0), FeeExemptionsNotAllowed());
+        for (uint256 i = 0; i < _exemptions.length; i++) {
+            address account = _exemptions[i].account;
+            require(account != address(0), FeeExemptAddressZero());
+            feeExemptAddress[account] = _exemptions[i].exempt;
+            emit FeeExemptionSet(account, _exemptions[i].exempt);
         }
     }
 
     /**
-     * @dev Points collected verify() fees at a new recipient for this deployment (same
-     * relevance and consumption semantics as fee updates). Setter-mode deployments never
-     * collect fees, so — like fee updates — the action is always foreign there.
+     * @inheritdoc IIRelay
+     * @dev Relay-mode only (setter-mode deployments never collect fees); same timelock
+     * semantics as setProtocolFees. The nonzero guard is load-bearing: a zero recipient
+     * would burn every collected fee.
      */
-    function _applyGovernanceFeeCollection(bytes calldata _action) internal returns (bool _relevant) {
-        if (signingPolicySetter != address(0)) {
-            return false;
-        }
-        (uint256 nonce, bytes32 configHash, SafeGovernance.GovernanceFeeCollection[] memory updates) =
-            abi.decode(_action[4:], (uint256, bytes32, SafeGovernance.GovernanceFeeCollection[]));
-        // Exact re-encoding pins the action to the canonical ABI encoding of its fields.
-        if (
-            keccak256(_action) !=
-            keccak256(
-                abi.encodeWithSelector(SafeGovernance.CHANGE_FEE_COLLECTION_SELECTOR, nonce, configHash, updates)
-            )
-        ) {
-            revert InvalidGovernanceTransaction();
-        }
-        // Single pass, per-entry validation of this deployment's entries only — see
-        // _applyGovernanceFees for the scoping/atomicity reasoning. The nonzero recipient guard
-        // is load-bearing: a zero recipient would burn every collected fee.
-        for (uint256 i; i < updates.length; ++i) {
-            if (updates[i].targetChainId != block.chainid || updates[i].targetAddress != address(this)) {
-                continue;
-            }
-            _relevant = true;
-            require(updates[i].feeCollectionAddress != address(0), FeeCollectionAddressZero());
-            feeCollectionAddress = payable(updates[i].feeCollectionAddress);
-            emit FeeCollectionAddressSet(updates[i].feeCollectionAddress);
-        }
-        if (_relevant) {
-            emit GovernanceSettingsApplied(nonce, configHash);
-        }
+    function setFeeCollectionAddress(
+        address _feeCollectionAddress
+    )
+        external
+        onlyOwnerWithTimelock
+    {
+        require(signingPolicySetter == address(0), FeeConfigNotAllowed());
+        require(_feeCollectionAddress != address(0), FeeCollectionAddressZero());
+        feeCollectionAddress = payable(_feeCollectionAddress);
+        emit FeeCollectionAddressSet(_feeCollectionAddress);
+    }
+
+    /**
+     * @inheritdoc IIRelay
+     * @dev Setter-mode only — the deployment mode is fixed at initialize, so a relay-mode
+     * deployment can never gain a setter and a setter-mode one can never clear it; same
+     * timelock semantics as setProtocolFees.
+     */
+    function setSigningPolicySetter(
+        address _signingPolicySetter
+    )
+        external
+        onlyOwnerWithTimelock
+    {
+        require(signingPolicySetter != address(0), SigningPolicySetterNotAllowed());
+        require(_signingPolicySetter != address(0), SigningPolicySetterZero());
+        signingPolicySetter = _signingPolicySetter;
+        emit SigningPolicySetterSet(_signingPolicySetter);
     }
 
     /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
@@ -713,27 +668,30 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
     }
 
     /**
-     * Disabled (always reverts): renouncing would permanently freeze the implementation.
-     * Ownership only moves via `transferOwnership`.
+     * Upgrades the UUPS implementation through the owner-timelock path: with a nonzero
+     * duration the exact call is queued for permissionless execution after its ETA; with
+     * zero it executes immediately. Only the per-chain owner can queue; on Flare this is
+     * Flare governance, on other chains the designated multisig.
+     * @param _newImplementation The new implementation address.
+     * @param _data Optional post-upgrade initialization calldata.
      */
-    function renounceOwnership()
-        public pure override
+    function upgradeToAndCall(
+        address _newImplementation,
+        bytes memory _data
+    )
+        public payable override
+        onlyOwnerWithTimelock
     {
-        revert RenounceOwnershipDisabled();
+        super.upgradeToAndCall(_newImplementation, _data);
     }
 
-    /**
-     * Authorizes `upgradeToAndCall` (canonical OZ UUPS + Ownable pattern). Only the
-     * per-chain owner can upgrade; on Flare this is Flare governance, on other chains the
-     * designated multisig. Distinct from Safe governance, which only authorizes parameter
-     * changes via processSafeMessage.
-     */
+    /// @dev Empty: authorization is `onlyOwnerWithTimelock` on the `upgradeToAndCall`
+    ///      wrapper above.
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(
         address _newImplementation
     )
         internal override
-        onlyOwner
     {}
 
     /**
@@ -741,7 +699,7 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
      */
     function relay() external returns (bytes memory){
         // RLY-23: bound below (as _scid) into the policy hash and the protocol-message digest.
-        uint256 _sourceChainId = _safeSourceChainId();
+        uint256 _sourceChainId = sourceChainId;
         // solhint-disable-next-line no-inline-assembly
         assembly {
             // Helper function to revert with a 4-byte custom-error selector (declared on
@@ -832,7 +790,7 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
                 }
                 // RLY-23: chain-domain binding — the signing-policy hash commits to the configured
                 // source network: keccak256(sourceChainId ‖ contentHash). Reuses the two scratch slots
-                // this function already owns. The id is a deploy-time immutable (threaded in as
+                // this function already owns. The id is set once at initialize (threaded in as
                 // _scid), so the same policy verifies on every Relay that mirrors this source.
                 mstore(_memPos, _scid)
                 mstore(add(_memPos, M_1), _policyHash)
@@ -1953,16 +1911,6 @@ contract Relay is IIRelay, IRelayGovernance, SafeGoverned, UUPSUpgradeable, Owna
     /**
      * @inheritdoc IRelay
      */
-    /**
-     * @inheritdoc IRelayGovernance
-     * @dev RLY-23 origin binding: the source network id bound into every signed digest and
-     * the Safe governance digest — read from the shared Safe governance state (the single
-     * stored copy). On a home deployment == block.chainid (forced in initialize).
-     */
-    function sourceChainId() external view override returns (uint256) {
-        return _safeSourceChainId();
-    }
-
     function toSigningPolicyHash(uint256 _rewardEpochId) external view returns (bytes32) {
         if (address(oldRelay) != address(0) && _rewardEpochId < initialRewardEpochId) {
             return oldRelay.toSigningPolicyHash(_rewardEpochId);

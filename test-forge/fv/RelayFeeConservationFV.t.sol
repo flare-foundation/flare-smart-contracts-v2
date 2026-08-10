@@ -5,7 +5,7 @@ pragma solidity ^0.8.35;
 
 import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase + helpers/constants
 // solhint-disable-next-line no-unused-import
-import {deployRelay, testGovernanceConfig, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
+import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase-1 symbolic proof of OBLIGATION P7 — fee conservation in verify() (the NEW-relay path,
 // oldRelay == address(0)). See docs/relay-fv.md §4 (P7) and §6 (caveats).
@@ -72,7 +72,7 @@ contract RelayFeeConservationFV is RelayTestBase {
         cfg.thresholdIncreaseBIPS = THRESHOLD_INCREASE_BIPS;
         cfg.messageFinalizationWindowInRewardEpochs = MESSAGE_FINALIZATION_WINDOW;
         cfg.feeCollectionAddress = FEE_COLLECTION;
-        cfg.governance = testGovernanceConfig(block.chainid); // governance is mandatory
+        cfg.sourceChainId = block.chainid; // the RLY-23 source id is mandatory
         cfg.feeConfigs = new IRelay.FeeConfig[](1);
         cfg.feeConfigs[0] = IRelay.FeeConfig(PID, fee); // protocolFeeInWei[PID] = fee  (constructor :281)
         r = deployRelay(cfg, address(0), IRelay(address(0)));

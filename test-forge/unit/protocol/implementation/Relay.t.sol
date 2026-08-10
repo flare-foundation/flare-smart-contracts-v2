@@ -7,10 +7,8 @@ import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { Relay } from "../../../../contracts/protocol/implementation/Relay.sol";
 import { RelayProxy } from "../../../../contracts/protocol/implementation/RelayProxy.sol";
-import { ISafeGovernance } from "../../../../contracts/userInterfaces/ISafeGovernance.sol";
-import { SafeGovernance } from "../../../../contracts/governance/lib/SafeGovernance.sol";
 // solhint-disable-next-line no-unused-import
-import { deployRelay, testGovernanceConfig, RELAY_TEST_GOVERNANCE } from "../../../utils/RelayDeploy.sol";
+import { deployRelay, RELAY_TEST_GOVERNANCE } from "../../../utils/RelayDeploy.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
 
@@ -72,9 +70,10 @@ contract RelayTestBase is Test {
         cfg.thresholdIncreaseBIPS = THRESHOLD_INCREASE_BIPS;
         cfg.messageFinalizationWindowInRewardEpochs = MESSAGE_FINALIZATION_WINDOW;
         cfg.feeCollectionAddress = payable(feeCollection);
-        // Safe governance is mandatory on every deployment (and the source must be explicit),
-        // so the default fixture carries the inert placeholder block.
-        cfg.governance = testGovernanceConfig(block.chainid);
+        // The RLY-23 source id is mandatory on every deployment; duration 0 keeps owner
+        // calls immediate for tests that do not exercise the timelock queue.
+        cfg.sourceChainId = block.chainid;
+        cfg.timelockDurationSeconds = 0;
         // cfg.feeConfigs left empty
     }
 
@@ -488,8 +487,8 @@ contract RelayVerifyTest is RelayTestBase {
         assertEq(selfBefore - address(this).balance, fee, "caller net cost is the fee (overpayment refunded)");
     }
 
-    // Safe fee-exemption allowlist: an exempt caller (e.g. a DVN adapter) verifies for free,
-    // everyone else keeps paying; the exemption is installed via a signed Safe action.
+    // Owner fee-exemption allowlist: an exempt caller (e.g. a DVN adapter) verifies for free,
+    // everyone else keeps paying; the exemption is installed by the owner via setFeeExemptions.
     function test_verify_feeExemptAddressPaysNothing() public {
         (Relay r, bytes32 leaf, bytes32[] memory proof) = _deployFeeExemptionFixture();
 
@@ -560,17 +559,55 @@ contract RelayVerifyTest is RelayTestBase {
         new RelayProxy(impl, cfg, address(0), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
     }
 
+    // Owner-timelock repoint of the trusted signing-policy setter (e.g. after a
+    // FlareSystemsManager redeployment); setter-mode deployments only.
+    function test_setSigningPolicySetter_ownerRepointsOnSetterMode() public {
+        Relay r = _deploySetterModeRelay();
+        assertEq(r.signingPolicySetter(), address(0xF5));
+
+        vm.expectEmit(true, false, false, true);
+        emit IRelay.SigningPolicySetterSet(address(0xF6));
+        vm.prank(RELAY_TEST_GOVERNANCE);
+        r.setSigningPolicySetter(address(0xF6));
+        assertEq(r.signingPolicySetter(), address(0xF6));
+
+        // The replaced setter loses the role (the modifier fires before struct validation).
+        IIRelay.SigningPolicy memory sp;
+        vm.prank(address(0xF5));
+        vm.expectRevert(IRelay.OnlySigningPolicySetterRole.selector);
+        r.setSigningPolicy(sp);
+    }
+
+    // The deployment mode is fixed at initialize: a relay-mode deployment never gains a setter.
+    function test_setSigningPolicySetter_revertsOnRelayMode() public {
+        vm.prank(RELAY_TEST_GOVERNANCE);
+        vm.expectRevert(IRelay.SigningPolicySetterNotAllowed.selector);
+        relay.setSigningPolicySetter(address(0xF6));
+    }
+
+    // ... and a setter-mode deployment never clears it; only the owner may repoint.
+    function test_setSigningPolicySetter_revertsZeroAndNonOwner() public {
+        Relay r = _deploySetterModeRelay();
+        vm.prank(RELAY_TEST_GOVERNANCE);
+        vm.expectRevert(IRelay.SigningPolicySetterZero.selector);
+        r.setSigningPolicySetter(address(0));
+
+        vm.expectRevert(
+            abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", address(this))
+        );
+        r.setSigningPolicySetter(address(0xF6));
+    }
+
+    function _deploySetterModeRelay() internal returns (Relay) {
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeCollectionAddress = payable(address(0)); // setter mode: no collector
+        return deployRelay(cfg, address(0xF5), IRelay(address(0)));
+    }
+
     function _deployFeeExemptionFixture() internal returns (Relay r, bytes32 leaf, bytes32[] memory proof) {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
         cfg.feeConfigs = new IRelay.FeeConfig[](1);
         cfg.feeConfigs[0] = IRelay.FeeConfig(3, 1000);
-        // Safe governance fixture: 2-of-3 owners, replay floor 5. Source stays this chain
-        // (set explicitly by the base fixture; zero is illegal).
-        cfg.governance.safe = address(0xCAFE);
-        cfg.governance.threshold = 2;
-        cfg.governance.owners = _sortedAddrs(_safeOwnerKeys());
-        cfg.governance.ownerConfigSafeNonce = 5;
-        cfg.governance.safeNonce = 5;
         r = deployRelay(cfg, address(0), IRelay(address(0)));
 
         // finalize a root so verify() has something to prove against
@@ -585,65 +622,12 @@ contract RelayVerifyTest is RelayTestBase {
     }
 
     function _installFeeExemption(Relay r) internal {
-        uint256[] memory safeOwnerKeys = _safeOwnerKeys();
-        address[] memory safeOwners = _sortedAddrs(safeOwnerKeys);
-        bytes32 ownerHash = SafeGovernance.ownerConfigHash(block.chainid, address(0xCAFE), 5, 2, safeOwners);
-        SafeGovernance.GovernanceFeeExemption[] memory updates = new SafeGovernance.GovernanceFeeExemption[](1);
-        updates[0] = SafeGovernance.GovernanceFeeExemption(block.chainid, address(r), address(this), true);
-        ISafeGovernance.SafeTx memory txData;
-        txData.to = address(0xFEED);
-        txData.data =
-            abi.encodeWithSelector(SafeGovernance.CHANGE_FEE_EXEMPTIONS_SELECTOR, uint256(6), ownerHash, updates);
-        txData.nonce = 6;
-        r.processSafeMessage(txData, _safeSign(txData, safeOwnerKeys, 2));
-    }
-
-    function _safeOwnerKeys() internal pure returns (uint256[] memory safeOwnerKeys) {
-        safeOwnerKeys = new uint256[](3);
-        safeOwnerKeys[0] = 501;
-        safeOwnerKeys[1] = 502;
-        safeOwnerKeys[2] = 503;
-    }
-
-    function _sortedAddrs(uint256[] memory _keys) internal pure returns (address[] memory a) {
-        a = new address[](_keys.length);
-        for (uint256 i; i < _keys.length; ++i) {
-            a[i] = vm.addr(_keys[i]);
-        }
-        for (uint256 i = 1; i < a.length; ++i) {
-            address v = a[i];
-            uint256 k = _keys[i];
-            uint256 j = i;
-            while (j > 0 && a[j - 1] > v) {
-                a[j] = a[j - 1];
-                _keys[j] = _keys[j - 1];
-                --j;
-            }
-            a[j] = v;
-            _keys[j] = k;
-        }
-    }
-
-    // Safe v1.3.0 digest replica (differentially pinned in SafeGoverned.t.sol) + sorted signing.
-    function _safeSign(ISafeGovernance.SafeTx memory t, uint256[] memory signingKeys, uint256 count)
-        internal
-        view
-        returns (bytes memory out)
-    {
-        bytes32 domain = keccak256(abi.encode(
-            keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"), block.chainid, address(0xCAFE)
-        ));
-        bytes32 structHash = keccak256(abi.encode(
-            // solhint-disable-next-line max-line-length
-            keccak256("SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"),
-            t.to, t.value, keccak256(t.data), t.operation,
-            t.safeTxGas, t.baseGas, t.gasPrice, t.gasToken, t.refundReceiver, t.nonce
-        ));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domain, structHash));
-        for (uint256 i; i < count; ++i) {
-            (uint8 v, bytes32 r_, bytes32 s_) = vm.sign(signingKeys[i], digest);
-            out = bytes.concat(out, abi.encodePacked(r_, s_, v));
-        }
+        // Owner call; the base fixture deploys with timelock duration 0, so it applies
+        // immediately (the queue path is covered in RelayOwnableWithTimelock.t.sol).
+        IIRelay.FeeExemption[] memory exemptions = new IIRelay.FeeExemption[](1);
+        exemptions[0] = IIRelay.FeeExemption(address(this), true);
+        vm.prank(RELAY_TEST_GOVERNANCE);
+        r.setFeeExemptions(exemptions);
     }
 
     // RLY-04: a Mode-2 relay with a zero merkle root must revert (else isFinalized / already-relayed break).

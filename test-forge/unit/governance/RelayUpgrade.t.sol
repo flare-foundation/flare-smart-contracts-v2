@@ -7,42 +7,19 @@ import {Test} from "forge-std/Test.sol";
 import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 import {RelayProxy} from "../../../contracts/protocol/implementation/RelayProxy.sol";
 import {IRelay} from "../../../contracts/userInterfaces/IRelay.sol";
-import {IRelayGovernance} from "../../../contracts/userInterfaces/IRelayGovernance.sol";
+import {IOwnableWithTimelock} from "../../../contracts/userInterfaces/IOwnableWithTimelock.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {SafeInstructions} from "../../../contracts/governance/implementation/SafeInstructions.sol";
-import {SafeInstructionsProxy} from "../../../contracts/governance/implementation/SafeInstructionsProxy.sol";
-import {IFlareGovernance} from "../../../contracts/userInterfaces/IFlareGovernance.sol";
-import {IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { testGovernanceConfig } from "../../utils/RelayDeploy.sol";
 
-/// Minimal live-Safe stand-in: SafeInstructions.initialize reads the live owner
-/// configuration to admit generation 0.
-contract TestSafeView {
-    function getOwners() external pure returns (address[] memory owners) {
-        owners = new address[](1);
-        owners[0] = address(uint160(uint256(keccak256("safe.upgrade.test.owner"))));
-    }
-
-    function getThreshold() external pure returns (uint256) {
-        return 1;
-    }
-}
-
-/// Upgradeability of the two Safe-stack proxies: Relay (OZ Ownable per-chain owner)
-/// and SafeInstructions (Flare governed-UUPS house pattern).
-contract SafeUpgradeTest is Test {
+/// Upgradeability of the Relay proxy: the per-chain owner authorizes upgrades through the
+/// OwnableWithTimelock path — immediately at duration 0, via queue + permissionless
+/// executeTimelockedCall at a nonzero duration.
+contract RelayUpgradeTest is Test {
     address internal relayOwner;
-    address internal flareGovernance;
-    address internal governanceSafe;
     Relay internal relay;
     Relay internal relayImplementation;
-    SafeInstructions internal instructions;
-    SafeInstructions internal instructionsImplementation;
 
     function setUp() public {
         relayOwner = makeAddr("relayOwner");
-        flareGovernance = makeAddr("flareGovernance");
-        governanceSafe = address(new TestSafeView());
 
         relayImplementation = new Relay();
         relay = Relay(
@@ -56,26 +33,14 @@ contract SafeUpgradeTest is Test {
                 )
             )
         );
-
-        instructionsImplementation = new SafeInstructions();
-        instructions = SafeInstructions(
-            address(
-                new SafeInstructionsProxy(
-                    IGovernanceSettings(makeAddr("governanceSettings")),
-                    flareGovernance,
-                    makeAddr("addressUpdater"),
-                    address(instructionsImplementation),
-                    governanceSafe
-                )
-            )
-        );
     }
 
-    //// Relay: per-chain owner (OZ Ownable) authorizes upgrades ////
+    //// Immediate path (timelock duration 0) ////
 
     function test_relayUpgradeByOwnerPreservesState() public {
         assertEq(relay.implementation(), address(relayImplementation));
         assertEq(relay.owner(), relayOwner);
+        assertEq(relay.getTimelockDurationSeconds(), 0);
         uint256 startingVotingRoundBefore = relay.startingVotingRoundIds(1);
         (uint32 lastEpochBefore,) = relay.lastInitializedRewardEpochData();
 
@@ -138,14 +103,14 @@ contract SafeUpgradeTest is Test {
     }
 
     function test_relayRenounceOwnershipIsDisabled() public {
-        // renounceOwnership would permanently freeze the implementation, so Relay
-        // overrides it to revert for everyone; ownership only moves via transferOwnership.
+        // renounceOwnership would permanently freeze the implementation, so the inherited
+        // OwnableWithTimelock reverts for everyone; ownership only moves via transferOwnership.
         vm.prank(relayOwner);
-        vm.expectRevert(IRelayGovernance.RenounceOwnershipDisabled.selector);
+        vm.expectRevert(IOwnableWithTimelock.RenounceDisabled.selector);
         relay.renounceOwnership();
         assertEq(relay.owner(), relayOwner);
 
-        vm.expectRevert(IRelayGovernance.RenounceOwnershipDisabled.selector);
+        vm.expectRevert(IOwnableWithTimelock.RenounceDisabled.selector);
         relay.renounceOwnership();
 
         Relay newImplementation = new Relay();
@@ -154,33 +119,58 @@ contract SafeUpgradeTest is Test {
         assertEq(relay.implementation(), address(newImplementation));
     }
 
-    //// SafeInstructions: Flare governance authorizes upgrades ////
+    //// Timelocked path (nonzero duration): queue -> ETA -> permissionless execute ////
 
-    function test_instructionsUpgradeByFlareGovernance() public {
-        assertEq(instructions.implementation(), address(instructionsImplementation));
-        assertEq(instructions.sourceChainId(), block.chainid);
-        assertTrue(instructions.activeOwnerConfigHash() != bytes32(0));
+    function test_relayUpgradeQueuedAndExecutedThroughTimelock() public {
+        Relay timelocked = _deployTimelockedRelay(1 days);
+        Relay newImplementation = new Relay();
+        bytes memory encodedCall =
+            abi.encodeCall(timelocked.upgradeToAndCall, (address(newImplementation), bytes("")));
 
-        SafeInstructions newImplementation = new SafeInstructions();
-        vm.prank(flareGovernance);
-        instructions.upgradeToAndCall(address(newImplementation), bytes(""));
-        assertEq(instructions.implementation(), address(newImplementation));
-        assertEq(instructions.sourceChainId(), block.chainid);
+        // The owner call queues the exact calldata and applies nothing yet.
+        vm.prank(relayOwner);
+        timelocked.upgradeToAndCall(address(newImplementation), bytes(""));
+        assertEq(timelocked.implementation(), address(relayImplementation), "queued, not applied");
+        assertEq(
+            timelocked.getExecuteTimelockedCallTimestamp(encodedCall),
+            block.timestamp + 1 days,
+            "ETA recorded"
+        );
+
+        // Too early: execution reverts until the recorded ETA.
+        vm.expectRevert(IOwnableWithTimelock.TimelockNotAllowedYet.selector);
+        timelocked.executeTimelockedCall(encodedCall);
+
+        // After the ETA anyone may execute the queued call.
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(makeAddr("randomExecutor"));
+        timelocked.executeTimelockedCall(encodedCall);
+        assertEq(timelocked.implementation(), address(newImplementation), "upgrade applied");
+        assertEq(timelocked.owner(), relayOwner, "owner preserved across upgrade");
     }
 
-    function test_instructionsUpgradeRevertsForNonGovernance() public {
-        SafeInstructions newImplementation = new SafeInstructions();
-        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
-        instructions.upgradeToAndCall(address(newImplementation), bytes(""));
+    function test_relayUpgradeQueueRevertsForNonOwner() public {
+        Relay timelocked = _deployTimelockedRelay(1 days);
+        Relay newImplementation = new Relay();
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, address(this))
+        );
+        timelocked.upgradeToAndCall(address(newImplementation), bytes(""));
     }
 
-    function test_instructionsReinitializationReverts() public {
-        vm.expectRevert();
-        instructions.initialize(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            flareGovernance,
-            makeAddr("addressUpdater"),
-            governanceSafe
+    function _deployTimelockedRelay(uint256 timelockDurationSeconds) internal returns (Relay) {
+        IRelay.RelayInitialConfig memory c = _relayConfig();
+        c.timelockDurationSeconds = timelockDurationSeconds;
+        return Relay(
+            address(
+                new RelayProxy(
+                    address(relayImplementation),
+                    c,
+                    address(0),
+                    IRelay(address(0)),
+                    relayOwner
+                )
+            )
         );
     }
 
@@ -197,6 +187,7 @@ contract SafeUpgradeTest is Test {
         c.messageFinalizationWindowInRewardEpochs = 1;
         c.feeCollectionAddress = payable(address(0xfee));
         c.feeConfigs = new IRelay.FeeConfig[](0);
-        c.governance = testGovernanceConfig(block.chainid); // governance is mandatory
+        c.sourceChainId = block.chainid; // the RLY-23 source id is mandatory
+        // timelockDurationSeconds defaults to 0: owner calls apply immediately
     }
 }

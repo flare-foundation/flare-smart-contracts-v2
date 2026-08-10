@@ -1,5 +1,5 @@
 import { expectCustomError } from "../../../utils/custom-errors";
-import { deployRelayProxy, testGovernanceConfig } from "../../../utils/relay-deploy";
+import { deployRelayProxy } from "../../../utils/relay-deploy";
 import { expectRevert } from "@openzeppelin/test-helpers";
 import { Contracts } from "../../../../deployment/scripts/Contracts";
 import { RelayInitialConfig } from "../../../../deployment/utils/RelayInitialConfig";
@@ -46,7 +46,8 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, (accounts) => {
       messageFinalizationWindowInRewardEpochs: 10,
       feeCollectionAddress: ZERO_ADDRESS,
       feeConfigs: [],
-      governance: testGovernanceConfig(chainId),
+      sourceChainId: chainId,
+      timelockDurationSeconds: 0,
     };
 
     const relay = await deployRelayProxy(relayInitialConfig, accounts[1], ZERO_ADDRESS);

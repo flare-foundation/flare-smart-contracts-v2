@@ -23,19 +23,24 @@
         },
         "RelayHomeConfig": {
             "additionalProperties": false,
-            "description": "The source's own home (setter-mode) Relay deployment settings. Protocol addresses are read\nfrom the on-chain FlareContractRegistry and the epoch/protocol params are inherited from the\ncurrently deployed Relay's stateData() (four are handshake-enforced to match it anyway; the\nrest are preserved across a redeploy), so the ONLY thing configured here is the migration\nscheme, which is not recoverable from a stored hash.",
+            "description": "The source's own home (setter-mode) Relay deployment settings. Protocol addresses are read\nfrom the on-chain FlareContractRegistry and the epoch/protocol params are inherited from the\ncurrently deployed Relay's stateData() (four are handshake-enforced to match it anyway; the\nrest are preserved across a redeploy), so the only things configured here are the migration\nscheme — not recoverable from a stored hash — and the owner-timelock duration.",
             "properties": {
                 "oldRelayPolicyHashScheme": {
-                    "description": "How to interpret the old Relay's stored signing-policy hash: \"legacy\" wraps a pre-RLY-23\ncontent hash once with the source chain id, \"chain-bound\" passes an already-wrapped hash\nthrough. See docs/safe-governance.md §15.1.",
+                    "description": "How to interpret the old Relay's stored signing-policy hash: \"legacy\" wraps a pre-RLY-23\ncontent hash once with the source chain id, \"chain-bound\" passes an already-wrapped hash\nthrough. See docs/relay-governance.md.",
                     "enum": [
                         "chain-bound",
                         "legacy"
                     ],
                     "type": "string"
+                },
+                "timelockDurationSeconds": {
+                    "description": "Initial owner-timelock duration in seconds applied to the owner's fee setters and\nupgrades (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls\nimmediate (reasonable on home chains where the owner is the governance multisig, itself\nbehind Flare's governance timelock).",
+                    "type": "integer"
                 }
             },
             "required": [
-                "oldRelayPolicyHashScheme"
+                "oldRelayPolicyHashScheme",
+                "timelockDurationSeconds"
             ],
             "type": "object"
         },
@@ -66,8 +71,12 @@
                     "type": "array"
                 },
                 "relayOwner": {
-                    "description": "The per-chain UUPS upgrade owner (Relay.owner()): the chain's designated multisig. Does\nnot exist on the Flare registry, so it is configured here.",
+                    "description": "The per-chain owner (Relay.owner()): the chain's designated multisig, authorizing the fee\nsetters and UUPS upgrades through the owner-timelock. Does not exist on the Flare\nregistry, so it is configured here.",
                     "type": "string"
+                },
+                "timelockDurationSeconds": {
+                    "description": "Initial owner-timelock duration in seconds applied to the owner's fee setters and\nupgrades (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls\nimmediate.",
+                    "type": "integer"
                 }
             },
             "required": [
@@ -75,12 +84,13 @@
                 "feeCollectionAddress",
                 "feeConfigs",
                 "feeExemptAddresses",
-                "relayOwner"
+                "relayOwner",
+                "timelockDurationSeconds"
             ],
             "type": "object"
         }
     },
-    "description": "Per-SOURCE parameters for the Safe-governed Relay Forge deployment scripts in\ndeployment/scripts/relay/. One file per source chain (flare.json, coston2.json, …): it holds\nthe source's own home deployment plus the full list of mirror targets that mirror this source\n— a single reviewed inventory, so mirror deployments cannot drift from a shared base and every\nfield can be required.\n\nNo protocol ADDRESSES are configured for the home deployment: on a Flare network every address\n(the governance Safe via GovernanceSettings.getGovernanceAddress(), FlareSystemsManager, the\nold Relay, AddressUpdater) is read from the on-chain FlareContractRegistry, and the Safe owner\nset/threshold/nonces are read live from the Safe. Mirrors carry only their own chain-specific\naddresses (relayOwner, feeCollectionAddress) plus the shared `expectedDeployer`; their protocol\nparameters come from the live source snapshot, so they cannot drift per chain.",
+    "description": "Per-SOURCE parameters for the owner-governed Relay Forge deployment scripts in\ndeployment/scripts/relay/. One file per source chain (flare.json, coston2.json, …): it holds\nthe source's own home deployment plus the full list of mirror targets that mirror this source\n— a single reviewed inventory, so mirror deployments cannot drift from a shared base and every\nfield can be required.\n\nNo protocol ADDRESSES are configured for the home deployment: on a Flare network every address\n(the Relay owner via GovernanceSettings.getGovernanceAddress(), FlareSystemsManager, the old\nRelay) is read from the on-chain FlareContractRegistry. Mirrors carry only their own\nchain-specific values (relayOwner, feeCollectionAddress, timelockDurationSeconds, fees) plus\nthe shared `expectedDeployer`; their protocol parameters come from the live source snapshot,\nso they cannot drift per chain.",
     "properties": {
         "$schema": {
             "type": "string"

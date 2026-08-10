@@ -2,6 +2,7 @@
   "$schema": "./relay-parameters.json",
   "expectedDeployer": "0x0000000000000000000000000000000000000000",
   "home": {
-    "oldRelayPolicyHashScheme": "legacy"
+    "oldRelayPolicyHashScheme": "legacy",
+    "timelockDurationSeconds": 0
   }
 }

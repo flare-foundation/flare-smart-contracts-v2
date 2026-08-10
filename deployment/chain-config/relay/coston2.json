@@ -2,13 +2,15 @@
   "$schema": "./relay-parameters.json",
   "expectedDeployer": "0x0000000000000000000000000000000000000000",
   "home": {
-    "oldRelayPolicyHashScheme": "legacy"
+    "oldRelayPolicyHashScheme": "legacy",
+    "timelockDurationSeconds": 0
   },
   "mirrors": {
     "arbitrum-sepolia": {
       "chainId": 421614,
       "relayOwner": "0x0000000000000000000000000000000000000000",
       "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
+      "timelockDurationSeconds": 86400,
       "feeConfigs": [],
       "feeExemptAddresses": []
     }

@@ -5,24 +5,20 @@ pragma solidity ^0.8.35;
 import {console2} from "forge-std/Script.sol";
 import {RelayDeployBase} from "./RelayDeployBase.s.sol";
 import {IRelay} from "../../../contracts/userInterfaces/IRelay.sol";
+import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 
-// Captures the live Flare source stack into deployment/deploys/relay/source-snapshot.json for
-// the mirror deployment. Run READ-ONLY against a Flare RPC (no --broadcast):
+// Captures the live Flare source stack into deployment/deploys/relay/source-snapshot-<source>.json
+// for the mirror deployment. Run READ-ONLY against a Flare RPC (no --broadcast):
 //
 //   forge script deployment/scripts/relay/PrepareRelaySourceSnapshot.s.sol:PrepareRelaySourceSnapshot \
 //     --rpc-url $FLARE_RPC
 //
-// It reads:
-//   - the SafeInstructions governance stack (source chain id, live Safe owners/threshold, admitted
-//     owner generation, replay floor) and asserts the admitted generation is LIVE
-//     (docs/safe-governance.md §15.1); if a rotation attestation is pending this fails loudly, so
-//     late-joining mirrors always configure the then-current generation, not gen 0;
-//   - the home Relay's epoch anchors and its stored, already source-bound signing-policy hash for
-//     the last initialized reward epoch — every mirror binds to the SAME source (Flare), so that
-//     wrapped hash is valid unchanged on every target.
+// It reads the home Relay's RLY-23 source id, epoch anchors and its stored, already source-bound
+// signing-policy hash for the last initialized reward epoch — every mirror binds to the SAME
+// source (Flare), so that wrapped hash is valid unchanged on every target.
 //
-// The SafeInstructions and home Relay addresses are deploy OUTPUTS, read from the committed,
-// persistent deployment/deploys/<source>.json (the repo's deployed-address registry, written by
+// The home Relay address is a deploy OUTPUT, read from the committed, persistent
+// deployment/deploys/<source>.json (the repo's deployed-address registry, written by
 // save-deployed-addresses.ts and carrying the latest addresses even before governance cuts the
 // FlareContractRegistry over). (Deliberately NOT the registry Relay: pre-cutover that is still
 // the old pre-RLY-23 relay, which would seed a wrongly bound initial policy.)
@@ -32,28 +28,24 @@ contract PrepareRelaySourceSnapshot is RelayDeployBase {
         string memory network = _configLabel();
         console2.log(string.concat("SOURCE NETWORK: ", network));
 
-        (address safeInstructions, address homeRelay) = _resolveSourceAddresses(network);
-        console2.log("SafeInstructions:", safeInstructions);
+        address homeRelay = _resolveSourceAddress(network);
         console2.log("Home Relay:", homeRelay);
 
-        GovernanceStackRead memory stack = _readGovernanceStack(safeInstructions);
+        uint256 sourceChainId = Relay(homeRelay).sourceChainId();
         require(
-            stack.sourceChainId == block.chainid,
-            "prepare: SafeInstructions source chain id != the chain being snapshotted"
+            sourceChainId == block.chainid,
+            "prepare: home Relay source chain id != the chain being snapshotted"
         );
 
-        SourceSnapshot memory snapshot = _buildSnapshot(stack, homeRelay);
+        SourceSnapshot memory snapshot = _buildSnapshot(sourceChainId, homeRelay);
         _writeSourceSnapshot(snapshot);
 
-        console2.log("sourceChainId:", snapshot.stack.sourceChainId);
+        console2.log("sourceChainId:", snapshot.sourceChainId);
         console2.log("initialRewardEpochId:", snapshot.initialRewardEpochId);
-        console2.log("owners:", snapshot.stack.owners.length);
-        console2.log("threshold:", snapshot.stack.threshold);
-        console2.log("replayFloor:", snapshot.stack.replayFloor);
     }
 
     function _buildSnapshot(
-        GovernanceStackRead memory _stack,
+        uint256 _sourceChainId,
         address _homeRelay
     )
         internal view
@@ -78,7 +70,7 @@ contract PrepareRelaySourceSnapshot is RelayDeployBase {
             uint32 messageFinalizationWindowInRewardEpochs
         ) = relay.stateData();
 
-        _snapshot.stack = _stack;
+        _snapshot.sourceChainId = _sourceChainId;
         _snapshot.initialRewardEpochId = lastEpoch;
         _snapshot.startingVotingRoundId = startRound;
         _snapshot.initialSigningPolicyHash = policyHash; // already source-bound
@@ -92,24 +84,19 @@ contract PrepareRelaySourceSnapshot is RelayDeployBase {
     }
 
     /**
-     * The source stack addresses are deploy outputs, read from the committed, persistent
-     * deployment/deploys/<network>.json (`SafeInstructions` and the latest `Relay`).
+     * The home Relay address is a deploy output, read from the committed, persistent
+     * deployment/deploys/<network>.json (the latest `Relay`).
      */
-    function _resolveSourceAddresses(
+    function _resolveSourceAddress(
         string memory _network
     )
         internal view
-        returns (
-            address _safeInstructions,
-            address _homeRelay
-        )
+        returns (address _homeRelay)
     {
-        _safeInstructions = _readDeployedAddress(_network, "SafeInstructions");
         _homeRelay = _readDeployedAddress(_network, "Relay");
         require(
-            _safeInstructions != address(0),
-            "SafeInstructions not in deployment/deploys/<network>.json (deploy home + save-deployed-addresses first)"
+            _homeRelay != address(0),
+            "Relay not in deployment/deploys/<network>.json (deploy home + save-deployed-addresses first)"
         );
-        require(_homeRelay != address(0), "Relay not in deployment/deploys/<network>.json");
     }
 }

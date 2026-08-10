@@ -6,8 +6,6 @@ import {console2} from "forge-std/Script.sol";
 import {RelayDeployBase} from "./RelayDeployBase.s.sol";
 import {IRelay} from "../../../contracts/userInterfaces/IRelay.sol";
 import {IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import {SafeInstructions} from "../../../contracts/governance/implementation/SafeInstructions.sol";
-import {SafeInstructionsProxy} from "../../../contracts/governance/implementation/SafeInstructionsProxy.sol";
 import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 
 /// The FlareSystemsManager reads the home Relay deployment needs (epoch anchors).
@@ -17,19 +15,18 @@ interface IFlareSystemsManagerRead {
     function getStartVotingRoundId(uint256 _rewardEpochId) external view returns (uint32);
 }
 
-// Flare home deployment (chain id 14 / 19, or a dev chain for rehearsal). Deploys the full
-// source-chain stack:
-//   - SafeInstructions implementation + SafeInstructionsProxy (plain CREATE) — admits the live
-//     Safe owner configuration as generation 0;
-//   - Relay implementation (plain CREATE) + RelayProxy through the Create3Factory (chain-invariant
-//     address) in SETTER MODE: signingPolicySetter = FlareSystemsManager, oldRelay migration
-//     handshake, NO feeConfigs, and governance.sourceChainId forced to == block.chainid.
+// Flare home deployment (chain id 14 / 19, or a dev chain for rehearsal). Deploys the
+// Relay implementation (plain CREATE) + RelayProxy through the Create3Factory (chain-invariant
+// address) in SETTER MODE: signingPolicySetter = FlareSystemsManager, oldRelay migration
+// handshake, NO feeConfigs, and sourceChainId forced to == block.chainid. The Relay owner
+// (governance and upgrade authority via the OwnableWithTimelock queue) is the governance
+// address read from GovernanceSettings.
 //
 // The initial signing-policy hash is migrated from the currently deployed Relay for the next
-// reward epoch (see redeploy-relay.ts); the migration scheme (legacy | chain-bound) is the only
-// value taken from the config. Every epoch/protocol param is inherited from that Relay's
-// stateData() (four are handshake-enforced to match it, the rest are preserved on redeploy), so
-// the home config holds no duplicated protocol parameters.
+// reward epoch (see redeploy-relay.ts); the migration scheme (legacy | chain-bound) and the
+// owner-timelock duration are the only values taken from the config. Every epoch/protocol param
+// is inherited from that Relay's stateData() (four are handshake-enforced to match it, the rest
+// are preserved on redeploy), so the home config holds no duplicated protocol parameters.
 //
 // Usage:
 //   forge script deployment/scripts/relay/DeployRelayHome.s.sol:DeployRelayHome \
@@ -52,41 +49,23 @@ contract DeployRelayHome is RelayDeployBase {
 
         // Every address is read from chain — the FlareContractRegistry is the single source of
         // truth on a Flare network, so no addresses live in the config. GovernanceSettings is
-        // resolved by name (its own address is not fixed across chains); the governance Safe is
-        // its live getGovernanceAddress() and it governs SafeInstructions, owns the Relay UUPS
-        // upgrade path, and is the source-chain Safe instructions target.
+        // resolved by name (its own address is not fixed across chains); the Relay owner —
+        // authorizing fee setters and UUPS upgrades through the owner-timelock — is its live
+        // getGovernanceAddress().
         address flareSystemsManager = _registryAddress("FlareSystemsManager");
         address oldRelay = _registryAddress("Relay");
-        address addressUpdater = _registryAddress("AddressUpdater");
         address governanceSettings = _registryAddress("GovernanceSettings");
-        address governanceSafe = IGovernanceSettings(governanceSettings).getGovernanceAddress();
-        require(governanceSafe != address(0), "GovernanceSettings.getGovernanceAddress() returned zero");
-        address safe = governanceSafe;
-        address initialGovernance = governanceSafe;
-        address relayOwner = governanceSafe;
-        console2.log("Governance Safe (from GovernanceSettings):", governanceSafe);
+        address relayOwner = IGovernanceSettings(governanceSettings).getGovernanceAddress();
+        require(relayOwner != address(0), "GovernanceSettings.getGovernanceAddress() returned zero");
+        console2.log("Relay owner (from GovernanceSettings):", relayOwner);
+
+        uint256 timelockDurationSeconds = vm.parseJsonUint(cfg, ".home.timelockDurationSeconds");
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // 1. SafeInstructions (source-chain quality gate) — admits the live Safe config as gen 0.
-        address safeInstructionsImpl = address(new SafeInstructions());
-        address safeInstructions = address(new SafeInstructionsProxy(
-            IGovernanceSettings(governanceSettings),
-            initialGovernance,
-            addressUpdater,
-            safeInstructionsImpl,
-            safe
-        ));
-        _logDeployed("SafeInstructionsImplementation", "SafeInstructions.sol", safeInstructionsImpl);
-        _logDeployed("SafeInstructions", "SafeInstructionsProxy.sol", safeInstructions);
-
-        // 2. Consistent governance stack read from the freshly deployed SafeInstructions.
-        GovernanceStackRead memory stack = _readGovernanceStack(safeInstructions);
-        require(stack.sourceChainId == block.chainid, "home deploy: SafeInstructions source chain id != this chain");
-
-        // 3. Relay implementation + proxy (setter mode) through the factory.
+        // Relay implementation + proxy (setter mode) through the factory.
         IRelay.RelayInitialConfig memory config =
-            _buildHomeConfig(cfg, flareSystemsManager, oldRelay, stack);
+            _buildHomeConfig(cfg, flareSystemsManager, oldRelay, timelockDurationSeconds);
         address relayImpl = address(new Relay());
         _logDeployed("RelayImplementation", "Relay.sol", relayImpl);
         // Home: source == this chain, so the salt (and address) is this network's own.
@@ -102,7 +81,8 @@ contract DeployRelayHome is RelayDeployBase {
             relayImpl,
             relayOwner,
             flareSystemsManager,
-            stack,
+            block.chainid,
+            timelockDurationSeconds,
             config.initialRewardEpochId,
             config.startingVotingRoundIdForInitialRewardEpochId
         );
@@ -118,21 +98,21 @@ contract DeployRelayHome is RelayDeployBase {
             relay: relay,
             owner: relayOwner,
             signingPolicySetter: flareSystemsManager,
-            safeInstructions: safeInstructions,
-            safeInstructionsImplementation: safeInstructionsImpl,
+            sourceChainId: block.chainid,
+            timelockDurationSeconds: timelockDurationSeconds,
             initialRewardEpochId: config.initialRewardEpochId,
             startingVotingRoundId: config.startingVotingRoundIdForInitialRewardEpochId,
             initialSigningPolicyHash: config.initialSigningPolicyHash,
             deployer: deployer
         });
-        _writeRelayManifest(string.concat(_configLabel(), "-home"), manifest, stack);
+        _writeRelayManifest(string.concat(_configLabel(), "-home"), manifest);
     }
 
     function _buildHomeConfig(
         string memory _cfg,
         address _flareSystemsManager,
         address _oldRelay,
-        GovernanceStackRead memory _stack
+        uint256 _timelockDurationSeconds
     )
         internal view
         returns (IRelay.RelayInitialConfig memory _config)
@@ -168,7 +148,7 @@ contract DeployRelayHome is RelayDeployBase {
         _config.initialRewardEpochId = nextRewardEpochId;
         _config.startingVotingRoundIdForInitialRewardEpochId = startVotingRoundId;
         _config.initialSigningPolicyHash =
-            _migratedPolicyHash(oldPolicyHash, _stack.sourceChainId, scheme);
+            _migratedPolicyHash(oldPolicyHash, block.chainid, scheme);
         _config.randomNumberProtocolId = randomNumberProtocolId;
         _config.firstVotingRoundStartTs = firstVotingRoundStartTs;
         _config.votingEpochDurationSeconds = votingEpochDurationSeconds;
@@ -179,7 +159,9 @@ contract DeployRelayHome is RelayDeployBase {
         // Setter mode: no fee collection address, no fee configs (Relay.initialize enforces both).
         _config.feeCollectionAddress = payable(address(0));
         _config.feeConfigs = new IRelay.FeeConfig[](0);
-        _config.governance = _governanceConfig(_stack);
+        // RLY-23 home-force: a home deployment binds its own chain.
+        _config.sourceChainId = block.chainid;
+        _config.timelockDurationSeconds = _timelockDurationSeconds;
     }
 
     /**
@@ -194,6 +176,7 @@ contract DeployRelayHome is RelayDeployBase {
     {
         _requireField(_cfg, ".home");
         _requireField(_cfg, ".home.oldRelayPolicyHashScheme");
+        _requireField(_cfg, ".home.timelockDurationSeconds");
         string memory scheme = vm.parseJsonString(_cfg, ".home.oldRelayPolicyHashScheme");
         require(
             _streq(scheme, "legacy") || _streq(scheme, "chain-bound"),

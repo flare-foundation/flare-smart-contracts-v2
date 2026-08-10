@@ -9,12 +9,6 @@
     "governanceTimelock": 1,
     "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
 
-    "safeGovernanceSafe": "0x1000000000000000000000000000000000000002",
-    "safeGovernanceThreshold": 1,
-    "safeGovernanceOwners": ["0x1000000000000000000000000000000000000003"],
-    "safeGovernanceOwnerConfigSafeNonce": 0,
-    "safeGovernanceSafeNonce": 0,
-
     "initialRewardEpochOffset": 0,
     "initialRandomVotePowerBlockSelectionSize": 1,
     "initialVoters": ["<use .env: INITIAL_VOTER_PRIVATE_KEY>"],

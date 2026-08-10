@@ -92,6 +92,19 @@ contract RelayChainDomainTest is RelayTestBase {
         sp.weights = weights;
     }
 
+    // Same fields, but typed for the standalone RelayMainDeployed replica (it no longer
+    // shares IIRelay's struct — the current IIRelay carries the owner-governance surface).
+    function _legacyPolicyStruct(uint24 epoch, uint32 startVotingRoundId)
+        internal view returns (RelayMainDeployed.SigningPolicy memory sp)
+    {
+        sp.rewardEpochId = epoch;
+        sp.startVotingRoundId = startVotingRoundId;
+        sp.threshold = THRESHOLD;
+        sp.seed = SEED;
+        sp.voters = voters;
+        sp.weights = weights;
+    }
+
     function _mainDeployedConfig(bytes32 signingPolicyHash)
         internal
         view
@@ -296,11 +309,15 @@ contract RelayChainDomainTest is RelayTestBase {
         // and one legacy-format message finalized under each active policy.
         (bool ok,) = address(oldRelay).call(_legacyMessageRelay(policy, START_VOTING_ROUND_ID, keccak256("old-1")));
         assertTrue(ok, "legacy message under policy 1 failed");
-        oldRelay.setSigningPolicy(_policyStruct(REWARD_EPOCH_ID + 1, START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION));
-        (ok,) = address(oldRelay).call(_legacyMessageRelay(policy2, START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION, keccak256("old-2")));
+        oldRelay.setSigningPolicy(
+            _legacyPolicyStruct(REWARD_EPOCH_ID + 1, START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION)
+        );
+        (ok,) = address(oldRelay).call(
+            _legacyMessageRelay(policy2, START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION, keccak256("old-2"))
+        );
         assertTrue(ok, "legacy message under policy 2 failed");
         oldRelay.setSigningPolicy(
-            _policyStruct(REWARD_EPOCH_ID + 2, START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION)
+            _legacyPolicyStruct(REWARD_EPOCH_ID + 2, START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION)
         );
 
         bytes32 legacyHash = oldRelay.toSigningPolicyHash(REWARD_EPOCH_ID + 2);
@@ -356,7 +373,7 @@ contract RelayChainDomainTest is RelayTestBase {
         // Deploy the mirror on Songbird's chain (19) but explicitly configured with Flare's source id.
         vm.chainId(SONGBIRD_CHAIN_ID);
         IRelay.RelayInitialConfig memory cfg = _initialConfig(flareBoundInitialHash);
-        cfg.governance.sourceChainId = FLARE_CHAIN_ID;
+        cfg.sourceChainId = FLARE_CHAIN_ID;
         Relay mirror = deployRelay(cfg, address(0), IRelay(address(0)));
         assertEq(mirror.sourceChainId(), FLARE_CHAIN_ID, "mirror must bind the configured source");
 
@@ -373,7 +390,7 @@ contract RelayChainDomainTest is RelayTestBase {
     function test_homeDeploy_forcesMatchingSource() public {
         vm.chainId(SONGBIRD_CHAIN_ID);
         IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
-        cfg.governance.sourceChainId = FLARE_CHAIN_ID; // foreign source on a setter (home) deployment
+        cfg.sourceChainId = FLARE_CHAIN_ID; // foreign source on a setter (home) deployment
         Relay implementation = new Relay();
         vm.expectRevert(IRelay.SourceChainIdMismatchOnHomeDeploy.selector);
         new RelayProxy(address(implementation), cfg, address(this), IRelay(address(0)), RELAY_TEST_GOVERNANCE);

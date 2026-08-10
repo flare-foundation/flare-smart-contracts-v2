@@ -4,10 +4,6 @@ pragma solidity ^0.8.35;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {IRelay} from "../../../contracts/userInterfaces/IRelay.sol";
-import {ISafeGovernance} from "../../../contracts/userInterfaces/ISafeGovernance.sol";
-import {SafeGovernance} from "../../../contracts/governance/lib/SafeGovernance.sol";
-import {SafeInstructions} from "../../../contracts/governance/implementation/SafeInstructions.sol";
-import {ISafeMinimal} from "../../../contracts/utils/interface/ISafeMinimal.sol";
 import {Create3Factory} from "../../../contracts/utils/implementation/Create3Factory.sol";
 import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 import {RelayProxy} from "../../../contracts/protocol/implementation/RelayProxy.sol";
@@ -16,8 +12,8 @@ import {IFlareContractRegistry} from
 
 /**
  * @title RelayDeployBase
- * @notice Shared plumbing for the Safe-governed Relay deployment scripts
- *         (see the Deploy* scripts in this directory and docs/safe-governance.md §12a/§15).
+ * @notice Shared plumbing for the owner-governed Relay deployment scripts
+ *         (see the Deploy* scripts in this directory and docs/relay-governance.md).
  *
  * Address determinism chain of custody:
  *   1. the canonical keyless CREATE2 deployer (Arachnid) exists at the same address on every
@@ -45,25 +41,12 @@ abstract contract RelayDeployBase is Script {
         string name;
     }
 
-    /// A consistent read of the Safe governance stack on the source chain, taken per
-    /// docs/safe-governance.md §15.1 (steps 4-6).
-    struct GovernanceStackRead {
-        address instructions;         // SafeInstructions proxy
-        address safe;                 // the governance Safe proxy
-        uint256 sourceChainId;        // instructions.sourceChainId() (the RLY-23 source network)
-        bytes32 ownerConfigHash;      // admitted owner generation hash
-        uint256 ownerConfigSafeNonce; // admitted owner generation ordinal
-        uint256 threshold;            // live Safe threshold (== admitted, asserted)
-        address[] owners;             // live Safe owners, sorted (== admitted, asserted)
-        uint256 replayFloor;          // Safe.nonce() at read time (first accepted signed nonce)
-    }
-
     /// A point-in-time capture of the live Flare source stack, taken by the prepare script and
     /// consumed by the mirror deploy. Every mirror binds to the SAME source (sourceChainId ==
-    /// Flare), so the source-bound signing-policy hash and owner generation are identical on
-    /// every target — the snapshot makes that reuse explicit and auditable.
+    /// Flare), so the source-bound signing-policy hash is identical on every target — the
+    /// snapshot makes that reuse explicit and auditable.
     struct SourceSnapshot {
-        GovernanceStackRead stack;
+        uint256 sourceChainId;              // the home Relay's RLY-23 source network id
         uint32 initialRewardEpochId;
         uint32 startingVotingRoundId;
         bytes32 initialSigningPolicyHash;   // already source-bound (bound to Flare) — pass through
@@ -84,8 +67,8 @@ abstract contract RelayDeployBase is Script {
         address relay;
         address owner;
         address signingPolicySetter;
-        address safeInstructions;
-        address safeInstructionsImplementation;
+        uint256 sourceChainId;
+        uint256 timelockDurationSeconds;
         uint32 initialRewardEpochId;
         uint32 startingVotingRoundId;
         bytes32 initialSigningPolicyHash;
@@ -177,13 +160,13 @@ abstract contract RelayDeployBase is Script {
 
     /**
      * Writes the per-chain deployment manifest to `deployment/deploys/relay/<stem>.json`
-     * (feeds the docs/safe-governance.md §15 checklist). Skipped on a dry run (RELAY_DRY_RUN set
-     * by the wrapper) so a simulation never overwrites a committed manifest with simulated data.
+     * (feeds the docs/relay-governance.md deployment checklist). Skipped on a dry run
+     * (RELAY_DRY_RUN set by the wrapper) so a simulation never overwrites a committed manifest
+     * with simulated data.
      */
     function _writeRelayManifest(
         string memory _fileStem,
-        RelayManifest memory _manifest,
-        GovernanceStackRead memory _stack
+        RelayManifest memory _manifest
     )
         internal
     {
@@ -200,67 +183,16 @@ abstract contract RelayDeployBase is Script {
         vm.serializeAddress(key, "relay", _manifest.relay);
         vm.serializeAddress(key, "owner", _manifest.owner);
         vm.serializeAddress(key, "signingPolicySetter", _manifest.signingPolicySetter);
-        vm.serializeAddress(key, "safeInstructions", _manifest.safeInstructions);
-        vm.serializeAddress(
-            key, "safeInstructionsImplementation", _manifest.safeInstructionsImplementation
-        );
-        vm.serializeAddress(key, "safe", _stack.safe);
-        vm.serializeUint(key, "sourceChainId", _stack.sourceChainId);
-        vm.serializeBytes32(key, "ownerConfigHash", _stack.ownerConfigHash);
-        vm.serializeUint(key, "ownerConfigSafeNonce", _stack.ownerConfigSafeNonce);
-        vm.serializeUint(key, "governanceThreshold", _stack.threshold);
-        vm.serializeAddress(key, "governanceOwners", _stack.owners);
-        vm.serializeUint(key, "replayFloor", _stack.replayFloor);
+        vm.serializeUint(key, "sourceChainId", _manifest.sourceChainId);
+        vm.serializeUint(key, "timelockDurationSeconds", _manifest.timelockDurationSeconds);
         vm.serializeUint(key, "initialRewardEpochId", _manifest.initialRewardEpochId);
         vm.serializeUint(key, "startingVotingRoundId", _manifest.startingVotingRoundId);
         vm.serializeBytes32(key, "initialSigningPolicyHash", _manifest.initialSigningPolicyHash);
-        vm.serializeBytes32(key, "relayProxySalt", _relayProxySalt(_stack.sourceChainId));
+        vm.serializeBytes32(key, "relayProxySalt", _relayProxySalt(_manifest.sourceChainId));
         string memory json = vm.serializeAddress(key, "deployer", _manifest.deployer);
         string memory path = string.concat(MANIFEST_DIR, _fileStem, ".json");
         vm.writeJson(json, path);
         console2.log(string.concat("MANIFEST: ", path));
-    }
-
-    /**
-     * Consistent read of the Safe governance stack (docs/safe-governance.md §15.1 steps 4-6):
-     * the admitted owner generation must be LIVE on the Safe, the recomputed hash must match,
-     * and the generation must not exceed the replay floor (`Safe.nonce()` at read time).
-     */
-    function _readGovernanceStack(
-        address _instructions
-    )
-        internal view
-        returns (GovernanceStackRead memory _stack)
-    {
-        SafeInstructions instructions = SafeInstructions(_instructions);
-        _stack.instructions = _instructions;
-        _stack.safe = instructions.safe();
-        _stack.sourceChainId = instructions.sourceChainId();
-        _stack.ownerConfigHash = instructions.activeOwnerConfigHash();
-        _stack.ownerConfigSafeNonce = instructions.activeOwnerConfigSafeNonce();
-        require(
-            instructions.activeOwnerConfigurationIsLive(),
-            "SafeInstructions owner generation is not live (rotation attestation pending) - attest first"
-        );
-        _stack.owners = ISafeMinimal(_stack.safe).getOwners();
-        _sort(_stack.owners);
-        _stack.threshold = ISafeMinimal(_stack.safe).getThreshold();
-        // Independent recompute of the admitted generation hash from live Safe state.
-        require(
-            SafeGovernance.ownerConfigHash(
-                _stack.sourceChainId,
-                _stack.safe,
-                _stack.ownerConfigSafeNonce,
-                _stack.threshold,
-                _stack.owners
-            ) == _stack.ownerConfigHash,
-            "recomputed owner configuration hash does not match SafeInstructions"
-        );
-        _stack.replayFloor = ISafeMinimal(_stack.safe).nonce();
-        require(
-            _stack.ownerConfigSafeNonce <= _stack.replayFloor,
-            "admitted owner generation nonce exceeds the replay floor"
-        );
     }
 
     /**
@@ -287,17 +219,10 @@ abstract contract RelayDeployBase is Script {
     )
         internal
     {
-        string memory path = _sourceSnapshotPath(_networkName(_snapshot.stack.sourceChainId));
+        string memory path = _sourceSnapshotPath(_networkName(_snapshot.sourceChainId));
         vm.createDir(MANIFEST_DIR, true);
         string memory key = "sourceSnapshot";
-        vm.serializeUint(key, "sourceChainId", _snapshot.stack.sourceChainId);
-        vm.serializeAddress(key, "safe", _snapshot.stack.safe);
-        vm.serializeAddress(key, "safeInstructions", _snapshot.stack.instructions);
-        vm.serializeBytes32(key, "ownerConfigHash", _snapshot.stack.ownerConfigHash);
-        vm.serializeUint(key, "ownerConfigSafeNonce", _snapshot.stack.ownerConfigSafeNonce);
-        vm.serializeUint(key, "threshold", _snapshot.stack.threshold);
-        vm.serializeAddress(key, "owners", _snapshot.stack.owners);
-        vm.serializeUint(key, "replayFloor", _snapshot.stack.replayFloor);
+        vm.serializeUint(key, "sourceChainId", _snapshot.sourceChainId);
         vm.serializeUint(key, "initialRewardEpochId", _snapshot.initialRewardEpochId);
         vm.serializeUint(key, "startingVotingRoundId", _snapshot.startingVotingRoundId);
         vm.serializeBytes32(key, "initialSigningPolicyHash", _snapshot.initialSigningPolicyHash);
@@ -332,14 +257,7 @@ abstract contract RelayDeployBase is Script {
             string.concat("source snapshot not found: ", path, " (run `prepare-snapshot ", _sourceName, "` first)")
         );
         string memory json = vm.readFile(path);
-        _snapshot.stack.sourceChainId = vm.parseJsonUint(json, ".sourceChainId");
-        _snapshot.stack.safe = vm.parseJsonAddress(json, ".safe");
-        _snapshot.stack.instructions = vm.parseJsonAddress(json, ".safeInstructions");
-        _snapshot.stack.ownerConfigHash = vm.parseJsonBytes32(json, ".ownerConfigHash");
-        _snapshot.stack.ownerConfigSafeNonce = vm.parseJsonUint(json, ".ownerConfigSafeNonce");
-        _snapshot.stack.threshold = vm.parseJsonUint(json, ".threshold");
-        _snapshot.stack.owners = vm.parseJsonAddressArray(json, ".owners");
-        _snapshot.stack.replayFloor = vm.parseJsonUint(json, ".replayFloor");
+        _snapshot.sourceChainId = vm.parseJsonUint(json, ".sourceChainId");
         _snapshot.initialRewardEpochId = uint32(vm.parseJsonUint(json, ".initialRewardEpochId"));
         _snapshot.startingVotingRoundId = uint32(vm.parseJsonUint(json, ".startingVotingRoundId"));
         _snapshot.initialSigningPolicyHash = vm.parseJsonBytes32(json, ".initialSigningPolicyHash");
@@ -353,36 +271,26 @@ abstract contract RelayDeployBase is Script {
         _snapshot.messageFinalizationWindowInRewardEpochs =
             uint32(vm.parseJsonUint(json, ".messageFinalizationWindowInRewardEpochs"));
         _snapshot.randomNumberProtocolId = uint8(vm.parseJsonUint(json, ".randomNumberProtocolId"));
-        // Recompute the owner-generation hash from the snapshot's own owner set as an integrity check.
-        require(
-            SafeGovernance.ownerConfigHash(
-                _snapshot.stack.sourceChainId,
-                _snapshot.stack.safe,
-                _snapshot.stack.ownerConfigSafeNonce,
-                _snapshot.stack.threshold,
-                _snapshot.stack.owners
-            ) == _snapshot.stack.ownerConfigHash,
-            "source snapshot owner configuration hash is inconsistent"
-        );
         // The snapshot's own sourceChainId must name the source we were asked to read — guards
         // against a snapshot file copied/edited for the wrong source.
         require(
-            _streq(_networkName(_snapshot.stack.sourceChainId), _sourceName),
+            _streq(_networkName(_snapshot.sourceChainId), _sourceName),
             "source snapshot sourceChainId does not match the requested source name"
         );
     }
 
     /**
      * Post-deploy assertion suite: the deployed Relay must expose exactly the configured
-     * implementation, owner, setter, source chain id, Safe governance mirror, replay floor,
-     * epoch anchors and initial (chain-bound) signing policy hash.
+     * implementation, owner, setter, source chain id, owner-timelock duration, epoch anchors
+     * and initial (chain-bound) signing policy hash.
      */
     function _verifyRelay(
         address _relay,
         address _implementation,
         address _initialOwner,
         address _signingPolicySetter,
-        GovernanceStackRead memory _stack,
+        uint256 _sourceChainId,
+        uint256 _timelockDurationSeconds,
         uint32 _initialRewardEpochId,
         uint32 _startingVotingRoundId
     )
@@ -395,19 +303,11 @@ abstract contract RelayDeployBase is Script {
         );
         require(relay.owner() == _initialOwner, "verify: owner mismatch");
         require(relay.signingPolicySetter() == _signingPolicySetter, "verify: signing policy setter mismatch");
-        require(relay.sourceChainId() == _stack.sourceChainId, "verify: source chain id mismatch");
-        (bytes32 activeHash, uint256 activeNonce) = relay.governanceOwnerConfig();
-        require(activeHash == _stack.ownerConfigHash, "verify: governance owner config hash mismatch");
-        require(activeNonce == _stack.ownerConfigSafeNonce, "verify: governance owner config nonce mismatch");
-        (address safe, uint256 threshold, address[] memory owners) = relay.governanceSigners();
-        require(safe == _stack.safe, "verify: governance safe mismatch");
-        require(threshold == _stack.threshold, "verify: governance threshold mismatch");
-        require(owners.length == _stack.owners.length, "verify: governance owners length mismatch");
-        for (uint256 i = 0; i < owners.length; i++) {
-            require(owners[i] == _stack.owners[i], "verify: governance owner mismatch");
-        }
-        (uint256 replayFloor, ) = relay.governanceNonces();
-        require(replayFloor == _stack.replayFloor, "verify: replay floor mismatch");
+        require(relay.sourceChainId() == _sourceChainId, "verify: source chain id mismatch");
+        require(
+            relay.getTimelockDurationSeconds() == _timelockDurationSeconds,
+            "verify: timelock duration mismatch"
+        );
         (uint32 lastEpoch, uint32 startRound) = relay.lastInitializedRewardEpochData();
         require(lastEpoch == _initialRewardEpochId, "verify: initial reward epoch mismatch");
         require(startRound == _startingVotingRoundId, "verify: starting voting round mismatch");
@@ -496,8 +396,8 @@ abstract contract RelayDeployBase is Script {
      * Resolves a deployed contract address by name from the committed, persistent
      * `deployment/deploys/<network>.json` — the deployed-address registry the repo maintains
      * (latest address per name, `all/` keeps history). This carries contracts not (yet) in the
-     * FlareContractRegistry, such as `SafeInstructions` and a freshly redeployed `Relay` before
-     * governance cuts the registry over. Returns address(0) if the file or name is absent.
+     * FlareContractRegistry, such as a freshly redeployed `Relay` before governance cuts the
+     * registry over. Returns address(0) if the file or name is absent.
      */
     function _readDeployedAddress(
         string memory _network,
@@ -596,23 +496,6 @@ abstract contract RelayDeployBase is Script {
     }
 
     /**
-     * Builds the Relay's Safe `GovernanceConfig` from a consistent governance stack read.
-     */
-    function _governanceConfig(
-        GovernanceStackRead memory _stack
-    )
-        internal pure
-        returns (ISafeGovernance.GovernanceConfig memory _config)
-    {
-        _config.sourceChainId = _stack.sourceChainId;
-        _config.safe = _stack.safe;
-        _config.threshold = _stack.threshold;
-        _config.owners = _stack.owners;
-        _config.ownerConfigSafeNonce = _stack.ownerConfigSafeNonce;
-        _config.safeNonce = _stack.replayFloor;
-    }
-
-    /**
      * RLY-23 chain-domain binding: keccak256(sourceChainId ‖ contentHash) — must match
      * scripts/libs/protocol/ChainDomain.ts.
      */
@@ -644,19 +527,6 @@ abstract contract RelayDeployBase is Script {
         if (_streq(_scheme, "legacy")) return _chainBoundHash(_oldHash, _sourceChainId);
         if (_streq(_scheme, "chain-bound")) return _oldHash;
         revert("invalid policy hash scheme; expected 'legacy' or 'chain-bound'");
-    }
-
-    /// In-place insertion sort (ascending) — matches SafeInstructions._sort.
-    function _sort(address[] memory _values) internal pure {
-        for (uint256 i = 1; i < _values.length; ++i) {
-            address value = _values[i];
-            uint256 j = i;
-            while (j > 0 && _values[j - 1] > value) {
-                _values[j] = _values[j - 1];
-                --j;
-            }
-            _values[j] = value;
-        }
     }
 
     /// Strips ASCII whitespace from both ends (frozen initcode file may end with a newline).

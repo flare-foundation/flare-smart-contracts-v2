@@ -67,7 +67,7 @@ contract RelayConstructorFV is RelayTestBase {
     function check_ctor_homeForce_rejectsForeignSource(uint256 src) external {
         vm.assume(src != 0 && src != block.chainid);
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
-        cfg.governance.sourceChainId = src;
+        cfg.sourceChainId = src;
         assert(!_tryDeploy(cfg));
     }
 

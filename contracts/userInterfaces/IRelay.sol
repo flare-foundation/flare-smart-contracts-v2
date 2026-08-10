@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { ISafeGovernance } from "./ISafeGovernance.sol";
 import { RandomNumberV2Interface } from "./LTS/RandomNumberV2Interface.sol";
 
 /**
@@ -33,12 +32,14 @@ interface IRelay is RandomNumberV2Interface {
         address[] feeExemptAddresses;                          // Accounts exempt from the verify() fee at
                                                                // deployment (e.g. DVN adapters). Relay mode
                                                                // only; must be empty on a home deploy.
-        // Safe governance configuration. Its sourceChainId is the RLY-23 source network id
-        // (shared by signing + governance) and must be explicit and nonzero on EVERY
-        // deployment; a home deploy (signingPolicySetter set) forces it to equal
-        // block.chainid and requires the governance fields to be populated (unless it is
-        // block.chainid; governance itself is mandatory on every deployment).
-        ISafeGovernance.GovernanceConfig governance;
+        uint256 sourceChainId;                                 // RLY-23 source network id bound into every
+                                                               // policy hash and signed digest. Explicit and
+                                                               // nonzero on EVERY deployment; a home deploy
+                                                               // (signingPolicySetter set) forces it to
+                                                               // equal block.chainid.
+        uint256 timelockDurationSeconds;                       // Initial owner-timelock duration applied to
+                                                               // the fee setters and upgrades (see
+                                                               // IOwnableWithTimelock); at most 7 days.
     }
 
     // Event is emitted when a new signing policy is initialized by the signing policy setter.
@@ -78,6 +79,30 @@ interface IRelay is RandomNumberV2Interface {
         uint32 indexed votingRoundId,       // Voting round id of the random
         uint256 randomNumber,               // The relayed (Merkle-proven) random number value
         bool isSecureRandom                 // Whether the random is secure
+    );
+
+    /// A protocol verify() fee was set — at deployment (seeded config) or by the owner.
+    event ProtocolFeeSet(
+        uint8 indexed protocolId,
+        uint256 feeInWei
+    );
+
+    /// A verify() fee exemption was set — at deployment (seeded config) or by the owner.
+    event FeeExemptionSet(
+        address indexed account,
+        bool exempt
+    );
+
+    /// The verify() fee-collection recipient was set — at deployment (seeded config) or by
+    /// the owner.
+    event FeeCollectionAddressSet(
+        address indexed feeCollectionAddress
+    );
+
+    /// The trusted signing-policy setter was set — at deployment or by the owner (e.g. after
+    /// a FlareSystemsManager redeployment).
+    event SigningPolicySetterSet(
+        address indexed signingPolicySetter
     );
 
 
@@ -179,8 +204,15 @@ interface IRelay is RandomNumberV2Interface {
     error SigningPolicyEmpty();
     /// Legacy reason: "Signing policy hash mismatch".
     error SigningPolicyHashMismatch();
+    /// Updating the signing-policy setter on a relay-mode deployment (the mode is fixed at
+    /// deploy, so a relay-mode deployment can never gain a setter).
+    error SigningPolicySetterNotAllowed();
+    /// The signing-policy setter update is the zero address (the mode cannot be cleared).
+    error SigningPolicySetterZero();
     /// Legacy reason: "source chain id must match on home deploy".
     error SourceChainIdMismatchOnHomeDeploy();
+    /// The configured RLY-23 source network id is zero.
+    error SourceChainIdZero();
     /// Legacy reason: "threshold increase too small".
     error ThresholdIncreaseTooSmall();
     /// Legacy reason: "too big threshold".
@@ -360,6 +392,17 @@ interface IRelay is RandomNumberV2Interface {
      * @param _protocolId The protocol id.
      */
     function protocolFeeInWei(uint256 _protocolId) external view returns (uint256);
+
+    /**
+     * Returns whether `account` may call `verify()` without paying the protocol fee.
+     */
+    function feeExemptAddress(address account) external view returns (bool);
+
+    /**
+     * Returns the configured source-network id (RLY-23 origin binding): the network whose
+     * voter quorum this Relay verifies. Equals block.chainid on home deployments.
+     */
+    function sourceChainId() external view returns (uint256);
 
     /**
      * Returns the state data.

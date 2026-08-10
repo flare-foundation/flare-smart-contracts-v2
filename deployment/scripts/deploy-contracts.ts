@@ -36,7 +36,7 @@ import {
   RelayProxyContract,
 } from "../../typechain-truffle";
 import { generateOffers, runOfferRewards } from "./offer-rewards";
-import { RelayInitialConfig, safeGovernanceFromParameters } from "../utils/RelayInitialConfig";
+import { RelayInitialConfig } from "../utils/RelayInitialConfig";
 import fs from "fs";
 import { Account } from "web3-core";
 
@@ -287,7 +287,10 @@ export async function deployContracts(
     messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
     feeCollectionAddress: ZERO_ADDRESS,
     feeConfigs: [],
-    governance: safeGovernanceFromParameters(parameters, relayChainId),
+    // Home deploys via this path put the owner behind Flare governance (itself timelocked),
+    // so the extra owner-timelock stays off; forge scripts are the parameterized path.
+    sourceChainId: relayChainId,
+    timelockDurationSeconds: 0,
   };
 
   const RelayProxy = artifacts.require("RelayProxy") as RelayProxyContract;

@@ -12,7 +12,7 @@ import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
-import { RelayInitialConfig, safeGovernanceFromParameters } from "../utils/RelayInitialConfig";
+import { RelayInitialConfig } from "../utils/RelayInitialConfig";
 import {
   PChainStakeMirrorVerifierContract,
   PChainStakeMirrorVerifierInstance,
@@ -191,7 +191,10 @@ export async function redeployContracts(
       messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
       feeCollectionAddress: ZERO_ADDRESS,
       feeConfigs: [],
-      governance: safeGovernanceFromParameters(parameters, relayChainId),
+      // Home deploys via this path put the owner behind Flare governance (itself timelocked),
+      // so the extra owner-timelock stays off; forge scripts are the parameterized path.
+      sourceChainId: relayChainId,
+      timelockDurationSeconds: 0,
     };
 
     const RelayProxy = artifacts.require("RelayProxy") as RelayProxyContract;

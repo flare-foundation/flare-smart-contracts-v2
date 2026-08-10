@@ -93,7 +93,7 @@ contract RelayDeployAddressTest is Test {
     function test_readsDeployedAddressFromCommittedDeploysJson() public view {
         // Confirms the persistent deploys-registry reader parses the committed
         // deployment/deploys/<network>.json format (stdJson struct field order). PrepareRelaySourceSnapshot
-        // reads SafeInstructions / Relay from here rather than a transient manifest.
+        // reads the latest Relay from here rather than a transient manifest.
         assertEq(
             harness.readDeployedAddress("flare", "Relay"),
             0xCcF30790A93F15e24EB909548a2C58a9b0a7FBd4

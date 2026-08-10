@@ -468,16 +468,10 @@ export async function deployContracts(
     messageFinalizationWindowInRewardEpochs: 100,
     feeCollectionAddress: ZERO_ADDRESS,
     feeConfigs: [],
-    // Inert Safe governance block (required in setter mode; the single owner has no known
-    // private key). Mirrors the scdev.json simulation dummies.
-    governance: {
-      sourceChainId: relayChainId,
-      safe: "0x1000000000000000000000000000000000000002",
-      threshold: 1,
-      owners: ["0x1000000000000000000000000000000000000003"],
-      ownerConfigSafeNonce: 0,
-      safeNonce: 0,
-    },
+    // Test deploy: the RLY-23 source id is mandatory; owner-timelock off so the governance
+    // account can act immediately.
+    sourceChainId: relayChainId,
+    timelockDurationSeconds: 0,
   };
 
   const RelayProxy = hre.artifacts.require("RelayProxy") as RelayProxyContract;

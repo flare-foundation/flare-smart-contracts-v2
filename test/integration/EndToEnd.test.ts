@@ -1,4 +1,4 @@
-import { deployRelayProxy, testGovernanceConfig } from "../utils/relay-deploy";
+import { deployRelayProxy } from "../utils/relay-deploy";
 import { globSync } from "glob";
 import { readFileSync } from "node:fs";
 import { constants, expectEvent, expectRevert, time } from "@openzeppelin/test-helpers";
@@ -230,7 +230,9 @@ function toHex32(x: string | number) {
 
 function hashRandomResult(randomResult: RandomResult): string {
   return web3.utils.soliditySha3(
-    toHex32(randomResult.votingRoundId) + toHex32(randomResult.value).slice(2) + toHex32(randomResult.isSecure ? 1 : 0).slice(2)
+    toHex32(randomResult.votingRoundId) +
+      toHex32(randomResult.value).slice(2) +
+      toHex32(randomResult.isSecure ? 1 : 0).slice(2)
   )!;
 }
 
@@ -257,7 +259,7 @@ function prepareDataWithRandom(messageData: IProtocolMessageMerkleRoot, randomNu
     value: randomNumberHex,
     isSecure: messageData.isSecureRandom,
   };
-  const { merkleRoot, proof } = randomNumberWithMerkleProof(randomNumberResult)!;
+  const { merkleRoot, proof } = randomNumberWithMerkleProof(randomNumberResult);
   messageData.merkleRoot = merkleRoot!;
   const relayData = {
     isRandomNumberGeneratingProtocolMessage: true,
@@ -773,7 +775,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
       feeCollectionAddress: constants.ZERO_ADDRESS,
       feeConfigs: [],
-      governance: testGovernanceConfig(chainId),
+      sourceChainId: chainId,
+      timelockDurationSeconds: 0,
     };
 
     relay = await deployRelayProxy(relayInitialConfig, flareSystemsManager.address, constants.ZERO_ADDRESS);
@@ -792,7 +795,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       // RLY-10: relay-mode (zero signingPolicySetter) requires a non-zero fee-collection address
       feeCollectionAddress: "0x000000000000000000000000000000000000dEaD",
       feeConfigs: [],
-      governance: testGovernanceConfig(chainId),
+      sourceChainId: chainId,
+      timelockDurationSeconds: 0,
     };
 
     relay2 = await deployRelayProxy(relayInitialConfig2, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);

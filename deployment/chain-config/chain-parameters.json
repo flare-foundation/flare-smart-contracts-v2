@@ -807,29 +807,6 @@
             "description": "The reward manager id is used to identify the reward manager contract in the Flare Systems Manager contract (e.g. chain id).",
             "type": "integer"
         },
-        "safeGovernanceOwnerConfigSafeNonce": {
-            "description": "The generation ordinal of the admitted owner configuration: 0 for the\ndeployment-admitted generation (all initial deployments — SafeInstructions admits the\nlive Safe as generation 0 at initialize), otherwise the signed Safe nonce of the\nrotation that installed it (targets deployed after a rotation).",
-            "type": "number"
-        },
-        "safeGovernanceOwners": {
-            "description": "The admitted Safe owners, strictly ascending by address.",
-            "items": {
-                "type": "string"
-            },
-            "type": "array"
-        },
-        "safeGovernanceSafe": {
-            "description": "The Safe governance Safe proxy address.",
-            "type": "string"
-        },
-        "safeGovernanceSafeNonce": {
-            "description": "The deployment-time Safe nonce (governance replay floor).",
-            "type": "number"
-        },
-        "safeGovernanceThreshold": {
-            "description": "The admitted Safe signature threshold.",
-            "type": "number"
-        },
         "sampleIncreaseLimit": {
             "description": "The sample increase limit.",
             "type": "string"
