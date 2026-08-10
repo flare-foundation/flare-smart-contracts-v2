@@ -119,9 +119,9 @@ scripts/                # Utility scripts, protocol libs
 - **Solidity version**: 0.8.27+; the TEE / diamond / governance namespaced-storage contracts require **0.8.35** for the built-in `erc7201(...)` helper, so the toolchain compiles with **0.8.35**
 - **EVM version**: cancun
 - **Node**: >=22
-- **Foundry**: forge must be in PATH (default: `~/.foundry/bin/forge`); **>= 1.7.1 required** — it is the first stable release whose `svm` list ships solc `0.8.35` (1.7.0 only goes up to 0.8.34). Update with `foundryup -U && foundryup -i 1.7.1`.
+- **Foundry**: forge must be in PATH (default: `~/.foundry/bin/forge`); **nightly `eb4bf9b4` (1.8.0-nightly, 2026-08-10) or later required**. Two reasons: its `svm` list ships solc `0.8.35` (first available in 1.7.1; 1.7.0 stops at 0.8.34), and it carries [foundry-rs/foundry#16100](https://github.com/foundry-rs/foundry/pull/16100), without which `forge coverage` silently drops sources whenever one solc version has two compilation jobs — which `[profile.coverage]` deliberately creates, so coverage is wrong on anything older. `stable` is still v1.7.1 and satisfies neither. Install with `foundryup --install nightly-eb4bf9b4a0ca13f5e3ed5b5be221f37bff56a4f9`.
 - **Hardhat**: **2.28.6** (pinned in `package.json`) — earlier 2.x mis-resolves solc `0.8.35` to the `0.8.35-pre.1` build that upstream lists first, which fails the `^0.8.35` pragma. Hardhat 3.x is a breaking rewrite and is not supported.
-- **Optimizer**: enabled, 200 runs, `via_ir = false`
+- **Optimizer**: enabled, 200 runs, `via_ir = true` — needed to keep `TeePaymentsUtxo` under the contract size limit. RNat, OZ's `P256`, `NodePossessionVerifier` and the mocks are pinned back to `via_ir = false` by `compilation_restrictions` (Yul stack / unimplemented-feature issues); `[profile.coverage]` inverts this, since coverage forces viaIR off and a few contracts only compile with it.
 
 ### Forge
 
@@ -423,7 +423,7 @@ bytes32 internal constant STATE_POSITION = bytes32(erc7201("<namespace>.<LibName
 ```
 
 - **`@custom:storage-location` annotation is mandatory** on every namespaced State struct. The string after `erc7201:` must match the `erc7201(...)` argument verbatim — tooling (Foundry, OZ upgrade tooling, static analyzers) relies on the match to verify storage layout.
-- **Toolchain note:** the `erc7201(...)` builtin is not yet understood by Forge's `solar` frontend, so `forge lint`/`forge coverage` report a false-positive "unresolved symbol erc7201" on these contracts (solc compiles them fine). `foundry.toml` sets `lint_on_build = false` for this; `forge coverage` is affected until solar adds support.
+- **Toolchain note:** Forge's `solar` frontend only understands the `erc7201(...)` builtin from v0.2.0 (first shipped in the 2026-07-08 nightly). On anything older, `forge build` and `forge coverage` report a false-positive "unresolved symbol erc7201" on these contracts while solc compiles them fine — which is part of why the toolchain floor is a nightly rather than `stable`.
 - **Namespace prefix indicates scope.** Module-specific libraries use the module name (e.g. `tee.MachineManager.State` for [contracts/tee/library/MachineManager.sol](contracts/tee/library/MachineManager.sol)). Project-wide libraries use the `flare` prefix (e.g. `flare.FlareGovernance.State`, `flare.LibDiamond.DiamondStorage`, `flare.diamond.AddressUpdatable.ADDRESS_STORAGE_POSITION`).
 - Each library has its own isolated storage slot — no collision between libraries sharing Diamond's storage context.
 - State struct contains all mappings/arrays/values for that domain.
