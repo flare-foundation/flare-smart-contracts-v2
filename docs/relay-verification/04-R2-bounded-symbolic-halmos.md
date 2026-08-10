@@ -134,11 +134,14 @@ The removed `RelayGovernanceNonceFV` harness proved the deleted
 `governanceFeeSetup` path. No result is inherited from it. The GSS properties
 below are separate checks against the current code.
 
-### GSS governance (bounded post-recovery boundary)
+### GSS governance (bounded post-recovery boundary) — retired
 
-| Harness | Property | Scope |
-|---------|----------|-------|
-| [`SafeGovernanceFV`](../../test-forge/fv/SafeGovernanceFV.t.sol#L32) | distinct ordered owner threshold; Safe/action nonce binding; generation-bound rotation; consumed-nonce exclusion; canonical atomic target-local fees; irrelevant-target nonconsumption; global fee high-water monotonicity | production Relay bytecode through exposed internal signer/action boundaries; fixed 3-of-5 owner shape; ECDSA recovery and Safe digest are outside this harness |
+The `SafeGovernanceFV` harness (distinct ordered owner threshold; Safe/action nonce
+binding; generation-bound rotation; consumed-nonce exclusion; canonical atomic
+target-local fees; irrelevant-target nonconsumption; global fee high-water
+monotonicity — on production Relay bytecode at a fixed 3-of-5 owner shape) was
+retired together with the GSS design (git history); the owner-timelock successor
+is covered by unit/property tests, not Halmos.
 
 ### Merkle & randomness
 
@@ -233,11 +236,11 @@ reachability controls**.
 |---------|-------|------|--------------------|
 | [`RelayAccessControlFV`](../../test-forge/fv/RelayAccessControlFV.t.sol#L17) | [`check_setSigningPolicy_onlySetter`](../../test-forge/fv/RelayAccessControlFV.t.sol#L33) | ✅ proof | for ANY setter address other than the caller, `setSigningPolicy` always reverts |
 | | [`check_reach_setter_canCall`](../../test-forge/fv/RelayAccessControlFV.t.sol#L43) | 🔍 reach | witnesses: the registered setter CAN rotate the policy |
-| [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L17) | [`check_ctor_rejectsLowThresholdIncrease`](../../test-forge/fv/RelayConstructorFV.t.sol#L31) | ✅ proof | the constructor rejects any `thresholdIncreaseBIPS` below 10000 (×1.0) |
-| | [`check_ctor_rejectsZeroRewardEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L40) | ✅ proof | the constructor rejects a zero reward-epoch duration (RLY-11, div-by-zero) |
-| | [`check_ctor_rejectsZeroVotingEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L48) | ✅ proof | the constructor rejects a zero voting-epoch duration (RLY-11) |
-| | [`check_ctor_rejectsZeroPolicyHash`](../../test-forge/fv/RelayConstructorFV.t.sol#L56) | ✅ proof | the constructor rejects a zero initial signing-policy hash (L-4, would brick the epoch) |
-| | [`check_reach_ctor_validDeploys`](../../test-forge/fv/RelayConstructorFV.t.sol#L73) | 🔍 reach | witnesses: the valid base config DOES deploy |
+| [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L17) | [`check_ctor_rejectsLowThresholdIncrease`](../../test-forge/fv/RelayConstructorFV.t.sol#L34) | ✅ proof | the constructor rejects any `thresholdIncreaseBIPS` below 10000 (×1.0) |
+| | [`check_ctor_rejectsZeroRewardEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L43) | ✅ proof | the constructor rejects a zero reward-epoch duration (RLY-11, div-by-zero) |
+| | [`check_ctor_rejectsZeroVotingEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L51) | ✅ proof | the constructor rejects a zero voting-epoch duration (RLY-11) |
+| | [`check_ctor_rejectsZeroPolicyHash`](../../test-forge/fv/RelayConstructorFV.t.sol#L59) | ✅ proof | the constructor rejects a zero initial signing-policy hash (L-4, would brick the epoch) |
+| | [`check_reach_ctor_validDeploys`](../../test-forge/fv/RelayConstructorFV.t.sol#L76) | 🔍 reach | witnesses: the valid base config DOES deploy |
 | [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L19) | [`check_epochAdvance_requiresSequential`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L40) | ✅ proof | any epoch other than `lastInitialized+1` is rejected — no skip, replay, or regress |
 | | [`check_reach_epochAdvance_correctSucceeds`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L50) | 🔍 reach | witnesses: the exact next epoch IS accepted |
 | | [`check_epochAdvance_incrementsByOne`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L63) | ✅ proof | a successful `setSigningPolicy` advances `lastInitialized` by exactly +1 (the monotone step) |
@@ -296,25 +299,9 @@ reachability controls**.
 | | [`check_policyHash_equiv_NV3`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L141) | ✅ proof | the same at 3 voters — multiple full chunks plus a 13-byte remainder fold |
 | | [`check_policyHash_mismatchReachable_NV3`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L159) | 🔍 reach | witnesses: a bit-flipped stored hash DOES fire the mismatch revert — the detector is live |
 
-**GSS governance (post-recovery signer/action boundary)**
-
-| Harness | Check | Kind | Proves / witnesses |
-|---------|-------|------|--------------------|
-| [`SafeGovernanceFV`](../../test-forge/fv/SafeGovernanceFV.t.sol#L32) | [`check_gss_signers_belowThreshold_rejected`](../../test-forge/fv/SafeGovernanceFV.t.sol#L129) | ✅ proof | fewer recovered active owners than the threshold cannot authorize |
-| | [`check_gss_duplicateSigner_rejected`](../../test-forge/fv/SafeGovernanceFV.t.sol#L138) | ✅ proof | a duplicate recovered owner cannot be counted twice |
-| | [`check_gss_nonOwnerSigner_rejected`](../../test-forge/fv/SafeGovernanceFV.t.sol#L148) | ✅ proof | an ordered outsider cannot replace an admitted owner |
-| | [`check_gss_unorderedSigners_rejected`](../../test-forge/fv/SafeGovernanceFV.t.sol#L159) | ✅ proof | recovered owners must be strictly ordered |
-| | [`check_gss_relevantFee_atomicAndConsumed`](../../test-forge/fv/SafeGovernanceFV.t.sol#L169) | ✅ proof | a canonical local fee action writes the fee and consumes exactly its nonce |
-| | [`check_gss_irrelevantFee_doesNotConsume`](../../test-forge/fv/SafeGovernanceFV.t.sol#L182) | ✅ proof | an action with no local target entry changes no local governance state |
-| | [`check_gss_nonCanonicalFee_isAtomic`](../../test-forge/fv/SafeGovernanceFV.t.sol#L195) | ✅ proof | a duplicate fee key reverts before any fee or nonce write |
-| | [`check_gss_ownerRotation_advancesGeneration`](../../test-forge/fv/SafeGovernanceFV.t.sol#L211) | ✅ proof | the current hash authorizes rotation and the new hash is bound to its activation nonce |
-| | [`check_gss_wrongCurrentHash_cannotRotate`](../../test-forge/fv/SafeGovernanceFV.t.sol#L228) | ✅ proof | a proposed/wrong configuration hash cannot install itself |
-| | [`check_gss_consumedNonce_excludesConflict`](../../test-forge/fv/SafeGovernanceFV.t.sol#L242) | ✅ proof | once one relevant action consumes a nonce, a conflicting action at that nonce cannot apply |
-| | [`check_gss_delayedRotation_preservesFeeHighWater`](../../test-forge/fv/SafeGovernanceFV.t.sol#L257) | ✅ proof | a delayed lower-nonce rotation can progress without lowering the global fee high-water mark |
-| | [`check_gss_lowerFeeNonce_cannotRegress`](../../test-forge/fv/SafeGovernanceFV.t.sol#L276) | ✅ proof | a lower fee nonce cannot overwrite a previously accepted higher-nonce fee |
-| | [`check_gss_actionNonce_boundToSafeNonce`](../../test-forge/fv/SafeGovernanceFV.t.sol#L289) | ✅ proof | the action nonce must equal the outer Safe transaction nonce plus one |
-| | [`check_reach_gss_validSignerSet`](../../test-forge/fv/SafeGovernanceFV.t.sol#L301) | 🔍 reach | witnesses: a sorted threshold subset of active owners is accepted |
-| | [`check_reach_gss_validFeeAction`](../../test-forge/fv/SafeGovernanceFV.t.sol#L311) | 🔍 reach | witnesses: a valid local fee transition is reachable |
+**GSS governance (post-recovery signer/action boundary)** — the 14 `check_gss_*`
+proofs and 2 reachability controls were retired with the GSS design (git history);
+the verification manifest still lists them pending the re-baseline.
 
 **The `ecrecover` ABI (OP-1 — the §4.4 harness, not in the catalog above)**
 

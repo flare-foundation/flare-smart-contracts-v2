@@ -1,11 +1,11 @@
 # L13 — Residual weaknesses & attack surface (proof-grounded review)
 
-> **Scope note:** sections centered on the currently deployed pre-GSS contract
-> retain their historical labels. The current branch's GSS residuals and exact
-> proof boundary are in [`safe-governance.md`](../safe-governance.md). Its section
-> 16 records each current GSS residual as a conditionally accepted design choice,
-> with required controls and stronger design alternatives. The current combined
-> Halmos gate is 102 checks (72 proofs, 30 controls).
+> **Scope note:** sections centered on the currently deployed pre-redesign
+> contract retain their historical labels. The cross-chain Safe (GSS) governance
+> design this level once deferred to was retired before any deployment, together
+> with its DR-01…DR-14 risk register (git history); Relay governance is now a
+> per-chain owner + timelock — see [`relay-governance.md`](../relay-governance.md).
+> GSS residual references below are the historical engagement record.
 
 > **What you get from this level.** An honest, proof-grounded inventory of what could still go wrong in the
 > **currently deployed-target `Relay.sol`** (`relay-fix-3`). It reads the whole verification effort *backwards*:
@@ -35,15 +35,11 @@ below is tagged with its **class**, **severity if it went wrong**, and **current
 
 This review is ordered by **how much attention each deserves**, not severity alone.
 
-For GSS, acceptance is based on the Safe owner threshold being the remote authority,
-targets progressing asynchronously, and the threshold being trusted not to authorize
-contradictory or destructive actions. A confirmed source-Safe receipt is useful defense
-in depth but cannot be the security boundary of permissionless Relay submission. The
-accepted items therefore remain visible risks with review triggers; they have not been
-reclassified as proven properties. See the canonical
-[`DR-01` through `DR-14` register](../safe-governance.md#162-accepted-design-risk-register)
-for source-proof, nonce, deployment-domain, owner-transition, fee-policy, signature-mode,
-and gas-cap alternatives.
+The retired GSS design's acceptance model (Safe owner threshold as the remote
+authority, asynchronous targets, DR-01…DR-14 register) went with that design —
+git history. The current owner-timelock governance replaces those cross-chain
+residuals with a single per-chain trust anchor: the owner multisig behind the
+timelock queue ([`relay-governance.md`](../relay-governance.md)).
 
 ---
 
@@ -75,12 +71,11 @@ Low severity for the most part, but **live** — a maintainer or integrator shou
 **T1-c · The V1 proxies strip the `isSecureRandom` flag** — `FtsoProxy.sol:59-64,152-155` and `PriceSubmitterProxy.sol:35-49` (**RLY-12**, compounding **RLY-20**). *Class: deferred.* A live V1 consumer gets randomness with **no security signal** — possibly a bootstrap `0` — and `FtsoProxy` offers *no* quality-aware alternative at all (`PriceSubmitterProxy` at least has `getCurrentRandomWithQuality()`). "Migrate to V2" misses exactly the V1 callers at risk. Low-medium for any still-live V1 integration.
 
 **T1-d · Two accepted rationales are thin enough to revisit** — both cheap to harden:
-- **L-5 — irreversible fee-nonce bricking** was a deployed/pre-GSS finding and
-  that function is removed on the GSS branch. The analogous current behavior is
-  accepted design risk DR-08/TIM-A7: a threshold-signed `uint256.max` Safe nonce
-  can exhaust remote fee updates because gaps are intentionally allowed. It is
-  governance self-harm, not an unprivileged bypass; on-chain alternatives are
-  listed in [`safe-governance.md`](../safe-governance.md#162-accepted-design-risk-register).
+- **L-5 — irreversible fee-nonce bricking** was a deployed/pre-redesign finding;
+  `governanceFeeSetup` and its nonce are removed on the current branch, and the
+  retired Safe-governance analog (DR-08/TIM-A7) went with that design. Under
+  owner-timelock governance fee updates are plain owner setters with no nonce to
+  exhaust ([`relay-governance.md`](../relay-governance.md)).
 - **`messageFinalizationWindowInRewardEpochs` unvalidated in the constructor** (`Relay.sol:266`): `0` ⇒ only the current epoch can ever finalize; very large ⇒ staleness protection is effectively off. It sits a few lines from the RLY-11 duration checks that *do* bound their inputs — an inconsistent-hardening gap a cheap `require` would close.
 
 **T1-e · Off-chain-dependent residuals the contract cannot enforce:**

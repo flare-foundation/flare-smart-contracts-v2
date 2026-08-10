@@ -8,11 +8,11 @@ mathematician / computer scientist but *not* yet fluent in the verification tool
 run, and trust everything here.
 
 > **Scope:** the exact manifest covers the signing-policy, `relay()`, Merkle,
-> randomness, verification-fee core, and the bounded post-recovery Safe-governance
-> signer and action state machines. Safe EIP-712 digest equivalence and successful
-> Safe execution are differential/concrete boundaries, not Halmos claims. The exact
-> boundary and residuals are recorded in
-> [`docs/safe-governance.md`](../../docs/safe-governance.md).
+> randomness and verification-fee core. The retired cross-chain Safe-governance
+> harness and gates went with that design (git history); Relay governance is now
+> a per-chain owner + timelock, covered by unit/property tests — see
+> [`docs/relay-governance.md`](../../docs/relay-governance.md). Every gate is
+> deliberately red pending the re-baseline onto the owner-timelock source.
 
 ---
 
@@ -220,16 +220,11 @@ The full trust base — every assumption, where it lives, and how it is discharg
 (the shared `RelayTestBase` calldata encoders, reused by the Halmos harnesses) ·
 [`verify_fv.py`](verify_fv.py) (the CI gate) · [`lean/`](lean/) (R4 Lean proofs) · [`kontrol/`](kontrol/).
 
-**Safe governance.** [`SafeGovernanceFV.t.sol`](SafeGovernanceFV.t.sol) contributes
-13 proofs and 2 reachability controls for the internal post-recovery signer and
-verified-action boundaries. [`verify_gss_governance.py`](verify_gss_governance.py)
-requires the exact 36-test real-Safe, production-rehearsal, and stateful-invariant
-inventory. [`../../scripts/verify-gss-source-safe.js`](../../scripts/verify-gss-source-safe.js)
-pins the production Safe shape at one fixed Flare block.
+**Safe governance (retired).** The `SafeGovernanceFV` harness, the
+`verify_gss_governance.py` gate and the fixed-block source-Safe checker were
+removed with the retired Safe-governance design (git history); the manifest still
+lists their inventories pending the re-baseline.
 
-The full Halmos inventory is 101 checks: 71 proofs and 30 validated reachability
-controls. Do not cite it as a proof of ECDSA, the complete Safe digest algorithm,
-successful source execution, or Safe-governance behavior beyond the exposed bounded
-state machines. Kontrol and Lean still cover only the signing-policy relay core. The
-current Certora rules pass the local compile/typecheck gate; cloud proof remains
-pending.
+Do not cite the Halmos inventory as a proof of ECDSA. Kontrol and Lean still cover
+only the signing-policy relay core. The Certora rules under `certora/` predate the
+governance redesign; cloud proof remains pending the re-baseline.

@@ -1,10 +1,10 @@
 # Relay.sol — Phase 3 Step 2: assembly mutation-surface & memory/arithmetic review
 
-> **Historical scope:** this review is frozen to `relay-fix-3` before GSS
-> governance. Its “exactly three” mutation-surface statement is not a claim
-> about `relay-fix-3-gss`, which adds `processGSSMessage` and removes
-> `governanceFeeSetup`. See [`safe-governance.md`](safe-governance.md) for the
-> current extension.
+> **Historical scope:** this review is frozen to `relay-fix-3` before the
+> governance redesign. Its “exactly three” mutation-surface statement is not a
+> claim about the current branch, which removes `governanceFeeSetup` and
+> governs fees through owner setters. See
+> [`relay-governance.md`](relay-governance.md) for the current extension.
 
 A static read pass over `contracts/protocol/implementation/Relay.sol` (1747 lines) that *scopes*
 the rest of Phase 3. Covers obligations AC-4 (mutation surface), AC-8 (no delegatecall/fallback),

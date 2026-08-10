@@ -4,12 +4,13 @@
 > (audit + tutorial + reproducibility, all rungs). This file is a brief one-page map; for the claims
 > ledger, the assumption register, and reproducibility, use that set.
 >
-> **GSS boundary (2026-07-26):** Halmos now proves 13 bounded properties of the
-> post-recovery GSS signer/action state machines, backed by 2 reachability
-> controls and an exact 36-test real-Safe/stateful gate. It does not prove ECDSA,
-> canonical source execution, or the complete Safe digest algorithm. Existing
-> Certora cloud links predate GSS; the current rules pass only the local
-> compile/typecheck gate. See [`safe-governance.md`](safe-governance.md).
+> **Governance redesign boundary (2026-08):** the cross-chain Safe (GSS)
+> governance design and its verification suites were retired before any
+> deployment; Relay governance is now a per-chain owner + timelock — see
+> [`relay-governance.md`](relay-governance.md). The relay-core results below
+> stand, but every gate (manifest pins, Lean Yul snapshot, artifact parity,
+> Certora munge, Kontrol) is deliberately red pending the re-baseline onto the
+> owner-timelock source (solc 0.8.35, proxy-aware harnesses).
 
 This is the map of the whole verification effort on `contracts/protocol/implementation/Relay.sol`. It
 states what is proven, by which tool, at what scope, under what assumptions, and — just as importantly —
@@ -27,11 +28,10 @@ tool, by design:
   epochs. Documented, not on-chain-enforced.
 - **OZ `MerkleProof.verifyCalldata`** internals are assumed correct (only the call-site is in scope).
 - **`oldRelay`** is a trusted, audited prior deployment.
-- **GSS remote-authority model:** a valid Safe-owner threshold signature is the
-  remote authorization event; canonical execution by the Safe on Flare is not
-  required. Targets are intentionally asynchronous, and the threshold is trusted
-  not to sign contradictory or destructive actions. This is an accepted design
-  boundary, not a property supplied by the formal tools.
+- **Owner governance:** the per-chain Relay owner (a multisig behind the
+  OwnableWithTimelock queue) is trusted for parameter changes and upgrades; the
+  timelock mechanics are covered by unit/property tests
+  (`RelayOwnableWithTimelock.t.sol`), not by the FV stack.
 
 See `docs/relay-assembly-review.md` (mutation surface, no delegatecall/fallback, memory layout) and
 `docs/relay-phase3-documented-items.md` (the assumption-class obligations: AC-3, R1/R2, M4, R6/R7).
@@ -40,11 +40,11 @@ See `docs/relay-assembly-review.md` (mutation surface, no delegatecall/fallback,
 
 | Layer | Tool | What it gives | Scope |
 |------|------|---------------|-------|
-| Symbolic execution on **real bytecode** | **Halmos** | 26 harnesses / 102 checks (`test-forge/fv/*.t.sol`) | bounded; relay core K≤3/N≤5, GSS at fixed owner shape and exposed post-recovery boundaries |
+| Symbolic execution on **real bytecode** | **Halmos** | relay-core harnesses (`test-forge/fv/*.t.sol`) | bounded; relay core K≤3/N≤5; manifest re-baseline pending after the governance redesign |
 | Unbounded-in-K via k-induction | **Kontrol/KEVM** | sig-loop weight invariant + random monotonicity (`test-forge/fv/kontrol/`) | ∀K, on a faithful Solidity **model**, N∈{3,5} |
 | Unbounded **algorithm** proof | **Lean 4** | sig-loop threshold soundness (`test-forge/fv/lean/RelaySigLoop.lean`) | **∀N ∀K**, abstract algorithm, machine-checked (no `sorry`) |
 | Model↔bytecode bridge | **Halmos** | `RelayModelBridgeFV` — real bytecode obeys the Kontrol model's `psAt` invariant | K=1,2,3 |
-| Global storage invariants | **Certora** | 8 current rules; 2/2 local configs compile/typecheck (`certora/`) | current GSS cloud proof pending |
+| Global storage invariants | **Certora** | rules under `certora/` predate the governance redesign | re-baseline pending |
 
 ## 3. What is proven (by area)
 
@@ -61,12 +61,10 @@ See `docs/relay-assembly-review.md` (mutation surface, no delegatecall/fallback,
   configuration (`RelayConstructorFV`, incl. L4/RLY-11); threshold consistency
   is checked on the setter path and the **live Mode-1 relay path**
   (`RelayThresholdConsistencyFV`, `RelayModeOneFV`).
-- **GSS governance, bounded post-recovery:** distinct ordered owners must exceed
-  threshold; owner generations cannot be self-installed by the wrong hash;
-  conflicting nonces are consumed once; local fee updates are canonical,
-  atomic, target-specific, and globally monotone across delayed rotations
-  (`GSSGovernanceFV`). Real-Safe differential and stateful tests cover the
-  surrounding digest, execution, and multi-target integration boundaries.
+- **Owner governance (not FV):** the retired Safe-governance proofs were removed
+  with that design; the owner-timelock queue/execute/cancel mechanics, the
+  guarded setters and the timelocked upgrade path are covered by the unit and
+  property suites (`RelayOwnableWithTimelock.t.sol`, `RelayUpgrade.t.sol`).
 - **Lifecycle:** strict +1 epoch advance + monotonic `lastInitialized` state-effect (`RelayEpochAdvanceFV`);
   random-pointer monotonicity over arbitrary sequences (`RelayRandomMonotonicityFV` + Kontrol
   `RelayRandomMonoFV`).
@@ -84,14 +82,8 @@ also confirms the elaborate setup genuinely reaches acceptance.
 
 ## 4. Reproducing
 
-- **Halmos:** `python3 test-forge/fv/verify_fv.py` checks an exact 102-check manifest, exact Halmos exit
-  classes, validated reachability models, and zero truncated loops.
-- **GSS:** `verify_gss_governance.py` requires 36/36 tests, including 256-run
-  differential fuzzing and a 16,384-call state machine; the production rehearsal
-  deploys exact Safe v1.3.0 release artifacts.
-- **Source Safe:** `node scripts/verify-gss-source-safe.js` checks 20 fixed-block
-  facts, including code hashes, owners, threshold, nonce, modules, guard, and
-  fallback handler. Refresh the snapshot before deployment.
+- **Halmos:** `python3 test-forge/fv/verify_fv.py` checks an exact check manifest, exact Halmos exit
+  classes, validated reachability models, and zero truncated loops (manifest re-baseline pending).
 - **Artifact parity:** `verify_relay_artifact.py` binds the pinned FV build and optimized Yul to the
   Hardhat deployment artifact after stripping only Solidity CBOR metadata.
 - **Kontrol:** the pinned Docker `run.sh` emits JUnit and `verify_kontrol.py` checks all 9 proofs + 4 controls.
@@ -105,12 +97,11 @@ also confirms the elaborate setup genuinely reaches acceptance.
 
 ## 5. Honest limits (what is NOT proven, and why)
 
-1. **Global all-functions/all-sequences storage invariants.** On the pre-GSS
+1. **Global all-functions/all-sequences storage invariants.** On the pre-redesign
    source, the epoch/setter/hash/root rules were cloud-proven for every function
    except `relay()` (legacy codegen also covered `setSigningPolicy`, which
-   via-ir excepted). The current CVL replaces the deleted fee nonce with
-   four GSS storage rules and has not yet been cloud-proved. Both current configs
-   pass the pinned local compilation/typecheck gate. On
+   via-ir excepted). The CVL under `certora/` still targets the retired
+   Safe-governance source and awaits the re-baseline. On
    `relay()` itself the historical model was vacuous (visible no-coverage, not
    false alarms); its storage behavior remains covered by per-sequence Halmos
    proofs and the Lean literal model. Run matrix and current status:
@@ -122,24 +113,19 @@ also confirms the elaborate setup genuinely reaches acceptance.
    `test-forge/fv/lean/bytecode-refinement/` and `docs/relay-verification/07-R4b-bytecode-refinement.md`.
 3. **Full symbolic-N in Kontrol** — empirically state-explosive; mitigated by verified N∈{3,5} + the Lean
    ∀N proof + the bounded model↔bytecode bridge. Detail: `docs/relay-phase3-documented-items.md`.
-4. **GSS is authorization, not source consensus.** This is an accepted current
-   design choice: threshold-signed calldata can remain remotely valid after source
-   failure/cancellation, removed owners remain valid on lagging targets,
-   same-nonce conflicts are first-delivery-wins, and an extreme future nonce can
-   exhaust fee updates. These behaviors require threshold action or asynchronous
-   target lag, not an unprivileged threshold bypass. Acceptance depends on the
-   signing, rotation, migration, and single-authoritative-Relay controls in
-   [`safe-governance.md` section 16](safe-governance.md#16-accepted-design-risks-and-alternatives).
-   That section also details stronger alternatives, including source execution
-   proofs, signed deployment domains, nonce bounds, per-protocol sequencing, and
-   recoverable owner transitions.
+4. **Owner-timelock governance is out of FV scope.** The retired cross-chain
+   Safe authorization model and its risk register went with that design (git
+   history). The current owner + timelock surface is deliberately small — four
+   guarded setters plus the timelocked upgrade — and is covered by unit and
+   property tests, not the FV stack; the owner multisig itself is a trust
+   anchor (see [`relay-governance.md`](relay-governance.md)).
 
 ### Why the stack is sound despite these
 The convergence in (1)+(3) — two independent state-of-the-art provers blocked by the same inline-assembly
 storage modeling — is itself the finding: it validates the chosen strategy. Halmos works because it
 symbolically *executes* the real bytecode (no storage analysis); Lean gives the unbounded guarantee at the
 algorithm level (no EVM model needed); the bridge + the assumptions connect them. The signing-policy
-accounting core and bounded GSS state transitions are machine-checked at their stated scopes. The
+accounting core is machine-checked at its stated scopes. The
 remaining model, cryptographic, source-execution, and cloud-proof boundaries are explicit rather than
 folded into an overbroad whole-contract claim.
 

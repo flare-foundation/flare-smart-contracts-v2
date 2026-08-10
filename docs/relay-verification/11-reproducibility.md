@@ -30,10 +30,11 @@ compiled). FV config: [`halmos.toml`](../../halmos.toml) sets `loop=6`, `solver-
 
 The normative machine-readable record is
 [`test-forge/fv/verification-manifest.json`](../../test-forge/fv/verification-manifest.json). It owns the
-compiler settings, 102-check Halmos inventory, exact 36-test GSS inventory, fixed-block Safe snapshot,
-Certora local toolchain/configs, EVMYulLean pin, allowed Lean axioms, exact axiom-audit counts,
-required capstones, and the 37-message legacy `relay()` assembly revert ABI. Changes to proof inventory,
-trust settings, or that compatibility surface therefore appear as explicit manifest diffs.
+compiler settings, the Halmos check inventory, Certora local toolchain/configs, EVMYulLean pin,
+allowed Lean axioms, exact axiom-audit counts, required capstones, and the 37-message legacy `relay()`
+assembly revert ABI. Changes to proof inventory, trust settings, or that compatibility surface therefore
+appear as explicit manifest diffs. (The manifest still lists the retired Safe-governance inventories;
+dropping them is part of the pending re-baseline.)
 
 ---
 
@@ -43,16 +44,15 @@ trust settings, or that compatibility surface therefore appear as explicit manif
 forge build --force --ast --extra-output storageLayout metadata
 forge test -vvv --match-path 'test-forge/unit/protocol/implementation/Relay.t.sol'
 forge test -vvv --match-path 'test-forge/unit/protocol/implementation/RelayChainDomain.t.sol'
-forge test -vvv --match-path 'test-forge/unit/governance/SafeGovernance.t.sol'
-forge test -vvv --match-path 'test-forge/unit/governance/GSSGovernanceProductionRehearsal.t.sol'
-forge test -vvv --match-path 'test-forge/invariant/governance/GSSGovernanceInvariant.t.sol'
+forge test -vvv --match-path 'test-forge/unit/governance/RelayOwnableWithTimelock.t.sol'
+forge test -vvv --match-path 'test-forge/unit/governance/RelayUpgrade.t.sol'
 forge coverage --match-path 'test-forge/unit/protocol/implementation/Relay.t.sol'
 ```
 
-Expect: the full Forge tree passes (967 tests in the recorded run). The exact
-GSS gate below requires 36/36 tests: 30 unit/differential tests, 3
-production-rehearsal tests, and 3 state-machine tests, including 128 invariant
-runs at depth 128 (16,384 calls). **CI:** `test-unit-forge` (`forge test -vvv`),
+Expect: the full Forge tree passes. (The retired Safe-governance gate and its
+36-test inventory went with that design — see
+[`relay-governance.md`](../relay-governance.md); the owner-timelock suites
+above are its successors.) **CI:** `test-unit-forge` (`forge test -vvv`),
 `coverage-forge` (+ `coverage-forge-reports`).
 
 ---
@@ -76,11 +76,6 @@ python3 test-forge/fv/verify_relay_revert_abi.py \
 .venv-halmos/bin/python test-forge/fv/verify_relay_artifact.py \
   --deployment-report verification-reports/relay-deployment.json \
   --report-output verification-reports/relay-artifact-parity.json
-# exact real-Safe, production-rehearsal, fuzz, and stateful GSS gate:
-python3 test-forge/fv/verify_gss_governance.py \
-  --report-output verification-reports/relay-gss-governance.json
-# fixed-block production source-Safe identity/configuration/code-hash gate:
-node scripts/verify-gss-source-safe.js
 # exact CI gate (checks Foundry 1.7.1, force-rebuilds AST-complete artifacts,
 # and loads loop=6 plus the unlimited assertion timeout from halmos.toml):
 HALMOS=.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py \
@@ -120,7 +115,8 @@ pip install certora-cli==8.16.1
 python3 test-forge/fv/verify_certora_local.py \
   --solc /path/to/solc-0.8.27 \
   --report-output verification-reports/relay-certora-local.json
-# Current cloud rerun (needed before claiming the GSS-source rules):
+# Current cloud rerun (needed before claiming the storage rules; the CVL still
+# targets the retired Safe-governance source pending the re-baseline):
 export CERTORAKEY=<your key>
 certoraRun certora/Relay-rawstorage.conf --solc /path/to/solc-0.8.27
 certoraRun certora/Relay-rawstorage-A3.conf --solc /path/to/solc-0.8.27
@@ -133,7 +129,7 @@ certoraRun certora/Relay.conf --solc /path/to/solc-0.8.27
 
 The local gate currently passes 2/2 configs. It is compilation/typecheck
 evidence, not a prover verdict. The current cloud runs must complete before the
-GSS-source rules are promoted to proven. The pre-GSS reports remain historical evidence;
+storage rules are promoted to proven. The earlier reports remain historical evidence;
 judge cloud results from per-rule statuses (`SUCCESS`/`SANITY_FAIL`), not the
 CLI exit banner ([L5 §5.2](05-R3-unbounded-attempts.md)).
 
@@ -252,7 +248,6 @@ CI gate (§11.7).
 | `test-fv-halmos` | compatibility ABI | exact-manifest `verify_relay_revert_abi.py` | ✅ |
 | `build-smart-contracts` + `test-fv-halmos` | artifact provenance | deployment report + FV bytecode/IR parity | ✅ |
 | `test-fv-halmos` | R2 | unit-test gates + exact-manifest `verify_fv.py` | ✅ |
-| `test-fv-halmos` | GSS R0/R1 + source pin | exact 36-test gate + 20-check fixed-block Safe snapshot | ✅ |
 | `build-smart-contracts`, `test-linter`, `test-linter-forge` | build/lint | `forge build` / solhint | ✅ |
 | `test-fv-lean` | R4a/R4b/R5 | `verify_lean.py` (pinned commit/toolchain, all 9 files, 165 audits) | ✅ |
 | `test-doc-links` | docs | `python3 docs/relay-verification/verify_links.py --check` (symbol-addressed code links stay current; fix with `--fix`) | ✅ |
@@ -260,7 +255,7 @@ CI gate (§11.7).
 | (Certora cloud) | R3 | `certoraRun` (needs key) | required before current parametric claims |
 | (Kontrol) | R3 | Docker + JUnit manifest gate | manual/offline, fail-closed |
 
-R0–R2, the GSS/source-Safe gates, the local Certora front end, and all Lean files run on every relevant
+R0–R2, the local Certora front end, and all Lean files run on every relevant
 push. Kontrol remains heavyweight/manual but its runner has a machine verdict; only the Certora proof
 verdict remains key/cloud-gated. A green pipeline retains the exact normalized
 evidence reports rather than only human-oriented logs.
@@ -268,9 +263,10 @@ evidence reports rather than only human-oriented logs.
 The final `test-fv-bundle` job runs `verify_bundle.py` after the Halmos, local Certora, and Lean jobs.
 It refuses missing or non-passing reports and records the Git commit, the
 verification-manifest hash, and a SHA-256 for every evidence report. This bundle is
-the canonical hand-off artifact for a run. Its exact evidence set is eight reports:
-deployment provenance, legacy revert ABI, artifact parity, GSS tests, fixed-block
-source Safe, Halmos, Lean, and local Certora. It rejects dirty worktrees by
+the canonical hand-off artifact for a run. Its evidence set (pending the
+re-baseline, which drops the two retired Safe-governance reports) is:
+deployment provenance, legacy revert ABI, artifact parity, Halmos, Lean, and
+local Certora. It rejects dirty worktrees by
 default; `--allow-dirty` marks a development bundle as not release eligible.
 Raw tool output alone may be stale or incomplete.
 

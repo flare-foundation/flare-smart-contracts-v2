@@ -600,8 +600,10 @@ The upgrade script:
 # Relay.sol verification & hardening engagement (merged from relay-fix-3)
 
 This branch also carries the **formal verification + hardening of
-`contracts/protocol/implementation/Relay.sol`** (originally branch `relay-fix-3`, MR !135,
-plus the Safe (formerly GSS) governance work from `relay-fix-3-gss`, merged here).
+`contracts/protocol/implementation/Relay.sol`** (originally branch `relay-fix-3`, MR !135).
+The cross-chain Safe (GSS) governance that was later merged here has been retired before
+any deployment; Relay is now governed by a per-chain owner + timelock — see
+[`docs/relay-governance.md`](docs/relay-governance.md).
 
 ## Read in this order
 
@@ -645,7 +647,9 @@ install has been observed to misreport nonlinear proofs at identical package ver
 | Doc links | `python3 docs/relay-verification/verify_links.py --check` (`--fix` to repair) | symbol-addressed code links in the docs stay current |
 | Kontrol | `test-forge/fv/kontrol/run.sh` in the Docker image (see its README) | 14 proofs + 6 CEX-by-design vs its manifest (signature loop at N=3 **and** N=5, plus random monotonicity) |
 
-**NOTE (Safe-governance upgradeable refactor):** the Relay/Safe-governance refactor on this branch (SafeGoverned base,
-UUPS proxies, solc 0.8.35) deliberately leaves the FV gates red pending a full re-baseline
-(manifest hash pins, Lean Yul snapshot, Certora munge, Kontrol, compiler re-pins). Do not
-"fix" the gates piecemeal; the re-baseline is a dedicated follow-up task.
+**NOTE (owner-timelock upgradeable refactor):** the Relay governance refactor on this branch
+(OwnableWithTimelock base, UUPS proxies, solc 0.8.35; the retired Safe/GSS design and its
+suites are gone) deliberately leaves the FV gates red pending a full re-baseline (manifest
+hash pins — including dropping the retired `gss_*` inventories and `check_gss_*` entries —
+Lean Yul snapshot, Certora munge, Kontrol, compiler re-pins). Do not "fix" the gates
+piecemeal; the re-baseline is a dedicated follow-up task.

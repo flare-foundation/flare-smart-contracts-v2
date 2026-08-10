@@ -86,12 +86,13 @@ assumptions above: they are about *EVM/ABI behavior*, not cryptography.
 | **C-1** | Certora storage invariants vs. assembly storage (historically: analysis-failure havoc → spurious violations) | **historically narrowed (2026-07)**: on the pre-GSS source, disabling storage splitting proved the then-current invariants for every function except `relay()` (legacy codegen; via-ir also excepted `setSigningPolicy`). Both current configs now pass the pinned local compile/typecheck gate, but the changed GSS source still requires a cloud proof. Mechanics and scope: [`certora/README.md`](../../certora/README.md) |
 | **A-EVM** | EVMYulLean *is* the EVM | two parts of different strength ([L2 §2.5](02-strategy-and-the-fidelity-ladder.md)): the **opcode/memory layer** the proofs use (shared `step` dispatch, `MachineState`) sits on the path validated against the Ethereum execution-spec suites; the **Yul control-flow layer** (`Yul.exec`/`loop`, fuel) that drives the R4b proofs is Yul-specific, validated separately by Yul semantic tests (not provable; standard residual) |
 
-### GSS remote-governance acceptance boundaries (GA)
+### GSS remote-governance acceptance boundaries (GA) — retired
 
-These are deliberate protocol and operational choices, not facts established by the
-proof tools. They bound what "secure GSS governance" means in this engagement. The full
-risk rationale, required controls, review triggers, and alternative designs are in
-[`safe-governance.md` section 16](../safe-governance.md#16-accepted-design-risks-and-alternatives).
+These were deliberate protocol and operational choices bounding what "secure GSS
+governance" meant in this engagement. The GSS design and its risk register were
+retired before any deployment (git history); Relay governance is now a per-chain
+owner + timelock ([`relay-governance.md`](../relay-governance.md)). The rows below
+are the historical record.
 
 | ID | Accepted boundary | Consequence for security claims |
 |---|---|---|
@@ -121,9 +122,9 @@ fidelity / lower coverage (noted).
 | 4 | threshold consistency (setter + live Mode-1) | R2 Halmos | bytecode · bounded | **proven** | `RelayThresholdConsistencyFV`, `RelayModeOneFV` | MC-1,2,3, OP-1 |
 | 5 | **access control** (only setter rotates policy) | R2 Halmos | bytecode · bounded | **proven** | `RelayAccessControlFV` | MC-3 |
 | 6 | constructor **fail-closes** on bad config | R2 Halmos | bytecode | **proven** | `RelayConstructorFV` (L4/RLY-11) | — |
-| 7 | GSS distinct-owner threshold validation, action/Safe nonce binding, generation-bound owner transitions, global fee monotonicity, canonical atomic fees, irrelevant-target no-op, and consumed-nonce exclusion | R2 Halmos | bytecode · bounded post-recovery state machine | **proven at stated bound** (13 proofs + 2 reachability controls) | [`GSSGovernanceFV.t.sol`](../../test-forge/fv/GSSGovernanceFV.t.sol) | recovered-signer/ECDSA and Safe-digest boundary |
+| 7 | GSS distinct-owner threshold validation, action/Safe nonce binding, generation-bound owner transitions, global fee monotonicity, canonical atomic fees, irrelevant-target no-op, and consumed-nonce exclusion | R2 Halmos | bytecode · bounded post-recovery state machine | **historical — harness retired with the GSS design** (13 proofs + 2 reachability controls at the time) | `SafeGovernanceFV.t.sol` (removed; git history) | recovered-signer/ECDSA and Safe-digest boundary |
 | 7b | `lastGovernanceSafeNonce` monotonic **∀ function** | R3 Certora | source · ∀ seq | **specified; local typecheck pass; current cloud proof pending** | [`RelayInvariants.spec:governanceSafeNonceMonotonic`](../../certora/specs/RelayInvariants.spec) + `certora/Relay-rawstorage*.conf` | Certora call model |
-| 7c | Complete Safe digest binding, real ECDSA recovery, successful source-Safe calldata, owner rotation, and multi-target fee delivery | R0/R1 Foundry | bytecode · concrete + 256-run differential fuzz + stateful invariant | **tested/differentially checked, not an ECDSA or source-execution proof** | exact 36-test GSS gate: [`GSSGovernance.t.sol`](../../test-forge/unit/governance/GSSGovernance.t.sol), [`GSSGovernanceProductionRehearsal.t.sol`](../../test-forge/unit/governance/GSSGovernanceProductionRehearsal.t.sol), [`GSSGovernanceInvariant.t.sol`](../../test-forge/invariant/governance/GSSGovernanceInvariant.t.sol) | ECDSA, pinned Safe v1.3.0, relayer source-execution policy |
+| 7c | Complete Safe digest binding, real ECDSA recovery, successful source-Safe calldata, owner rotation, and multi-target fee delivery | R0/R1 Foundry | bytecode · concrete + 256-run differential fuzz + stateful invariant | **historical — suites retired with the GSS design** | the 36-test GSS gate (`SafeGovernance.t.sol`, `SafeGovernanceProductionRehearsal.t.sol`, `SafeGovernanceInvariant.t.sol`; removed, git history) | ECDSA, pinned Safe v1.3.0, relayer source-execution policy |
 | 7d | owner-generation nonce monotonicity, owner-hash/generation coupling, and consumed-nonce permanence **∀ function** | R3 Certora | source · ∀ seq | **specified; local typecheck pass; current cloud proof pending** | `RelayInvariants.spec:governanceOwnerConfigSafeNonceMonotonic`, `governanceOwnerHashChangeAdvancesGeneration`, `governanceConsumedNonceWriteOnce` | Certora call model |
 | 8 | epoch **+1 advance** + `lastInitialized` monotone (state-effect) | R2 Halmos | bytecode | **proven** | `RelayEpochAdvanceFV` | — |
 | 8b | `lastInitialized` monotone **∀ function** | R3 Certora | source · ∀ seq | **historical cloud baseline; current local typecheck pass; cloud proof pending** | `RelayInvariants.spec:lastInitializedMonotonic` | MC-1 |

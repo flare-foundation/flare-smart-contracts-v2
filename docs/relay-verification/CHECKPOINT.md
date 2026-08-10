@@ -13,6 +13,20 @@
 
 ---
 
+## ⭐ 2026-08-10 — Safe (GSS) governance RETIRED; Relay is owner+timelock governed
+
+The cross-chain Safe-signature governance (SafeGoverned/SafeInstructions, the Safe suites,
+the GSS FV harness and both GSS CI gates) was removed before any deployment. Relay now
+inherits `OwnableWithTimelock` (per-chain owner; queue/execute/cancel with a deploy-seeded
+duration ≤ 7 days; four guarded setters incl. `setSigningPolicySetter`; UUPS upgrade
+through the same queue) — current design: `docs/relay-governance.md`.
+`docs/safe-governance.md` is deleted; references to it (and to the GSS suites) in the
+history below are the engagement record — recover the material from git history. Every FV
+gate stays deliberately red pending the re-baseline onto the owner-timelock source (the
+verification manifest still pins the retired `gss_*` inventories; drop them then).
+
+---
+
 ## ⭐ 2026-08-03 — RLY-23 revised to ORIGIN binding (source-chain immutable, mirrors enabled)
 
 RLY-23's chain-domain binding was re-based from *runtime* `chainid()` (destination binding) to a

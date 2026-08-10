@@ -15,13 +15,14 @@ theorem proving against a validated model of the EVM. It is written to serve **t
 These three are not in tension: an audit that cannot be reproduced is hearsay, and a tutorial that is not
 precise teaches the wrong thing. The same precision serves all three.
 
-> **Current GSS scope (2026-07-26).** The ladder now includes 13 bounded Halmos
-> proofs and 2 reachability controls for GSS post-recovery signer validation and
-> verified action transitions, plus an exact 36-test real-Safe/stateful gate.
-> It does not prove ECDSA, complete Safe digest semantics, or successful source
-> execution. Kontrol/Lean remain signing-policy-core results, and pre-GSS
-> Certora cloud reports remain historical until the current CVL is proved.
-> [`safe-governance.md`](../safe-governance.md) owns the exact boundary.
+> **Governance redesign boundary (2026-08).** The cross-chain Safe (GSS)
+> governance design and its verification suites (13 bounded Halmos proofs, the
+> 36-test real-Safe/stateful gate, the fixed-block source-Safe snapshot) were
+> retired before any deployment; Relay governance is now a per-chain owner +
+> timelock — see [`relay-governance.md`](../relay-governance.md). GSS mentions
+> below are the historical engagement record. Kontrol/Lean remain
+> signing-policy-core results; every FV gate is deliberately red pending the
+> re-baseline onto the owner-timelock source.
 
 > **The engagement had two goals.** (1) **Verify** `Relay.sol`'s accounting — this ladder. (2) **Harden**
 > `Relay.sol` against the audit findings — the RLY-* robustness fixes, documented in

@@ -1,9 +1,9 @@
 # Relay.sol — Security Review (post-fix) + Test-Coverage Analysis
 
-> **Historical scope:** this review targets `relay-fix-3` before GSS
-> governance. Its `governanceFeeSetup` findings describe the deleted legacy
-> path. Current governance semantics and residual risks are maintained in
-> [`safe-governance.md`](safe-governance.md).
+> **Historical scope:** this review targets `relay-fix-3` before the
+> governance redesign. Its `governanceFeeSetup` findings describe the deleted
+> legacy path. Current governance semantics are maintained in
+> [`relay-governance.md`](relay-governance.md).
 
 **Target:** `contracts/protocol/implementation/Relay.sol` on branch `relay-fix-3` (the RLY-01…RLY-22 fixes; see `docs/relay-fixes.md`).
 **Method:** adversarial multi-agent review — 8 dimension reviewers (signature/threshold, relay() assembly safety, policy rotation, random subsystem, governance/custom-sig, verify/fees, invariants/access, fix-regressions); every raised finding independently refute-tested; plus a dedicated test-coverage analysis. Findings below are the **verified** set (false positives filtered).

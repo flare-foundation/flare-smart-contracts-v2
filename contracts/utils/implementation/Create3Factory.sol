@@ -17,7 +17,7 @@ import { Create3 } from "@openzeppelin/contracts/utils/Create3.sol";
  *      canonical keyless CREATE2 deployer (0x4e59b44847b379578588920cA78FbF26c0B4956C) with a
  *      fixed salt, so ANYONE can (re)deploy the byte-identical, stateless factory on any new
  *      chain at any time. The designated deployer account is therefore the permanent address
- *      authority for the contracts deployed through it (see docs/safe-governance.md).
+ *      authority for the contracts deployed through it (see docs/relay-governance.md).
  */
 contract Create3Factory {
 

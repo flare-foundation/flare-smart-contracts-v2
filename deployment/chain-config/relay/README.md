@@ -101,7 +101,7 @@ can host both its own home and a cross-source mirror (e.g. a Flare mirror on cos
 ### `home` (DeployRelayHome)
 | Field | Meaning |
 |-------|---------|
-| `oldRelayPolicyHashScheme` | `legacy` (wrap a pre-RLY-23 content hash once) or `chain-bound` (pass an already-wrapped hash through). Validated. See `docs/safe-governance.md` §15.1. |
+| `oldRelayPolicyHashScheme` | `legacy` (wrap a pre-RLY-23 content hash once) or `chain-bound` (pass an already-wrapped hash through). Validated. See `docs/relay-governance.md` §6. |
 
 `oldRelayPolicyHashScheme` is the **only** home field. All home addresses come from the
 FlareContractRegistry, and every epoch/protocol param (`randomNumberProtocolId`,
