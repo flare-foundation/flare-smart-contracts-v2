@@ -237,7 +237,6 @@ test-fv-halmos:
     - foundry.toml
     - hardhat.config.ts
     - scripts/relay-artifact-provenance.js
-    - scripts/verify-gss-source-safe.js
     - scripts/bootstrap-fv.sh
     - package.json
     - pnpm-lock.yaml
@@ -263,8 +262,6 @@ test-fv-halmos:
   - python3 -m unittest discover -s test-forge/fv/tests -v
   - python3 test-forge/fv/verify_relay_revert_abi.py --report-output verification-reports/relay-revert-abi.json
   - python3 test-forge/fv/verify_relay_artifact.py --deployment-report verification-reports/relay-deployment.json --report-output verification-reports/relay-artifact-parity.json
-  - python3 test-forge/fv/verify_gss_governance.py --report-output verification-reports/relay-gss-governance.json
-  - node scripts/verify-gss-source-safe.js
   - HALMOS=halmos python3 test-forge/fv/verify_fv.py --report-output verification-reports/relay-halmos.json
   artifacts:
     when: always
@@ -273,8 +270,6 @@ test-fv-halmos:
     - verification-reports/relay-deployment.json
     - verification-reports/relay-revert-abi.json
     - verification-reports/relay-artifact-parity.json
-    - verification-reports/relay-gss-governance.json
-    - verification-reports/gss-source-safe.json
     - verification-reports/relay-halmos.json
 
 # Local Certora front-end gate. This checks Solidity compilation, CVL type-checking, and the exact
@@ -305,7 +300,6 @@ test-fv-certora-local:
     - foundry.toml
     - hardhat.config.ts
     - scripts/relay-artifact-provenance.js
-    - scripts/verify-gss-source-safe.js
     - scripts/bootstrap-fv.sh
     - package.json
     - pnpm-lock.yaml
@@ -360,7 +354,6 @@ test-fv-bundle:
     - foundry.toml
     - hardhat.config.ts
     - scripts/relay-artifact-provenance.js
-    - scripts/verify-gss-source-safe.js
     - certora/**/*
     - test-forge/fv/verify_certora_local.py
     - scripts/bootstrap-fv.sh
@@ -409,7 +402,6 @@ test-fv-lean:
     - foundry.toml
     - hardhat.config.ts
     - scripts/relay-artifact-provenance.js
-    - scripts/verify-gss-source-safe.js
     - scripts/bootstrap-fv.sh
     - package.json
     - pnpm-lock.yaml
@@ -450,7 +442,7 @@ test-doc-links:
   - changes:
     - docs/relay-verification/**/*
     - docs/relay-verification-summary.md
-    - docs/safe-governance.md
+    - docs/relay-governance.md
     - certora/README.md
     - test-forge/fv/**/*
     - test-forge/unit/protocol/implementation/Relay.t.sol
@@ -503,7 +495,6 @@ coverage-forge-node_modules:
   - apt-get update -y && apt-get install -y rsync
   script:
   - corepack enable && pnpm install --frozen-lockfile
-  # *.json includes the Safe v1.3.0 release artifacts the GSS production rehearsal deploys.
   - rsync -zarvm --include "*/" --include="*.sol" --include="*.js" --include="*.cjs" --include="*.mjs" --include="*.json" --exclude="*" node_modules/ node_modules.sol
   artifacts:
     expire_in: 5 minutes
