@@ -67,37 +67,31 @@ coston = "${COSTON2_RPC}"
 staging = "${STAGING_RPC}"
 
 [profile.coverage]
-# Two coverage profiles, and the reason is a forge bug: `forge coverage` keys source identity by
-# (solc version, source id), while solc numbers source ids per compilation job starting at 0. Two
-# compilation jobs on the same solc version therefore collide - one file silently overwrites the
-# other, the loser gets no record at all, and survivors can inherit the loser's line totals. Any
-# profile that mixes viaIR and non-viaIR settings splits the build into two same-version jobs and
-# corrupts the report, so each profile below must produce exactly ONE job per solc version.
+# forge coverage disables the optimizer and viaIR globally for accurate line instrumentation, but a
+# few contracts only compile with viaIR (stack too deep otherwise): the TeePayments contracts, OZ's
+# P256 library, and NodePossessionVerifier, which inlines it. Pin just those back to viaIR.
 #
-# This profile carries no compilation_restrictions at all: coverage forces viaIR off globally, so
-# [profile.default]'s viaIR restrictions collapse into the base settings without spawning a second
-# job. The three contracts that then hit "stack too deep" (TeePayments, TeePaymentsUtxo and
-# NodePossessionVerifier, which inlines OZ's P256) are excluded via --skip in CI and measured by
-# the viair profile instead.
-
-[profile.coverage-viair]
-# The mirror image: pin every path to the viaIR profile so the forced-viaIR-off default profile has
-# no files left and is never instantiated - again one job. This is the only way to measure the three
-# contracts above, at the cost of skipping contracts/mock (legacy 0.6.12/0.7.6 pragmas, where viaIR
-# does not exist) and contracts/rNat (Yul stack issues), plus the suites importing them. Its report
-# is merged with the base profile's, which covers exactly what this one skips.
-[[profile.coverage-viair.additional_compiler_profiles]]
+# This splits the build into two compilation jobs on one solc version. Until foundry-rs/foundry#16084
+# was fixed, that silently corrupted the report - sources in one job overwrote same-numbered sources
+# in the other - and we worked around it with two passes and an lcov merge. The fix keys coverage by
+# build ID, so the split is safe again and one pass measures everything. Requires forge with
+# https://github.com/foundry-rs/foundry/pull/16100 (nightly eb4bf9b4 or later).
+[[profile.coverage.additional_compiler_profiles]]
 name = "via-ir"
 via_ir = true
 
-[[profile.coverage-viair.compilation_restrictions]]
-paths = "contracts/**"
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/tee/implementation/TeePayments.sol"
 via_ir = true
 
-[[profile.coverage-viair.compilation_restrictions]]
-paths = "test-forge/**"
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/tee/implementation/TeePaymentsUtxo.sol"
 via_ir = true
 
-[[profile.coverage-viair.compilation_restrictions]]
-paths = "dependencies/**"
+[[profile.coverage.compilation_restrictions]]
+paths = "dependencies/@openzeppelin-contracts-5.6.1/utils/cryptography/P256.sol"
+via_ir = true
+
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/protocol/implementation/NodePossessionVerifier.sol"
 via_ir = true
