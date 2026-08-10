@@ -3,7 +3,7 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase (for the shared test base only)
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 
 // Phase 3 Step 7 (M1/M7, UNBOUNDED Merkle depth): sorted-pair Merkle fold INJECTIVITY / non-malleability.
 // The random-proof verification (Relay.sol:709-722) folds leaf with each proof element via the sorted-pair

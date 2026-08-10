@@ -130,15 +130,15 @@ contract RelayTestBase is Test {
 
     // The pre-RLY-23 content hash (the chunked keccak fold alone, no chain binding).
     function _signingPolicyContentHash(bytes memory p) internal pure returns (bytes32 h) {
-        uint256 L = p.length;
-        uint256 full = (L / 32) * 32;
+        uint256 len = p.length;
+        uint256 full = (len / 32) * 32;
         assembly { h := mload(add(p, 0x20)) }
         for (uint256 pos = 32; pos < full; pos += 32) {
             bytes32 chunk;
             assembly { chunk := mload(add(add(p, 0x20), pos)) }
             h = keccak256(abi.encodePacked(h, chunk));
         }
-        uint256 rem = L - full;
+        uint256 rem = len - full;
         if (rem > 0) {
             bytes32 chunk;
             assembly { chunk := mload(add(add(p, 0x20), full)) }
@@ -205,7 +205,10 @@ contract RelayRandomTest is RelayTestBase {
     }
 
     // 2-leaf tree [randomLeaf, sibling]; proof for the random leaf is [sibling].
-    function _treeFor(uint32 vrid, uint256 value, bool isSecure) internal pure returns (bytes32 root, bytes32 sibling) {
+    function _treeFor(uint32 vrid, uint256 value, bool isSecure)
+        internal pure
+        returns (bytes32 root, bytes32 sibling)
+    {
         sibling = keccak256("sibling");
         root = _sortedPair(_randomLeaf(vrid, value, isSecure), sibling);
     }
@@ -845,7 +848,9 @@ contract RelayVerifyTest is RelayTestBase {
         (, Relay r) = _oldRelayWithFee(0);
         assertEq(r.merkleRoots(3, 100), bytes32(uint256(0xABCDEF)), "merkleRoots delegated");
         assertTrue(r.isFinalized(3, 100), "isFinalized delegated");
-        assertEq(r.toSigningPolicyHash(0), bytes32(uint256(0xCAFE)), "toSigningPolicyHash delegated (epoch 0 < initial)");
+        assertEq(
+            r.toSigningPolicyHash(0), bytes32(uint256(0xCAFE)), "toSigningPolicyHash delegated (epoch 0 < initial)"
+        );
         (uint256 rn, bool sec,) = r.getRandomNumberHistorical(100);
         assertEq(rn, 0xBEEF, "historical random delegated");
         assertTrue(sec, "historical isSecure delegated");
@@ -1137,7 +1142,10 @@ contract MockOldRelay {
 
     // tuple positions 1..4 (firstVotingRoundStartTs, votingEpochDurationSeconds,
     // firstRewardEpochStartVotingRoundId, rewardEpochDurationInVotingEpochs) must match the new relay's config
-    function stateData() external view returns (uint8, uint32, uint8, uint32, uint16, uint16, uint32, bool, uint32, bool, uint32) {
+    function stateData()
+        external view
+        returns (uint8, uint32, uint8, uint32, uint16, uint16, uint32, bool, uint32, bool, uint32)
+    {
         return (0, ts, vd, fre, red, 0, 0, false, 0, false, 0);
     }
 

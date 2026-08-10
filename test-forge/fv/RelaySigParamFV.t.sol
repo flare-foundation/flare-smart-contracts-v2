@@ -3,7 +3,9 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase
+import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
@@ -82,7 +84,9 @@ contract RelaySigParamFV is RelayTestBase {
 
     // Parametric threshold soundness, K=3: for ALL weights w0..w2, threshold, and signatures — if
     // w0+w1+w2 <= thr, relay() cannot accept. EXPECT: PASS (proof).
-    function check_threshold_3sig_param(uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
+    function check_threshold_3sig_param(
+        uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c
+    )
         external
     {
         vm.assume(uint256(w0) + uint256(w1) + uint256(w2) <= uint256(thr));
@@ -100,7 +104,9 @@ contract RelaySigParamFV is RelayTestBase {
 
     // duplicate in the trailing slot: indices [0,1,1]
     // EXPECT: PASS (proof).
-    function check_noDoubleCount_tailDup_param(uint16 w0, uint16 w1, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
+    function check_noDoubleCount_tailDup_param(
+        uint16 w0, uint16 w1, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c
+    )
         external
     {
         // Hypothesis: counting voters 0 and 1 ONCE each (w0+w1) does not clear thr. So the only route to
@@ -132,7 +138,9 @@ contract RelaySigParamFV is RelayTestBase {
     // possible; asserting ¬accept must therefore be REFUTED. A counterexample witnesses that the accept
     // path is live (loop bound large enough) — without it every "cannot accept" proof would be vacuous.
     // EXPECT: COUNTEREXAMPLE (reachability control).
-    function check_reachability_param(uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
+    function check_reachability_param(
+        uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c
+    )
         external
     {
         vm.assume(w0 > 0 && w1 > 0 && w2 > 0);

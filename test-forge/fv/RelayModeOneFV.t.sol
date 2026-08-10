@@ -3,7 +3,9 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
+import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
@@ -32,8 +34,8 @@ contract RelayModeOneFV is RelayTestBase {
     address internal constant NEW_VOTER = address(uint160(0x2001));
     uint16 internal constant NEW_WEIGHT = 100;
 
-    uint256 constant THRESHOLD_BIPS = 10000;
-    uint256 constant MIN_THRESHOLD_BIPS = 5000;
+    uint256 internal constant THRESHOLD_BIPS = 10000;
+    uint256 internal constant MIN_THRESHOLD_BIPS = 5000;
 
     struct Sig { uint8 v; bytes32 r; bytes32 s; }
 

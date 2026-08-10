@@ -36,6 +36,9 @@ pragma solidity ^0.8.35;
 /// (`returndatasize()` 0, output buffer left untouched). `mode != 0` => good: return the 32-byte `word`
 /// (the recovered signer), overwriting the buffer.
 contract EcrecoverFailureABIMock {
+    // Deliberately non-payable with no receive(): the harness mirrors the exact call
+    // surface the symbolic execution explores.
+    // solhint-disable-next-line payable-fallback, no-complex-fallback
     fallback() external {
         assembly {
             // calldata layout: [mode(32) | word(32)]

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+// solhint-disable func-name-mixedcase
+
 // ============================================================================================
 //  Relay.sol random-pointer MONOTONICITY — UNBOUNDED (∀ sequence of relay() calls) proof for
 //  Kontrol, via k-induction (base + single fully-symbolic relay step).
@@ -23,7 +25,8 @@ pragma solidity ^0.8.13;
 interface IVm { function assume(bool) external; }
 
 contract RelayRandomMonoFV {
-    IVm constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    // solhint-disable-next-line const-name-snakecase
+    IVm internal constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     // One relay()'s update rule for the live (latest-relayed) round pointer:
     // advance to r iff strictly newer, else keep (stale relay does not regress). == max(live, r).

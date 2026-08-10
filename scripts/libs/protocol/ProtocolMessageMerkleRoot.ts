@@ -105,7 +105,6 @@ export namespace ProtocolMessageMerkleRoot {
     );
   }
 
-
   /**
    * The digest voters sign for a protocol message (before the EIP-191 prefix is applied by the
    * signing routine). Since RLY-23 it is chain-bound: keccak256(chainId ‖ keccak256(encode(message))).

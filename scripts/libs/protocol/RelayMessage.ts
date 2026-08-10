@@ -10,8 +10,8 @@ export interface IRelayMessage {
   // RLY-03: for the random-number protocol, the relay message carries a trailer after the
   // signatures: the random number value plus its Merkle proof against the message merkleRoot.
   isRandomNumberGeneratingProtocolMessage?: boolean;
-  randomNumber?: string;   // uint256 as 0x-prefixed 32-byte hex string
-  merkleProof?: string[];  // sequence of 0x-prefixed 32-byte hex strings
+  randomNumber?: string; // uint256 as 0x-prefixed 32-byte hex string
+  merkleProof?: string[]; // sequence of 0x-prefixed 32-byte hex strings
 }
 
 export namespace RelayMessage {
@@ -78,7 +78,11 @@ export namespace RelayMessage {
     encoded += ECDSASignatureWithIndex.encodeSignatureList(message.signatures).slice(2);
     // RLY-03: append the random-number trailer (randomNumber || merkleProof) after the signatures.
     if (message.isRandomNumberGeneratingProtocolMessage) {
-      if (!message.randomNumber || message.randomNumber.length !== 66 || !/^0x[0-9a-fA-F]{64}$/.test(message.randomNumber)) {
+      if (
+        !message.randomNumber ||
+        message.randomNumber.length !== 66 ||
+        !/^0x[0-9a-fA-F]{64}$/.test(message.randomNumber)
+      ) {
         throw Error("Invalid relay message: randomNumber must be a 32-byte hex string (0x-prefixed)");
       }
       encoded += message.randomNumber.slice(2);
@@ -155,9 +159,7 @@ export namespace RelayMessage {
     if (encodedSignatures.length < signatureListLength) {
       throw Error(`Invalid relay message: signature list truncated`);
     }
-    const signatures = ECDSASignatureWithIndex.decodeSignatureList(
-      encodedSignatures.slice(0, signatureListLength)
-    );
+    const signatures = ECDSASignatureWithIndex.decodeSignatureList(encodedSignatures.slice(0, signatureListLength));
     const trailer = encodedSignatures.slice(signatureListLength);
     let isRandomNumberGeneratingProtocolMessage: boolean | undefined;
     let randomNumber: string | undefined;

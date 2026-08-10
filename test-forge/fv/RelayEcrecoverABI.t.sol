@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+// solhint-disable func-name-mixedcase
+
 // OP-1 evidence (run on the REAL EVM, not Halmos).
 //
 // The `ecrecover` precompile (address 0x01) does NOT revert on a bad signature: the staticcall returns
@@ -22,9 +24,9 @@ pragma solidity ^0.8.13;
 
 contract RelayEcrecoverABITest {
     // A bad signature: r = 0 is not a valid curve coordinate, so recovery fails.
-    uint256 constant V = 27;
-    uint256 constant R = 0;
-    uint256 constant S = 1;
+    uint256 internal constant V = 27;
+    uint256 internal constant R = 0;
+    uint256 internal constant S = 1;
 
     /// The precompile on a bad signature: success, empty return, output buffer left stale.
     function test_badSig_succeeds_emptyReturn_staleBuffer() external view {

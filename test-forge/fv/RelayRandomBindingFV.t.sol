@@ -3,7 +3,9 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase + encoding helpers
+import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
@@ -67,14 +69,20 @@ contract RelayRandomBindingFV is RelayTestBase {
     }
 
     // Signed root committed to `committedValue`; trailer carries the INDEPENDENT `trailerValue`.
-    function _calldata(uint256 committedValue, uint256 trailerValue, bytes memory sigs) internal view returns (bytes memory) {
+    function _calldata(uint256 committedValue, uint256 trailerValue, bytes memory sigs)
+        internal view
+        returns (bytes memory)
+    {
         bytes32 root = _sortedPair(_randomLeaf(VRID, committedValue, SEC), SIBLING);
         bytes memory message = abi.encodePacked(RANDOM_PROTOCOL_ID, VRID, uint8(1), root); // 38 bytes, isSecure=1
         bytes memory trailer = abi.encodePacked(trailerValue, SIBLING); // randomNumber(32) || 1-node proof
         return abi.encodePacked(Relay.relay.selector, policy, message, sigs, trailer);
     }
 
-    function _relay(uint256 cv, uint256 tv, Sig calldata a, Sig calldata b, Sig calldata c) internal returns (bool ok) {
+    function _relay(uint256 cv, uint256 tv, Sig calldata a, Sig calldata b, Sig calldata c)
+        internal
+        returns (bool ok)
+    {
         (ok, ) = address(relay).call(_calldata(cv, tv, _threeSigs(a, b, c)));
     }
 

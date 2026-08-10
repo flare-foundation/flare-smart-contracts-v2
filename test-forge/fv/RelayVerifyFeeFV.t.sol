@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+// solhint-disable func-name-mixedcase
+
 // Phase 3 Step 6 (AC-9 / RLY-21): verify() FEE CONSERVATION arithmetic.
 // verify() (Relay.sol:1550-1600) requires msg.value >= fee, forwards exactly `fee` to the collection
 // address (or oldFee to the old relay), and refunds the remainder `msg.value - fee` to msg.sender:
@@ -14,7 +16,8 @@ pragma solidity ^0.8.13;
 interface IVm { function assume(bool) external; }
 
 contract RelayVerifyFeeFV {
-    IVm constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    // solhint-disable-next-line const-name-snakecase
+    IVm internal constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     // models the value split: forwarded == fee, refund == msgValue - fee, under the require guard.
     function _split(uint256 msgValue, uint256 fee) internal pure returns (uint256 forwarded, uint256 refund) {

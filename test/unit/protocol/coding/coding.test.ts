@@ -154,7 +154,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     // the trailer is now parsed (previously decode() threw on the extra bytes)
     expect(decoded.isRandomNumberGeneratingProtocolMessage).to.be.true;
     expect(decoded.randomNumber!.toLowerCase()).to.equal(randomNumber.toLowerCase());
-    expect(decoded.merkleProof!.map(x => x.toLowerCase())).to.deep.equal(merkleProof.map(x => x.toLowerCase()));
+    expect(decoded.merkleProof!.map((x) => x.toLowerCase())).to.deep.equal(merkleProof.map((x) => x.toLowerCase()));
     // the core message still round-trips and re-encoding reproduces the exact bytes (incl. the trailer)
     expect(decoded.signatures.length).to.equal(signatures.length);
     expect(RelayMessage.equals(relayMessage, decoded)).to.be.true;

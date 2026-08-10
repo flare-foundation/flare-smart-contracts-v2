@@ -3,8 +3,10 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
-import "../../contracts/protocol/interface/IIRelay.sol";
+import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
+import {IIRelay} from "../../contracts/protocol/interface/IIRelay.sol";
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 

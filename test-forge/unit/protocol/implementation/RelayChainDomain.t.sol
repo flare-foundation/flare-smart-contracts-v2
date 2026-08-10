@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.35;
 
+// solhint-disable func-name-mixedcase
+
 import { Relay } from "../../../../contracts/protocol/implementation/Relay.sol";
 import { RelayProxy } from "../../../../contracts/protocol/implementation/RelayProxy.sol";
 // solhint-disable-next-line no-unused-import

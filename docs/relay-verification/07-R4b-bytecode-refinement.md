@@ -177,7 +177,7 @@ This is the most important part of the rung for an auditor; the full ledger is [
      first iteration whose running weight crosses the threshold** (`Relay.sol:1330`). The `relay_loop_sound`
      / `relay_loop_sound_literal` statements run all `N` iterations and examine the *final* accumulator; that
      transport is sound (non-negative addends + prefix-robust `threshold_sound`, with the per-prefix form
-     proven on the real bytecode at bounded K, [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L27)).
+     proven on the real bytecode at bounded K, [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L29)).
      **The early-return is now also modeled directly** ([`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean),
      `relay_loop_sound_literal_early`): `body_effL_accept` executes the body's accept branch — statement 17's
      `if gt(weight,thr) { return(0,0) }` fires — so the body halts with `.error (YulHalt _ ⟨1⟩)`;

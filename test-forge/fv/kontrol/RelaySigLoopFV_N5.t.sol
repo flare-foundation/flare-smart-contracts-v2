@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+// solhint-disable func-name-mixedcase
+
 // ============================================================================================
 //  N=5 re-validation of the Relay.sol signature-loop weight-accounting proof (see RelaySigLoopFV.t.sol
 //  for the full commentary). IDENTICAL structure and invariant, with the modeled voter count bumped to
@@ -18,10 +20,13 @@ pragma solidity ^0.8.13;
 
 interface IVm { function assume(bool) external; }
 
+// The Kontrol proof manifest keys on this exact contract name; the N5 suffix is load-bearing.
+// solhint-disable-next-line contract-name-capwords
 contract RelaySigLoopFV_N5 {
-    IVm constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    // solhint-disable-next-line const-name-snakecase
+    IVm internal constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    uint256 constant N = 5; // modeled voter count (concrete; structure parametric)
+    uint256 internal constant N = 5; // modeled voter count (concrete; structure parametric)
 
     // GROUNDED prefix sum at boundary k. uint16 weights => bounded, no overflow, no array.
     function _psAt(uint256 k, uint16 w0, uint16 w1, uint16 w2, uint16 w3, uint16 w4)

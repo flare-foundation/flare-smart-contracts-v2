@@ -3,8 +3,10 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
-import "../../contracts/protocol/interface/IIRelay.sol";
+import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
+import {IIRelay} from "../../contracts/protocol/interface/IIRelay.sol";
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
@@ -23,9 +25,9 @@ import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 // all weight/threshold combinations. Setter mode; epoch 2 (== lastInitialized+1) so the epoch guard passes
 // and the threshold band is the decisive check.
 contract RelayThresholdConsistencyFV is RelayTestBase {
-    uint256 constant THRESHOLD_BIPS = 10000;
-    uint256 constant MIN_THRESHOLD_BIPS = 5000;
-    uint256 constant MAX_THRESHOLD_BIPS = 6600;
+    uint256 internal constant THRESHOLD_BIPS = 10000;
+    uint256 internal constant MIN_THRESHOLD_BIPS = 5000;
+    uint256 internal constant MAX_THRESHOLD_BIPS = 6600;
 
     function setUp() public override {}
 

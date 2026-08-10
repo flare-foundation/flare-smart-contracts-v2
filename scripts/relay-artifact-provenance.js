@@ -56,13 +56,17 @@ function sha256(value) {
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonical(value[key])])
+    );
   }
   return value;
 }
 
 function abiHash(abi) {
-  const entries = abi.map(entry => JSON.stringify(canonical(entry))).sort();
+  const entries = abi.map((entry) => JSON.stringify(canonical(entry))).sort();
   return sha256(Buffer.from(`[${entries.join(",")}]`));
 }
 
@@ -114,7 +118,10 @@ const buildInfoDir = path.join(repoRoot, "artifacts", "build-info");
 if (!fs.existsSync(buildInfoDir)) fail(`missing Hardhat build-info directory ${buildInfoDir}`);
 
 const matches = [];
-for (const filename of fs.readdirSync(buildInfoDir).filter(name => name.endsWith(".json")).sort()) {
+for (const filename of fs
+  .readdirSync(buildInfoDir)
+  .filter((name) => name.endsWith(".json"))
+  .sort()) {
   const candidate = JSON.parse(fs.readFileSync(path.join(buildInfoDir, filename), "utf8"));
   const output = candidate.output?.contracts?.[sourceName]?.[contractName];
   if (output && `0x${output.evm.bytecode.object}` === artifact.bytecode) {
@@ -138,10 +145,12 @@ const report = {
   schema_version: 1,
   gate: "relay-deployment-artifact",
   status: "pass",
-  git_commit: childProcess.execFileSync("git", ["rev-parse", "HEAD"], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  }).trim(),
+  git_commit: childProcess
+    .execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    })
+    .trim(),
   manifest_sha256: sha256(manifestBytes),
   source: sourceName,
   contract: contractName,
@@ -150,7 +159,7 @@ const report = {
   abi_sha256: abiHash(artifact.abi),
   creation: summarizeBytecode(artifact.bytecode, "creation bytecode"),
   runtime: summarizeBytecode(artifact.deployedBytecode, "runtime bytecode"),
-  matching_build_info_files: matches.map(match => match.filename),
+  matching_build_info_files: matches.map((match) => match.filename),
 };
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });

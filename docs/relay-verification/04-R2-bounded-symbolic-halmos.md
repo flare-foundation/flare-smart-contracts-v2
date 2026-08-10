@@ -78,7 +78,7 @@ The default `loop = 2` *silently truncates* `relay()`'s signature loop, making a
 **vacuously**. The bound must be ≥ the maximum loop iterations a proof exercises (signer count, Merkle
 depth); `loop = 6` covers the suite. The reachability controls are precisely the tripwire that catches a
 too-small bound (a control that *passes* signals an unreachable accept path, i.e. vacuity).
-`solver-timeout-assertion = 0` lets a few valid-but-nonlinear proofs (e.g. [`RelayThresholdScalingFV`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L18))
+`solver-timeout-assertion = 0` lets a few valid-but-nonlinear proofs (e.g. [`RelayThresholdScalingFV`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L20))
 solve to completion rather than being cut off and misreported as counterexamples (see L11 and the CI-gate
 memory).
 
@@ -93,9 +93,9 @@ harness drives the real compiled `Relay` or a self-contained model (see §4.4).
 
 | Harness | Property | Notes |
 |---------|----------|-------|
-| [`RelaySigFV`](../../test-forge/fv/RelaySigFV.t.sol#L25) | accept ⟹ enough distinct registered weight; **no double-count** (`noDoubleCount_duplicateIndex_cannotAccept`); threshold rejection (`threshold_twoVoters_cannotAccept`) | tight per-prefix |
-| [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L27) | the same, **parametric** at K≤3 on real bytecode: `threshold_1/2/3sig_param`, `noDoubleCount_headDup/tailDup_param` | the **bytecode** side of the loop |
-| [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L35) | the real bytecode obeys the Kontrol model's [`psAt`](CONCEPTS.md#6-what-is-psat-the-prefix-sum-at-the-heart-of-the-proofs) prefix-sum invariant: `bridge_1/2/3sig` | **ties R3's model to the bytecode** ([the bridge](CONCEPTS.md#2-why-two-symbolic-tools-the-bounded-model-fidelity-bridge)) at K≤3 |
+| [`RelaySigFV`](../../test-forge/fv/RelaySigFV.t.sol#L27) | accept ⟹ enough distinct registered weight; **no double-count** (`noDoubleCount_duplicateIndex_cannotAccept`); threshold rejection (`threshold_twoVoters_cannotAccept`) | tight per-prefix |
+| [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L29) | the same, **parametric** at K≤3 on real bytecode: `threshold_1/2/3sig_param`, `noDoubleCount_headDup/tailDup_param` | the **bytecode** side of the loop |
+| [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L37) | the real bytecode obeys the Kontrol model's [`psAt`](CONCEPTS.md#6-what-is-psat-the-prefix-sum-at-the-heart-of-the-proofs) prefix-sum invariant: `bridge_1/2/3sig` | **ties R3's model to the bytecode** ([the bridge](CONCEPTS.md#2-why-two-symbolic-tools-the-bounded-model-fidelity-bridge)) at K≤3 |
 
 These three are the bounded, real-bytecode counterpart of the unbounded soundness proven at R3 (Kontrol,
 ∀K) and R4 (Lean, ∀N∀K). `RelayModelBridgeFV` is the explicit bridge that justifies trusting the model.
@@ -104,11 +104,11 @@ These three are the bounded, real-bytecode counterpart of the unbounded soundnes
 
 | Harness | Gate |
 |---------|------|
-| [`RelayWrongEpochFV`](../../test-forge/fv/RelayWrongEpochFV.t.sol#L22) | wrong-epoch rejected (`wrongEpoch_rejected`; `reach_correctEpoch`) |
-| [`RelayDelayedPolicyFV`](../../test-forge/fv/RelayDelayedPolicyFV.t.sol#L21) | delayed-policy gate |
-| [`RelayFinalizationWindowFV`](../../test-forge/fv/RelayFinalizationWindowFV.t.sol#L23) | too-old / finalization-window gate |
-| [`RelayCrossEpochFV`](../../test-forge/fv/RelayCrossEpochFV.t.sol#L21) + [`RelayThresholdScalingFV`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L18) | threshold-increase (cross-epoch) gate |
-| [`RelayMustUseNewPolicyFV`](../../test-forge/fv/RelayMustUseNewPolicyFV.t.sol#L28) | must-use-new-policy (`mustUseNewPolicy_afterStart`; `reach_oldPolicyOkBeforeStart`) |
+| [`RelayWrongEpochFV`](../../test-forge/fv/RelayWrongEpochFV.t.sol#L24) | wrong-epoch rejected (`wrongEpoch_rejected`; `reach_correctEpoch`) |
+| [`RelayDelayedPolicyFV`](../../test-forge/fv/RelayDelayedPolicyFV.t.sol#L23) | delayed-policy gate |
+| [`RelayFinalizationWindowFV`](../../test-forge/fv/RelayFinalizationWindowFV.t.sol#L25) | too-old / finalization-window gate |
+| [`RelayCrossEpochFV`](../../test-forge/fv/RelayCrossEpochFV.t.sol#L23) + [`RelayThresholdScalingFV`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L20) | threshold-increase (cross-epoch) gate |
+| [`RelayMustUseNewPolicyFV`](../../test-forge/fv/RelayMustUseNewPolicyFV.t.sol#L30) | must-use-new-policy (`mustUseNewPolicy_afterStart`; `reach_oldPolicyOkBeforeStart`) |
 
 `RelayThresholdScalingFV` deserves note: it proves the cross-epoch rescale `threshold := threshold *
 thresholdIncreaseBIPS / 10000` **never weakens** the threshold (`neverWeakens`), is the identity at the
@@ -119,16 +119,16 @@ are nonlinear and need `solver-timeout-assertion = 0` (§4.2).
 
 | Harness | Property |
 |---------|----------|
-| [`RelayThresholdConsistencyFV`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L25) | threshold consistency on the **setter path** (`thresholdTooBig/TooSmall_rejected`; `reach_inBand_accepted`) |
-| [`RelayModeOneFV`](../../test-forge/fv/RelayModeOneFV.t.sol#L27) | threshold consistency on the **live Mode-1 relay path** (`modeOne_thresholdTooSmall_rejected`; `reach_modeOne_validInstalls`) |
+| [`RelayThresholdConsistencyFV`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L27) | threshold consistency on the **setter path** (`thresholdTooBig/TooSmall_rejected`; `reach_inBand_accepted`) |
+| [`RelayModeOneFV`](../../test-forge/fv/RelayModeOneFV.t.sol#L29) | threshold consistency on the **live Mode-1 relay path** (`modeOne_thresholdTooSmall_rejected`; `reach_modeOne_validInstalls`) |
 
 ### Access control and lifecycle
 
 | Harness | Property |
 |---------|----------|
-| [`RelayAccessControlFV`](../../test-forge/fv/RelayAccessControlFV.t.sol#L17) | only the signing-policy setter rotates the policy |
-| [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L17) | constructor **fail-closes** on bad config (incl. L4/RLY-11) |
-| [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L19) | strict **+1** epoch advance + monotonic `lastInitialized` state-effect |
+| [`RelayAccessControlFV`](../../test-forge/fv/RelayAccessControlFV.t.sol#L19) | only the signing-policy setter rotates the policy |
+| [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L21) | constructor **fail-closes** on bad config (incl. L4/RLY-11) |
+| [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L21) | strict **+1** epoch advance + monotonic `lastInitialized` state-effect |
 
 The removed `RelayGovernanceNonceFV` harness proved the deleted
 `governanceFeeSetup` path. No result is inherited from it. The GSS properties
@@ -147,26 +147,26 @@ is covered by unit/property tests, not Halmos.
 
 | Harness | Property |
 |---------|----------|
-| [`RelayRandomBindingFV`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L33) | random value binding / no-forgery (`p4_storedEqualsCommitted`, `p4_uncommittedValue_cannotStore`) |
-| [`RelayRandomMonotonicityFV`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L23) | random-pointer monotonicity over arbitrary sequences (`advances`, `bothHistoricalRetained`, `staleDoesNotRegress`; `reach_twoRelays`) |
-| [`RelayMerkleProofFV`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L22) | proof-element + alignment soundness (`m2_wrongSibling_cannotStore`, `m3_misalignedProof_rejected`) |
+| [`RelayRandomBindingFV`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L35) | random value binding / no-forgery (`p4_storedEqualsCommitted`, `p4_uncommittedValue_cannotStore`) |
+| [`RelayRandomMonotonicityFV`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L25) | random-pointer monotonicity over arbitrary sequences (`advances`, `bothHistoricalRetained`, `staleDoesNotRegress`; `reach_twoRelays`) |
+| [`RelayMerkleProofFV`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L24) | proof-element + alignment soundness (`m2_wrongSibling_cannotStore`, `m3_misalignedProof_rejected`) |
 | [`RelayMerkleFoldFV`](../../test-forge/fv/RelayMerkleFoldFV.t.sol#L24) | injectivity for the same sibling/path sequence (base, one-step, depth-2 checks; not arbitrary-proof membership soundness) |
 
 ### Fees
 
 | Harness | Property |
 |---------|----------|
-| [`RelayFeeConservationFV`](../../test-forge/fv/RelayFeeConservationFV.t.sol#L41) | P7 — fee conservation in `verify()` as **real balance movements** (collector +fee, caller net −fee, none stuck) on the new-relay branch |
-| [`RelayVerifyFeeFV`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L16) | fee conservation in `verify()` as **arithmetic**, both branches incl. `oldRelay` delegation (`fee_conserved`, `fee_noOverpayKept`, `fee_underpaymentImpossible`; `reach_exactFee`) |
+| [`RelayFeeConservationFV`](../../test-forge/fv/RelayFeeConservationFV.t.sol#L43) | P7 — fee conservation in `verify()` as **real balance movements** (collector +fee, caller net −fee, none stuck) on the new-relay branch |
+| [`RelayVerifyFeeFV`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L18) | fee conservation in `verify()` as **arithmetic**, both branches incl. `oldRelay` delegation (`fee_conserved`, `fee_noOverpayKept`, `fee_underpaymentImpossible`; `reach_exactFee`) |
 
 ### Encoding / return / secure-bit (P3/P5/P6/P8)
 
 | Harness | Property |
 |---------|----------|
-| [`RelayCanonicalityFV`](../../test-forge/fv/RelayCanonicalityFV.t.sol#L33) | P3 — encoding canonicality |
-| [`RelayIsSecureNormFV`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L59) | P5 — `isSecureRandom` normalization |
-| [`RelayReturnDiscriminatorFV`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L39) | P6 — return discriminator (`protocolId1_successReturns35`, `protocolId3_successReturns0/isNot35`) |
-| [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L62) | P8 — policy-hash equivalence (`policyHash_equiv_NV1/2/3`; `policyHash_mismatchReachable_NV3`) |
+| [`RelayCanonicalityFV`](../../test-forge/fv/RelayCanonicalityFV.t.sol#L35) | P3 — encoding canonicality |
+| [`RelayIsSecureNormFV`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L61) | P5 — `isSecureRandom` normalization |
+| [`RelayReturnDiscriminatorFV`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L41) | P6 — return discriminator (`protocolId1_successReturns35`, `protocolId3_successReturns0/isNot35`) |
+| [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L63) | P8 — policy-hash equivalence (`policyHash_equiv_NV1/2/3`; `policyHash_mismatchReachable_NV3`) |
 
 **Totals:** 26 harnesses, **102 checks = 72 proofs + 30 reachability controls**.
 `RelayEcrecoverSymbolicFV` is grouped in the inventory below and described in
@@ -186,79 +186,79 @@ reachability controls**.
 
 | Harness | Check | Kind | Proves / witnesses |
 |---------|-------|------|--------------------|
-| [`RelaySigFV`](../../test-forge/fv/RelaySigFV.t.sol#L25) | [`check_threshold_twoVoters_cannotAccept`](../../test-forge/fv/RelaySigFV.t.sol#L54) | ✅ proof | two voters carrying 200 ≤ threshold 260 can never make `relay()` accept |
-| | [`check_noDoubleCount_duplicateIndex_cannotAccept`](../../test-forge/fv/RelaySigFV.t.sol#L67) | ✅ proof | a duplicated voter index `[0,1,1]` cannot be counted twice to clear the threshold |
-| | [`check_reachability_threeVoters_canAccept`](../../test-forge/fv/RelaySigFV.t.sol#L84) | 🔍 reach | witnesses: three distinct voters (300 > 260) CAN finalize — the accept path is live |
-| [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L27) | [`check_threshold_1sig_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L67) | ✅ proof | for **all** weights/thresholds: one signature with `w0 ≤ thr` can never accept |
-| | [`check_threshold_2sig_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L76) | ✅ proof | for all weights/thresholds: two signatures with `w0+w1 ≤ thr` can never accept |
-| | [`check_threshold_3sig_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L85) | ✅ proof | for all weights/thresholds: three signatures with `w0+w1+w2 ≤ thr` can never accept |
-| | [`check_noDoubleCount_tailDup_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L103) | ✅ proof | a trailing duplicate index `[0,1,1]` cannot double-count a voter past the threshold |
-| | [`check_noDoubleCount_headDup_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L119) | ✅ proof | a leading duplicate index `[0,0,1]` cannot double-count a voter past the threshold |
-| | [`check_reachability_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L135) | 🔍 reach | witnesses: weights summing above the threshold CAN finalize (parametric accept path live) |
-| [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L35) | [`check_bridge_1sig`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L77) | ✅ proof | the real bytecode accepts at K=1 only if the Kontrol model's `psAt(1)` exceeds the threshold |
-| | [`check_bridge_2sig`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L85) | ✅ proof | same at K=2: bytecode accept ⟹ `psAt(2) > threshold` |
-| | [`check_bridge_3sig`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L93) | ✅ proof | same at K=3: bytecode accept ⟹ `psAt(3) > threshold` |
-| | [`check_reach_bridge_canAccept`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L103) | 🔍 reach | witnesses: where the model predicts acceptance, the real bytecode DOES accept |
+| [`RelaySigFV`](../../test-forge/fv/RelaySigFV.t.sol#L27) | [`check_threshold_twoVoters_cannotAccept`](../../test-forge/fv/RelaySigFV.t.sol#L56) | ✅ proof | two voters carrying 200 ≤ threshold 260 can never make `relay()` accept |
+| | [`check_noDoubleCount_duplicateIndex_cannotAccept`](../../test-forge/fv/RelaySigFV.t.sol#L69) | ✅ proof | a duplicated voter index `[0,1,1]` cannot be counted twice to clear the threshold |
+| | [`check_reachability_threeVoters_canAccept`](../../test-forge/fv/RelaySigFV.t.sol#L86) | 🔍 reach | witnesses: three distinct voters (300 > 260) CAN finalize — the accept path is live |
+| [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L29) | [`check_threshold_1sig_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L69) | ✅ proof | for **all** weights/thresholds: one signature with `w0 ≤ thr` can never accept |
+| | [`check_threshold_2sig_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L78) | ✅ proof | for all weights/thresholds: two signatures with `w0+w1 ≤ thr` can never accept |
+| | [`check_threshold_3sig_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L87) | ✅ proof | for all weights/thresholds: three signatures with `w0+w1+w2 ≤ thr` can never accept |
+| | [`check_noDoubleCount_tailDup_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L107) | ✅ proof | a trailing duplicate index `[0,1,1]` cannot double-count a voter past the threshold |
+| | [`check_noDoubleCount_headDup_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L125) | ✅ proof | a leading duplicate index `[0,0,1]` cannot double-count a voter past the threshold |
+| | [`check_reachability_param`](../../test-forge/fv/RelaySigParamFV.t.sol#L141) | 🔍 reach | witnesses: weights summing above the threshold CAN finalize (parametric accept path live) |
+| [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L37) | [`check_bridge_1sig`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L79) | ✅ proof | the real bytecode accepts at K=1 only if the Kontrol model's `psAt(1)` exceeds the threshold |
+| | [`check_bridge_2sig`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L87) | ✅ proof | same at K=2: bytecode accept ⟹ `psAt(2) > threshold` |
+| | [`check_bridge_3sig`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L95) | ✅ proof | same at K=3: bytecode accept ⟹ `psAt(3) > threshold` |
+| | [`check_reach_bridge_canAccept`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L107) | 🔍 reach | witnesses: where the model predicts acceptance, the real bytecode DOES accept |
 
 **The `relay()` epoch-decision matrix**
 
 | Harness | Check | Kind | Proves / witnesses |
 |---------|-------|------|--------------------|
-| [`RelayWrongEpochFV`](../../test-forge/fv/RelayWrongEpochFV.t.sol#L22) | [`check_wrongEpoch_rejected`](../../test-forge/fv/RelayWrongEpochFV.t.sol#L57) | ✅ proof | an epoch-1 message can never be finalized by the epoch-2 signing policy |
-| | [`check_reach_correctEpoch`](../../test-forge/fv/RelayWrongEpochFV.t.sol#L62) | 🔍 reach | witnesses: a same-epoch message CAN be finalized |
-| [`RelayDelayedPolicyFV`](../../test-forge/fv/RelayDelayedPolicyFV.t.sol#L21) | [`check_delayedPolicy_rejected`](../../test-forge/fv/RelayDelayedPolicyFV.t.sol#L53) | ✅ proof | a same-epoch round before the policy's validity start is always rejected as delayed |
-| | [`check_reach_atStart`](../../test-forge/fv/RelayDelayedPolicyFV.t.sol#L58) | 🔍 reach | witnesses: a round at/after the policy start CAN be finalized |
-| [`RelayFinalizationWindowFV`](../../test-forge/fv/RelayFinalizationWindowFV.t.sol#L23) | [`check_messageTooOld_rejected`](../../test-forge/fv/RelayFinalizationWindowFV.t.sol#L76) | ✅ proof | a message older than the finalization window (here 5 epochs behind `lastInitialized`) is rejected |
-| | [`check_reach_recentNotTooOld`](../../test-forge/fv/RelayFinalizationWindowFV.t.sol#L82) | 🔍 reach | witnesses: a recent message CAN still be finalized in the same state |
-| [`RelayCrossEpochFV`](../../test-forge/fv/RelayCrossEpochFV.t.sol#L21) | [`check_crossEpoch_noDoubleCount`](../../test-forge/fv/RelayCrossEpochFV.t.sol#L59) | ✅ proof | cross-epoch: a duplicate index cannot double-count past the **increased** threshold |
-| | [`check_crossEpoch_threshold`](../../test-forge/fv/RelayCrossEpochFV.t.sol#L71) | ✅ proof | cross-epoch: total weight ≤ the ×1.2-increased threshold can never accept |
-| | [`check_crossEpoch_reachability`](../../test-forge/fv/RelayCrossEpochFV.t.sol#L81) | 🔍 reach | witnesses: weight above the increased threshold CAN finalize cross-epoch |
-| [`RelayThresholdScalingFV`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L18) | [`check_scaling_neverWeakens`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L35) | ✅ proof | the cross-epoch rescale never lowers the threshold (proved in its division-free equivalent form) |
-| | [`check_scaling_identityAtBoundary`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L44) | ✅ proof | at `tib = 10000` (×1.0) the actual division is the exact identity — no truncation loss |
-| | [`check_scaling_noOverflow`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L50) | ✅ proof | the rescale never overflows: the truncated result never exceeds the 16-bit product |
-| | [`check_reach_scaling_canIncrease`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L57) | 🔍 reach | witnesses: with `tib > 10000` the rescale CAN strictly raise the threshold |
-| [`RelayMustUseNewPolicyFV`](../../test-forge/fv/RelayMustUseNewPolicyFV.t.sol#L28) | [`check_mustUseNewPolicy_afterStart`](../../test-forge/fv/RelayMustUseNewPolicyFV.t.sol#L72) | ✅ proof | once epoch 2 is initialized, the epoch-1 policy cannot finalize rounds at/after its start |
-| | [`check_reach_oldPolicyOkBeforeStart`](../../test-forge/fv/RelayMustUseNewPolicyFV.t.sol#L78) | 🔍 reach | witnesses: before the new epoch's (delayed) start, the old policy CAN still finalize |
+| [`RelayWrongEpochFV`](../../test-forge/fv/RelayWrongEpochFV.t.sol#L24) | [`check_wrongEpoch_rejected`](../../test-forge/fv/RelayWrongEpochFV.t.sol#L59) | ✅ proof | an epoch-1 message can never be finalized by the epoch-2 signing policy |
+| | [`check_reach_correctEpoch`](../../test-forge/fv/RelayWrongEpochFV.t.sol#L65) | 🔍 reach | witnesses: a same-epoch message CAN be finalized |
+| [`RelayDelayedPolicyFV`](../../test-forge/fv/RelayDelayedPolicyFV.t.sol#L23) | [`check_delayedPolicy_rejected`](../../test-forge/fv/RelayDelayedPolicyFV.t.sol#L55) | ✅ proof | a same-epoch round before the policy's validity start is always rejected as delayed |
+| | [`check_reach_atStart`](../../test-forge/fv/RelayDelayedPolicyFV.t.sol#L60) | 🔍 reach | witnesses: a round at/after the policy start CAN be finalized |
+| [`RelayFinalizationWindowFV`](../../test-forge/fv/RelayFinalizationWindowFV.t.sol#L25) | [`check_messageTooOld_rejected`](../../test-forge/fv/RelayFinalizationWindowFV.t.sol#L78) | ✅ proof | a message older than the finalization window (here 5 epochs behind `lastInitialized`) is rejected |
+| | [`check_reach_recentNotTooOld`](../../test-forge/fv/RelayFinalizationWindowFV.t.sol#L84) | 🔍 reach | witnesses: a recent message CAN still be finalized in the same state |
+| [`RelayCrossEpochFV`](../../test-forge/fv/RelayCrossEpochFV.t.sol#L23) | [`check_crossEpoch_noDoubleCount`](../../test-forge/fv/RelayCrossEpochFV.t.sol#L61) | ✅ proof | cross-epoch: a duplicate index cannot double-count past the **increased** threshold |
+| | [`check_crossEpoch_threshold`](../../test-forge/fv/RelayCrossEpochFV.t.sol#L73) | ✅ proof | cross-epoch: total weight ≤ the ×1.2-increased threshold can never accept |
+| | [`check_crossEpoch_reachability`](../../test-forge/fv/RelayCrossEpochFV.t.sol#L83) | 🔍 reach | witnesses: weight above the increased threshold CAN finalize cross-epoch |
+| [`RelayThresholdScalingFV`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L20) | [`check_scaling_neverWeakens`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L38) | ✅ proof | the cross-epoch rescale never lowers the threshold (proved in its division-free equivalent form) |
+| | [`check_scaling_identityAtBoundary`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L47) | ✅ proof | at `tib = 10000` (×1.0) the actual division is the exact identity — no truncation loss |
+| | [`check_scaling_noOverflow`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L53) | ✅ proof | the rescale never overflows: the truncated result never exceeds the 16-bit product |
+| | [`check_reach_scaling_canIncrease`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L60) | 🔍 reach | witnesses: with `tib > 10000` the rescale CAN strictly raise the threshold |
+| [`RelayMustUseNewPolicyFV`](../../test-forge/fv/RelayMustUseNewPolicyFV.t.sol#L30) | [`check_mustUseNewPolicy_afterStart`](../../test-forge/fv/RelayMustUseNewPolicyFV.t.sol#L74) | ✅ proof | once epoch 2 is initialized, the epoch-1 policy cannot finalize rounds at/after its start |
+| | [`check_reach_oldPolicyOkBeforeStart`](../../test-forge/fv/RelayMustUseNewPolicyFV.t.sol#L80) | 🔍 reach | witnesses: before the new epoch's (delayed) start, the old policy CAN still finalize |
 
 **Threshold consistency on the live paths**
 
 | Harness | Check | Kind | Proves / witnesses |
 |---------|-------|------|--------------------|
-| [`RelayThresholdConsistencyFV`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L25) | [`check_thresholdTooSmall_rejected`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L54) | ✅ proof | `setSigningPolicy` rejects any threshold below 50% of total voter weight |
-| | [`check_thresholdTooBig_rejected`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L62) | ✅ proof | `setSigningPolicy` rejects any threshold above 66% of total voter weight |
-| | [`check_reach_inBand_accepted`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L69) | 🔍 reach | witnesses: an in-band threshold IS accepted — the validation is not always-revert |
-| [`RelayModeOneFV`](../../test-forge/fv/RelayModeOneFV.t.sol#L27) | [`check_modeOne_thresholdTooSmall_rejected`](../../test-forge/fv/RelayModeOneFV.t.sol#L77) | ✅ proof | a Mode-1-relayed new policy with a below-MIN-band threshold can never be installed |
-| | [`check_reach_modeOne_validInstalls`](../../test-forge/fv/RelayModeOneFV.t.sol#L86) | 🔍 reach | witnesses: an in-band Mode-1 new policy CAN be installed by the old quorum |
+| [`RelayThresholdConsistencyFV`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L27) | [`check_thresholdTooSmall_rejected`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L56) | ✅ proof | `setSigningPolicy` rejects any threshold below 50% of total voter weight |
+| | [`check_thresholdTooBig_rejected`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L64) | ✅ proof | `setSigningPolicy` rejects any threshold above 66% of total voter weight |
+| | [`check_reach_inBand_accepted`](../../test-forge/fv/RelayThresholdConsistencyFV.t.sol#L71) | 🔍 reach | witnesses: an in-band threshold IS accepted — the validation is not always-revert |
+| [`RelayModeOneFV`](../../test-forge/fv/RelayModeOneFV.t.sol#L29) | [`check_modeOne_thresholdTooSmall_rejected`](../../test-forge/fv/RelayModeOneFV.t.sol#L79) | ✅ proof | a Mode-1-relayed new policy with a below-MIN-band threshold can never be installed |
+| | [`check_reach_modeOne_validInstalls`](../../test-forge/fv/RelayModeOneFV.t.sol#L88) | 🔍 reach | witnesses: an in-band Mode-1 new policy CAN be installed by the old quorum |
 
 **Access control and lifecycle**
 
 | Harness | Check | Kind | Proves / witnesses |
 |---------|-------|------|--------------------|
-| [`RelayAccessControlFV`](../../test-forge/fv/RelayAccessControlFV.t.sol#L17) | [`check_setSigningPolicy_onlySetter`](../../test-forge/fv/RelayAccessControlFV.t.sol#L33) | ✅ proof | for ANY setter address other than the caller, `setSigningPolicy` always reverts |
-| | [`check_reach_setter_canCall`](../../test-forge/fv/RelayAccessControlFV.t.sol#L43) | 🔍 reach | witnesses: the registered setter CAN rotate the policy |
-| [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L17) | [`check_ctor_rejectsLowThresholdIncrease`](../../test-forge/fv/RelayConstructorFV.t.sol#L34) | ✅ proof | the constructor rejects any `thresholdIncreaseBIPS` below 10000 (×1.0) |
-| | [`check_ctor_rejectsZeroRewardEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L43) | ✅ proof | the constructor rejects a zero reward-epoch duration (RLY-11, div-by-zero) |
-| | [`check_ctor_rejectsZeroVotingEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L51) | ✅ proof | the constructor rejects a zero voting-epoch duration (RLY-11) |
-| | [`check_ctor_rejectsZeroPolicyHash`](../../test-forge/fv/RelayConstructorFV.t.sol#L59) | ✅ proof | the constructor rejects a zero initial signing-policy hash (L-4, would brick the epoch) |
-| | [`check_reach_ctor_validDeploys`](../../test-forge/fv/RelayConstructorFV.t.sol#L76) | 🔍 reach | witnesses: the valid base config DOES deploy |
-| [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L19) | [`check_epochAdvance_requiresSequential`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L40) | ✅ proof | any epoch other than `lastInitialized+1` is rejected — no skip, replay, or regress |
-| | [`check_reach_epochAdvance_correctSucceeds`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L50) | 🔍 reach | witnesses: the exact next epoch IS accepted |
-| | [`check_epochAdvance_incrementsByOne`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L63) | ✅ proof | a successful `setSigningPolicy` advances `lastInitialized` by exactly +1 (the monotone step) |
+| [`RelayAccessControlFV`](../../test-forge/fv/RelayAccessControlFV.t.sol#L19) | [`check_setSigningPolicy_onlySetter`](../../test-forge/fv/RelayAccessControlFV.t.sol#L35) | ✅ proof | for ANY setter address other than the caller, `setSigningPolicy` always reverts |
+| | [`check_reach_setter_canCall`](../../test-forge/fv/RelayAccessControlFV.t.sol#L45) | 🔍 reach | witnesses: the registered setter CAN rotate the policy |
+| [`RelayConstructorFV`](../../test-forge/fv/RelayConstructorFV.t.sol#L21) | [`check_ctor_rejectsLowThresholdIncrease`](../../test-forge/fv/RelayConstructorFV.t.sol#L38) | ✅ proof | the constructor rejects any `thresholdIncreaseBIPS` below 10000 (×1.0) |
+| | [`check_ctor_rejectsZeroRewardEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L47) | ✅ proof | the constructor rejects a zero reward-epoch duration (RLY-11, div-by-zero) |
+| | [`check_ctor_rejectsZeroVotingEpochDuration`](../../test-forge/fv/RelayConstructorFV.t.sol#L55) | ✅ proof | the constructor rejects a zero voting-epoch duration (RLY-11) |
+| | [`check_ctor_rejectsZeroPolicyHash`](../../test-forge/fv/RelayConstructorFV.t.sol#L63) | ✅ proof | the constructor rejects a zero initial signing-policy hash (L-4, would brick the epoch) |
+| | [`check_reach_ctor_validDeploys`](../../test-forge/fv/RelayConstructorFV.t.sol#L80) | 🔍 reach | witnesses: the valid base config DOES deploy |
+| [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L21) | [`check_epochAdvance_requiresSequential`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L42) | ✅ proof | any epoch other than `lastInitialized+1` is rejected — no skip, replay, or regress |
+| | [`check_reach_epochAdvance_correctSucceeds`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L52) | 🔍 reach | witnesses: the exact next epoch IS accepted |
+| | [`check_epochAdvance_incrementsByOne`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L65) | ✅ proof | a successful `setSigningPolicy` advances `lastInitialized` by exactly +1 (the monotone step) |
 
 **Merkle & randomness**
 
 | Harness | Check | Kind | Proves / witnesses |
 |---------|-------|------|--------------------|
-| [`RelayRandomBindingFV`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L33) | [`check_p4_uncommittedValue_cannotStore`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L83) | ✅ proof | a trailer random value differing from the root-committed one can never finalize |
-| | [`check_p4_storedEqualsCommitted`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L93) | ✅ proof | on every accepting run the stored random (live + historical) equals the committed value |
-| | [`check_p4_reachability`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L106) | 🔍 reach | witnesses: the committed value CAN finalize and be stored |
-| [`RelayRandomMonotonicityFV`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L23) | [`check_staleDoesNotRegress`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L73) | ✅ proof | relaying an older round after a newer one never regresses the live random pointer |
-| | [`check_advances`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L83) | ✅ proof | relaying a newer round after an older one advances the live pointer to it |
-| | [`check_bothHistoricalRetained`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L93) | ✅ proof | after both relays, both rounds' random values remain retrievable historically |
-| | [`check_reachability_twoRelays`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L104) | 🔍 reach | witnesses: two successful random relays in sequence ARE reachable |
-| [`RelayMerkleProofFV`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L22) | [`check_m2_wrongSibling_cannotStore`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L67) | ✅ proof | a proof sibling differing from the committed one can never reproduce the signed root |
-| | [`check_m3_misalignedProof_rejected`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L76) | ✅ proof | a misaligned trailer (not a whole number of 32-byte words) is always rejected |
-| | [`check_reach_matchingProof`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L83) | 🔍 reach | witnesses: the matching, aligned proof CAN finalize |
+| [`RelayRandomBindingFV`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L35) | [`check_p4_uncommittedValue_cannotStore`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L91) | ✅ proof | a trailer random value differing from the root-committed one can never finalize |
+| | [`check_p4_storedEqualsCommitted`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L101) | ✅ proof | on every accepting run the stored random (live + historical) equals the committed value |
+| | [`check_p4_reachability`](../../test-forge/fv/RelayRandomBindingFV.t.sol#L114) | 🔍 reach | witnesses: the committed value CAN finalize and be stored |
+| [`RelayRandomMonotonicityFV`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L25) | [`check_staleDoesNotRegress`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L75) | ✅ proof | relaying an older round after a newer one never regresses the live random pointer |
+| | [`check_advances`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L85) | ✅ proof | relaying a newer round after an older one advances the live pointer to it |
+| | [`check_bothHistoricalRetained`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L95) | ✅ proof | after both relays, both rounds' random values remain retrievable historically |
+| | [`check_reachability_twoRelays`](../../test-forge/fv/RelayRandomMonotonicityFV.t.sol#L106) | 🔍 reach | witnesses: two successful random relays in sequence ARE reachable |
+| [`RelayMerkleProofFV`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L24) | [`check_m2_wrongSibling_cannotStore`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L73) | ✅ proof | a proof sibling differing from the committed one can never reproduce the signed root |
+| | [`check_m3_misalignedProof_rejected`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L82) | ✅ proof | a misaligned trailer (not a whole number of 32-byte words) is always rejected |
+| | [`check_reach_matchingProof`](../../test-forge/fv/RelayMerkleProofFV.t.sol#L89) | 🔍 reach | witnesses: the matching, aligned proof CAN finalize |
 | [`RelayMerkleFoldFV`](../../test-forge/fv/RelayMerkleFoldFV.t.sol#L24) | [`check_fold_base_injective`](../../test-forge/fv/RelayMerkleFoldFV.t.sol#L34) | ✅ proof | induction base: the empty-proof fold is the identity, so distinct leaves stay distinct |
 | | [`check_fold_step_injective`](../../test-forge/fv/RelayMerkleFoldFV.t.sol#L43) | ✅ proof | induction step: one sorted-pair fold with the same sibling never merges distinct hashes |
 | | [`check_fold_depth2_injective`](../../test-forge/fv/RelayMerkleFoldFV.t.sol#L50) | ✅ proof | corroboration: an equal depth-2 root with the same proof forces equal leaves (no forgery) |
@@ -268,36 +268,36 @@ reachability controls**.
 
 | Harness | Check | Kind | Proves / witnesses |
 |---------|-------|------|--------------------|
-| [`RelayFeeConservationFV`](../../test-forge/fv/RelayFeeConservationFV.t.sol#L41) | [`check_p7_feeConservation`](../../test-forge/fv/RelayFeeConservationFV.t.sol#L114) | ✅ proof | a succeeding `verify()` (real balances) moves exactly the fee: collector +fee, caller −fee, relay 0 |
-| | [`check_p7_reachability`](../../test-forge/fv/RelayFeeConservationFV.t.sol#L133) | 🔍 reach | witnesses: a successful `verify()` exists at this config — the fee path is live |
-| [`RelayVerifyFeeFV`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L16) | [`check_fee_conserved`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L28) | ✅ proof | forwarded + refund always equals `msg.value` — no ETH created or destroyed |
-| | [`check_fee_noOverpayKept`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L36) | ✅ proof | exactly the fee is forwarded and the refund never exceeds `msg.value` |
-| | [`check_fee_underpaymentImpossible`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L45) | ✅ proof | under-payment (`msg.value < fee`) can never satisfy the `require` guard |
-| | [`check_reach_exactFee`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L53) | 🔍 reach | witnesses: paying exactly the fee yields a zero refund (a conserving split is reachable) |
+| [`RelayFeeConservationFV`](../../test-forge/fv/RelayFeeConservationFV.t.sol#L43) | [`check_p7_feeConservation`](../../test-forge/fv/RelayFeeConservationFV.t.sol#L116) | ✅ proof | a succeeding `verify()` (real balances) moves exactly the fee: collector +fee, caller −fee, relay 0 |
+| | [`check_p7_reachability`](../../test-forge/fv/RelayFeeConservationFV.t.sol#L135) | 🔍 reach | witnesses: a successful `verify()` exists at this config — the fee path is live |
+| [`RelayVerifyFeeFV`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L18) | [`check_fee_conserved`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L31) | ✅ proof | forwarded + refund always equals `msg.value` — no ETH created or destroyed |
+| | [`check_fee_noOverpayKept`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L39) | ✅ proof | exactly the fee is forwarded and the refund never exceeds `msg.value` |
+| | [`check_fee_underpaymentImpossible`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L48) | ✅ proof | under-payment (`msg.value < fee`) can never satisfy the `require` guard |
+| | [`check_reach_exactFee`](../../test-forge/fv/RelayVerifyFeeFV.t.sol#L56) | 🔍 reach | witnesses: paying exactly the fee yields a zero refund (a conserving split is reachable) |
 
 **Encoding / return / secure-bit (P3/P5/P6/P8)**
 
 | Harness | Check | Kind | Proves / witnesses |
 |---------|-------|------|--------------------|
-| [`RelayCanonicalityFV`](../../test-forge/fv/RelayCanonicalityFV.t.sol#L33) | [`check_p3_badV_cannotAccept`](../../test-forge/fv/RelayCanonicalityFV.t.sol#L78) | ✅ proof | a signature with `v ∉ {27,28}` can never accept, even at winning weight |
-| | [`check_p3_highS_cannotAccept`](../../test-forge/fv/RelayCanonicalityFV.t.sol#L89) | ✅ proof | a high-`s` (above secp256k1n/2) signature can never accept, even at winning weight |
-| | [`check_p3_reachability_canonicalAccepts`](../../test-forge/fv/RelayCanonicalityFV.t.sol#L103) | 🔍 reach | witnesses: a canonical winning-weight signature CAN accept |
-| [`RelayIsSecureNormFV`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L59) | [`check_historicalSecure_eq_byteNonZero`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L139) | ✅ proof | accept ⟹ the stored historical isSecure bit equals `(raw byte != 0)` |
-| | [`check_liveSecure_eq_byteNonZero`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L152) | ✅ proof | accept ⟹ the live `isSecureRandom` flag equals `(raw byte != 0)` |
-| | [`check_liveAndHistorical_agree`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L164) | ✅ proof | on every accepting run the live flag and the historical bit agree |
-| | [`check_leafNorm_machineChecked`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L182) | ✅ proof | the Merkle-leaf isSecure rule is exactly `(byte != 0)`, for all 256 byte values |
-| | [`check_reach_insecure_canAccept`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L198) | 🔍 reach | witnesses: the insecure normalization (byte 0) CAN finalize |
-| | [`check_reach_secure_canAccept`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L204) | 🔍 reach | witnesses: the secure normalization (byte 1) CAN finalize |
-| | [`check_reach_highByte_canAccept`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L212) | 🔍 reach | witnesses: a high byte (> 1) CAN finalize, pinning the leaf rule over 2..255 |
-| [`RelayReturnDiscriminatorFV`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L39) | [`check_protocolId1_successReturns35`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L80) | ✅ proof | a successful protocolId-1 (custom-signature) relay returns exactly 35 bytes |
-| | [`check_reach_protocolId1_canAccept`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L88) | 🔍 reach | witnesses: the protocolId-1 accept path is reachable |
-| | [`check_protocolId3_successReturns0`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L98) | ✅ proof | a successful protocolId-3 (Mode-2) relay returns exactly 0 bytes |
-| | [`check_protocolId3_isNot35`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L108) | ✅ proof | a Mode-2 success can never return 35 bytes — the discriminator cannot be spoofed |
-| | [`check_reach_protocolId3_canAccept`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L116) | 🔍 reach | witnesses: the protocolId-3 accept path is reachable |
-| [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L62) | [`check_policyHash_equiv_NV1`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L121) | ✅ proof | the assembly policy hash equals the reference fold — now the **RLY-23 chain-bound** fold `keccak256(sourceChainId ‖ contentFold)` — for **all** symbolic 1-voter policies (so the on-chain chain-domain wrap in `calculateSigningPolicyHash` is symbolically confirmed to match the oracle) |
-| | [`check_policyHash_equiv_NV2`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L130) | ✅ proof | the same equivalence over all symbolic 2-voter policies |
-| | [`check_policyHash_equiv_NV3`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L141) | ✅ proof | the same at 3 voters — multiple full chunks plus a 13-byte remainder fold |
-| | [`check_policyHash_mismatchReachable_NV3`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L159) | 🔍 reach | witnesses: a bit-flipped stored hash DOES fire the mismatch revert — the detector is live |
+| [`RelayCanonicalityFV`](../../test-forge/fv/RelayCanonicalityFV.t.sol#L35) | [`check_p3_badV_cannotAccept`](../../test-forge/fv/RelayCanonicalityFV.t.sol#L80) | ✅ proof | a signature with `v ∉ {27,28}` can never accept, even at winning weight |
+| | [`check_p3_highS_cannotAccept`](../../test-forge/fv/RelayCanonicalityFV.t.sol#L91) | ✅ proof | a high-`s` (above secp256k1n/2) signature can never accept, even at winning weight |
+| | [`check_p3_reachability_canonicalAccepts`](../../test-forge/fv/RelayCanonicalityFV.t.sol#L105) | 🔍 reach | witnesses: a canonical winning-weight signature CAN accept |
+| [`RelayIsSecureNormFV`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L61) | [`check_historicalSecure_eq_byteNonZero`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L144) | ✅ proof | accept ⟹ the stored historical isSecure bit equals `(raw byte != 0)` |
+| | [`check_liveSecure_eq_byteNonZero`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L157) | ✅ proof | accept ⟹ the live `isSecureRandom` flag equals `(raw byte != 0)` |
+| | [`check_liveAndHistorical_agree`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L169) | ✅ proof | on every accepting run the live flag and the historical bit agree |
+| | [`check_leafNorm_machineChecked`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L187) | ✅ proof | the Merkle-leaf isSecure rule is exactly `(byte != 0)`, for all 256 byte values |
+| | [`check_reach_insecure_canAccept`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L203) | 🔍 reach | witnesses: the insecure normalization (byte 0) CAN finalize |
+| | [`check_reach_secure_canAccept`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L209) | 🔍 reach | witnesses: the secure normalization (byte 1) CAN finalize |
+| | [`check_reach_highByte_canAccept`](../../test-forge/fv/RelayIsSecureNormFV.t.sol#L217) | 🔍 reach | witnesses: a high byte (> 1) CAN finalize, pinning the leaf rule over 2..255 |
+| [`RelayReturnDiscriminatorFV`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L41) | [`check_protocolId1_successReturns35`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L82) | ✅ proof | a successful protocolId-1 (custom-signature) relay returns exactly 35 bytes |
+| | [`check_reach_protocolId1_canAccept`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L90) | 🔍 reach | witnesses: the protocolId-1 accept path is reachable |
+| | [`check_protocolId3_successReturns0`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L100) | ✅ proof | a successful protocolId-3 (Mode-2) relay returns exactly 0 bytes |
+| | [`check_protocolId3_isNot35`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L110) | ✅ proof | a Mode-2 success can never return 35 bytes — the discriminator cannot be spoofed |
+| | [`check_reach_protocolId3_canAccept`](../../test-forge/fv/RelayReturnDiscriminatorFV.t.sol#L118) | 🔍 reach | witnesses: the protocolId-3 accept path is reachable |
+| [`RelayPolicyHashFV`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L63) | [`check_policyHash_equiv_NV1`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L122) | ✅ proof | the assembly policy hash equals the reference fold — now the **RLY-23 chain-bound** fold `keccak256(sourceChainId ‖ contentFold)` — for **all** symbolic 1-voter policies (so the on-chain chain-domain wrap in `calculateSigningPolicyHash` is symbolically confirmed to match the oracle) |
+| | [`check_policyHash_equiv_NV2`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L131) | ✅ proof | the same equivalence over all symbolic 2-voter policies |
+| | [`check_policyHash_equiv_NV3`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L142) | ✅ proof | the same at 3 voters — multiple full chunks plus a 13-byte remainder fold |
+| | [`check_policyHash_mismatchReachable_NV3`](../../test-forge/fv/RelayPolicyHashFV.t.sol#L160) | 🔍 reach | witnesses: a bit-flipped stored hash DOES fire the mismatch revert — the detector is live |
 
 **GSS governance (post-recovery signer/action boundary)** — the 14 `check_gss_*`
 proofs and 2 reachability controls were retired with the GSS design (git history);
@@ -307,19 +307,19 @@ the verification manifest still lists them pending the re-baseline.
 
 | Harness | Check | Kind | Proves / witnesses |
 |---------|-------|------|--------------------|
-| [`RelayEcrecoverSymbolicFV`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L52) | [`check_emptyReturn_rejected`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L81) | ✅ proof | an empty precompile return (bad signature) is never accepted, whatever the stale buffer holds |
-| | [`check_zeroSigner_rejected`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L88) | ✅ proof | a well-formed 32-byte zero signer is always rejected |
-| | [`check_accepted_usesFreshReturn_notStale`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L96) | ✅ proof | an accepting guard uses the fresh return, never the stale buffer; accepts iff the signer ≠ 0 |
-| | [`check_reach_validSigner_accepted`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L106) | 🔍 reach | witnesses: a genuine non-zero signer IS accepted — the accept path is live |
+| [`RelayEcrecoverSymbolicFV`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L55) | [`check_emptyReturn_rejected`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L84) | ✅ proof | an empty precompile return (bad signature) is never accepted, whatever the stale buffer holds |
+| | [`check_zeroSigner_rejected`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L91) | ✅ proof | a well-formed 32-byte zero signer is always rejected |
+| | [`check_accepted_usesFreshReturn_notStale`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L99) | ✅ proof | an accepting guard uses the fresh return, never the stale buffer; accepts iff the signer ≠ 0 |
+| | [`check_reach_validSigner_accepted`](../../test-forge/fv/RelayEcrecoverSymbolicFV.t.sol#L109) | 🔍 reach | witnesses: a genuine non-zero signer IS accepted — the accept path is live |
 
 ---
 
 ## 4.4 Modeling approach & assumptions
 
 - **Real bytecode vs. self-contained model.** Most harnesses drive the **real compiled `Relay`** through
-  symbolic calldata (the high-value ones: [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L27), [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L35), [`RelayModeOneFV`](../../test-forge/fv/RelayModeOneFV.t.sol#L27), the
+  symbolic calldata (the high-value ones: [`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L29), [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L37), [`RelayModeOneFV`](../../test-forge/fv/RelayModeOneFV.t.sol#L29), the
   gate harnesses). A few isolate a piece of pure arithmetic/logic into a self-contained model where that is
-  the faithful unit of the property (e.g. [`RelayThresholdScalingFV`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L18) replicates the exact rescale formula
+  the faithful unit of the property (e.g. [`RelayThresholdScalingFV`](../../test-forge/fv/RelayThresholdScalingFV.t.sol#L20) replicates the exact rescale formula
   and EVM truncating division; [`RelayMerkleFoldFV`](../../test-forge/fv/RelayMerkleFoldFV.t.sol#L24) reasons about the fold structure). Each harness header
   states which it is.
 - **The modeling contract (standing assumptions).** `keccak256` is an injective uninterpreted function;
@@ -375,7 +375,7 @@ Expected: the gate prints the per-check table and `[fv] OK - exact proof invento
   state transitions at their fixed-owner bounded scope. Every proof is certified
   non-vacuous.
 - **Does not:** reach arbitrary K or N. The signature loop beyond K=3 and voter sets beyond N=5 are the
-  induction barrier, handled at R3 (Kontrol, ∀K) and R4 (Lean, ∀N∀K), with [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L35) connecting
+  induction barrier, handled at R3 (Kontrol, ∀K) and R4 (Lean, ∀N∀K), with [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L37) connecting
   R3's model back to this bytecode. It also does not prove ECDSA, the complete
   Safe digest implementation, or canonical source execution.
 

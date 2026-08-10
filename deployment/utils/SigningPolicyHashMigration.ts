@@ -10,11 +10,7 @@ const ZERO_HASH = `0x${"00".repeat(32)}`;
  * nonzero bytes32 value cannot distinguish a legacy content hash from an
  * already chain-bound hash.
  */
-export function signingPolicyHashForMigration(
-  oldHash: string,
-  chainId: number | bigint,
-  oldScheme: string
-): string {
+export function signingPolicyHashForMigration(oldHash: string, chainId: number | bigint, oldScheme: string): string {
   if (!/^0x[0-9a-fA-F]{64}$/.test(oldHash) || oldHash.toLowerCase() === ZERO_HASH) {
     throw Error(`Invalid old Relay signing policy hash: ${oldHash}`);
   }
@@ -24,7 +20,5 @@ export function signingPolicyHashForMigration(
   if (oldScheme === "chain-bound") {
     return oldHash;
   }
-  throw Error(
-    `Invalid old Relay policy hash scheme '${oldScheme}'; expected 'legacy' or 'chain-bound'`
-  );
+  throw Error(`Invalid old Relay policy hash scheme '${oldScheme}'; expected 'legacy' or 'chain-bound'`);
 }

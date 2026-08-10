@@ -3,7 +3,11 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
+import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import {RelayProxy} from "../../contracts/protocol/implementation/RelayProxy.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
+import {RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
 // Phase 3 Step 1 (AC-11 + L4 + RLY-11): CONSTRUCTOR config validation (Relay.sol:235-246).
 // The constructor fail-closes on malformed initial config — each guard proven to reject:

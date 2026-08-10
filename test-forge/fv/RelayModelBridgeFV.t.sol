@@ -3,7 +3,9 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
+import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
@@ -90,7 +92,9 @@ contract RelayModelBridgeFV is RelayTestBase {
 
     // BRIDGE K=3 — real bytecode accept => psAt(3) > threshold.
     // EXPECT: PASS (proof).
-    function check_bridge_3sig(uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
+    function check_bridge_3sig(
+        uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c
+    )
         external
     {
         (Relay r, bytes memory p) = _deploy(w0, w1, w2, thr);
@@ -100,7 +104,9 @@ contract RelayModelBridgeFV is RelayTestBase {
 
     // Non-vacuity — the bridge is not trivially satisfied by always-revert: when psAt(3) > threshold the real
     // bytecode CAN accept. EXPECT: COUNTEREXAMPLE (bytecode accepts, so `ok && ...` reachable).
-    function check_reach_bridge_canAccept(uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c)
+    function check_reach_bridge_canAccept(
+        uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c
+    )
         external
     {
         // Guards the bridge against a trivial "always reverts" reading: the assume puts us where the model

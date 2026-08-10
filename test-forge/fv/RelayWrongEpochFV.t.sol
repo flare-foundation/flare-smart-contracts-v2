@@ -3,7 +3,9 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
+import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
@@ -58,7 +60,8 @@ contract RelayWrongEpochFV is RelayTestBase {
         assert(!_relay(EPOCH1_ROUND, a, b, c)); // round 3460 => epoch 1 < policy epoch 2 => rejected
     }
 
-    // Non-vacuity: an epoch-2 message (exp(v) == r, v >= s) IS finalizable with the epoch-2 policy. EXPECT: COUNTEREXAMPLE.
+    // Non-vacuity: an epoch-2 message (exp(v) == r, v >= s) IS finalizable with the epoch-2 policy.
+    // EXPECT: COUNTEREXAMPLE.
     function check_reach_correctEpoch(Sig calldata a, Sig calldata b, Sig calldata c) external {
         assert(!_relay(E2_START, a, b, c)); // round 6720 => epoch 2 == policy epoch => finalizable
     }

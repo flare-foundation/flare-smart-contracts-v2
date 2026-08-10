@@ -3,7 +3,9 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // RelayTestBase
+import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
@@ -53,13 +55,17 @@ contract RelayMerkleProofFV is RelayTestBase {
     }
 
     // root committed with sibling `cs`; trailer carries value `val` and submitted sibling `ts`.
-    function _relay(uint256 val, bytes32 cs, bytes32 ts, bytes memory extra, Sig calldata a, Sig calldata b, Sig calldata c)
+    function _relay(
+        uint256 val, bytes32 cs, bytes32 ts, bytes memory extra, Sig calldata a, Sig calldata b, Sig calldata c
+    )
         internal returns (bool ok)
     {
         bytes32 root = _sortedPair(_leaf(val), cs);
         bytes memory message = abi.encodePacked(RANDOM_PROTOCOL_ID, VRID, uint8(1), root);
         bytes memory trailer = abi.encodePacked(val, ts, extra); // randomNumber(32) || sibling(32) || extra
-        (ok, ) = address(relay).call(abi.encodePacked(Relay.relay.selector, policy, message, _three(a, b, c), trailer));
+        (ok, ) = address(relay).call(
+            abi.encodePacked(Relay.relay.selector, policy, message, _three(a, b, c), trailer)
+        );
     }
 
     // M2 — a submitted sibling different from the committed one cannot reproduce the root => reject.

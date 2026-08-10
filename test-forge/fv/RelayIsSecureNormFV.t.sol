@@ -3,7 +3,9 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-import "../unit/protocol/implementation/Relay.t.sol"; // reuse RelayTestBase + encoding helpers
+import {Relay} from "../../contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
+import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
@@ -109,7 +111,10 @@ contract RelayIsSecureNormFV is RelayTestBase {
     // check_leafNorm_machineChecked): the contract recomputes its leaf from ITS rule (b != 0) and reverts
     // unless that reproduces this root, so acceptance forces (b != 0) == leafBit.
     // Layout: selector || policy || message(38) || sigs || trailer(value||sibling).
-    function _randomCalldataLeaf(uint8 isSecureByte, bool leafBit, bytes memory sigs) internal view returns (bytes memory) {
+    function _randomCalldataLeaf(uint8 isSecureByte, bool leafBit, bytes memory sigs)
+        internal view
+        returns (bytes memory)
+    {
         bytes32 root = _sortedPair(_randomLeaf(VRID, VALUE, leafBit), SIBLING);
         bytes memory message = abi.encodePacked(RANDOM_PROTOCOL_ID, VRID, isSecureByte, root); // 38 bytes
         bytes memory trailer = abi.encodePacked(VALUE, SIBLING); // randomNumber(32) || proof(1 node)
@@ -209,7 +214,9 @@ contract RelayIsSecureNormFV is RelayTestBase {
     // Reachability at a HIGH byte (b > 1): pins that the secure normalization accept path is reachable for a
     // representative byte where (b != 0) and low-bit rules would DIVERGE — so check_leafNorm_machineChecked
     // cannot pass vacuously over b in 2..255. leaf bit = true = (b != 0). EXPECT: COUNTEREXAMPLE.
-    function check_reach_highByte_canAccept(uint8 isSecureByte, Sig calldata a, Sig calldata b, Sig calldata c) external {
+    function check_reach_highByte_canAccept(uint8 isSecureByte, Sig calldata a, Sig calldata b, Sig calldata c)
+        external
+    {
         vm.assume(isSecureByte > 1);
         bool ok = _relayLeaf(isSecureByte, true, a, b, c); // leafBit = (b != 0) = true
         assert(!ok);

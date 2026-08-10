@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+// solhint-disable func-name-mixedcase
+
 // Phase 3 Step 4 (R5): cross-epoch threshold-increase SCALING soundness.
 // Faithful to Relay.sol:977-987 — on the cross-epoch path (relaying with the OLD signing policy for a
 // not-yet-initialized newer epoch) the gate threshold is replaced by:
@@ -16,10 +18,11 @@ pragma solidity ^0.8.13;
 interface IVm { function assume(bool) external; }
 
 contract RelayThresholdScalingFV {
-    IVm constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    // solhint-disable-next-line const-name-snakecase
+    IVm internal constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    uint256 constant THRESHOLD_BIPS = 10000; // Relay.sol:64
-    uint256 constant WEIGHT_MASK = 0xffff;   // 16-bit field mask (Relay.sol:98)
+    uint256 internal constant THRESHOLD_BIPS = 10000; // Relay.sol:64
+    uint256 internal constant WEIGHT_MASK = 0xffff;   // 16-bit field mask (Relay.sol:98)
 
     // Exact replica of Relay.sol:977-987 (truncating integer division, as EVM div).
     function _eff(uint256 threshold, uint256 tib) internal pure returns (uint256) {

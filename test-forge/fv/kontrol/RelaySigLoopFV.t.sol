@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+// solhint-disable func-name-mixedcase
+
 // ============================================================================================
 //  Relay.sol signature-loop weight accounting — UNBOUNDED-in-K (∀ number of signatures) proof
 //  for Kontrol, via k-induction (base + single fully-symbolic preservation step) over a
@@ -34,9 +36,10 @@ pragma solidity ^0.8.13;
 interface IVm { function assume(bool) external; }
 
 contract RelaySigLoopFV {
-    IVm constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    // solhint-disable-next-line const-name-snakecase
+    IVm internal constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    uint256 constant N = 3; // modeled voter count (concrete; structure parametric)
+    uint256 internal constant N = 3; // modeled voter count (concrete; structure parametric)
 
     // GROUNDED prefix sum at boundary k. uint16 weights => bounded, no overflow, no array.
     function _psAt(uint256 k, uint16 w0, uint16 w1, uint16 w2) internal pure returns (uint256) {
