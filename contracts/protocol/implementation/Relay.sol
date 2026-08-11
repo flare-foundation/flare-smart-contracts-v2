@@ -125,6 +125,12 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     uint256 private constant MIN_THRESHOLD_BIPS = 5000;
     uint256 private constant MAX_THRESHOLD_BIPS = 6600;
 
+    /// Transient (EIP-1153) slot holding verifyCustomSignatureWithThreshold's threshold override
+    /// for the duration of its relay() self-call; 0 = no override, so a top-level relay() call
+    /// always reads 0. uint256(keccak256("flare.relay.thresholdOverride")).
+    uint256 private constant TSLOT_THRESHOLD_OVERRIDE =
+        0x6cea5c73f8043432390b6161c6418f07a6dc8cc07557416a3f28d2fd6007a2c3;
+
     // Signing policy byte encoding structure
     // 2 bytes - numberOfVoters
     // 3 bytes - rewardEpochId
@@ -580,6 +586,38 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     }
 
     /**
+     * @inheritdoc IRelay
+     * @dev The override travels to the relay() self-call through a transient (EIP-1153) slot,
+     * so relay()'s calldata layout and 35-byte return discriminator (RLY-07) stay untouched.
+     * The slot is cleared before returning; on revert the tstore is rolled back with the frame,
+     * so no override can ever leak into a later call of the same transaction.
+     */
+    function verifyCustomSignatureWithThreshold(
+        bytes calldata _relayMessage,
+        bytes32 _messageHash,
+        uint16 _thresholdBIPS
+    )
+        external
+        returns (uint256 _rewardEpochId)
+    {
+        // Values of 100% and above can never be satisfied under the strict weight > threshold
+        // comparison — fail fast instead of burning the signature loop on them.
+        require(_thresholdBIPS < THRESHOLD_BIPS, ThresholdTooHigh());
+        // Zero is the no-override sentinel in the transient slot, so 0 falls back to the signing
+        // policy's own threshold — the Fdc2RequestHeader.thresholdBIPS convention.
+        uint256 tslot = TSLOT_THRESHOLD_OVERRIDE;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            tstore(tslot, _thresholdBIPS)
+        }
+        _rewardEpochId = _verifyCustomSignature(_relayMessage, _messageHash);
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            tstore(tslot, 0)
+        }
+    }
+
+    /**
      * @inheritdoc IIRelay
      * @dev Relay-mode only: setter-mode (home) deployments never charge verify() fees, so
      * the setter fail-closes there (mirrors the initialize() seeding rule). With a nonzero
@@ -798,20 +836,43 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             }
 
             function extractVotingRoundIdFromMessage(
-                _memPtr,
                 _signingPolicyLength
             ) -> _votingRoundId {
-                calldatacopy(
-                    _memPtr,
-                    add(SELECTOR_BYTES, _signingPolicyLength),
-                    MESSAGE_NO_MR_BYTES
-                )
-
                 _votingRoundId := structValue(
-                    shr(sub(256, mul(8, MESSAGE_NO_MR_BYTES)), mload(_memPtr)),
+                    shr(
+                        sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
+                        calldataload(add(SELECTOR_BYTES, _signingPolicyLength))
+                    ),
                     MSG_NMR_BOFF_votingRoundId,
                     MSG_NMR_MASK_votingRoundId
                 )
+            }
+
+            // Sums the voters' normalized weights of the signing policy starting at
+            // _signingPolicyStart in calldata. Each weight is the WEIGHT_BYTES-wide field after
+            // the voter address; reading it as the top bytes of a calldataload avoids memory use.
+            function calculateTotalWeight(
+                _metadata,
+                _signingPolicyStart
+            ) -> _totalWeight {
+                let offset := add(
+                    add(_signingPolicyStart, SIGNING_POLICY_PREFIX_BYTES),
+                    ADDRESS_BYTES
+                )
+                let numberOfVoters := structValue(
+                    _metadata,
+                    MD_BOFF_numberOfVoters,
+                    MD_MASK_numberOfVoters
+                )
+                for { let i := 0 } lt(i, numberOfVoters) { i := add(i, 1) } {
+                    _totalWeight := add(
+                        _totalWeight,
+                        shr(
+                            sub(256, mul(8, WEIGHT_BYTES)),
+                            calldataload(add(offset, mul(i, ADDRESS_AND_WEIGHT_BYTES)))
+                        )
+                    )
+                }
             }
 
             function checkThresholdConsistency(
@@ -819,38 +880,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 _metadata,
                 _signingPolicyStart
             ) {
-                let totalWeight := 0
-                for {
-                    let i := 0
-                    let offset := add(
-                        add(_signingPolicyStart, SIGNING_POLICY_PREFIX_BYTES),
-                        ADDRESS_BYTES
-                    )
-                    let numberOfVoters := structValue(
-                        _metadata,
-                        MD_BOFF_numberOfVoters,
-                        MD_MASK_numberOfVoters
-                    )
-                } lt(i, numberOfVoters) {
-                    i := add(i, 1)
-                } {
-                    // clear the memory slot
-                    mstore(_memPtr, 0)
-                    // copy the weight to the rightmost WEIGHT_BYTES
-                    calldatacopy(
-                        add(_memPtr, sub(32, WEIGHT_BYTES)),
-                        add(
-                            offset,
-                            mul(i, ADDRESS_AND_WEIGHT_BYTES)
-                        ),
-                        WEIGHT_BYTES
-                    )
-                    // add to the total weight
-                    totalWeight := add(
-                        totalWeight,
-                        mload(_memPtr)
-                    )
-                }
+                let totalWeight := calculateTotalWeight(_metadata, _signingPolicyStart)
                 if gt(totalWeight, sub(shl(16, 1),1)) {   // totalWeight > 2 ** 16 - 1
                     revertWithError(_memPtr, ERR_TOTAL_WEIGHT_TOO_BIG)
                 }
@@ -964,9 +994,9 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 revertWithError(memPtr, ERR_INVALID_SIGN_POLICY_METADATA)
             }
 
-            calldatacopy(memPtr, SELECTOR_BYTES, METADATA_BYTES)
-            // shift to right of bytes32
-            let metadata := shr(sub(256, mul(8, METADATA_BYTES)), mload(memPtr))
+            // read the metadata prefix directly from calldata, shifted to the right of bytes32
+            // (the length check above guarantees the METADATA_BYTES are all within calldata)
+            let metadata := shr(sub(256, mul(8, METADATA_BYTES)), calldataload(SELECTOR_BYTES))
             let rewardEpochId := structValue(
                 metadata,
                 MD_BOFF_rewardEpochId,
@@ -1034,15 +1064,9 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             // 32 bytes - merkleRoot
             // message length: 38
 
-            calldatacopy(
-                memPtr,
-                add(SELECTOR_BYTES, signingPolicyLength),
-                PROTOCOL_ID_BYTES
-            )
-
             let protocolId := shr(
                 sub(256, mul(8, PROTOCOL_ID_BYTES)), // move to the rightmost position
-                mload(memPtr)
+                calldataload(add(SELECTOR_BYTES, signingPolicyLength))
             )
 
             let signatureStart := 0 // First index of signatures in calldata
@@ -1051,6 +1075,34 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 MD_BOFF_threshold,
                 MD_MASK_threshold
             )
+
+            // Caller-chosen threshold override in BIPS of the policy's total normalized weight,
+            // set only by verifyCustomSignatureWithThreshold's transient slot for the duration
+            // of its self-call (0 on every top-level call).
+            // SECURITY: gated to protocolId == 1 — the pure verification path, which stores
+            // nothing and only returns — so an override can never lower the quorum for Mode-1
+            // policy relay or Mode-2 finalization even though the wrapper forwards arbitrary
+            // caller calldata. (The cross-epoch thresholdIncreaseBIPS bump below is unreachable
+            // for protocolId == 1: its messageRewardEpochId always equals rewardEpochId.)
+            if eq(protocolId, 1) {
+                let overrideBIPS := tload(TSLOT_THRESHOLD_OVERRIDE)
+                if gt(overrideBIPS, 0) {
+                    // The policy metadata carries only the threshold, so sum the total weight
+                    // from calldata (shared with checkThresholdConsistency; the policy content
+                    // is hash-verified above, and registration bounds totalWeight <= 2^16 - 1).
+                    // mulDivRoundUp(totalWeight, overrideBIPS, THRESHOLD_BIPS) — the same
+                    // ceiling FlareSystemsManager._initializeNextSigningPolicy uses to derive a
+                    // policy threshold from a BIPS-like fraction; acceptance below stays strict
+                    // (weight > threshold), matching the Fdc2RequestHeader.thresholdBIPS spec.
+                    threshold := div(
+                        add(
+                            mul(calculateTotalWeight(metadata, SELECTOR_BYTES), overrideBIPS),
+                            sub(THRESHOLD_BIPS, 1)
+                        ),
+                        THRESHOLD_BIPS
+                    )
+                }
+            }
 
             ///////////// Preparation of message hash /////////////
             // protocolId > 0 means we are relaying or checking the validity of signatures (Mode 2)
@@ -1585,7 +1637,6 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                         }
 
                         let votingRoundId := extractVotingRoundIdFromMessage(
-                            memPtrFor,
                             signingPolicyLength
                         )
 

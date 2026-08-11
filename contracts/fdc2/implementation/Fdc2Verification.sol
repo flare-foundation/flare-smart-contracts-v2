@@ -59,6 +59,20 @@ contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
     /**
      * @inheritdoc IFdc2Verification
      */
+    function verifySigningPolicySignaturesWithThreshold(
+        bytes calldata _signingPolicySignatures,
+        bytes32 _messageHash,
+        uint16 _thresholdBIPS
+    )
+        external
+        returns (uint256 _rewardEpochId)
+    {
+        return relay.verifyCustomSignatureWithThreshold(_signingPolicySignatures, _messageHash, _thresholdBIPS);
+    }
+
+    /**
+     * @inheritdoc IFdc2Verification
+     */
     function verifyTeeSignature(
         Signature calldata _signature,
         bytes32 _messageHash

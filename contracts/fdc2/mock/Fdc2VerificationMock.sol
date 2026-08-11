@@ -66,6 +66,22 @@ contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
     /**
      * @inheritdoc IFdc2Verification
      */
+    function verifySigningPolicySignaturesWithThreshold(
+        bytes calldata /*_relayMessage*/,
+        bytes32 /*_messageHash*/,
+        uint16 /*_thresholdBIPS*/
+    )
+        external view
+        returns (uint256 _rewardEpochId)
+    {
+        // no verification
+        // always return the latest reward epoch id
+        (_rewardEpochId, ) = relay.lastInitializedRewardEpochData();
+    }
+
+    /**
+     * @inheritdoc IFdc2Verification
+     */
     function verifyTeeSignature(
         Signature calldata /*_signature*/,
         bytes32 /*_messageHash*/

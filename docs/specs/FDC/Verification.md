@@ -118,7 +118,7 @@ The cost is a separate code path per type (and a separate `bytes32` literal comp
 
 FDC2 uses [`Fdc2Verification`](../../../contracts/fdc2/implementation/Fdc2Verification.sol), which is structurally different:
 
-- **Signing-policy verification.** `verifySigningPolicySignatures(signatures, messageHash)` delegates to `Relay.verifyCustomSignature` to verify a packed batch of FSP signing-policy signatures. Used for cross-chain delivery of FDC2 attestations.
+- **Signing-policy verification.** `verifySigningPolicySignatures(signatures, messageHash)` delegates to `Relay.verifyCustomSignature` to verify a packed batch of FSP signing-policy signatures. Used for cross-chain delivery of FDC2 attestations. A `verifySigningPolicySignaturesWithThreshold` variant checks against a caller-chosen signature-weight threshold instead of the signing policy's own (see [Fdc2.md](./Fdc2.md)).
 - **TEE-machine verification.** `verifyTeeSignature(sig, hash)` and `verifyTeeSignatures(sigs[], hash)` recover the TEE machine's address via ECDSA, then check `flareTeeManager.getExtensionId(teeId) == 0` (the system extension) and `flareTeeManager.getTeeMachineStatus(teeId) == PRODUCTION`. Used for direct on-Flare verification.
 - **Cosigner recovery.** `recoverCosigners(sigs[], hash)` recovers cosigner addresses for caller-side authorization checks.
 

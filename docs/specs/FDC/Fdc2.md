@@ -104,6 +104,18 @@ function verifySigningPolicySignatures(
 
 Delegates to [`Relay.verifyCustomSignature`](../../../contracts/protocol/implementation/Relay.sol). Verifies a packed batch of FSP signing-policy signatures against `_messageHash` (the response's keccak hash). Returns the reward epoch ID of the signing policy that was used. This is the **cross-chain** verification path — applications on other chains that have access to the signing-policy hash can run the same logic.
 
+### `verifySigningPolicySignaturesWithThreshold`
+
+```solidity
+function verifySigningPolicySignaturesWithThreshold(
+    bytes calldata _signingPolicySignatures,
+    bytes32 _messageHash,
+    uint16 _thresholdBIPS
+) external returns (uint256 _rewardEpochId);
+```
+
+Same verification, but against a caller-chosen signature-weight threshold instead of the signing policy's own — it delegates to `Relay.verifyCustomSignatureWithThreshold`, which carries the override into `relay()` through a transient (EIP-1153) slot. The override applies **only** to the pure verification path (`protocolId == 1`, which stores nothing); protocol finalization and signing-policy relay always keep the policy threshold. The threshold is expressed in **BIPS of the signing policy's total normalized weight**, matching `Fdc2RequestHeader.thresholdBIPS`: 0 uses the signing policy's own threshold, the effective weight bar is rounded up (`mulDivRoundUp`, as in [`FlareSystemsManager._initializeNextSigningPolicy`](../../../contracts/protocol/implementation/FlareSystemsManager.sol)), and the comparison is strict — 5000 requires strictly more than 50% of the weight. Values of 10000 (100%) and above can never be satisfied under the strict comparison and revert with `ThresholdTooHigh`. A threshold *below* the policy's only weakens the caller's own acceptance rule — success then means "more than the requested fraction of the weight signed", not that the protocol quorum was reached.
+
 ### `verifyTeeSignature` / `verifyTeeSignatures`
 
 ```solidity

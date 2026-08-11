@@ -44,6 +44,29 @@ interface IFdc2Verification {
         returns (uint256 _rewardEpochId);
 
     /**
+     * Verifies the signing policy signatures against a caller-chosen signature-weight threshold
+     * instead of the signing policy's own (see `IRelay.verifyCustomSignatureWithThreshold`).
+     * NOTE: a threshold below the signing policy's only weakens THIS check's acceptance rule —
+     * success then means "more than the requested fraction of the weight signed", not that the
+     * protocol's quorum was reached.
+     * @param _signingPolicySignatures The signing policy signatures to verify ("relay message" format).
+     * @param _messageHash The message hash to verify.
+     * @param _thresholdBIPS The threshold in BIPS of the signing policy's total normalized weight,
+     * as in `Fdc2RequestHeader.thresholdBIPS`; 0 uses the signing policy's own threshold.
+     * Rounded up and compared with strict inequality, so e.g. 5000 (50%) requires strictly more
+     * than 50% of the weight. Values of 10000 and above are unsatisfiable and revert with
+     * `IRelay.ThresholdTooHigh`.
+     * @return _rewardEpochId The reward epoch id of the signing policy.
+     */
+    function verifySigningPolicySignaturesWithThreshold(
+        bytes calldata _signingPolicySignatures,
+        bytes32 _messageHash,
+        uint16 _thresholdBIPS
+    )
+        external
+        returns (uint256 _rewardEpochId);
+
+    /**
      * Verifies the TEE signature.
      * @param _signature The TEE signature to verify.
      * @param _messageHash The message hash to verify.

@@ -278,6 +278,34 @@ interface IRelay is RandomNumberV2Interface {
         returns (uint256 _rewardEpochId);
 
     /**
+     * Same check as `verifyCustomSignature`, but against a caller-chosen signature-weight
+     * threshold instead of the signing policy's own. The override applies ONLY to this
+     * verification (the protocolId == 1 path, which stores nothing); protocol
+     * finalization and signing-policy relay always use the policy threshold.
+     * The same L-3 domain-separation caveat as `verifyCustomSignature` applies.
+     * NOTE: a threshold below the signing policy's only weakens THIS caller's acceptance
+     * rule — the result then means "more than the requested fraction of the weight signed",
+     * not that the protocol's quorum was reached.
+     * @param _relayMessage The relay message.
+     * @param _messageHash The hash of the message.
+     * @param _thresholdBIPS The threshold in BIPS of the signing policy's total normalized
+     * weight (e.g. 5000 = 50%); 0 uses the signing policy's own threshold (the
+     * `Fdc2RequestHeader.thresholdBIPS` convention). The effective threshold is rounded up
+     * (`mulDivRoundUp(totalWeight, _thresholdBIPS, 10000)`, as in
+     * FlareSystemsManager's signing-policy derivation) and compared with strict
+     * inequality, so 5000 requires strictly more than 50% of the weight. Values of
+     * 10000 and above are unsatisfiable and revert with `ThresholdTooHigh`.
+     * @return _rewardEpochId The reward epoch id of the signing policy.
+     */
+    function verifyCustomSignatureWithThreshold(
+        bytes calldata _relayMessage,
+        bytes32 _messageHash,
+        uint16 _thresholdBIPS
+    )
+        external
+        returns (uint256 _rewardEpochId);
+
+    /**
      * Finalization function for new signing policies and protocol messages.
      * It can be used as finalization contract on Flare chain or as relay contract on other EVM chain.
      * Can be called in two modes. It expects calldata that is parsed in a custom manner.
@@ -291,11 +319,11 @@ interface IRelay is RandomNumberV2Interface {
      *        function signature (4 bytes) + signing policy
      *           + signed message (38 bytes) + ECDSA signatures with indices (67 bytes each)
      *     This case splits into two subcases:
-     *     - protocolMessageId = 1: Message id must be of the form (protocolMessageId, 0, 0, merkleRoot).
+     *     - protocolId = 1: Message id must be of the form (protocolId, 0, 0, merkleRoot).
      *       The validity of the signatures of sufficient weight is checked and if
      *       successful, the merkleRoot from the message is returned (32 bytes) and the
      *       reward epoch id of the signing policy as well (additional 3 bytes)
-     *     - protocolMessageId > 1: The validity of the signatures of sufficient weight is checked and if
+     *     - protocolId > 1: The validity of the signatures of sufficient weight is checked and if
      *       it is valid, the merkleRoot is published for protocolId and votingRoundId.
      * Reverts if relaying is not successful.
      */

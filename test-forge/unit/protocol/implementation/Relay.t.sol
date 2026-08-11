@@ -1127,6 +1127,109 @@ contract RelayPolicyRotationTest is RelayTestBase {
     }
 }
 
+// verifyCustomSignatureWithThreshold: caller-chosen signature-weight threshold in BIPS of the
+// policy's total weight for the pure verification path (protocolId == 1), carried into relay()
+// via a transient-storage override. Voters: 5 x weight 100 (total 500), policy threshold 260;
+// the effective threshold is ceil(500 * bips / 10000) and acceptance is weight > threshold.
+contract RelayThresholdOverrideTest is RelayTestBase {
+    bytes internal policy;
+
+    function setUp() public override {
+        super.setUp();
+        policy = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
+    }
+
+    // 2 signers (weight 200) fail the policy threshold (260) but clear a lower BIPS bar:
+    // 3980 BIPS -> ceil(500 * 0.398) = 199, and 200 > 199.
+    function test_thresholdOverride_lower_accepts() public {
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm = _customSigRelayMessage(policy, mh, 2);
+        // sanity: the policy-threshold path rejects the same message
+        vm.expectRevert(IRelay.VerificationFailed.selector);
+        relay.verifyCustomSignature(rm, mh);
+        assertEq(
+            relay.verifyCustomSignatureWithThreshold(rm, mh, 3980),
+            REWARD_EPOCH_ID,
+            "lower BIPS threshold should accept 200 weight"
+        );
+    }
+
+    // The effective threshold rounds UP (FSM-style mulDivRoundUp): 3999 BIPS ->
+    // ceil(500 * 0.3999) = ceil(199.95) = 200, and 200 > 200 fails; floor would have accepted.
+    function test_thresholdOverride_roundsUp() public {
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm = _customSigRelayMessage(policy, mh, 2);
+        vm.expectRevert(IRelay.VerificationFailed.selector);
+        relay.verifyCustomSignatureWithThreshold(rm, mh, 3999);
+    }
+
+    // 3 signers (weight 300) clear the policy threshold but not a higher BIPS bar:
+    // 6000 BIPS -> ceil(500 * 0.6) = 300, and 300 > 300 fails (strict inequality).
+    function test_thresholdOverride_higher_rejects() public {
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm = _customSigRelayMessage(policy, mh, 3);
+        assertEq(relay.verifyCustomSignature(rm, mh), REWARD_EPOCH_ID, "sanity: policy threshold passes");
+        vm.expectRevert(IRelay.VerificationFailed.selector);
+        relay.verifyCustomSignatureWithThreshold(rm, mh, 6000);
+    }
+
+    // 10000 BIPS (100%) and above can never be satisfied under the strict comparison, so the
+    // wrapper fails fast instead of running the signature loop.
+    function test_thresholdOverride_tooHigh_reverts() public {
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm = _customSigRelayMessage(policy, mh, 5);
+        vm.expectRevert(IRelay.ThresholdTooHigh.selector);
+        relay.verifyCustomSignatureWithThreshold(rm, mh, 10000);
+    }
+
+    // 0 BIPS uses the signing policy's own threshold (the Fdc2RequestHeader.thresholdBIPS
+    // convention): identical accept/reject behavior to verifyCustomSignature.
+    function test_thresholdOverride_zero_usesPolicyThreshold() public {
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm2 = _customSigRelayMessage(policy, mh, 2); // weight 200 <= 260
+        vm.expectRevert(IRelay.VerificationFailed.selector);
+        relay.verifyCustomSignatureWithThreshold(rm2, mh, 0);
+        bytes memory rm3 = _customSigRelayMessage(policy, mh, 3); // weight 300 > 260
+        assertEq(relay.verifyCustomSignatureWithThreshold(rm3, mh, 0), REWARD_EPOCH_ID);
+    }
+
+    // SECURITY: the override must not lower the quorum for Mode-2 finalization even though the
+    // wrapper forwards arbitrary caller calldata into relay().
+    function test_thresholdOverride_doesNotLowerMode2Quorum() public {
+        bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("root"));
+        bytes memory rm = abi.encodePacked(
+            Relay.relay.selector, policy, message, _signatures(_ethSignedHash(message), _firstK(2))
+        );
+        // 200 weight < policy threshold 260: the inner relay() must still reject at the POLICY bar.
+        vm.expectRevert(IRelay.VerificationFailed.selector);
+        relay.verifyCustomSignatureWithThreshold(rm, keccak256("root"), 1);
+        assertFalse(relay.isFinalized(3, START_VOTING_ROUND_ID), "must not finalize below policy quorum");
+    }
+
+    // A Mode-2 message with sufficient weight routed through the wrapper trips the 35-byte return
+    // discriminator (Mode 2 returns 0 bytes) and the revert rolls back the inner finalization.
+    function test_thresholdOverride_mode2SideEffectsRollBack() public {
+        bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("root"));
+        bytes memory rm = abi.encodePacked(
+            Relay.relay.selector, policy, message, _signatures(_ethSignedHash(message), _firstK(3))
+        );
+        vm.expectRevert(IRelay.WrongVerificationData.selector);
+        relay.verifyCustomSignatureWithThreshold(rm, keccak256("root"), 1);
+        assertFalse(relay.isFinalized(3, START_VOTING_ROUND_ID), "inner finalization must roll back");
+    }
+
+    // The transient slot is cleared after a successful call: a follow-up policy-threshold
+    // verification in the SAME transaction context must not see the old override.
+    function test_thresholdOverride_clearedAfterUse() public {
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm = _customSigRelayMessage(policy, mh, 2);
+        assertEq(relay.verifyCustomSignatureWithThreshold(rm, mh, 3980), REWARD_EPOCH_ID);
+        // a leaked override would accept this 200-weight message against the 260 policy threshold
+        vm.expectRevert(IRelay.VerificationFailed.selector);
+        relay.verifyCustomSignature(rm, mh);
+    }
+}
+
 // Minimal old-relay mock: satisfies the Relay constructor compatibility checks
 // (signingPolicySetter()==0 and matching stateData() timing fields) and returns a configurable verify().
 contract MockOldRelay {

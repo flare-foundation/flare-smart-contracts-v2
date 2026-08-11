@@ -82,6 +82,47 @@ contract Fdc2VerificationTest is Test {
         );
     }
 
+    // verifySigningPolicySignatures
+    function testVerifySigningPolicySignatures() public {
+        vm.expectCall(
+            relay,
+            abi.encodeWithSelector(
+                IRelay.verifyCustomSignature.selector,
+                signingPolicySignatures,
+                messageHash
+            )
+        );
+        assertEq(fdc2Verification.verifySigningPolicySignatures(signingPolicySignatures, messageHash), 1);
+    }
+
+    // verifySigningPolicySignaturesWithThreshold
+    function testVerifySigningPolicySignaturesWithThreshold() public {
+        vm.mockCall(
+            relay,
+            abi.encodeWithSelector(
+                IRelay.verifyCustomSignatureWithThreshold.selector
+            ),
+            abi.encode(2)
+        );
+        vm.expectCall(
+            relay,
+            abi.encodeWithSelector(
+                IRelay.verifyCustomSignatureWithThreshold.selector,
+                signingPolicySignatures,
+                messageHash,
+                uint16(5000)
+            )
+        );
+        assertEq(
+            fdc2Verification.verifySigningPolicySignaturesWithThreshold(
+                signingPolicySignatures,
+                messageHash,
+                5000
+            ),
+            2
+        );
+    }
+
     // verifyTeeSignature
     function testVerifyTeeSignatureRevertTeeMachineNotAvailable() public {
         _mockGetTeeMachineStatus(IMachineManager.TeeStatus.PAUSED);
