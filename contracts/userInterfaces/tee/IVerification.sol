@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.6 <0.9;
+pragma solidity >=0.8.4 <0.9;
 
 import { IMachineManager } from "./IMachineManager.sol";
 import { ITeeAvailabilityCheck } from "../fdc2/ITeeAvailabilityCheck.sol";
