@@ -102,10 +102,16 @@ coston = "${COSTON2_RPC}"
 staging = "${STAGING_RPC}"
 
 [profile.coverage]
-# forge coverage disables the optimizer + viaIR globally for accurate line coverage, but a few contracts
-# only compile with viaIR (stack too deep otherwise): the TeePayments contracts, OZ's P256 library and
-# NodePossessionVerifier (which imports it). Pin just those back to viaIR so coverage can build (same as
-# the Hardhat config); every other contract keeps the accurate non-viaIR instrumentation.
+# forge coverage disables the optimizer and viaIR globally for accurate line instrumentation, but a
+# few contracts only compile with viaIR (stack too deep otherwise): the TeePayments contracts, OZ's
+# P256 library, and NodePossessionVerifier, which inlines it. Pin just those back to viaIR.
+#
+# This splits the build into two compilation jobs on one solc version. Until foundry-rs/foundry#16084
+# was fixed, that silently corrupted the report - sources in one job overwrote same-numbered sources
+# in the other - and we worked around it with two passes and an lcov merge. The fix keys coverage by
+# build ID, so the split is safe again and one pass measures both compiler-profile groups. (Files holding only
+# file-level free functions still get no records at all - foundry-rs/foundry#16085, unrelated.) Requires forge with
+# https://github.com/foundry-rs/foundry/pull/16100 (nightly eb4bf9b4 or later).
 [[profile.coverage.additional_compiler_profiles]]
 name = "via-ir"
 via_ir = true

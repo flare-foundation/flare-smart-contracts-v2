@@ -17,15 +17,18 @@ variables:
 ##
 
 .partials:
-  # Pinned Foundry, one place to bump. The exact tag matters: this repo uses solc 0.8.35's
-  # `erc7201` builtin, which forge's own Solidity front end (solar) only understands from
-  # v0.2.0, first shipped in the 2026-07-08 nightly. An older forge reports "unresolved symbol
-  # erc7201" from `forge build` and `forge coverage` while solc compiles the contracts fine.
-  # `stable` is still v1.7.1 (2026-05-08) and predates it, and a floating tag (`latest`,
-  # `nightly`) moves the toolchain underneath CI with no commit here to explain the change -
-  # so pin the full tag and bump it deliberately. Retire the nightly for `stable` once a
-  # stable release past v1.7.1 carries solar 0.2.0.
-  foundry-image: flarefoundation/foundry-custom:forge-nightly-160b6026
+  # The Foundry image, in one place. Two requirements: solar >= v0.2.0, since this repo uses solc
+  # 0.8.35's `erc7201` builtin and older solar reports "unresolved symbol erc7201" while solc
+  # compiles fine; and the coverage build-ID fix (foundry-rs/foundry#16084, landed in nightly
+  # eb4bf9b4), without which `forge coverage` silently drops sources whenever one solc version has
+  # two compilation jobs - which our coverage profile deliberately creates.
+  #
+  # `latest` currently serves forge 1.8.0-nightly (eb4bf9b4) and satisfies both; `stable` is still
+  # v1.7.1 and satisfies neither. Note `latest` is mutable - rebuilding the image moves the
+  # toolchain under CI with no commit here explaining it.
+  # `flarefoundation/foundry-custom:forge-nightly-eb4bf9b4` is the same digest under an immutable
+  # name if a run ever needs pinning.
+  foundry-image: flarefoundation/foundry-custom:latest
   cache-nodejs:
     key:
       files: [ pnpm-lock.yaml ]
@@ -507,7 +510,7 @@ coverage-forge:
   - job: coverage-forge-node_modules
     artifacts: true
   tags: [ flarenetwork-lg ]
-  timeout: 10 minutes
+  timeout: 15 minutes  # one pass compiles both compiler-profile groups
   before_script:
   - mv node_modules.sol node_modules
   - forge soldeer install

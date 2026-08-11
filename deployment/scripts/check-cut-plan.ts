@@ -201,10 +201,10 @@ async function buildFacetPlans(
   return plans;
 }
 
-// Mirrors ExecuteTeeManagerDiamondCut._deployedCodeMatches: the on-chain execute path reuses a facet
-// only when keccak256(on-chain code) == keccak256(vm.getDeployedCode(artifact)), i.e. a full deployed
-// bytecode match. Anything else redeploys. We report a metadata-only diff for context but still mark
-// REPLACE so this plan agrees with what the forge script would actually do.
+// Mirrors ExecuteTeeManagerDiamondCut._deployedCodeMatches: the execute path reuses a facet when the
+// logic bytecode matches, i.e. both sides compared with the trailing CBOR metadata block stripped.
+// The metadata ipfs hash shifts with the build environment, so historical deploys are not always
+// byte-reproducible; metadata-only drift must not force redeploys.
 function compareFacet(facetName: string, address: string, deployedCode: Buffer, currentCode: Buffer): FacetPlan {
   const deployedHash = shortHash(deployedCode);
   const currentHash = shortHash(currentCode);
@@ -221,13 +221,22 @@ function compareFacet(facetName: string, address: string, deployedCode: Buffer, 
   }
 
   const onlyMetadataDiffers = stripMetadata(deployedCode).equals(stripMetadata(currentCode));
+  if (onlyMetadataDiffers) {
+    return {
+      name: facetName,
+      address,
+      action: "REUSE",
+      reason: "logic bytecode matches; only the trailing Solidity metadata differs",
+      currentHash,
+      deployedHash,
+    };
+  }
+
   return {
     name: facetName,
     address,
     action: "REPLACE",
-    reason: onlyMetadataDiffers
-      ? "only trailing Solidity metadata differs, but execute compares full bytecode — would redeploy"
-      : "functional runtime bytecode differs; would redeploy",
+    reason: "functional runtime bytecode differs; would redeploy",
     currentHash,
     deployedHash,
   };

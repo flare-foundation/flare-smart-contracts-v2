@@ -372,12 +372,12 @@
   {
     "name": "ExtensionGovernanceFacet",
     "contractName": "ExtensionGovernanceFacet.sol",
-    "address": "0xAD806132cDabAaC4bd3e114568075B4AB8188fE4"
+    "address": "0x290c8D9d9d71c33C932B24CA662561992A6bE6d1"
   },
   {
     "name": "MachinePathManagerFacet",
     "contractName": "MachinePathManagerFacet.sol",
-    "address": "0x5Da9E6b91a2d0e966c1e3308c44Ae2801d6D79B5"
+    "address": "0x09575e35dF70A8c3A28Bd1BC42819478d3FB0EFE"
   },
   {
     "name": "WalletProjectPauseFacet",

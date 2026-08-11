@@ -379,6 +379,10 @@ contract ExecuteTeeManagerDiamondCut is Script {
         console2.log(string(abi.encodePacked("diamondCut calldata: 0x", _toHexBytes(callData))));
     }
 
+    // Compares logic bytecode only: each side's trailing CBOR metadata block (whose 32-byte
+    // ipfs hash shifts with the build environment, so historical deploys are not always
+    // byte-reproducible) is stripped before hashing, so metadata-only drift does not force
+    // a redeploy. Matches check-cut-plan.ts.
     function _deployedCodeMatches(
         address _addr,
         string memory _artifactPath
@@ -391,7 +395,10 @@ contract ExecuteTeeManagerDiamondCut is Script {
         }
         bytes memory onChain = _addr.code;
         bytes memory expected = vm.getDeployedCode(_artifactPath);
-        return keccak256(onChain) == keccak256(expected);
+        if (onChain.length == 0) {
+            return false;
+        }
+        return _logicBytecodeHash(onChain) == _logicBytecodeHash(expected);
     }
 
     function _findDeployedAddressFromFile(
@@ -411,6 +418,29 @@ contract ExecuteTeeManagerDiamondCut is Script {
             }
         }
         return address(0);
+    }
+
+    // Hash of the runtime bytecode with the trailing Solidity CBOR metadata block stripped.
+    // The last two bytes encode the metadata length; the block must start with a CBOR map
+    // (major type 5, i.e. 0xa0..0xbf). Anything that doesn't parse hashes as-is.
+    function _logicBytecodeHash(
+        bytes memory _code
+    )
+        internal pure
+        returns (bytes32 _hash)
+    {
+        uint256 len = _code.length;
+        uint256 logicLen = len;
+        if (len >= 2) {
+            uint256 metadataLen = (uint256(uint8(_code[len - 2])) << 8) | uint256(uint8(_code[len - 1]));
+            if (metadataLen != 0 && metadataLen + 2 <= len && uint8(_code[len - metadataLen - 2]) >> 5 == 5) {
+                logicLen = len - metadataLen - 2;
+            }
+        }
+        //solhint-disable-next-line no-inline-assembly
+        assembly {
+            _hash := keccak256(add(_code, 0x20), logicLen)
+        }
     }
 
     function _actionName(

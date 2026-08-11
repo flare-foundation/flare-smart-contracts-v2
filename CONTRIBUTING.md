@@ -27,7 +27,10 @@ pnpm compile
 ```bash
 # install Foundryup
 curl -L https://foundry.paradigm.xyz | bash
-foundryup
+
+# a nightly with foundry-rs/foundry#16100 is required: on older forge the coverage
+# profile's two same-version compilation jobs collide and coverage is silently wrong
+foundryup --install nightly-eb4bf9b4a0ca13f5e3ed5b5be221f37bff56a4f9
 
 # install dependencies
 forge soldeer install

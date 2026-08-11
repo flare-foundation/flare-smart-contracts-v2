@@ -19,7 +19,7 @@
     "test_unit_hh": "env TEST_PATH=./test/unit hardhat test --network hardhat",
     "test_integration_hh": "env TEST_PATH=./test/integration hardhat test --network hardhat",
     "coverage": "env COVERAGE=\"true\" NODE_OPTIONS=\"--max-old-space-size=8192\" hardhat coverage --solcoverjs ./.solcover.js --testfiles \"test\"",
-    "coverage-forge": "forge build && env FOUNDRY_PROFILE=\"coverage\" forge coverage --report lcov && node scripts/forge-lcov-prune.js && genhtml lcov.info.pruned --branch-coverage --output-dir coverage-forge",
+    "coverage-forge": "forge build && env FOUNDRY_PROFILE=\"coverage\" forge coverage --report lcov && node scripts/forge-lcov-prune.js && genhtml lcov.info.pruned --branch-coverage --output-dir coverage-forge --ignore-errors inconsistent",
     "---------COMPILE---SCRIPTS": "",
     "build": "forge build",
     "clean": "env rm -rf cache artifacts cache-forge artifacts-forge dist typechain typechain-truffle typechain-web3",
@@ -142,7 +142,6 @@
     "solhint": "^6.2.3"
   },
   "devDependencies": {
-    "@coverage.rocks/genhtml": "^1.16.0",
     "@eslint/compat": "^1.3.0",
     "@eslint/js": "^9.33.0",
     "@flarenetwork/eslint-config-flare": "^0.0.2",
