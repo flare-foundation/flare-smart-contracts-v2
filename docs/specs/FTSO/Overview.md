@@ -24,7 +24,9 @@ In normal operation the block-latency feed is what consumers read; the anchor fe
 [`FtsoV2`](../../../contracts/protocol/implementation/FtsoV2.sol) is a UUPS-upgradeable proxy that consolidates feed reads behind one interface:
 
 - `getFeedById(feedId)` / `getFeedByIdInWei(feedId)` — current value, decimals, timestamp; either from `FastUpdater` or from a registered custom feed contract (see [Feed Management](./FeedManagement.md)).
-- `getFeedByIndex(index)` / `getFeedByIndexInWei(index)` — the same, looked up by `FastUpdatesConfiguration` index.
+- `getFeedsById(feedIds[])` / `getFeedsByIdInWei(feedIds[])` — batched reads with a single shared timestamp; revert if the feeds report different timestamps (only possible with custom feeds — see [Feed Management](./FeedManagement.md)).
+- `getCurrentFeeds(feedIds[])` / `getCurrentFeedsInWei(feedIds[])` — batched reads returning a timestamp per feed, for batches mixing custom feeds with their own timestamp source.
+- `getFeedByIndex(index)` / `getFeedByIndexInWei(index)` — the same, looked up by `FastUpdatesConfiguration` index (fast-update feeds only, so a single timestamp always applies).
 - `verifyFeedData(FeedDataWithProof)` — Merkle-prove an FTSO anchor leaf against `Relay.merkleRoots(100, votingRoundId)`.
 - `getSupportedFeedIds()`, `getFeedIdChanges()` — discovery.
 - `calculateFeeById(feedId)` / `calculateFeeByIds(feedIds[])` — fee preview (paid through [`FeeCalculator`](../../../contracts/userInterfaces/IFeeCalculator.sol) for fast-update feeds, through the custom-feed contract for custom feeds).

@@ -187,6 +187,35 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     /**
      * @inheritdoc FtsoV2Interface
      */
+    function getCurrentFeeds(bytes21[] memory _feedIds)
+        external payable
+        returns (
+            uint256[] memory,
+            int8[] memory,
+            uint64[] memory
+        )
+    {
+        return _getCurrentFeeds(_feedIds);
+    }
+
+    /**
+     * @inheritdoc FtsoV2Interface
+     */
+    function getCurrentFeedsInWei(bytes21[] memory _feedIds)
+        external payable
+        returns (
+            uint256[] memory _values,
+            uint64[] memory _timestamps
+        )
+    {
+        int8[] memory decimals;
+        (_values, decimals, _timestamps) = _getCurrentFeeds(_feedIds);
+        _convertToWei(_values, decimals);
+    }
+
+    /**
+     * @inheritdoc FtsoV2Interface
+     */
     function calculateFeeById(bytes21 _feedId) external view returns (uint256 _fee) {
         // first check for feed id changes
         _feedId = _getCurrentFeedId(_feedId);
@@ -517,9 +546,10 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         }
     }
 
-    // Returns the feed data for all feed ids.
-    // NOTE: _timestamp is the same for all feeds (this is not checked), but even if custom feeds are included,
-    // we as well get the referenced feeds values from the FastUpdater contract which will return the same timestamp.
+    // Returns the feed data for all feed ids, with a single shared timestamp.
+    // NOTE: reverts if the feeds do not report the same timestamp. All fast update feeds share the
+    // FastUpdater timestamp and the bundled custom feeds read from the FastUpdater contract as well,
+    // so a mismatch is only possible with a custom feed that has its own timestamp source.
     function _getFeedsById(bytes21[] memory _feedIds)
         internal
         returns(
@@ -528,13 +558,39 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
             uint64 _timestamp
         )
     {
+        uint64[] memory timestamps;
+        (_values, _decimals, timestamps) = _getCurrentFeeds(_feedIds);
+        for (uint256 i = 0; i < timestamps.length; i++) {
+            if (i == 0) {
+                _timestamp = timestamps[0];
+            } else {
+                require(timestamps[i] == _timestamp, "timestamps do not match");
+            }
+        }
+    }
+
+    // Returns the feed data for all feed ids, with the timestamp of each feed.
+    // All fast update feeds share the same timestamp; custom feeds report their own.
+    function _getCurrentFeeds(bytes21[] memory _feedIds)
+        internal
+        returns(
+            uint256[] memory _values,
+            int8[] memory _decimals,
+            uint64[] memory _timestamps
+        )
+    {
         // first check for feed id changes
         for (uint256 i = 0; i < _feedIds.length; i++) {
             _feedIds[i] = _getCurrentFeedId(_feedIds[i]);
         }
+        _timestamps = new uint64[](_feedIds.length);
         uint256[] memory indices = _getFastUpdateIndices(_feedIds);
         if (_feedIds.length == indices.length) { // all feeds are fast update feeds
-            return fastUpdater.fetchCurrentFeeds{value: msg.value} (indices);
+            uint64 timestamp;
+            (_values, _decimals, timestamp) = fastUpdater.fetchCurrentFeeds{value: msg.value} (indices);
+            for (uint256 i = 0; i < _timestamps.length; i++) {
+                _timestamps[i] = timestamp;
+            }
         } else {
             _values = new uint256[](_feedIds.length);
             _decimals = new int8[](_feedIds.length);
@@ -544,20 +600,22 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
                     IICustomFeed customFeed = customFeeds[_feedIds[i]].customFeed;
                     require(address(customFeed) != address(0), "custom feed id not supported");
                     uint256 fee = customFeed.calculateFee();
-                    (_values[i], _decimals[i], _timestamp) = customFeed.getCurrentFeed{value: fee} ();
+                    (_values[i], _decimals[i], _timestamps[i]) = customFeed.getCurrentFeed{value: fee} ();
                 }
             }
             if (indices.length > 0) {
                 uint256[] memory values;
                 int8[] memory decimals;
+                uint64 timestamp;
                 // set fast update feeds data - use all remaining balance for fees
                 //slither-disable-next-line arbitrary-send-eth
-                (values, decimals, _timestamp) = fastUpdater.fetchCurrentFeeds{value: address(this).balance} (indices);
+                (values, decimals, timestamp) = fastUpdater.fetchCurrentFeeds{value: address(this).balance} (indices);
                 uint256 index = 0;
                 for (uint256 i = 0; i < _feedIds.length; i++) {
                     if (!_isCustomFeedId(_feedIds[i])) {
                         _values[i] = values[index];
                         _decimals[i] = decimals[index];
+                        _timestamps[i] = timestamp;
                         index++;
                     }
                 }

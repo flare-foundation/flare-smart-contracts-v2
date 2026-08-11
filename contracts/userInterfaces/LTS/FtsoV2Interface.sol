@@ -49,10 +49,13 @@ interface FtsoV2Interface {
     /**
      * Returns stored data of each feed.
      * A fee (calculated by the FeeCalculator contract) may need to be paid.
+     * Reverts if the requested feeds do not report the same timestamp - only possible if a custom feed
+     * with its own timestamp source is included. It is recommended to use `getCurrentFeeds` instead,
+     * which returns a timestamp for each feed.
      * @param _feedIds The list of feed ids.
      * @return _values The list of values for the requested feeds.
      * @return _decimals The list of decimal places for the requested feeds.
-     * @return _timestamp The timestamp of the last update.
+     * @return _timestamp The timestamp of the last update, shared by all requested feeds.
      */
     function getFeedsById(bytes21[] memory _feedIds)
         external payable
@@ -78,15 +81,51 @@ interface FtsoV2Interface {
 
     /** Returns value of each feed and a timestamp.
      * For some feeds, a fee (calculated by the FeeCalculator contract) may need to be paid.
+     * Reverts if the requested feeds do not report the same timestamp - only possible if a custom feed
+     * with its own timestamp source is included. It is recommended to use `getCurrentFeedsInWei` instead,
+     * which returns a timestamp for each feed.
      * @param _feedIds Ids of the feeds.
      * @return _values The list of values for the requested feeds in wei (i.e. with 18 decimal places).
-     * @return _timestamp The timestamp of the last update.
+     * @return _timestamp The timestamp of the last update, shared by all requested feeds.
      */
     function getFeedsByIdInWei(bytes21[] memory _feedIds)
         external payable
         returns (
             uint256[] memory _values,
             uint64 _timestamp
+        );
+
+    /**
+     * Returns stored data of each feed, with the timestamp of each feed.
+     * A fee (calculated by the FeeCalculator contract) may need to be paid.
+     * In contrast to `getFeedsById`, the timestamps may differ between feeds - all fast update feeds
+     * share the same timestamp, while custom feeds report their own.
+     * @param _feedIds The list of feed ids.
+     * @return _values The list of values for the requested feeds.
+     * @return _decimals The list of decimal places for the requested feeds.
+     * @return _timestamps The list of timestamps of the last update, one for each requested feed.
+     */
+    function getCurrentFeeds(bytes21[] memory _feedIds)
+        external payable
+        returns (
+            uint256[] memory _values,
+            int8[] memory _decimals,
+            uint64[] memory _timestamps
+        );
+
+    /** Returns value of each feed, with the timestamp of each feed.
+     * For some feeds, a fee (calculated by the FeeCalculator contract) may need to be paid.
+     * In contrast to `getFeedsByIdInWei`, the timestamps may differ between feeds - all fast update
+     * feeds share the same timestamp, while custom feeds report their own.
+     * @param _feedIds Ids of the feeds.
+     * @return _values The list of values for the requested feeds in wei (i.e. with 18 decimal places).
+     * @return _timestamps The list of timestamps of the last update, one for each requested feed.
+     */
+    function getCurrentFeedsInWei(bytes21[] memory _feedIds)
+        external payable
+        returns (
+            uint256[] memory _values,
+            uint64[] memory _timestamps
         );
 
     /**

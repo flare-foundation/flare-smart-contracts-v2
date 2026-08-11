@@ -49,7 +49,7 @@ The legacy / long-term-support compatibility interfaces are under [`userInterfac
 | [`IIncreaseManager`](../../contracts/userInterfaces/IIncreaseManager.sol) | Base for sample-size and range increases. |
 | [`IFeeCalculator`](../../contracts/userInterfaces/IFeeCalculator.sol) | Per-feed read fees used by `FastUpdater.fetchCurrentFeeds`. |
 
-The public `FtsoV2` reader (UUPS proxy) at [`FtsoV2Interface`](../../contracts/userInterfaces/LTS/FtsoV2Interface.sol) is the recommended entry point for application contracts. See [FTSO / Overview](./FTSO/Overview.md).
+The public `FtsoV2` reader (UUPS proxy) at [`FtsoV2Interface`](../../contracts/userInterfaces/LTS/FtsoV2Interface.sol) is the recommended entry point for application contracts. Batched reads come in two flavors: `getFeedsById` / `getFeedsByIdInWei` return one shared timestamp (reverting if the feeds report different ones), while `getCurrentFeeds` / `getCurrentFeedsInWei` return a timestamp per feed. See [FTSO / Overview](./FTSO/Overview.md).
 
 ## FDC
 

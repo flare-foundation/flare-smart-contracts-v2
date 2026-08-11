@@ -75,6 +75,8 @@ When a consumer calls `FtsoV2.getFeedById(feedId)`, the contract:
 
 For batched calls (`getFeedsById`), `FtsoV2` separates fast-update feeds from custom feeds, calls the relevant target for each, and stitches results back together. Fees flow correspondingly: each custom feed's `calculateFee` is consulted, and any remaining `msg.value` is forwarded to `FastUpdater` for the bundle.
 
+**Batch timestamp semantics.** `getFeedsById` / `getFeedsByIdInWei` return a single timestamp for the whole batch, and revert with `"timestamps do not match"` if the requested feeds do not all report the same one. All fast-update feeds in a batch share `FastUpdater`'s single last-submission timestamp, and the bundled custom feeds (`SFlrCustomFeed`, `StXrpCustomFeed`) pass that same timestamp through, so a mismatch is only possible when the batch includes a custom feed with its own timestamp source. For such batches, `getCurrentFeeds` / `getCurrentFeedsInWei` return a timestamp **per feed** instead of enforcing equality.
+
 ### Custom feed: `SFlrCustomFeed`
 
 [`SFlrCustomFeed`](../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol) is a derivative feed for sFLR (Flare's liquid-staking token). It returns "the value, in the reference asset, of one sFLR share":

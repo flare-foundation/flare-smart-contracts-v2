@@ -721,6 +721,179 @@ contract FtsoV2Test is Test {
         assertEq(address(fastUpdater).balance, 100 - totalFee + 12);
     }
 
+    // custom feed reports a different timestamp than the fast update feed
+    function testGetFeedsByIdRevertTimestampsMismatch() public {
+        _addSFlrCustomFeed();
+        _addFeeds();
+        _mockCustomFeedGetCurrentFeed(address(sFlrCustomFeed), 246912, 4, 5);
+
+        bytes21[] memory feedIds = new bytes21[](2);
+        feedIds[0] = flrFeedId;
+        feedIds[1] = sflrFeedId;
+        vm.expectRevert("timestamps do not match");
+        ftsoV2.getFeedsById{value: 12 * 2} (feedIds);
+    }
+
+    function testGetFeedsByIdInWeiRevertTimestampsMismatch() public {
+        _addSFlrCustomFeed();
+        _addFeeds();
+        _mockCustomFeedGetCurrentFeed(address(sFlrCustomFeed), 246912, 4, 5);
+
+        bytes21[] memory feedIds = new bytes21[](2);
+        feedIds[0] = flrFeedId;
+        feedIds[1] = sflrFeedId;
+        vm.expectRevert("timestamps do not match");
+        ftsoV2.getFeedsByIdInWei{value: 12 * 2} (feedIds);
+    }
+
+    // two custom feeds reporting different timestamps
+    function testGetFeedsByIdTwoCustomFeedsRevertTimestampsMismatch() public {
+        SFlrCustomFeed customFeed2 = _addSecondCustomFeed();
+        _addFeeds();
+        _mockCustomFeedGetCurrentFeed(address(sFlrCustomFeed), 246912, 4, 5);
+        _mockCustomFeedGetCurrentFeed(address(customFeed2), 246912, 4, 6);
+
+        bytes21[] memory feedIds = new bytes21[](2);
+        feedIds[0] = sflrFeedId;
+        feedIds[1] = customFeed2.feedId();
+        vm.expectRevert("timestamps do not match");
+        ftsoV2.getFeedsById{value: 12 * 2} (feedIds);
+    }
+
+    // two custom feeds reporting the same timestamp
+    function testGetFeedsByIdTwoCustomFeedsSameTimestamp() public {
+        SFlrCustomFeed customFeed2 = _addSecondCustomFeed();
+        _addFeeds();
+        _mockCustomFeedGetCurrentFeed(address(sFlrCustomFeed), 246912, 4, 7);
+        _mockCustomFeedGetCurrentFeed(address(customFeed2), 369121, 5, 7);
+
+        bytes21[] memory feedIds = new bytes21[](2);
+        feedIds[0] = sflrFeedId;
+        feedIds[1] = customFeed2.feedId();
+        (uint256[] memory values, int8[] memory decimals, uint64 timestamp) =
+            ftsoV2.getFeedsById{value: 12 * 2} (feedIds);
+        assertEq(values[0], 246912);
+        assertEq(decimals[0], 4);
+        assertEq(values[1], 369121);
+        assertEq(decimals[1], 5);
+        assertEq(timestamp, 7);
+    }
+
+    // mixed batch with a custom feed reporting its own timestamp - no revert, per-feed timestamps
+    function testGetCurrentFeeds() public {
+        _addSFlrCustomFeed();
+        _addFeeds();
+        _mockCustomFeedGetCurrentFeed(address(sFlrCustomFeed), 246912, 4, 5);
+
+        bytes21[] memory feedIds = new bytes21[](5);
+        feedIds[0] = flrFeedId;
+        feedIds[1] = bytes21("SGB");
+        feedIds[2] = bytes21("BTC");
+        feedIds[3] = bytes21("ETH");
+        feedIds[4] = sflrFeedId;
+        (uint256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
+            ftsoV2.getCurrentFeeds{value: 12 * 2 + 9 + 8 * 2} (feedIds);
+        assertEq(values.length, 5);
+        assertEq(timestamps.length, 5);
+        assertEq(values[0], 123456);
+        assertEq(decimals[0], 4);
+        assertEq(timestamps[0], 0);
+        assertEq(values[1], 1234567);
+        assertEq(decimals[1], 6);
+        assertEq(timestamps[1], 0);
+        assertEq(values[2], 12345678);
+        assertEq(decimals[2], -2);
+        assertEq(timestamps[2], 0);
+        assertEq(values[3], 9876543);
+        assertEq(decimals[3], 20);
+        assertEq(timestamps[3], 0);
+        assertEq(values[4], 246912);
+        assertEq(decimals[4], 4);
+        assertEq(timestamps[4], 5);
+    }
+
+    // all fast update feeds share the same timestamp
+    function testGetCurrentFeedsAllFastUpdateFeeds() public {
+        _addFeeds();
+        bytes21[] memory feedIds = new bytes21[](2);
+        feedIds[0] = flrFeedId;
+        feedIds[1] = bytes21("SGB");
+        (uint256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
+            ftsoV2.getCurrentFeeds{value: 12 + 9} (feedIds);
+        assertEq(values[0], 123456);
+        assertEq(decimals[0], 4);
+        assertEq(values[1], 1234567);
+        assertEq(decimals[1], 6);
+        assertEq(timestamps.length, 2);
+        assertEq(timestamps[0], 0);
+        assertEq(timestamps[1], 0);
+    }
+
+    function testGetCurrentFeedsInWei() public {
+        _addSFlrCustomFeed();
+        _addFeeds();
+        _mockCustomFeedGetCurrentFeed(address(sFlrCustomFeed), 246912, 4, 5);
+
+        bytes21[] memory feedIds = new bytes21[](2);
+        feedIds[0] = flrFeedId;
+        feedIds[1] = sflrFeedId;
+        (uint256[] memory values, uint64[] memory timestamps) =
+            ftsoV2.getCurrentFeedsInWei{value: 12 * 2} (feedIds);
+        assertEq(values.length, 2);
+        assertEq(values[0], 123456 * 10 ** (18 - 4));
+        assertEq(timestamps[0], 0);
+        assertEq(values[1], 246912 * 10 ** (18 - 4));
+        assertEq(timestamps[1], 5);
+    }
+
+    function testGetCurrentFeedsRevert() public {
+        bytes21[] memory feedIds = new bytes21[](2);
+        feedIds[0] = flrFeedId;
+        feedIds[1] = sflrFeedId;
+        vm.expectRevert("feed does not exist");
+        ftsoV2.getCurrentFeeds(feedIds);
+    }
+
+    function testGetCurrentFeedsRevertCustom() public {
+        _addFeeds();
+        bytes21[] memory feedIds = new bytes21[](2);
+        feedIds[0] = flrFeedId;
+        feedIds[1] = sflrFeedId;
+        vm.expectRevert("custom feed id not supported");
+        ftsoV2.getCurrentFeeds(feedIds);
+    }
+
+    function testGetCurrentFeedsUseContractFunds() public {
+        _addFeeds();
+        _addSFlrCustomFeed();
+        _mockGetPooledFlrByShares(123456);
+        _mockGetContractAddressByName("FastUpdatesConfiguration", address(fastUpdatesConfiguration));
+        _mockGetContractAddressByName("FastUpdater", address(fastUpdater));
+        _mockGetContractAddressByName("FeeCalculator", address(feeCalculator));
+        bytes21[] memory feedIds = new bytes21[](5);
+        feedIds[0] = flrFeedId;
+        feedIds[1] = bytes21("SGB");
+        feedIds[2] = bytes21("BTC");
+        feedIds[3] = bytes21("ETH");
+        feedIds[4] = sflrFeedId;
+        vm.deal(address(ftsoV2), 100);
+        // send only fee for custom feed
+        // fee for FU feeds will be paid from the contract balance
+        (uint256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
+            ftsoV2.getCurrentFeeds{value: 12} (feedIds);
+        assertEq(values.length, 5);
+        assertEq(values[4], 123456 * 2);
+        assertEq(decimals[4], 4);
+        assertEq(timestamps[0], 0);
+        assertEq(timestamps[4], 0);
+        // whole FtsoV2 balance is used to pay for FU feeds
+        uint256 totalFee = 12 * 2 + 9 + 8 * 2;
+        assertEq(feeDestination.balance, totalFee);
+        assertEq(address(ftsoV2).balance, 0);
+        // remaining fee remains on the FastUpdater contract
+        assertEq(address(fastUpdater).balance, 100 - totalFee + 12);
+    }
+
     // calculate fee
     function testCalculateFeeById1() public {
         _addSFlrCustomFeed();
@@ -1116,6 +1289,35 @@ contract FtsoV2Test is Test {
         customFeeds[0] = sFlrCustomFeed;
         vm.prank(governance);
         ftsoV2.addCustomFeeds(customFeeds);
+    }
+
+    // adds sFlrCustomFeed and a second custom feed with its own feed id
+    function _addSecondCustomFeed() private returns (SFlrCustomFeed _customFeed2) {
+        _customFeed2 = new SFlrCustomFeed(
+            bytes21(bytes.concat(bytes1(uint8(51)), bytes("SFLR2"))),
+            flrFeedId,
+            IFlareContractRegistry(mockFlareContractRegistry),
+            ISFlr(sFlr)
+        );
+        IICustomFeed[] memory customFeeds = new IICustomFeed[](2);
+        customFeeds[0] = sFlrCustomFeed;
+        customFeeds[1] = _customFeed2;
+        vm.prank(governance);
+        ftsoV2.addCustomFeeds(customFeeds);
+    }
+
+    // mocks a custom feed to report the given value, decimals and (own) timestamp; fee is fixed to 12
+    function _mockCustomFeedGetCurrentFeed(address _customFeed, uint256 _value, int8 _decimals, uint64 _ts) private {
+        vm.mockCall(
+            _customFeed,
+            abi.encodeWithSelector(IICustomFeed.calculateFee.selector),
+            abi.encode(uint256(12))
+        );
+        vm.mockCall(
+            _customFeed,
+            abi.encodeWithSelector(IICustomFeed.getCurrentFeed.selector),
+            abi.encode(_value, _decimals, _ts)
+        );
     }
 
     function _mockGetContractAddressByName(string memory _contractName, address _contractAddr) private {
