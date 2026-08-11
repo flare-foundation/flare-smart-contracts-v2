@@ -103,6 +103,11 @@ contract Fdc2HubTest is Test {
         vm.prank(governance);
         fdc2Hub.setMinThresholdBIPS(newMinThresholdBIPS);
         assertEq(fdc2Hub.minThresholdBIPS(), newMinThresholdBIPS);
+
+        // 9999 is the highest accepted value; 10000 is rejected on-chain and off-chain
+        vm.prank(governance);
+        fdc2Hub.setMinThresholdBIPS(1e4 - 1);
+        assertEq(fdc2Hub.minThresholdBIPS(), 1e4 - 1);
     }
 
     function testSetMinThresholdBIPSRevert() public {
@@ -112,7 +117,7 @@ contract Fdc2HubTest is Test {
 
         vm.prank(governance);
         vm.expectRevert(IFdc2Hub.MinThresholdInvalid.selector);
-        fdc2Hub.setMinThresholdBIPS(1e4 + 1);
+        fdc2Hub.setMinThresholdBIPS(1e4);
 
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         fdc2Hub.setMinThresholdBIPS(3000);
@@ -148,7 +153,7 @@ contract Fdc2HubTest is Test {
         vm.expectRevert(IFdc2Hub.ThresholdInvalid.selector);
         fdc2Hub.requestAttestation(
             IFdc2Hub.Fdc2AttestationRequest({
-                header: IFdc2Hub.Fdc2RequestHeader("", "", 1e4 + 1, address(0)),
+                header: IFdc2Hub.Fdc2RequestHeader("", "", 1e4, address(0)),
                 requestBody: ""
             }),
             1, new address[](0), new address[](0), 0, address(0)

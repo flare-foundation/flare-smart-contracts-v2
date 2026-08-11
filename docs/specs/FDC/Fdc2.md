@@ -36,7 +36,7 @@ The `Fdc2AttestationRequest` carries:
 
 `Fdc2Hub.requestAttestation` enforces:
 
-- **Threshold sanity.** `thresholdBIPS == 0` (use signing policy) or `minThresholdBIPS ≤ thresholdBIPS ≤ MAX_BIPS (10000)`.
+- **Threshold sanity.** `thresholdBIPS == 0` (use signing policy) or `minThresholdBIPS ≤ thresholdBIPS < MAX_BIPS (10000)`. The bound is strict — the off-chain TEE verifier rejects `thresholdBIPS ≥ 10000`, so accepting it on-chain would only burn the non-refundable request fee. `setMinThresholdBIPS` enforces the same strict bound (`0 < minThresholdBIPS < 10000`).
 - **TEE-set sanity.** Either `_numberOfTees == 0` (let the hub pick), or `_teeIds[]` non-empty, or both consistent (`_numberOfTees == _teeIds.length`).
 - **Cosigner sanity.** `_cosigners.length >= _cosignersThreshold`.
 - **Multi-response prevention.** If `thresholdBIPS != 0` (and < 50%), at least more than half of cosigners must be required to sign — otherwise multiple distinct response sets could be threshold-valid simultaneously, leaving the consumer uncertain which to honor.

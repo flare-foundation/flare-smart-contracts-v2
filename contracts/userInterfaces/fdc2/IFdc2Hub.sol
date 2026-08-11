@@ -19,6 +19,8 @@ interface IFdc2Hub {
      * @param attestationType The attestation type.
      * @param sourceId The source id.
      * @param thresholdBIPS The threshold in BIPS (optional, 0 uses signing policy threshold).
+     *  Nonzero values must be in `[minThresholdBIPS, 10000)` - 10000 itself is rejected, since the
+     *  off-chain TEE verifier does not accept it and the request fee is non-refundable.
      *  Compared with strict inequality, so e.g. 5000 (50%) requires strictly more than 50% of the weight.
      * @param proofOwner The proof owner address (optional).
      */

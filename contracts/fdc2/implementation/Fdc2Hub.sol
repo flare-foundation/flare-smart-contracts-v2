@@ -75,7 +75,7 @@ contract Fdc2Hub is IFdc2Hub, FlareUpgradeableBase {
         // thresholdBIPS == 0 uses signing policy threshold
         uint16 thresholdBIPS = _attestationRequest.header.thresholdBIPS;
         require(
-            thresholdBIPS == 0 || (minThresholdBIPS <= thresholdBIPS && thresholdBIPS <= MAX_BIPS),
+            thresholdBIPS == 0 || (minThresholdBIPS <= thresholdBIPS && thresholdBIPS < MAX_BIPS),
             ThresholdInvalid()
         );
         require(
@@ -190,7 +190,7 @@ contract Fdc2Hub is IFdc2Hub, FlareUpgradeableBase {
     )
         internal
     {
-        require(0 < _minThresholdBIPS && _minThresholdBIPS <= MAX_BIPS, MinThresholdInvalid());
+        require(0 < _minThresholdBIPS && _minThresholdBIPS < MAX_BIPS, MinThresholdInvalid());
         minThresholdBIPS = _minThresholdBIPS;
         emit MinThresholdBIPSSet(_minThresholdBIPS);
     }
