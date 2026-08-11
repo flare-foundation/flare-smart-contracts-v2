@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.35;
+// Exact-version pin: the factory's keyless-CREATE2 address is keccak(initcode)-dependent, and the
+// initcode is frozen in deployment/create3/Create3Factory.initcode.hex. A different solc release
+// changes the codegen (metadata is already stripped via foundry.toml) and with it the canonical
+// address, so this file must always compile with 0.8.35 — do not widen the pragma.
+pragma solidity =0.8.35;
 
 import { Create3 } from "@openzeppelin/contracts/utils/Create3.sol";
 
