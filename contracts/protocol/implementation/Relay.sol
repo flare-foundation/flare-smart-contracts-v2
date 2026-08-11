@@ -325,10 +325,6 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         initialRewardEpochId = _initialConfig.initialRewardEpochId;
         startingVotingRoundIdForInitialRewardEpochId =
             _initialConfig.startingVotingRoundIdForInitialRewardEpochId;
-        signingPolicySetter = _signingPolicySetter;
-        if (_signingPolicySetter != address(0)) {
-            emit SigningPolicySetterSet(_signingPolicySetter);
-        }
         // Migration handshake: lastInitializedRewardEpoch is seeded to initialRewardEpochId, and setSigningPolicy
         // strictly requires the next call to be exactly initialRewardEpochId + 1 ("not next reward epoch"). The
         // deployer (redeploy-relay.ts) must therefore cut over so the trusted setter's next policy is that epoch;
@@ -346,19 +342,24 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         stateData.thresholdIncreaseBIPS = _initialConfig.thresholdIncreaseBIPS;
         stateData.messageFinalizationWindowInRewardEpochs = _initialConfig.messageFinalizationWindowInRewardEpochs;
         if (_signingPolicySetter != address(0)) {
+            // Setter-mode (home) deployments never charge a verify() fee, so seeded fees, fee
+            // exemptions and a fee-collection address are all meaningless here; reject them to
+            // catch a misconfigured home config.
             require(_initialConfig.feeConfigs.length == 0, FeeConfigNotAllowed());
-            // Setter-mode deployments never charge a verify() fee, so fee exemptions are
-            // meaningless here; reject them to catch a misconfigured home config (mirrors feeConfigs).
             require(_initialConfig.feeExemptAddresses.length == 0, FeeExemptionsNotAllowed());
+            require(_initialConfig.feeCollectionAddress == address(0), FeeConfigNotAllowed());
+            // RLY-23 home-force: a live signing-policy setter (home deploy) must bind this chain.
+            require(
+                _initialConfig.sourceChainId == block.chainid,
+                SourceChainIdMismatchOnHomeDeploy()
+            );
+            signingPolicySetter = _signingPolicySetter;
             stateData.noSigningPolicyRelay = true;
-        }
-        feeCollectionAddress = _initialConfig.feeCollectionAddress;
-        // In relay mode a zero fee-collection address would burn collected fees, so reject it.
-        require(
-            _signingPolicySetter != address(0) || _initialConfig.feeCollectionAddress != address(0),
-            FeeCollectionAddressZero()
-        );
-        if (_initialConfig.feeCollectionAddress != address(0)) {
+            emit SigningPolicySetterSet(_signingPolicySetter);
+        } else {
+            // In relay mode a zero fee-collection address would burn collected fees, so reject it.
+            require(_initialConfig.feeCollectionAddress != address(0), FeeCollectionAddressZero());
+            feeCollectionAddress = _initialConfig.feeCollectionAddress;
             emit FeeCollectionAddressSet(_initialConfig.feeCollectionAddress);
         }
         for (uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {
@@ -377,16 +378,10 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             emit FeeExemptionSet(exemptAccount, true);
         }
         // RLY-23: the source-network id is mandatory on every deployment — home, mirror and
-        // old-relay migration alike (the same artifact ships to every chain).
+        // old-relay migration alike (the same artifact ships to every chain). A live
+        // signing-policy setter (home deploy) additionally forces it to this chain (checked above).
         require(_initialConfig.sourceChainId != 0, SourceChainIdZero());
         sourceChainId = _initialConfig.sourceChainId;
-        // RLY-23 home-force: a live signing-policy setter (home deploy) must bind this chain.
-        if (_signingPolicySetter != address(0)) {
-            require(
-                _initialConfig.sourceChainId == block.chainid,
-                SourceChainIdMismatchOnHomeDeploy()
-            );
-        }
         // The owner-timelock duration is deploy-configured so the owner (a multisig) needs no
         // post-deploy ceremony call. Writing the ERC-7201 namespaced state via the base's
         // internal getState() keeps the inherited OwnableWithTimelock file byte-identical to
@@ -397,7 +392,6 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         );
         getState().timelockDurationSeconds = _initialConfig.timelockDurationSeconds;
         emit TimelockDurationSet(_initialConfig.timelockDurationSeconds);
-        oldRelay = _oldRelay;
         // new relay must be deployed in a compatible way (policy setter or not)
         if (address(_oldRelay) != address(0)) {
             require((_signingPolicySetter != address(0) && _oldRelay.signingPolicySetter() != address(0)) ||
@@ -425,6 +419,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 _initialConfig.votingEpochDurationSeconds == votingEpochDurationSeconds,
                 OldRelayWrongVotingEpochDuration()
             );
+            oldRelay = _oldRelay;
         }
     }
 

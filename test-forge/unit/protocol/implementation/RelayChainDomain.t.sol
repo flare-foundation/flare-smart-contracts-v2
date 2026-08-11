@@ -179,6 +179,7 @@ contract RelayChainDomainTest is RelayTestBase {
     function test_storedPolicyHash_isChainBound() public {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.initialRewardEpochId = 0; // setSigningPolicy requires lastInitialized + 1 == rewardEpochId
+        cfg.feeCollectionAddress = payable(address(0)); // setter mode collects no fees
         Relay setterRelay = deployRelay(cfg, address(this), IRelay(address(0)));
 
         IIRelay.SigningPolicy memory sp;
@@ -331,6 +332,7 @@ contract RelayChainDomainTest is RelayTestBase {
         migratedConfig.initialRewardEpochId = REWARD_EPOCH_ID + 2;
         migratedConfig.startingVotingRoundIdForInitialRewardEpochId =
             START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION;
+        migratedConfig.feeCollectionAddress = payable(address(0)); // setter mode collects no fees
         Relay migrated = deployRelay(migratedConfig, address(this), IRelay(address(oldRelay)));
 
         bytes memory postCutover = _chainBoundMessageRelay(
@@ -393,6 +395,7 @@ contract RelayChainDomainTest is RelayTestBase {
         vm.chainId(SONGBIRD_CHAIN_ID);
         IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
         cfg.sourceChainId = FLARE_CHAIN_ID; // foreign source on a setter (home) deployment
+        cfg.feeCollectionAddress = payable(address(0)); // setter mode collects no fees
         Relay implementation = new Relay();
         vm.expectRevert(IRelay.SourceChainIdMismatchOnHomeDeploy.selector);
         new RelayProxy(address(implementation), cfg, address(this), IRelay(address(0)), RELAY_TEST_GOVERNANCE);

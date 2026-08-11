@@ -552,6 +552,16 @@ contract RelayVerifyTest is RelayTestBase {
         new RelayProxy(impl, cfg, address(0xF5), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
     }
 
+    // Setter-mode (home) deploys never collect fees, so a seeded fee-collection address is a
+    // config mistake and is rejected (mirrors the feeConfigs / feeExemptions restrictions).
+    function test_initialFeeCollectionAddress_rejectedOnHomeDeploy() public {
+        address impl = address(new Relay());
+        // the shared fixture seeds a nonzero (relay-mode) fee-collection address
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        vm.expectRevert(IRelay.FeeConfigNotAllowed.selector);
+        new RelayProxy(impl, cfg, address(0xF5), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
+    }
+
     // A zero address in the initial exemption list is rejected.
     function test_initialFeeExemption_rejectsZeroAddress() public {
         address impl = address(new Relay());

@@ -22,9 +22,16 @@ export async function deployRelayProxy(
   const Relay = artifacts.require("Relay");
   const RelayProxy = artifacts.require("RelayProxy");
   const implementation = await Relay.new();
+  // Setter-mode (home) deployments never charge verify() fees, and initialize() rejects a seeded
+  // fee-collection address there; legacy test configs predate that invariant, so normalize here.
+  const setterMode = BigInt(signingPolicySetter) !== 0n;
   const proxy = await RelayProxy.new(
     implementation.address,
-    { ...relayInitialConfig, feeExemptAddresses: relayInitialConfig.feeExemptAddresses ?? [] },
+    {
+      ...relayInitialConfig,
+      feeExemptAddresses: relayInitialConfig.feeExemptAddresses ?? [],
+      ...(setterMode ? { feeCollectionAddress: "0x0000000000000000000000000000000000000000" } : {}),
+    },
     signingPolicySetter,
     oldRelay,
     initialOwner

@@ -208,6 +208,11 @@ require(_signingPolicySetter != address(0) || _initialConfig.feeCollectionAddres
 ```
 i.e. in **relay mode** (where fees can be charged at construction or added later via `governanceFeeSetup`) the fee-collection address must be non-zero, so collected fees can't be burned. In setter mode (no fees possible) a zero address is allowed. No `feeCollectionAddress` setter added (stays constructor-set).
 
+> **Superseded on `relay-owner-timelock`:** the invariant was tightened — setter mode now *requires* a
+> zero fee-collection address (`FeeConfigNotAllowed()`, mirroring the seeded-fees and fee-exemption
+> rejections), and relay mode gained an owner-timelocked `setFeeCollectionAddress`. `initialize` groups
+> the two deployment modes into one if/else (checks first, then writes).
+
 **Test impact.** 20 Hardhat relay-mode deploys used `feeCollectionAddress: ZERO_ADDRESS` (including the governance test, which adds fees later) — repointed to `BURN_ADDRESS` (inert for the fee-less tests; correct for the governance test).
 
 **Tests.** Foundry `RelayConstructorTest` (4): rejects zero reward-epoch duration / zero voting-epoch duration / zero fee-collection in relay mode; allows zero fee-collection in setter mode. Hardhat "Constructor validation" describe (5): same + a valid-config sanity deploy. **Foundry 17 passing; Hardhat 52.**

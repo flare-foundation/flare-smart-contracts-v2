@@ -39,7 +39,7 @@ owner-governance surface:
 - **Signing-policy / event ABI:** [`test_event_signatures_match_canonical`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L282)
   pins the assembly event topics to the canonical ABI.
 - **Signing-policy rotation (Mode 1, protocolId == 0):** `RelayPolicyRotationTest` — relaying a *new*
-  signing policy advances `lastInitializedRewardEpoch` ([`test_relayNewSigningPolicy_happyPath`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1048)); the new
+  signing policy advances `lastInitializedRewardEpoch` ([`test_relayNewSigningPolicy_happyPath`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1058)); the new
   policy must be `lastInitialized + 1` (`_wrongRewardEpoch_reverts`) with enough weight
   (`_lowWeight_reverts`) and present metadata (`_noNewPolicySize_reverts`); post-rotation a message is
   finalized by the new policy (`_thenRelayWithNewPolicy`), the old policy is then locked out
@@ -109,13 +109,13 @@ policy/message/signature encoders and the chunked policy hash) doubles as the su
 
 **Signing-policy rotation — Mode 1, protocolId == 0 (7)**
 
-- [`test_relayNewSigningPolicy_happyPath`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1048) — relaying the next policy advances `lastInitializedRewardEpoch`, records its start round.
-- [`test_relayNewSigningPolicy_thenRelayWithNewPolicy`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1062) — after rotation, the new policy finalizes a next-epoch message.
-- [`test_relayNewSigningPolicy_wrongRewardEpoch_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1072) — the relayed policy must be `lastInitialized + 1`.
-- [`test_relayNewSigningPolicy_lowWeight_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1081) — under-threshold signer weight rejected; the epoch does not advance.
-- [`test_relayNewSigningPolicy_noNewPolicySize_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1089) — protocolId 0 with no new-policy metadata reverts.
-- [`test_relay_mustUseNewSignPolicy_afterRotation_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1097) — the old policy is locked out once the new one exists.
-- [`test_relay_crossEpoch_oldPolicy_thresholdIncrease`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1109) — a future-epoch message under the current policy needs +20% weight.
+- [`test_relayNewSigningPolicy_happyPath`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1058) — relaying the next policy advances `lastInitializedRewardEpoch`, records its start round.
+- [`test_relayNewSigningPolicy_thenRelayWithNewPolicy`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1072) — after rotation, the new policy finalizes a next-epoch message.
+- [`test_relayNewSigningPolicy_wrongRewardEpoch_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1082) — the relayed policy must be `lastInitialized + 1`.
+- [`test_relayNewSigningPolicy_lowWeight_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1091) — under-threshold signer weight rejected; the epoch does not advance.
+- [`test_relayNewSigningPolicy_noNewPolicySize_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1099) — protocolId 0 with no new-policy metadata reverts.
+- [`test_relay_mustUseNewSignPolicy_afterRotation_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1107) — the old policy is locked out once the new one exists.
+- [`test_relay_crossEpoch_oldPolicy_thresholdIncrease`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1119) — a future-epoch message under the current policy needs +20% weight.
 
 **Random protocol — Mode 2, RLY-03 (10)**
 
@@ -132,51 +132,51 @@ policy/message/signature encoders and the chunked policy hash) doubles as the su
 
 **Mode-2 message & signature-loop edges (7)**
 
-- [`test_relay_zeroMerkleRoot_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L637) — relaying a zero Merkle root reverts (RLY-04).
-- [`test_relay_badV_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L659) — a non-canonical `v` is rejected before `ecrecover`: "Bad v" (RLY-16).
-- [`test_relay_highS_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L669) — a high-`s` (malleable) signature is rejected: "Bad s" (RLY-16).
-- [`test_threshold_exactBoundary_strictGreater`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L697) — weight == threshold must fail; strictly greater passes.
-- [`test_relay_indexOutOfRange_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L891) — a signature index == numberOfVoters: "Index out of range".
-- [`test_relay_indexOutOfOrder_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L901) — non-increasing signature indices: "Index out of order".
-- [`test_relay_zeroSignatures_notEnoughWeight`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L913) — zero signatures falls through to `NotEnoughWeight()`.
+- [`test_relay_zeroMerkleRoot_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L647) — relaying a zero Merkle root reverts (RLY-04).
+- [`test_relay_badV_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L669) — a non-canonical `v` is rejected before `ecrecover`: "Bad v" (RLY-16).
+- [`test_relay_highS_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L679) — a high-`s` (malleable) signature is rejected: "Bad s" (RLY-16).
+- [`test_threshold_exactBoundary_strictGreater`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L707) — weight == threshold must fail; strictly greater passes.
+- [`test_relay_indexOutOfRange_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L901) — a signature index == numberOfVoters: "Index out of range".
+- [`test_relay_indexOutOfOrder_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L911) — non-increasing signature indices: "Index out of order".
+- [`test_relay_zeroSignatures_notEnoughWeight`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L923) — zero signatures falls through to `NotEnoughWeight()`.
 
 **`verify()` — Merkle membership, fees, refunds, reentrancy (8)**
 
 - [`test_verify_unfinalizedZeroRoot_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L427) — an unfinalized (zero) stored root is rejected (RLY-01).
 - [`test_verify_finalizedRoot_passes`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L433) — a valid proof against a finalized root passes.
-- [`test_verify_merkleProofInvalid_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L761) — a proof for the wrong leaf is rejected.
-- [`test_verify_invalidProtocolId_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L774) — a reserved protocol id (≤ 1) is rejected.
+- [`test_verify_merkleProofInvalid_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L771) — a proof for the wrong leaf is rejected.
+- [`test_verify_invalidProtocolId_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L784) — a reserved protocol id (≤ 1) is rejected.
 - [`test_verify_refundsOverpayment`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L466) — exactly the fee is forwarded; the overpayment is refunded (RLY-21).
-- [`test_verify_feeReceiverReverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L716) — an ETH-rejecting fee collector reverts the call: "Transfer failed".
-- [`test_verify_refundReceiverReverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L739) — an ETH-rejecting refund recipient reverts the call: "Refund failed".
-- [`test_verify_reentrantReceiver_consistentNoExtraEth`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L862) — refund-callback reentrancy sees consistent state, pays one fee (DiD).
+- [`test_verify_feeReceiverReverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L726) — an ETH-rejecting fee collector reverts the call: "Transfer failed".
+- [`test_verify_refundReceiverReverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L749) — an ETH-rejecting refund recipient reverts the call: "Refund failed".
+- [`test_verify_reentrantReceiver_consistentNoExtraEth`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L872) — refund-callback reentrancy sees consistent state, pays one fee (DiD).
 
 **`verify()` — the oldRelay fallback (7)**
 
 - [`test_verify_oldRelayFallback_revertsOnFalse`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L453) — fails closed when `oldRelay.verify` returns false (RLY-13).
 - [`test_verify_oldRelayFallback_passesOnTrue`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L460) — passes through the old relay's true verdict.
-- [`test_verify_oldRelayFallback_refundsOverpayment`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L681) — forwards only the old fee and refunds the rest (M-1).
-- [`test_verify_oldRelayFallback_tooLowFee_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L816) — `msg.value` below the old fee: "too low fee".
-- [`test_verify_oldRelayFallback_exactFee_skipsRefund`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L825) — an exact fee skips the refund call entirely.
-- [`test_verify_oldRelayFallback_zeroFee_fullRefund`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L835) — a zero old fee refunds the caller in full.
-- [`test_oldRelay_readDelegation_belowBoundary`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L847) — the four read paths delegate to the old relay below the boundary.
+- [`test_verify_oldRelayFallback_refundsOverpayment`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L691) — forwards only the old fee and refunds the rest (M-1).
+- [`test_verify_oldRelayFallback_tooLowFee_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L826) — `msg.value` below the old fee: "too low fee".
+- [`test_verify_oldRelayFallback_exactFee_skipsRefund`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L835) — an exact fee skips the refund call entirely.
+- [`test_verify_oldRelayFallback_zeroFee_fullRefund`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L845) — a zero old fee refunds the caller in full.
+- [`test_oldRelay_readDelegation_belowBoundary`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L857) — the four read paths delegate to the old relay below the boundary.
 
 **Getters, lifecycle & access windows (4)**
 
-- [`test_merkleRoots_relayMode_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L780) — `merkleRoots()` is locked out in relay mode.
-- [`test_toSigningPolicyHash_relayMode_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L786) — `toSigningPolicyHash()` is locked out in relay mode.
-- [`test_getVotingRoundId_beforeStart_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L792) — a pre-start timestamp hits the underflow guard.
-- [`test_getRandomNumber_beforeAnyRelay_returnsDefault`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L798) — returns `(0, false, ts)` before any random relay (RLY-20).
+- [`test_merkleRoots_relayMode_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L790) — `merkleRoots()` is locked out in relay mode.
+- [`test_toSigningPolicyHash_relayMode_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L796) — `toSigningPolicyHash()` is locked out in relay mode.
+- [`test_getVotingRoundId_beforeStart_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L802) — a pre-start timestamp hits the underflow guard.
+- [`test_getRandomNumber_beforeAnyRelay_returnsDefault`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L808) — returns `(0, false, ts)` before any random relay (RLY-20).
 
 **Constructor / config validation (7)**
 
-- [`test_ctor_rejects_zeroRewardEpochDuration`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L937) — a zero reward-epoch duration is rejected.
-- [`test_ctor_rejects_zeroVotingEpochDuration`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L945) — a zero voting-epoch duration is rejected.
-- [`test_ctor_rejects_zeroFeeCollection_relayMode`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L953) — relay mode requires a fee-collection address.
-- [`test_ctor_allows_zeroFeeCollection_setterMode`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L961) — setter mode (no fees) permits a zero fee-collection address.
-- [`test_ctor_rejects_zeroInitialSigningPolicyHash`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L970) — a zero initial policy hash (a bricked epoch) is rejected (L-4).
-- [`test_ctor_oldRelay_incompatibleSetterMode_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L979) — a setter-mode old relay is incompatible with a relay-mode deployment.
-- [`test_ctor_oldRelay_wrongStartTs_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L988) — a timing mismatch with the old relay is rejected.
+- [`test_ctor_rejects_zeroRewardEpochDuration`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L947) — a zero reward-epoch duration is rejected.
+- [`test_ctor_rejects_zeroVotingEpochDuration`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L955) — a zero voting-epoch duration is rejected.
+- [`test_ctor_rejects_zeroFeeCollection_relayMode`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L963) — relay mode requires a fee-collection address.
+- [`test_ctor_allows_zeroFeeCollection_setterMode`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L971) — setter mode (no fees) permits a zero fee-collection address.
+- [`test_ctor_rejects_zeroInitialSigningPolicyHash`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L980) — a zero initial policy hash (a bricked epoch) is rejected (L-4).
+- [`test_ctor_oldRelay_incompatibleSetterMode_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L989) — a setter-mode old relay is incompatible with a relay-mode deployment.
+- [`test_ctor_oldRelay_wrongStartTs_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L998) — a timing mismatch with the old relay is rejected.
 
 **Next:** [L4 — R2: bounded symbolic execution (Halmos)](04-R2-bounded-symbolic-halmos.md), which keeps the
 real-bytecode fidelity but replaces "a few / random" with "all inputs up to a bound."
