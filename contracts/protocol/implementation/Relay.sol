@@ -698,8 +698,10 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
      * @inheritdoc IRelay
      */
     function relay() external returns (bytes memory){
-        // RLY-23: bound below (as _scid) into the policy hash and the protocol-message digest.
-        uint256 _sourceChainId = sourceChainId;
+        // RLY-23: read once here; bound below into the signing-policy hash (threaded into
+        // the calculateSigningPolicyHash helper as _sourceChainId) and, directly in the
+        // main assembly body, into the protocol-message digest.
+        uint256 srcChainId = sourceChainId;
         // solhint-disable-next-line no-inline-assembly
         assembly {
             // Helper function to revert with a 4-byte custom-error selector (declared on
@@ -763,7 +765,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 _memPos,
                 _calldataPos,
                 _policyLength,
-                _scid
+                _sourceChainId
             ) -> _policyHash {
                 // first byte
                 calldatacopy(_memPos, _calldataPos, 32)
@@ -791,8 +793,8 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 // RLY-23: chain-domain binding — the signing-policy hash commits to the configured
                 // source network: keccak256(sourceChainId ‖ contentHash). Reuses the two scratch slots
                 // this function already owns. The id is set once at initialize (threaded in as
-                // _scid), so the same policy verifies on every Relay that mirrors this source.
-                mstore(_memPos, _scid)
+                // _sourceChainId), so the same policy verifies on every Relay that mirrors this source.
+                mstore(_memPos, _sourceChainId)
                 mstore(add(_memPos, M_1), _policyHash)
                 _policyHash := keccak256(_memPos, 64)
             }
@@ -1001,7 +1003,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                     memPtr,
                     SELECTOR_BYTES,
                     signingPolicyLength,
-                    _sourceChainId
+                    srcChainId
                 )
             )
 
@@ -1203,7 +1205,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 // M_1 <- keccak256(sourceChainId ‖ keccak256(message)). Slot M_0 (the spent message
                 // bytes) is safe to reuse as scratch: this is the last statement of the block and the
                 // accept path re-reads the message from calldata.
-                mstore(memPtrGP0, _sourceChainId)
+                mstore(memPtrGP0, srcChainId)
                 mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, 64))
             }
 
@@ -1331,7 +1333,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                         add(signingPolicyLength, PROTOCOL_ID_BYTES)
                     ),
                     newSigningPolicyLength,
-                    _sourceChainId
+                    srcChainId
                 )
                 // Update temporary stateData. If the weight of signatures if
                 // over threshold, then this will be written to storage
@@ -1757,7 +1759,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
 
             // NO CODE SHOULD BE ADDED HERE
         } // assembly
-        revert("Not enough weight");
+        revert NotEnoughWeight();
     }
 
     /**

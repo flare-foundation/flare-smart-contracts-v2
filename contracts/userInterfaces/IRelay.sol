@@ -174,6 +174,8 @@ interface IRelay is RandomNumberV2Interface {
     error NoSignatureCount();
     /// Legacy reason: "Not enough signatures".
     error NotEnoughSignatures();
+    /// Legacy reason: "Not enough weight".
+    error NotEnoughWeight();
     /// Legacy reason: "not finalized".
     error NotFinalized();
     /// Legacy reason: "Not next reward epoch" / "not next reward epoch".

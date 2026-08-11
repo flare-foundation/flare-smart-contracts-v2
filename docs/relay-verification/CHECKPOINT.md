@@ -42,7 +42,7 @@ chain the Relay runs on.
 - **Home-force.** A deployment with a live `signingPolicySetter` (Flare/Songbird home, protocol signs locally)
   must have `sourceChainId == block.chainid` — enforced in the constructor *after* the governance
   deployment-shape checks, so `InvalidGovernanceDeployment` still wins for a governance+setter mix.
-- **Three wrap sites** bind the immutable (threaded into the Yul as `_scid` / a pre-assembly local):
+- **Three wrap sites** bind the immutable (threaded into the Yul as `_sourceChainId`, née `_scid` / a pre-assembly local `srcChainId`):
   `calculateSigningPolicyHash`, the Mode≥1 message-hash line, `_initializeSigningPolicy`.
   `verifyCustomSignature` inherits it via its `relay()` self-call.
 - **Mirrors enabled; fork trade-off accepted.** The same signatures verify on the home Relay and every mirror
@@ -490,7 +490,7 @@ digest below was later revised from `chainid` to the configured `sourceChainId` 
 - Loop over `numberOfSignatures`; each signature is 67 bytes = `v(1) ‖ r(32) ‖ s(32) ‖ index(2)`.
 - `index` bounds-checked (`index < numberOfVoters`) and forced **strictly increasing** (`nextUnusedIndex`) ⇒ no double-count, neutralizes malleability.
 - `ecrecover` via `staticcall(0x01,…)`; checks `returndatasize()==32`; compares recovered addr to policy `voters[index]`; accumulates `weights[index]`.
-- Accept when `weight > threshold` (returns/stores per mode). Else falls through to `revert("Not enough weight")` (L1392).
+- Accept when `weight > threshold` (returns/stores per mode). Else falls through to `revert NotEnoughWeight()` (L1392; the former `revert("Not enough weight")` string).
 
 **Byte layouts (constants in Relay.sol L64-176; encoders in scripts/libs):**
 - Signing policy prefix 43 B = numVoters(2) ‖ rewardEpochId(3) ‖ startVotingRoundId(4) ‖ threshold(2) ‖ seed(32); then per-voter 22 B = addr(20) ‖ weight(2). `rewardEpochId` is `uint24`.

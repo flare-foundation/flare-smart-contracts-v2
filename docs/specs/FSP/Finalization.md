@@ -37,7 +37,7 @@ function relay() external returns (bytes memory);
 
 If the protocol message is finalized using a signing policy whose reward epoch matches `lastInitializedRewardEpoch`, the threshold is **multiplied** by `stateData.thresholdIncreaseBIPS / THRESHOLD_BIPS` — `thresholdIncreaseBIPS` is governance-settable, must be ≥ `THRESHOLD_BIPS = 10000` (i.e. ≥ 1.0×), and defaults to `12000` (1.2×). The exact code (in the `relay()` assembly) is `threshold := div(mul(threshold, thresholdIncreaseBIPS), THRESHOLD_BIPS)`. Providers signing a round that straddles a reward-epoch boundary face a slightly higher bar to compensate for the reduced participation a fresh policy might see.
 
-If the threshold is reached, `merkleRootsPrivate[protocolId][votingRoundId]` is written and `ProtocolMessageRelayed(protocolId, votingRoundId, isSecureRandom, merkleRoot)` is emitted. If not, the call reverts with `"Not enough weight"`.
+If the threshold is reached, `merkleRootsPrivate[protocolId][votingRoundId]` is written and `ProtocolMessageRelayed(protocolId, votingRoundId, isSecureRandom, merkleRoot)` is emitted. If not, the call reverts with `NotEnoughWeight()`.
 
 For the FTSO random-number protocol (`stateData.randomNumberProtocolId`), `relay()` additionally updates `stateData.randomVotingRoundId`, `stateData.isSecureRandom`, and the bit in `isSecureRandomMap`. See [Random Number](./RandomNumber.md).
 

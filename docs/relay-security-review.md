@@ -101,7 +101,7 @@ Coverage is strong on the fixed behaviours (each RLY-xx has a regression test; H
 | Med | Random proof: malformed trailer length | `"Incorrect merkle proof"` branch (non-multiple-of-32 trailer) untested | Append a 33-byte trailer; assert revert `"Incorrect merkle proof"` (Foundry) |
 | Med | Random proof: deep multi-node proof | Harness only builds a 2-leaf tree (proof loop runs once, one sorted-pair branch) | 4+ leaf tree forcing both `leaf<sibling` and `leaf>sibling` fold branches (Foundry) |
 | Med | RLY-14 `isSecure` normalization | Only `0/1` tested; the `byte != 0 ⇒ 1` normalization (e.g. byte `2`) untested | Hand-encode a message with `isSecure=2`, leaf using `1`; assert success + normalized event/state (Foundry) |
-| Med | Threshold **exact** boundaries (base + increase) | Tests use coarse N/2 vs N/2+1; exact `weight == threshold` / `threshold-1` and the increased-threshold boundary untested | Non-uniform weights; signatures summing to exactly threshold (pass) and threshold-1 (`"Not enough weight"`) (Foundry) |
+| Med | Threshold **exact** boundaries (base + increase) | Tests use coarse N/2 vs N/2+1; exact `weight == threshold` / `threshold-1` and the increased-threshold boundary untested | Non-uniform weights; signatures summing to exactly threshold (pass) and threshold-1 (`NotEnoughWeight()`) (Foundry) |
 | Med | Fee/refund to a **reverting receiver** | `"Transfer failed"` / `"Refund failed"` never exercised (all receivers are EOAs) | feeCollection = revert-on-receive contract → assert `"Transfer failed"`; caller = revert-on-receive → assert `"Refund failed"` (Foundry) |
 | Low | RLY-17 `lastInitializedRewardEpoch-1` branch | only the happy side tested | governanceFeeSetup signed by the `R` policy when `lastInitialized = R+1` (Foundry) |
 | Low | `getRandomNumber()` before any relay (RLY-20) | not asserted | fresh relay → `(0, false, ts)`, no revert (either) |
@@ -164,7 +164,7 @@ Coverage is strong (Foundry 31 + Hardhat 54 + EndToEnd 36; every RLY-xx and the 
 | Med | Mode-1 `checkThresholdConsistency` `"total weight too big"` exact edge | sum `== 65535` pass / `== 65536` fail on the **relay()** path not pinned | relay() Mode-1 with weights summing to 65535 then 65536 (Hardhat) |
 | Low | `getRandomNumber()` pre-relay tuple (RLY-20) | `(0,false,ts)` on a fresh relay never asserted | fresh relay ⇒ assert `(0,false,ts)` (either) |
 | Low | Foundry signature-index checks | `"Index out of range"` / `"Index out of order"` only in Hardhat | hand-craft descending / out-of-range indices (Foundry) |
-| Low | zero `numberOfSignatures` | `count==0` falls through to `"Not enough weight"` untested | 0-count trailer ⇒ `"Not enough weight"` (Foundry) |
+| Low | zero `numberOfSignatures` | `count==0` falls through to `NotEnoughWeight()` untested | 0-count trailer ⇒ `NotEnoughWeight()` (Foundry) |
 | Low | `"Message too old"` / `"Wrong sign policy reward epoch"` window edge in Foundry | only Hardhat advances epochs enough to cross the window | push `lastInitializedRewardEpoch`, relay at window vs window+1 (Foundry) |
 | Low | constructor oldRelay incompatibility in Foundry | Foundry `MockOldRelay` always matches; reverse setter/relay-mode mismatch + timing-mismatch reverts untested there | mismatched-mock variants ⇒ `"old relay incompatible"` / `"wrong … "` (Foundry) |
 | Low | reentrancy receiver (defense-in-depth) | receivers that *revert* are tested; one that *re-enters* `verify()`/`relay()` during the refund is not | re-entrant receiver; assert outer call still consistent, no extra ETH extracted (Foundry) |

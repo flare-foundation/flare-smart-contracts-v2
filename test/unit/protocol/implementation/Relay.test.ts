@@ -370,7 +370,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("Not enough weight");
+    ).to.be.revertedWithCustomError(relayIface, "NotEnoughWeight");
   });
 
   it("Should fail to relay a Mode-2 message with a zero merkle root [RLY-04]", async () => {
@@ -563,7 +563,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + signingPolicy + fullMessage + "0000",
       })
-    ).to.be.revertedWith("Not enough weight");
+    ).to.be.revertedWithCustomError(relayIface, "NotEnoughWeight");
 
     newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs; // shift to next reward epoch
     fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
@@ -584,7 +584,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + signingPolicy + fullMessage + "0000",
       })
-    ).to.be.revertedWith("Not enough weight");
+    ).to.be.revertedWithCustomError(relayIface, "NotEnoughWeight");
   });
 
   it("Should relay a message with old signing policy and 20% signatures more", async () => {
@@ -645,7 +645,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         to: relay.address,
         data: selector + fullData.slice(2),
       })
-    ).to.be.revertedWith("Not enough weight");
+    ).to.be.revertedWithCustomError(relayIface, "NotEnoughWeight");
   });
 
   it("Should relay a new signing policy", async () => {

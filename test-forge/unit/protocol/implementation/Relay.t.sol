@@ -909,12 +909,12 @@ contract RelayVerifyTest is RelayTestBase {
         this.relayRaw(rm);
     }
 
-    // Coverage (Low): a zero-signature message falls through to "Not enough weight".
+    // Coverage (Low): a zero-signature message falls through to NotEnoughWeight.
     function test_relay_zeroSignatures_notEnoughWeight() public {
         bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("r"));
         bytes memory sigs = abi.encodePacked(uint16(0)); // declared count 0, no signature bytes
         bytes memory rm = abi.encodePacked(Relay.relay.selector, policy, message, sigs);
-        vm.expectRevert("Not enough weight");
+        vm.expectRevert(IRelay.NotEnoughWeight.selector);
         this.relayRaw(rm);
     }
 
@@ -1077,9 +1077,9 @@ contract RelayPolicyRotationTest is RelayTestBase {
     }
 
     // HH "...wrong signature / low weight": insufficient signer weight on the Mode-1 relay falls through
-    // to "Not enough weight" (the new policy is not initialized).
+    // to NotEnoughWeight (the new policy is not initialized).
     function test_relayNewSigningPolicy_lowWeight_reverts() public {
-        vm.expectRevert("Not enough weight"); // 2*100 = 200 < 260
+        vm.expectRevert(IRelay.NotEnoughWeight.selector); // 2*100 = 200 < 260
         this.relayRaw(_newPolicyRelay(policy, policy2, 2));
         (uint32 le,) = relay.lastInitializedRewardEpochData();
         assertEq(le, REWARD_EPOCH_ID, "failed relay must not advance the epoch");

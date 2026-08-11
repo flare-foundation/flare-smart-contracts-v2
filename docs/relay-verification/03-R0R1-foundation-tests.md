@@ -138,7 +138,7 @@ policy/message/signature encoders and the chunked policy hash) doubles as the su
 - [`test_threshold_exactBoundary_strictGreater`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L697) — weight == threshold must fail; strictly greater passes.
 - [`test_relay_indexOutOfRange_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L891) — a signature index == numberOfVoters: "Index out of range".
 - [`test_relay_indexOutOfOrder_reverts`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L901) — non-increasing signature indices: "Index out of order".
-- [`test_relay_zeroSignatures_notEnoughWeight`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L913) — zero signatures falls through to "Not enough weight".
+- [`test_relay_zeroSignatures_notEnoughWeight`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L913) — zero signatures falls through to `NotEnoughWeight()`.
 
 **`verify()` — Merkle membership, fees, refunds, reentrancy (8)**
 

@@ -364,8 +364,8 @@ signatures verify on the home Relay and on every Relay that mirrors that source 
 relay use case). It is **unified with the governance source**: the single `sourceChainId` immutable replaces
 the former `governanceSourceChainId` and feeds both the signing wrap and the governance Safe digest (they name the
 same origin network). Three wrap sites, one convention, the immutable threaded into the hand-written Yul as
-a parameter (`_scid`) / read once into a local before the `relay()` assembly:
-- **`calculateSigningPolicyHash`** (assembly helper tail, new `_scid` parameter) — covers both consumers at
+a parameter (`_sourceChainId`) / read once into a local (`srcChainId`) before the `relay()` assembly:
+- **`calculateSigningPolicyHash`** (assembly helper tail, new `_sourceChainId` parameter) — covers both consumers at
   once: the Mode-2 policy check (`"Signing policy hash mismatch"`) and the Mode-1 new-policy store+sign path.
   Reuses the two scratch slots (M_0/M_1) the helper already owns.
 - **the Mode≥1 message-hash line** in `relay()` — `M_1 ← keccak256(sourceChainId ‖ keccak256(message))`. The
