@@ -40,6 +40,18 @@ def strip_cbor_metadata(value: str, label: str = "bytecode") -> tuple[bytes, int
     return raw[:-suffix_length], suffix_length
 
 
+def strip_embedded_cbor_metadata(value: str, runtime_suffix: bytes, label: str) -> tuple[bytes, int]:
+    # The legacy codegen pipeline places the runtime object (and thus its CBOR metadata suffix)
+    # at the very end of the creation bytecode; via_ir emits constructor code after the embedded
+    # runtime, so the metadata sits mid-stream. Excise the runtime's exact suffix bytes wherever
+    # they occur. Mirrors stripEmbeddedCborMetadata in scripts/relay-artifact-provenance.js.
+    raw = bytecode_bytes(value, label)
+    count = raw.count(runtime_suffix)
+    if count == 0:
+        raise ValueError(f"{label} does not embed the runtime CBOR metadata suffix")
+    return raw.replace(runtime_suffix, b""), len(runtime_suffix) * count
+
+
 def sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
@@ -55,9 +67,12 @@ def git_commit() -> str:
     return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
-def summarize_bytecode(value: str, label: str) -> dict[str, Any]:
+def summarize_bytecode(value: str, label: str, runtime_suffix: bytes | None = None) -> dict[str, Any]:
     raw = bytecode_bytes(value, label)
-    semantic, metadata_bytes = strip_cbor_metadata(value, label)
+    if runtime_suffix is None:
+        semantic, metadata_bytes = strip_cbor_metadata(value, label)
+    else:
+        semantic, metadata_bytes = strip_embedded_cbor_metadata(value, runtime_suffix, label)
     return {
         "bytes": len(raw),
         "metadata_bytes": metadata_bytes,
@@ -90,12 +105,19 @@ def analyze_foundry_artifact(path: Path, source_path: Path) -> dict[str, Any]:
     metadata = artifact.get("metadata")
     if not isinstance(metadata, dict):
         raise ValueError(f"{path}: Foundry metadata object is missing")
+    runtime_object = artifact["deployedBytecode"]["object"]
+    runtime_raw = bytecode_bytes(runtime_object, "FV runtime bytecode")
+    _, runtime_suffix_length = strip_cbor_metadata(runtime_object, "FV runtime bytecode")
     return {
         "source_sha256": sha256(source_path.read_bytes()),
         "compiler": foundry_compiler(metadata),
         "abi_sha256": canonical_abi_hash(artifact["abi"]),
-        "creation": summarize_bytecode(artifact["bytecode"]["object"], "FV creation bytecode"),
-        "runtime": summarize_bytecode(artifact["deployedBytecode"]["object"], "FV runtime bytecode"),
+        "creation": summarize_bytecode(
+            artifact["bytecode"]["object"],
+            "FV creation bytecode",
+            runtime_suffix=runtime_raw[-runtime_suffix_length:],
+        ),
+        "runtime": summarize_bytecode(runtime_object, "FV runtime bytecode"),
     }
 
 

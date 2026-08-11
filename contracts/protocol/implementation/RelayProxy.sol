@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.35;
+// Exact-version pin, matching Relay.sol: the deployed proxy bytecode must be reproducible
+// against the attested toolchain — do not widen the pragma.
+pragma solidity =0.8.35;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";

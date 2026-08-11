@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.35;
+// Exact-version pin: the FV manifest (test-forge/fv/verification-manifest.json) attests the
+// deployment artifact against this exact compiler, and the forge deploy scripts must produce
+// byte-identical code to the attested Hardhat artifact — do not widen the pragma.
+pragma solidity =0.8.35;
 
 import { IIRelay } from "../interface/IIRelay.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";

@@ -13,11 +13,11 @@
       "via_ir": false
     },
     "deployment_compiler": {
-      "version": "0.8.30+commit.73712a01",
+      "version": "0.8.35+commit.47b9dedd",
       "evm_version": "cancun",
       "optimizer_enabled": true,
       "optimizer_runs": 200,
-      "via_ir": false
+      "via_ir": true
     }
   },
   "relay_revert_abi": {

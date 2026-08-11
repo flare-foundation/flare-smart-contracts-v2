@@ -46,6 +46,29 @@ function stripCborMetadata(value, label) {
     full: bytes,
     semantic: bytes.subarray(0, bytes.length - suffixLength),
     metadataBytes: suffixLength,
+    suffix: bytes.subarray(bytes.length - suffixLength),
+  };
+}
+
+// The legacy codegen pipeline places the runtime object (and thus its CBOR metadata suffix) at
+// the very end of the creation bytecode; via_ir emits constructor code after the embedded runtime,
+// so the metadata sits mid-stream. Excise the runtime's exact suffix bytes wherever they occur.
+function stripEmbeddedCborMetadata(value, runtimeSuffix, label) {
+  const bytes = bytesFromHex(value, label);
+  const parts = [];
+  let count = 0;
+  let cursor = 0;
+  for (let hit = bytes.indexOf(runtimeSuffix); hit !== -1; hit = bytes.indexOf(runtimeSuffix, cursor)) {
+    parts.push(bytes.subarray(cursor, hit));
+    cursor = hit + runtimeSuffix.length;
+    count += 1;
+  }
+  if (count === 0) fail(`${label} does not embed the runtime CBOR metadata suffix`);
+  parts.push(bytes.subarray(cursor));
+  return {
+    full: bytes,
+    semantic: Buffer.concat(parts),
+    metadataBytes: runtimeSuffix.length * count,
   };
 }
 
@@ -70,8 +93,7 @@ function abiHash(abi) {
   return sha256(Buffer.from(`[${entries.join(",")}]`));
 }
 
-function summarizeBytecode(value, label) {
-  const parsed = stripCborMetadata(value, label);
+function summarizeParsedBytecode(parsed) {
   return {
     bytes: parsed.full.length,
     metadata_bytes: parsed.metadataBytes,
@@ -157,8 +179,14 @@ const report = {
   source_sha256: sha256(sourceBytes),
   compiler: deploymentCompiler,
   abi_sha256: abiHash(artifact.abi),
-  creation: summarizeBytecode(artifact.bytecode, "creation bytecode"),
-  runtime: summarizeBytecode(artifact.deployedBytecode, "runtime bytecode"),
+  creation: summarizeParsedBytecode(
+    stripEmbeddedCborMetadata(
+      artifact.bytecode,
+      stripCborMetadata(artifact.deployedBytecode, "runtime bytecode").suffix,
+      "creation bytecode"
+    )
+  ),
+  runtime: summarizeParsedBytecode(stripCborMetadata(artifact.deployedBytecode, "runtime bytecode")),
   matching_build_info_files: matches.map((match) => match.filename),
 };
 
