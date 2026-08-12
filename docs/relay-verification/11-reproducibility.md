@@ -83,8 +83,9 @@ python3 test-forge/fv/verify_relay_custom_error_abi.py \
 FORGE=/path/to/manifest-pinned-forge .venv-halmos/bin/python test-forge/fv/verify_relay_artifact.py \
   --deployment-report verification-reports/relay-deployment.json \
   --report-output verification-reports/relay-artifact-parity.json
-# exact CI gate (checks the manifest-pinned Foundry version/commit, force-rebuilds AST-complete artifacts,
-# and loads loop=6 plus the unlimited assertion timeout from halmos.toml):
+# exact CI gate (checks the manifest-pinned Foundry version/commit, confines both Forge phases to
+# the manifest-derived test-forge/fv source/test root, force-rebuilds AST-complete artifacts, and
+# loads loop=6 plus the unlimited assertion timeout from halmos.toml):
 FORGE=/path/to/manifest-pinned-forge HALMOS=.venv-halmos/bin/halmos \
   .venv-halmos/bin/python test-forge/fv/verify_fv.py \
   --report-output verification-reports/relay-halmos.json

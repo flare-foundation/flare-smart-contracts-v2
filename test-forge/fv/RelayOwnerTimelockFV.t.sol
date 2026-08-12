@@ -410,8 +410,9 @@ contract RelayOwnerUpgradeFV is RelayOwnerTimelockFVBase {
         assert(relay.getTimelockDurationSeconds() == TIMELOCK);
         assert(relay.sourceChainId() == block.chainid);
 
-        (bool proxyReinitOk,) = address(relay)
-            .call(abi.encodeCall(relay.initialize, (cfg, address(0), IRelay(address(0)), address(this))));
+        (bool proxyReinitOk,) = address(relay).call(
+            abi.encodeCall(relay.initialize, (cfg, address(0), IRelay(address(0)), address(this)))
+        );
         (bool implementationInitOk,) = address(implementation)
             .call(abi.encodeCall(implementation.initialize, (cfg, address(0), IRelay(address(0)), address(this))));
 

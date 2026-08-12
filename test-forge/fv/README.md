@@ -120,9 +120,12 @@ canonical four-byte revert encoding.
 
 Before invoking Halmos, the proof gate clean-installs the checksummed Soldeer tree,
 checks the pinned Foundry version/commit, and force-rebuilds the complete FV harness
-tree with solc 0.8.35, Cancun, optimizer 200, and viaIR. It pins the tracked config,
-loop bound, artifact directory, and Z3 solver on the child command, then hashes and
-audits the exact compiler settings, source binding, and semantic bytecode of Relay,
+tree with solc 0.8.35, Cancun, optimizer 200, and viaIR. Both that build and Halmos's
+internal Forge build are confined to the manifest-derived `test-forge/fv` source/test
+root under a sanitized, audited Foundry environment; unrelated mixed-version repository
+sources cannot enter the proof build. The gate pins the tracked config, loop bound,
+artifact directory, and Z3 solver on the child command, then hashes and audits the exact
+compiler settings, source binding, and semantic bytecode of Relay,
 RelayProxy, and all 28 declaring harness contracts before and after symbolic
 execution. Any extra Halmos CLI arguments are diagnostic-only and can never mint
 release evidence.

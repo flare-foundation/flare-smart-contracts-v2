@@ -387,7 +387,8 @@ test-fv-lean:
   tags: [ flarenetwork-md ]
   image: python:3.11.6-bookworm@sha256:ba7a7ac30c38e119c4304f98ef0e188f90f4f67a958bb6899da9defb99bfb471
   variables:
-    ELAN_HOME: "$CI_PROJECT_DIR/.elan"
+    # Keep the pinned Lean toolchain outside the checkout so the provenance gate starts and ends clean.
+    ELAN_HOME: "/tmp/relay-fv-elan"
     ELAN_VERSION: "v4.2.3"
     ELAN_ARCHIVE_SHA256: "df0b2b3a439961ffcbb3985214365ffe40f49bc871df04dff268c7d8e21ca8b2"
   rules:
@@ -521,6 +522,8 @@ coverage-forge:
   - mv node_modules.sol node_modules
   - forge soldeer install
   - forge install --no-git
+  # Warm the shared SVM compiler path once before parallel compiler profiles try to install it.
+  - forge build contracts/tee/library/EvmAddress.sol --use 0.8.35 --no-auto-detect --threads 1
   - forge build
   script:
   - FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov

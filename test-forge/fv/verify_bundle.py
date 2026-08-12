@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -120,6 +121,56 @@ def _validate_release_halmos_inputs(report: dict[str, Any], command: list[str]) 
     config = inputs.get("halmos_config")
     if not isinstance(config, dict) or not isinstance(config.get("effective"), dict):
         raise ValueError("Halmos release evidence has no audited effective config")
+
+    manifest = json.loads(DEFAULT_MANIFEST.read_text())
+    checks = manifest["halmos"]["proofs"] + manifest["halmos"]["reachability"]
+    source_parents = [Path(check.partition(":")[0]).parent.as_posix() for check in checks]
+    foundry_root = Path(os.path.commonpath(source_parents)).as_posix()
+    if foundry_root != "test-forge/fv":
+        raise ValueError("verification manifest has an unexpected Halmos source root")
+    foundry = {
+        "profile": "default",
+        "src": foundry_root,
+        "test": foundry_root,
+        "cache_path": "cache-forge",
+    }
+    compiler = manifest["target"]["production_compiler"]
+    expected_environment = {
+        "FOUNDRY_PROFILE": foundry["profile"],
+        "FOUNDRY_SRC": foundry["src"],
+        "FOUNDRY_TEST": foundry["test"],
+        "FOUNDRY_OUT": manifest["halmos"]["configuration"]["forge_build_out"],
+        "FOUNDRY_CACHE_PATH": foundry["cache_path"],
+        "FOUNDRY_SOLC_VERSION": compiler["short_version"],
+        "FOUNDRY_AUTO_DETECT_SOLC": "false",
+        "FOUNDRY_EVM_VERSION": compiler["evm_version"],
+        "FOUNDRY_OPTIMIZER": "true" if compiler["optimizer_enabled"] else "false",
+        "FOUNDRY_OPTIMIZER_RUNS": str(compiler["optimizer_runs"]),
+        "FOUNDRY_VIA_IR": "true" if compiler["via_ir"] else "false",
+    }
+    expected_effective = {
+        "src": foundry["src"],
+        "test": foundry["test"],
+        "out": manifest["halmos"]["configuration"]["forge_build_out"],
+        "cache_path": foundry["cache_path"],
+        "solc": compiler["short_version"],
+        "auto_detect_solc": False,
+        "evm_version": compiler["evm_version"],
+        "optimizer": compiler["optimizer_enabled"],
+        "optimizer_runs": compiler["optimizer_runs"],
+        "via_ir": compiler["via_ir"],
+    }
+    foundry_record = inputs.get("halmos_foundry_build")
+    halmos_forge = report.get("toolchain", {}).get("halmos_forge")
+    if (
+        not isinstance(foundry_record, dict)
+        or not isinstance(halmos_forge, str)
+        or not halmos_forge
+        or foundry_record.get("command") != [halmos_forge, "config", "--json"]
+        or foundry_record.get("environment") != expected_environment
+        or foundry_record.get("effective") != expected_effective
+    ):
+        raise ValueError("Halmos release evidence has no exact audited Foundry build scope")
     effective = config["effective"]
     expected = [
         "--root",

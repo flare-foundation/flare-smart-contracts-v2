@@ -56,9 +56,9 @@ contract RelayCrossEpochFV is RelayTestBase {
         return uint256(thr) * uint256(THRESHOLD_INCREASE_BIPS) / uint256(10000); // THRESHOLD_BIPS = 10000
     }
 
-    // Cross-epoch no-repeat-index: with the distinct-address fixture's slots 0,1 insufficient vs the
-    // increased threshold, a duplicate index [0,1,1] cannot finalize (the strict-increase guard
-    // rejects the repeat). EXPECT: PASS.
+    // Cross-epoch no-repeat-index: the distinct-address fixture's slots 0,1 are insufficient vs the
+    // increased threshold, so duplicate index [0,1,1] cannot finalize (the strict-increase guard rejects it).
+    // EXPECT: PASS.
     function check_crossEpoch_noDoubleCount(
         uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {

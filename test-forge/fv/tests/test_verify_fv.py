@@ -47,13 +47,15 @@ def build_manifest() -> dict:
             }
         },
         "halmos": {
+            "proofs": [PROOF],
+            "reachability": [REACH],
             "configuration": {
                 "path": "halmos.toml",
                 "forge_build_out": "artifacts-forge",
                 "loop": 6,
                 "solver": "z3",
                 "solver_timeout_assertion": 0,
-            }
+            },
         },
     }
 
@@ -138,11 +140,71 @@ Build Profile: dist
             forge = Path(directory) / "forge"
             forge.write_text("#!/bin/sh\nexit 0\n")
             forge.chmod(0o755)
-            with patch.dict(os.environ, {"PATH": "/usr/bin:/bin"}):
-                environment, resolved = verify_fv._halmos_subprocess_environment(str(forge))
+            with patch.dict(
+                os.environ,
+                {
+                    "PATH": "/usr/bin:/bin",
+                    "FOUNDRY_SRC": "contracts",
+                    "FOUNDRY_TEST": "untrusted-tests",
+                    "DAPP_SOLC_VERSION": "0.7.6",
+                },
+                clear=True,
+            ):
+                environment, resolved, pinned = verify_fv._halmos_subprocess_environment(
+                    str(forge), build_manifest()
+                )
             self.assertEqual(str(forge.resolve()), resolved)
             first_path = Path(environment["PATH"].split(os.pathsep, 1)[0]) / "forge"
             self.assertEqual(str(forge.resolve()), str(first_path))
+            self.assertEqual("test-forge/fv", environment["FOUNDRY_SRC"])
+            self.assertEqual("test-forge/fv", environment["FOUNDRY_TEST"])
+            self.assertEqual("0.8.35", environment["FOUNDRY_SOLC_VERSION"])
+            self.assertEqual("false", environment["FOUNDRY_AUTO_DETECT_SOLC"])
+            self.assertNotIn("DAPP_SOLC_VERSION", environment)
+            self.assertEqual(pinned, {key: environment[key] for key in pinned})
+
+    def test_halmos_internal_build_scope_is_derived_from_manifest_inventory(self) -> None:
+        current = build_manifest()
+        self.assertEqual(
+            {
+                "profile": "default",
+                "src": "test-forge/fv",
+                "test": "test-forge/fv",
+                "cache_path": "cache-forge",
+            },
+            verify_fv._halmos_foundry_build(current),
+        )
+        current["halmos"]["reachability"] = [
+            "test-forge/other/Proof.t.sol:Proof.check_reach_witness"
+        ]
+        with self.assertRaisesRegex(ValueError, "audited FV suite root"):
+            verify_fv._halmos_foundry_build(current)
+
+    def test_halmos_foundry_config_drift_fails_closed(self) -> None:
+        completed = Mock(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "src": "contracts",
+                    "test": "test-forge/fv",
+                    "out": "artifacts-forge",
+                    "cache_path": "cache-forge",
+                    "solc": "0.8.35",
+                    "auto_detect_solc": False,
+                    "evm_version": "cancun",
+                    "optimizer": True,
+                    "optimizer_runs": 200,
+                    "via_ir": True,
+                }
+            ),
+            stderr="",
+        )
+        pinned = verify_fv._halmos_foundry_environment(build_manifest())
+        with patch.object(verify_fv.subprocess, "run", return_value=completed):
+            _, problems = verify_fv._audit_halmos_foundry_environment(
+                "forge", pinned, pinned
+            )
+        self.assertTrue(any("Foundry src" in problem for problem in problems))
 
     def test_source_inventory_is_exact_and_contract_qualified(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -165,11 +227,17 @@ Build Profile: dist
     def test_halmos_prebuild_forces_ast_complete_artifacts(self) -> None:
         completed = Mock(returncode=0, stdout="", stderr="")
         with patch.object(verify_fv.subprocess, "run", return_value=completed) as run:
-            exitcode, _ = verify_fv._prepare_halmos_artifacts(build_manifest())
+            exitcode, _ = verify_fv._prepare_halmos_artifacts(
+                build_manifest(), environment={"FOUNDRY_SRC": "test-forge/fv"}
+            )
             self.assertEqual(0, exitcode)
         command = run.call_args.args[0]
         self.assertEqual("forge", command[0])
-        self.assertEqual("test-forge/fv", command[2])
+        self.assertEqual("build", command[1])
+        self.assertNotIn("test-forge/fv", command)
+        self.assertEqual(
+            {"FOUNDRY_SRC": "test-forge/fv"}, run.call_args.kwargs["env"]
+        )
         self.assertIn("--force", command)
         self.assertIn("--ast", command)
         self.assertEqual(["storageLayout", "metadata"], command[command.index("--extra-output") + 1:command.index("--optimize")])
