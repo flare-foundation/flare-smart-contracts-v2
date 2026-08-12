@@ -3,14 +3,22 @@
   "expectedDeployer": "0x0000000000000000000000000000000000000000",
   "home": {
     "oldRelayPolicyHashScheme": "legacy",
-    "timelockDurationSeconds": 0
+    "timelockDurationSeconds": 3600
   },
   "mirrors": {
+    "sepolia": {
+      "chainId": 11155111,
+      "relayOwner": "0x0000000000000000000000000000000000000000",
+      "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
+      "timelockDurationSeconds": 3600,
+      "feeConfigs": [],
+      "feeExemptAddresses": []
+    },
     "arbitrum-sepolia": {
       "chainId": 421614,
       "relayOwner": "0x0000000000000000000000000000000000000000",
       "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
-      "timelockDurationSeconds": 86400,
+      "timelockDurationSeconds": 3600,
       "feeConfigs": [],
       "feeExemptAddresses": []
     }

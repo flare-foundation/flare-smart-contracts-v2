@@ -3,6 +3,6 @@
   "expectedDeployer": "0x0000000000000000000000000000000000000000",
   "home": {
     "oldRelayPolicyHashScheme": "legacy",
-    "timelockDurationSeconds": 0
+    "timelockDurationSeconds": 3600
   }
 }
