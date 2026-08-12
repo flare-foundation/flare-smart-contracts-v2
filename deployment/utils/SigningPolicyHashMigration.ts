@@ -1,24 +1,117 @@
-import { chainBoundHash } from "../../scripts/libs/protocol/ChainDomain";
-
-export type SigningPolicyHashScheme = "legacy" | "chain-bound";
+import { ethers } from "ethers";
+import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 
 const ZERO_HASH = `0x${"00".repeat(32)}`;
 
+/** BN / BigNumber / number — anything whose decimal string is the value. */
+interface Numberish {
+  toString(): string;
+}
+
+/** The chain reads needed to reconstruct a reward epoch's signing policy (truffle instances fit). */
+export interface SigningPolicyReconstructionSources {
+  oldRelay: {
+    toSigningPolicyHash(rewardEpochId: number): Promise<string>;
+  };
+  flareSystemsManager: {
+    getSeed(rewardEpochId: number): Promise<Numberish>;
+    getThreshold(rewardEpochId: number): Promise<Numberish>;
+  };
+  voterRegistry: {
+    getRegisteredVotersAndNormalisedWeights(rewardEpochId: number): Promise<{ 0: string[]; 1: Numberish[] }>;
+    newSigningPolicyInitializationStartBlockNumber(rewardEpochId: number): Promise<Numberish>;
+  };
+  entityManager: {
+    getSigningPolicyAddresses(voters: string[], blockNumber: Numberish): Promise<string[]>;
+  };
+}
+
 /**
- * Converts the old Relay's stored policy hash into the scheme required by the
- * new Relay. The caller must choose the old scheme explicitly; guessing from a
- * nonzero bytes32 value cannot distinguish a legacy content hash from an
- * already chain-bound hash.
+ * The RETIRED chained-fold content hash of the currently deployed (pre-RLY-23) Relay: the encoded
+ * policy is zero-padded to a multiple of 32 bytes, the first two 32-byte chunks are hashed
+ * together, and every further chunk is folded in with keccak256(hash ‖ chunk). Used ONLY to
+ * verify that a policy reconstructed from chain state is byte-identical to what the old Relay
+ * hashed — never to seed the new Relay.
  */
-export function signingPolicyHashForMigration(oldHash: string, chainId: number | bigint, oldScheme: string): string {
+export function legacyPolicyContentHash(encodedPolicy: string): string {
+  const data = encodedPolicy.startsWith("0x") ? encodedPolicy.slice(2) : encodedPolicy;
+  const chunks = data.match(/.{1,64}/g)!.map((x) => x.padEnd(64, "0"));
+  if (chunks.length < 2) {
+    throw Error("Encoded signing policy too short");
+  }
+  let hash = ethers.keccak256("0x" + chunks[0] + chunks[1]);
+  for (let i = 2; i < chunks.length; i++) {
+    hash = ethers.keccak256("0x" + hash.slice(2) + chunks[i]);
+  }
+  return hash;
+}
+
+/**
+ * Reconstructs the full signing policy of a reward epoch from chain state:
+ *   1. (identity voters, normalised weights) from VoterRegistry
+ *   2. voter identity -> signing-policy address via EntityManager at the policy's registration
+ *      snapshot block (checkpointed history, callable any time later)
+ *   3. seed / threshold from FlareSystemsManager
+ * Mirrors FlareSystemsManager._initializeNextSigningPolicy / VoterRegistry.createSigningPolicySnapshot.
+ */
+export async function reconstructSigningPolicy(
+  sources: SigningPolicyReconstructionSources,
+  rewardEpochId: number,
+  startVotingRoundId: number
+): Promise<ISigningPolicy> {
+  const votersAndWeights = await sources.voterRegistry.getRegisteredVotersAndNormalisedWeights(rewardEpochId);
+  const identityVoters = votersAndWeights[0];
+  const weights = votersAndWeights[1].map((w) => Number(w.toString()));
+  const snapshotBlock = await sources.voterRegistry.newSigningPolicyInitializationStartBlockNumber(rewardEpochId);
+  if (snapshotBlock.toString() === "0") {
+    throw Error(`Signing policy snapshot block not set for reward epoch ${rewardEpochId}`);
+  }
+  const policyVoters = await sources.entityManager.getSigningPolicyAddresses(identityVoters, snapshotBlock);
+  const seed = await sources.flareSystemsManager.getSeed(rewardEpochId);
+  const threshold = await sources.flareSystemsManager.getThreshold(rewardEpochId);
+  return {
+    rewardEpochId,
+    startVotingRoundId,
+    threshold: Number(threshold.toString()),
+    seed: "0x" + BigInt(seed.toString()).toString(16).padStart(64, "0"),
+    voters: [...policyVoters],
+    weights,
+  };
+}
+
+/**
+ * The initial signing-policy hash for a new Relay, migrated from the old Relay for the given
+ * reward epoch.
+ *
+ * ALWAYS reconstructs and verifies — there is deliberately no scheme parameter and no
+ * pass-through branch (a mistaken caller could otherwise seed the new Relay with a hash no
+ * policy can satisfy). The full policy is reconstructed from chain state and the old Relay's
+ * stored hash must equal ONE of the two hashes of the reconstructed bytes: the retired legacy
+ * chained fold (every live deployment today) or the single-keccak hash (a future migration from
+ * a new-scheme Relay). Either way the reconstruction is proven byte-exact against the old
+ * contract, and the returned value is always the single-keccak hash,
+ * keccak256(sourceChainId ‖ encoded policy).
+ */
+export async function signingPolicyHashForMigration(
+  sources: SigningPolicyReconstructionSources,
+  rewardEpochId: number,
+  startVotingRoundId: number,
+  chainId: number | bigint
+): Promise<string> {
+  const oldHash = await sources.oldRelay.toSigningPolicyHash(rewardEpochId);
   if (!/^0x[0-9a-fA-F]{64}$/.test(oldHash) || oldHash.toLowerCase() === ZERO_HASH) {
     throw Error(`Invalid old Relay signing policy hash: ${oldHash}`);
   }
-  if (oldScheme === "legacy") {
-    return chainBoundHash(oldHash, chainId);
+  const policy = await reconstructSigningPolicy(sources, rewardEpochId, startVotingRoundId);
+  const encoded = SigningPolicy.encode(policy);
+  // Byte-exact reconstruction proof against the old Relay before seeding the new one.
+  const newHash = SigningPolicy.hashEncoded(encoded, chainId);
+  const storedHash = oldHash.toLowerCase();
+  if (storedHash !== legacyPolicyContentHash(encoded) && storedHash !== newHash.toLowerCase()) {
+    throw Error(
+      `Old Relay's stored policy hash (${oldHash}) for reward epoch ${rewardEpochId} matches ` +
+        `neither hash of the reconstructed signing policy`
+    );
   }
-  if (oldScheme === "chain-bound") {
-    return oldHash;
-  }
-  throw Error(`Invalid old Relay policy hash scheme '${oldScheme}'; expected 'legacy' or 'chain-bound'`);
+  return newHash;
 }

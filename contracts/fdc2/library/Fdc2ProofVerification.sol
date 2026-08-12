@@ -113,18 +113,24 @@ library Fdc2ProofVerification {
     }
 
     /**
-     * Cosigner-signature preimage wrap. The 6-byte prefix is the Relay protocol-message wire format
-     * (protocol id 1, zero-padded), distinguishing cosigner signatures from the primary signed payload.
+     * Cosigner-signature preimage wrap: the exact digest the Relay computes for the Mode-2
+     * protocol message `{protocolId: 1, votingRoundId: 0, isSecureRandom: 0, merkleRoot:
+     * _messageHash}` — keccak256(chainId ‖ 6-byte wire prefix ‖ message hash), one keccak.
+     * Keeping the shapes identical makes cosigner signatures and relay/signing-policy signatures
+     * over the same message interchangeable (one set of signatures verifies both via
+     * `recoverCosigners` and via `IRelay.verifyCustomSignature`). The chain id here is
+     * `block.chainid`, which equals the Relay's `sourceChainId` on a home deployment (enforced at
+     * Relay initialize); FDC2 is only deployed alongside a home Relay.
      * @param _messageHash The signed-payload message hash.
      * @return The cosigner preimage hash.
      */
     function toCosignersMessageHash(
         bytes32 _messageHash
     )
-        internal pure
+        internal view
         returns (bytes32)
     {
-        return keccak256(bytes.concat(hex"010000000000", _messageHash));
+        return keccak256(bytes.concat(bytes32(block.chainid), hex"010000000000", _messageHash));
     }
 
     function _contains(

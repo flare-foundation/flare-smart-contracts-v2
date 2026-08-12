@@ -60,19 +60,13 @@ export interface RelayMirrorConfig {
 
 /**
  * The source's own home (setter-mode) Relay deployment settings. Protocol addresses are read
- * from the on-chain FlareContractRegistry and the epoch/protocol params are inherited from the
+ * from the on-chain FlareContractRegistry, the epoch/protocol params are inherited from the
  * currently deployed Relay's stateData() (four are handshake-enforced to match it anyway; the
- * rest are preserved across a redeploy), so the only things configured here are the migration
- * scheme — not recoverable from a stored hash — and the owner-timelock duration.
+ * rest are preserved across a redeploy), and the initial signing-policy hash is always
+ * reconstructed from chain state and verified against the old Relay — so the only thing
+ * configured here is the owner-timelock duration.
  */
 export interface RelayHomeConfig {
-  /**
-   * How to interpret the old Relay's stored signing-policy hash: "legacy" wraps a pre-RLY-23
-   * content hash once with the source chain id, "chain-bound" passes an already-wrapped hash
-   * through. See docs/relay-governance.md.
-   */
-  oldRelayPolicyHashScheme: "legacy" | "chain-bound";
-
   /**
    * Initial owner-timelock duration in seconds applied to the owner's fee setters and
    * upgrades (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls

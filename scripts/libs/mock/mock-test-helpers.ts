@@ -5,6 +5,7 @@ import { EpochSettings } from "../../../deployment/utils/EpochSettings";
 import { ISigningPolicy, SigningPolicyInitializedEvent } from "../protocol/SigningPolicy";
 import { DEPLOY_ADDRESSES_FILE } from "../../../deployment/tasks/run-simulation";
 import type { AbiInput } from "web3-utils";
+import type Web3 from "web3";
 import { HardhatNetworkAccountUserConfig } from "hardhat/types";
 
 export const SUBMIT_SIGNATURES_SELECTOR = web3.utils.sha3("submitSignatures()")!.slice(0, 10);
@@ -46,6 +47,20 @@ export function decodeEvent<T extends object = { [key: string]: string }>(
 export function contractAddress(contractName: string): string {
   const addresses = JSON.parse(fs.readFileSync(DEPLOY_ADDRESSES_FILE).toString()) as Record<string, string>;
   return addresses[contractName];
+}
+
+/**
+ * Reads the configured RLY-23 source chain id from the targeted Relay contract. Digest
+ * computation must always use this value — never the connected node's chain id, which only
+ * coincides with it on a home deployment (a mirror Relay is bound to the mirrored source's id).
+ */
+export async function relaySourceChainId(web3Instance: Web3, relayAddress: string): Promise<bigint> {
+  const data = web3Instance.eth.abi.encodeFunctionSignature("sourceChainId()");
+  const result = await web3Instance.eth.call({ to: relayAddress, data });
+  if (!result || result === "0x") {
+    throw Error(`Relay at ${relayAddress} did not return sourceChainId()`);
+  }
+  return BigInt(result);
 }
 
 const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");

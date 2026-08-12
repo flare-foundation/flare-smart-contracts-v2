@@ -1,7 +1,7 @@
 import { sleep } from "../../../deployment/tasks/run-simulation";
 import { IProtocolMessageMerkleRoot } from "../protocol/ProtocolMessageMerkleRoot";
 import { SignDepositMessage, SignerEmulator } from "./SignerEmulator";
-import { extractEpochSettings } from "./mock-test-helpers";
+import { extractEpochSettings, relaySourceChainId } from "./mock-test-helpers";
 
 export interface SignerEmulationConfig {
   varianceMs: number;
@@ -14,6 +14,7 @@ export class SignerEmulatorManager {
     public privateKeys: string[],
     public web3: Web3,
     public submissionContractAddress: string,
+    public relayContractAddress: string,
     public flareSystemsManagerAddress: string,
     public signerEmulationConfig: SignerEmulationConfig,
     public loggingEnabled = true
@@ -45,8 +46,11 @@ export class SignerEmulatorManager {
   }
 
   public async run() {
+    // Digests are bound to the Relay's configured source chain id, read once from the contract.
+    const sourceChainId = await relaySourceChainId(this.web3, this.relayContractAddress);
     const signerEmulators = this.privateKeys.map(
-      (privateKey) => new SignerEmulator(privateKey, this.web3, this.submissionContractAddress, this.loggingEnabled)
+      (privateKey) =>
+        new SignerEmulator(privateKey, this.web3, this.submissionContractAddress, sourceChainId, this.loggingEnabled)
     );
     const epochSettings = await extractEpochSettings(this.flareSystemsManagerAddress);
     while (true) {

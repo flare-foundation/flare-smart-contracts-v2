@@ -17,6 +17,7 @@ import {
   eventSignature,
   eventToSigningPolicy,
   extractEpochSettings,
+  relaySourceChainId,
 } from "./mock-test-helpers";
 
 const SUMMARY_RANGE = 4;
@@ -31,7 +32,8 @@ export interface SigningPolicyUse {
 }
 
 export class MockFinalizer {
-  // RLY-23: signatures are recovered over the chain-bound digest; set in run().
+  // RLY-23: signatures are recovered over the source-bound digest
+  // keccak256(sourceChainId ‖ message); set in run() from relay.sourceChainId().
   private chainId: number | bigint = 0;
   dataSource!: DataSource;
   epochSettings!: EpochSettings;
@@ -321,7 +323,8 @@ export class MockFinalizer {
   }
 
   public async run() {
-    this.chainId = await this.web3.eth.getChainId();
+    // Digests are bound to the Relay's configured source chain id, read once from the contract.
+    this.chainId = await relaySourceChainId(this.web3, this.relayContractAddress);
     this.dataSource = await getDataSource(true);
     this.epochSettings = await extractEpochSettings(this.flareSystemsManagerAddress);
     let endTimeSec = Math.floor(Date.now() / 1000);

@@ -13,9 +13,11 @@ import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
 import { RelayTestBase } from "./Relay.t.sol";
 
 // RLY-23: chain-domain binding (origin form). The signing-policy hash the contract stores/verifies
-// and the digest voters sign both commit to the configured SOURCE network id
-// (keccak256(sourceChainId ‖ hash)) — a deploy-time immutable naming the chain where the protocol's
-// voter consensus is anchored (Flare/Songbird), NOT the chain the Relay runs on. These tests pin:
+// and the digest voters sign both commit to the configured SOURCE network id in a single keccak
+// over the raw content bytes (keccak256(sourceChainId ‖ encoded policy) resp.
+// keccak256(sourceChainId ‖ 38-byte message)) — a deploy-time immutable naming the chain where the
+// protocol's voter consensus is anchored (Flare/Songbird), NOT the chain the Relay runs on. These
+// tests pin:
 //   - the security property: a quorum's signatures minted for one source are inert on a Relay bound
 //     to a different source, even under a fully overlapping voter set;
 //   - mirrors: a Relay deployed on another chain but configured with a foreign source ACCEPTS that
@@ -162,8 +164,8 @@ contract RelayChainDomainTest is RelayTestBase {
     function _chainBoundPolicyRelay(bytes memory currentPolicy, bytes memory newPolicy)
         internal view returns (bytes memory)
     {
-        bytes32 signedHash = _chainBound(_signingPolicyContentHash(newPolicy));
-        signedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", signedHash));
+        bytes32 signedHash =
+            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _signingPolicyHash(newPolicy)));
         return abi.encodePacked(
             Relay.relay.selector,
             currentPolicy,
@@ -173,9 +175,9 @@ contract RelayChainDomainTest is RelayTestBase {
         );
     }
 
-    // The stored hash is exactly keccak256(sourceChainId ‖ contentHash): checked via a setter-mode
-    // relay (a home deploy, so sourceChainId == block.chainid). Both the setSigningPolicy return
-    // value and the getter are observable.
+    // The stored hash is exactly keccak256(sourceChainId ‖ raw encoded policy) — one keccak, no
+    // padding: checked via a setter-mode relay (a home deploy, so sourceChainId == block.chainid).
+    // Both the setSigningPolicy return value and the getter are observable.
     function test_storedPolicyHash_isChainBound() public {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.initialRewardEpochId = 0; // setSigningPolicy requires lastInitialized + 1 == rewardEpochId
@@ -190,15 +192,18 @@ contract RelayChainDomainTest is RelayTestBase {
         sp.voters = voters;
         sp.weights = weights;
 
-        bytes32 contentHash = _signingPolicyContentHash(policy);
         bytes32 stored = setterRelay.setSigningPolicy(sp);
         assertEq(setterRelay.sourceChainId(), block.chainid, "home deploy must bind its own chain");
         assertEq(
             stored,
-            keccak256(abi.encodePacked(setterRelay.sourceChainId(), contentHash)),
-            "not keccak(sourceChainId || content)"
+            keccak256(abi.encodePacked(setterRelay.sourceChainId(), policy)),
+            "not keccak(sourceChainId || encoded policy)"
         );
-        assertTrue(stored != contentHash, "stored hash must not be the bare content hash");
+        assertTrue(stored != keccak256(policy), "stored hash must not be the unbound policy hash");
+        assertTrue(
+            stored != _signingPolicyContentHash(policy),
+            "stored hash must not be the retired chained fold"
+        );
         assertEq(setterRelay.toSigningPolicyHash(REWARD_EPOCH_ID), stored, "getter disagrees with stored hash");
     }
 
@@ -261,7 +266,7 @@ contract RelayChainDomainTest is RelayTestBase {
         songbirdRelay.verifyCustomSignature(rm, mh);
     }
 
-    // Old-format (unbound) signatures — prefixed(keccak(message)) without the chain wrap — are
+    // Old-format (unbound) signatures — prefixed(keccak(message)) without the chain binding — are
     // dead on the new contract: the format break is total, in both directions.
     function test_unboundSignatures_rejected() public {
         bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("root"));
@@ -269,6 +274,23 @@ contract RelayChainDomainTest is RelayTestBase {
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(message)));
         bytes memory rm = abi.encodePacked(
             Relay.relay.selector, policy, message, _signatures(oldFormatDigest, _firstK(3))
+        );
+        vm.expectRevert(IRelay.WrongSignature.selector);
+        this.relayTo(relay, rm);
+    }
+
+    // The never-shipped two-step RLY-23 draft digest — prefixed(keccak(chainid ‖ keccak(message)))
+    // — is equally dead: only the single keccak over the raw message verifies.
+    function test_twoStepBoundSignatures_rejected() public {
+        bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("root"));
+        bytes32 twoStepDigest = keccak256(
+            abi.encodePacked(
+                "\x19Ethereum Signed Message:\n32",
+                keccak256(abi.encodePacked(block.chainid, keccak256(message)))
+            )
+        );
+        bytes memory rm = abi.encodePacked(
+            Relay.relay.selector, policy, message, _signatures(twoStepDigest, _firstK(3))
         );
         vm.expectRevert(IRelay.WrongSignature.selector);
         this.relayTo(relay, rm);
@@ -286,10 +308,13 @@ contract RelayChainDomainTest is RelayTestBase {
         assertTrue(relay.isFinalized(3, START_VOTING_ROUND_ID) && second.isFinalized(3, START_VOTING_ROUND_ID));
     }
 
-    // Full legacy-to-RLY-23 migration using the exact Relay implementation deployed on main.
-    // The legacy Relay stores bare policy hashes and verifies bare message hashes. The new Relay
-    // must wrap the legacy hash exactly once when it is seeded at the cutover boundary.
-    function test_migration_fromMainRelay_wrapsLegacyHashAndPreservesLiveRelay() public {
+    // Full legacy-to-single-keccak migration using the exact Relay implementation deployed on
+    // main. The legacy Relay stores the retired chained-fold policy hash, from which the new
+    // single-keccak hash cannot be derived — the deploy scripts therefore RECONSTRUCT the full
+    // policy from chain state, verify its legacy fold byte-exactly against the old Relay's
+    // stored hash, and only then re-hash it under keccak256(sourceChainId ‖ encoded policy).
+    // This test models that exact flow with the policy bytes in hand.
+    function test_migration_fromMainRelay_reconstructsPolicyAndPreservesLiveRelay() public {
         vm.chainId(FLARE_CHAIN_ID);
 
         bytes memory policy2 = _buildSigningPolicy(
@@ -324,11 +349,15 @@ contract RelayChainDomainTest is RelayTestBase {
         );
 
         bytes32 legacyHash = oldRelay.toSigningPolicyHash(REWARD_EPOCH_ID + 2);
-        assertEq(legacyHash, _signingPolicyContentHash(policy3), "main Relay must expose the bare legacy hash");
+        // The migration's byte-exact reconstruction proof: the reconstructed policy's legacy
+        // chained fold must equal the old Relay's stored hash (here policy3 stands in for the
+        // policy the deploy scripts rebuild from VoterRegistry/EntityManager/FSM views).
+        assertEq(legacyHash, _signingPolicyContentHash(policy3), "reconstruction proof against old Relay failed");
 
-        // This is the migration operation: the new Relay is seeded with the legacy hash wrapped
-        // once for the live chain. Its compatibility checks also consume the exact old Relay.
-        IRelay.RelayInitialConfig memory migratedConfig = _initialConfig(_chainBound(legacyHash));
+        // This is the migration operation: the verified reconstructed policy is re-hashed under
+        // the new single-keccak scheme and seeds the new Relay. Its compatibility checks also
+        // consume the exact old Relay.
+        IRelay.RelayInitialConfig memory migratedConfig = _initialConfig(_signingPolicyHash(policy3));
         migratedConfig.initialRewardEpochId = REWARD_EPOCH_ID + 2;
         migratedConfig.startingVotingRoundIdForInitialRewardEpochId =
             START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION;

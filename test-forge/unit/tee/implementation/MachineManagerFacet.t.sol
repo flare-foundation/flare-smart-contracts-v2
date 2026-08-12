@@ -1000,7 +1000,8 @@ contract MachineManagerFacetTest is Test {
                 keccak256(abi.encode(respBody))
             ))
         );
-        bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
+        bytes32 cosignersMessageHash =
+            keccak256(bytes.concat(bytes32(block.chainid), hex"010000000000", messageHash));
 
         // Create cosigner signatures
         IFdc2Verification.Fdc2Signatures memory sigs;

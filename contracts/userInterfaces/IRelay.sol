@@ -260,9 +260,10 @@ interface IRelay is RandomNumberV2Interface {
      * If the check is successful, reward epoch id of the signing policy is returned.
      * Otherwise the function reverts.
      * **SECURITY (L-3, updated by RLY-23):** This is a generic signature-quorum oracle — it only checks that
-     *           enough current voters signed _messageHash. Since RLY-23 the verified digest is chain-bound
-     *           (keccak256(chainid ‖ messageHash) is what voters sign), so cross-CHAIN replay of the same
-     *           signatures is rejected. The digest still does NOT bind this contract's address or any nonce:
+     *           enough current voters signed _messageHash. Since RLY-23 the verified digest is source-bound:
+     *           voters sign keccak256(sourceChainId ‖ 38-byte message) over the protocol message
+     *           (1, 0, 0, _messageHash), so cross-CHAIN replay of the same signatures is rejected.
+     *           The digest still does NOT bind this contract's address or any nonce:
      *           callers MUST still domain-separate _messageHash themselves (e.g. include the consuming contract
      *           address and an application nonce); otherwise the same voter signatures can be replayed for the
      *           same _messageHash on another deployment on THIS chain with an overlapping signing policy.
@@ -361,10 +362,11 @@ interface IRelay is RandomNumberV2Interface {
      * Returns the signing policy hash for given reward epoch id.
      * The function is reverted if signingPolicySetter is NOT set, hence on all
      * deployments where the contract is used as a pure relay.
-     * **RLY-23:** the returned hash is chain-bound: keccak256(chainid ‖ contentHash), where contentHash is
-     * the sequential 32-byte-chunk keccak fold of the encoded policy. Off-chain code comparing against a
-     * locally computed policy hash must apply the same wrap (epochs served by an old-format `oldRelay`
-     * fallback still return the unwrapped content hash).
+     * **RLY-23:** the returned hash is source-bound: keccak256(sourceChainId ‖ encoded policy bytes) —
+     * one keccak over the 32-byte source chain id followed by the raw 43 + 22 * n byte encoding, no
+     * padding. Off-chain code comparing against a locally computed policy hash must use the same scheme
+     * (epochs served by an old-format `oldRelay` fallback still return that contract's retired
+     * chained-fold content hash).
      * @param _rewardEpochId The reward epoch id.
      * @return _signingPolicyHash The signing policy hash.
      */

@@ -8,10 +8,12 @@ import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
 import { RelayInitialConfig } from "../utils/RelayInitialConfig";
 import {
+  EntityManagerContract,
   FlareSystemsManagerContract,
   FlareSystemsManagerInstance,
   RelayContract,
   RelayProxyContract,
+  VoterRegistryContract,
 } from "../../typechain-truffle";
 import { Account } from "web3-core";
 import { signingPolicyHashForMigration } from "../utils/SigningPolicyHashMigration";
@@ -20,7 +22,6 @@ export async function redeployRelay(
   hre: HardhatRuntimeEnvironment,
   contracts: Contracts,
   parameters: ChainParameters,
-  oldRelayPolicyHashScheme: string,
   quiet: boolean = false
 ) {
   const web3 = hre.web3;
@@ -30,6 +31,8 @@ export async function redeployRelay(
 
   const Relay = artifacts.require("Relay") as RelayContract;
   const FlareSystemsManager = artifacts.require("FlareSystemsManager") as FlareSystemsManagerContract;
+  const VoterRegistry = artifacts.require("VoterRegistry") as VoterRegistryContract;
+  const EntityManager = artifacts.require("EntityManager") as EntityManagerContract;
 
   // Define accounts in play for the deployment process
   let deployerAccount: Account;
@@ -48,11 +51,20 @@ export async function redeployRelay(
   );
   const oldRelay = await Relay.at(contracts.getContractAddress(Contracts.RELAY));
 
+  const voterRegistry = await VoterRegistry.at(contracts.getContractAddress(Contracts.VOTER_REGISTRY));
+  const entityManager = await EntityManager.at(contracts.getContractAddress(Contracts.ENTITY_MANAGER));
+
   const nextRewardEpochId = (await flareSystemsManager.getCurrentRewardEpochId()).toNumber() + 1;
   const startVotingRoundId = await flareSystemsManager.getStartVotingRoundId(nextRewardEpochId);
-  const oldSigningPolicyHash = await oldRelay.toSigningPolicyHash(nextRewardEpochId);
   const chainId = await web3.eth.getChainId();
-  const signingPolicyHash = signingPolicyHashForMigration(oldSigningPolicyHash, chainId, oldRelayPolicyHashScheme);
+  // Reconstructs the next epoch's signing policy from chain state, verifies it byte-exactly
+  // against the old Relay's stored hash, and hashes it under the single-keccak scheme.
+  const signingPolicyHash = await signingPolicyHashForMigration(
+    { oldRelay, flareSystemsManager, voterRegistry, entityManager },
+    nextRewardEpochId,
+    startVotingRoundId.toNumber(),
+    chainId
+  );
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: nextRewardEpochId,
     startingVotingRoundIdForInitialRewardEpochId: startVotingRoundId.toNumber(),

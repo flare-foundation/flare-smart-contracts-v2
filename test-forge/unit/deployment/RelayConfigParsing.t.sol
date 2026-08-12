@@ -20,11 +20,11 @@ contract RelayConfigParsingTest is Test {
         string memory cfg = _read("flare");
         assertTrue(vm.keyExistsJson(cfg, ".expectedDeployer"));
         assertTrue(vm.keyExistsJson(cfg, ".home"));
-        // Home carries ONLY the migration scheme + the owner-timelock duration; epoch/protocol
-        // params are read from the currently deployed Relay's stateData() at deploy time, not
-        // the config.
-        assertEq(vm.parseJsonString(cfg, ".home.oldRelayPolicyHashScheme"), "legacy");
+        // Home carries ONLY the owner-timelock duration; epoch/protocol params are read from the
+        // currently deployed Relay's stateData() at deploy time, and the initial signing-policy
+        // hash is always reconstructed from chain state — neither lives in the config.
         vm.parseJsonUint(cfg, ".home.timelockDurationSeconds");
+        assertFalse(vm.keyExistsJson(cfg, ".home.oldRelayPolicyHashScheme"));
         assertFalse(vm.keyExistsJson(cfg, ".home.randomNumberProtocolId"));
         assertFalse(vm.keyExistsJson(cfg, ".home.rewardEpochDurationInVotingEpochs"));
         assertFalse(vm.keyExistsJson(cfg, ".home.messageFinalizationWindowInRewardEpochs"));

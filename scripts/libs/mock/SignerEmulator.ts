@@ -19,6 +19,9 @@ export class SignerEmulator {
     private privateKey: string,
     public web3: Web3,
     public submissionContractAddress: string,
+    /** The targeted Relay's configured source chain id (`relay.sourceChainId()`) —
+     * never the connected node's chain id, which only coincides on a home deployment. */
+    public sourceChainId: number | bigint,
     public loggingEnabled = true
   ) {
     this.address = this.web3.eth.accounts.privateKeyToAccount(this.privateKey).address;
@@ -28,8 +31,8 @@ export class SignerEmulator {
   }
 
   public async signAndEncode(messages: SignDepositMessage[]): Promise<string> {
-    // RLY-23: voters sign the chain-bound digest keccak256(chainId ‖ keccak256(message)).
-    const chainId = await this.web3.eth.getChainId();
+    // RLY-23: voters sign the source-bound digest keccak256(sourceChainId ‖ message).
+    const chainId = this.sourceChainId;
     const signaturePayloadHexList: string[] = await Promise.all(
       messages.map(async (message) => {
         const messageHash = ProtocolMessageMerkleRoot.hash(message.messageToSign, chainId);

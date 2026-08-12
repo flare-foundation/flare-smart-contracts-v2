@@ -55,19 +55,6 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         uint32 messageFinalizationWindowInRewardEpochs;
     }
 
-    // Auxilary struct for memory variables
-    struct Counters {
-        uint256 weightIndex;
-        uint256 weightPos;
-        uint256 voterIndex;
-        uint256 voterPos;
-        uint256 count;
-        uint256 bytesToTake;
-        bytes32 nextSlot;
-        uint256 pos;
-        uint256 signingPolicyPos;
-    }
-
     // 4-byte custom-error selectors for the hand-written relay() assembly (compile-time
     // folded; the matching error declarations live on IRelay). One selector per failure.
     /* solhint-disable const-name-snakecase */
@@ -237,6 +224,10 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     uint256 private constant M_6_merkleRoot = 192;
     uint256 private constant M_7_randomNumber = 224;
     uint256 private constant M_8_signatureStart = 256;
+    /// Start of the digest scratch region, above every fixed slot: the single-keccak digest
+    /// computations write sourceChainId followed by the raw content bytes here (up to
+    /// 32 + 43 + MAX_VOTERS * 22 bytes for a signing policy), so no fixed slot is ever clobbered.
+    uint256 private constant M_9_digestScratch = 288;
 
     uint256 private constant ADDRESS_OFFSET = 12;
     /* solhint-enable const-name-snakecase */
@@ -279,10 +270,10 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     /// adapters). Owner-set via setFeeExemptions.
     mapping(address account => bool) public override feeExemptAddress;
     /// RLY-23: the source network id bound into every stored signing-policy hash and, via the
-    /// analogous wrap in relay(), every signed protocol-message digest —
-    /// keccak256(sourceChainId ‖ contentHash) — so policies and messages minted for another
-    /// network are rejected even under a fully overlapping voter set. Explicit and nonzero on
-    /// every deployment, set once in initialize; home deploys force it to block.chainid.
+    /// analogous digest in relay(), every signed protocol-message digest —
+    /// keccak256(sourceChainId ‖ raw content bytes), one keccak — so policies and messages minted
+    /// for another network are rejected even under a fully overlapping voter set. Explicit and
+    /// nonzero on every deployment, set once in initialize; home deploys force it to block.chainid.
     uint256 public override sourceChainId;
 
     /// Only signingPolicySetter address/contract can call this method.
@@ -321,9 +312,10 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         require(_initialConfig.rewardEpochDurationInVotingEpochs > 0, RewardEpochDurationZero());
         require(_initialConfig.votingEpochDurationSeconds > 0, VotingEpochDurationZero());
         // L-4: a zero initial signing-policy hash would brick the initial epoch (no relay message could match).
-        // RLY-23: the supplied hash must already be source-bound — keccak256(sourceChainId ‖ contentHash) —
-        // matching what relay()/setSigningPolicy store and verify. A content hash (or a hash bound to another
-        // source) fails closed: no relay message can ever match it. Deploy scripts wrap on migration.
+        // RLY-23: the supplied hash must already be source-bound — keccak256(sourceChainId ‖ encoded policy
+        // bytes), one keccak — matching what relay()/setSigningPolicy store and verify. A hash of another
+        // shape (or bound to another source) fails closed: no relay message can ever match it. Deploy
+        // scripts reconstruct the full policy from chain state and hash it under this scheme on migration.
         require(_initialConfig.initialSigningPolicyHash != bytes32(0), InitialSigningPolicyHashZero());
         require(_initialConfig.firstRewardEpochStartVotingRoundId +
             _initialConfig.initialRewardEpochId * _initialConfig.rewardEpochDurationInVotingEpochs <=
@@ -468,96 +460,49 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             ThresholdTooHigh()
         );
 
-        bytes memory signingPolicyBytes = new bytes(
-            SIGNING_POLICY_PREFIX_BYTES +
-                _signingPolicy.voters.length *
-                ADDRESS_AND_WEIGHT_BYTES
-        );
-
-        Counters memory m;
-
-        // bytes32 currentHash;
-        // RLY-19: _signingPolicy.rewardEpochId is uint24 (see IIRelay.SigningPolicy), so the bytes3(...)
-        // narrowing below is lossless and matches the mapping key — no >2**24 truncation is possible.
-        bytes memory toHash = bytes.concat(
-            bytes2(uint16(_signingPolicy.voters.length)),
-            bytes3(_signingPolicy.rewardEpochId),
-            bytes4(_signingPolicy.startVotingRoundId),
-            bytes2(_signingPolicy.threshold),
-            bytes32(uint256(_signingPolicy.seed)),
-            bytes20(_signingPolicy.voters[0]),
-            bytes1(uint8(_signingPolicy.weights[0] >> 8))
-        );
-
-        for (; m.signingPolicyPos < 64; m.signingPolicyPos++) {
-            signingPolicyBytes[m.signingPolicyPos] = toHash[m.signingPolicyPos];
+        uint256 numberOfVoters = _signingPolicy.voters.length;
+        uint256 policyLength = SIGNING_POLICY_PREFIX_BYTES + numberOfVoters * ADDRESS_AND_WEIGHT_BYTES;
+        // One word of slack so the packed 32-byte mstores below never write outside the allocation;
+        // the length is shrunk to the real encoded size right after.
+        bytes memory signingPolicyBytes = new bytes(policyLength + 32);
+        assembly ("memory-safe") {
+            mstore(signingPolicyBytes, policyLength)
         }
 
-        bytes32 currentHash = keccak256(toHash);
-
-        m.weightIndex = 0;
-        m.weightPos = 1;
-        m.voterIndex = 1;
-        m.voterPos = 0;
-
-        while (m.weightIndex < _signingPolicy.voters.length) {
-            m.count = 0;
-            m.nextSlot = bytes32(uint256(0));
-            m.bytesToTake = 0;
-            while (
-                m.count < 32 && m.weightIndex < _signingPolicy.voters.length
-            ) {
-                if (m.weightIndex < m.voterIndex) {
-                    m.bytesToTake = 2 - m.weightPos;
-                    m.pos = m.weightPos;
-                    bytes32 weightData = bytes32(
-                        uint256(
-                            uint16(_signingPolicy.weights[m.weightIndex])
-                        ) << (30 * 8)
-                    );
-                    if (m.count + m.bytesToTake > 32) {
-                        m.bytesToTake = 32 - m.count;
-                        m.weightPos += m.bytesToTake;
-                    } else {
-                        m.weightPos = 0;
-                        m.weightIndex++;
-                    }
-                    m.nextSlot |= bytes32(
-                        ((weightData << (8 * m.pos)) >> (8 * m.count))
-                    );
-                } else {
-                    m.bytesToTake = 20 - m.voterPos;
-                    m.pos = m.voterPos;
-                    bytes32 voterData = bytes32(
-                        uint256(uint160(_signingPolicy.voters[m.voterIndex])) <<
-                            (12 * 8)
-                    );
-                    if (m.count + m.bytesToTake > 32) {
-                        m.bytesToTake = 32 - m.count;
-                        m.voterPos += m.bytesToTake;
-                    } else {
-                        m.voterPos = 0;
-                        m.voterIndex++;
-                    }
-                    m.nextSlot |= bytes32(
-                        ((voterData << (8 * m.pos)) >> (8 * m.count))
-                    );
-                }
-                m.count += m.bytesToTake;
-            }
-            if (m.count > 0) {
-                currentHash = keccak256(bytes.concat(currentHash, m.nextSlot));
-                for (uint256 i = 0; i < m.count; i++) {
-                    signingPolicyBytes[m.signingPolicyPos] = m.nextSlot[i];
-                    m.signingPolicyPos++;
-                }
+        // RLY-19: _signingPolicy.rewardEpochId is uint24 (see IIRelay.SigningPolicy), so the packing
+        // below is lossless and matches the mapping key — no >2**24 truncation is possible.
+        bytes memory prefix = abi.encodePacked(
+            uint16(numberOfVoters),
+            _signingPolicy.rewardEpochId,
+            _signingPolicy.startVotingRoundId,
+            _signingPolicy.threshold,
+            _signingPolicy.seed
+        );
+        assembly ("memory-safe") {
+            mcopy(add(signingPolicyBytes, 0x20), add(prefix, 0x20), SIGNING_POLICY_PREFIX_BYTES)
+        }
+        for (uint256 i = 0; i < numberOfVoters; i++) {
+            address voter = _signingPolicy.voters[i];
+            uint256 weight = _signingPolicy.weights[i];
+            assembly ("memory-safe") {
+                let ptr := add(
+                    add(signingPolicyBytes, 0x20),
+                    add(SIGNING_POLICY_PREFIX_BYTES, mul(i, ADDRESS_AND_WEIGHT_BYTES))
+                )
+                // 20-byte address followed by the 2-byte weight; each mstore writes a full word whose
+                // tail is overwritten by the next write (the last one lands in the slack word above)
+                mstore(ptr, shl(96, voter))
+                mstore(add(ptr, ADDRESS_BYTES), shl(240, weight))
             }
         }
+
         // RLY-23: chain-domain binding — the stored signing-policy hash commits to the configured
-        // source network: keccak256(sourceChainId ‖ contentHash). Signatures over policies (and, via
-        // the analogous wrap in relay(), over protocol messages) minted for another network are thereby
-        // rejected even under a fully overlapping voter set. On a home deploy sourceChainId == block.chainid.
-        currentHash = keccak256(abi.encodePacked(sourceChainId, currentHash));
+        // source network: keccak256(sourceChainId ‖ signingPolicyBytes), one keccak over the 32-byte
+        // source id followed by the raw encoded policy (no padding). Signatures over policies (and,
+        // via the analogous digest in relay(), over protocol messages) minted for another network are
+        // thereby rejected even under a fully overlapping voter set. On a home deploy
+        // sourceChainId == block.chainid.
+        bytes32 currentHash = keccak256(abi.encodePacked(sourceChainId, signingPolicyBytes));
         toSigningPolicyHashPrivate[_signingPolicy.rewardEpochId] = currentHash;
         stateData.lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
         startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy.startVotingRoundId;
@@ -795,44 +740,23 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 )
             }
 
-            // Helper function to calculate the signing policy hash while trying to minimize the usage of memory
-            // Uses slots 0 and 32
+            // Helper function to calculate the signing policy hash: one keccak over the 32-byte
+            // source chain id followed by the raw encoded policy bytes (no padding).
+            // RLY-23: chain-domain binding — the hash commits to the configured source network,
+            // so policies minted for another network are rejected even under a fully overlapping
+            // voter set. The id is set once at initialize (threaded in as _sourceChainId), so the
+            // same policy verifies on every Relay that mirrors this source.
+            // Writes 32 + _policyLength bytes of scratch starting at _memPos — callers pass the
+            // M_9_digestScratch region so no fixed memory slot is clobbered.
             function calculateSigningPolicyHash(
                 _memPos,
                 _calldataPos,
                 _policyLength,
                 _sourceChainId
             ) -> _policyHash {
-                // first byte
-                calldatacopy(_memPos, _calldataPos, 32)
-                // all but last 32-byte word
-                let endPos := add(_calldataPos, mul(div(_policyLength, 32), 32))
-                for {
-                    let pos := add(_calldataPos, 32)
-                } lt(pos, endPos) {
-                    pos := add(pos, 32)
-                } {
-                    calldatacopy(add(_memPos, M_1), pos, 32)
-                    mstore(_memPos, keccak256(_memPos, 64))
-                }
-                if iszero(mod(_policyLength, 32)) {
-                    // no additinal bytes
-                    _policyHash := mload(_memPos)
-                }
-                if gt(mod(_policyLength, 32), 0) {
-                    // handle the remaining bytes
-                    mstore(add(_memPos, M_1), 0)
-                    calldatacopy(add(_memPos, M_1), endPos, mod(_policyLength, 32)) // remaining bytes
-                    mstore(_memPos, keccak256(_memPos, 64))
-                    _policyHash := mload(_memPos)
-                }
-                // RLY-23: chain-domain binding — the signing-policy hash commits to the configured
-                // source network: keccak256(sourceChainId ‖ contentHash). Reuses the two scratch slots
-                // this function already owns. The id is set once at initialize (threaded in as
-                // _sourceChainId), so the same policy verifies on every Relay that mirrors this source.
                 mstore(_memPos, _sourceChainId)
-                mstore(add(_memPos, M_1), _policyHash)
-                _policyHash := keccak256(_memPos, 64)
+                calldatacopy(add(_memPos, 0x20), _calldataPos, _policyLength)
+                _policyHash := keccak256(_memPos, add(0x20, _policyLength))
             }
 
             function extractVotingRoundIdFromMessage(
@@ -1025,10 +949,11 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
 
             ///////////// Verifying signing policy /////////////
             // signing policy hash temporarily stored to slot M_2
+            // (computed in the M_9 digest scratch region — stateData at M_5 stays live)
             mstore(
                 add(memPtr, M_2_signingPolicyHashTmp),
                 calculateSigningPolicyHash(
-                    memPtr,
+                    add(memPtr, M_9_digestScratch),
                     SELECTOR_BYTES,
                     signingPolicyLength,
                     srcChainId
@@ -1248,14 +1173,21 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 }
                 // all revert conditions are checked
 
-                // Prepare the message hash into slot M_1
-                mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, MESSAGE_BYTES))
-                // RLY-23: chain-domain binding — the signed digest commits to the configured source:
-                // M_1 <- keccak256(sourceChainId ‖ keccak256(message)). Slot M_0 (the spent message
-                // bytes) is safe to reuse as scratch: this is the last statement of the block and the
-                // accept path re-reads the message from calldata.
-                mstore(memPtrGP0, srcChainId)
-                mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, 64))
+                // Prepare the signed digest into slot M_1.
+                // RLY-23: chain-domain binding — the digest commits to the configured source in a
+                // single keccak over the raw content: M_1 <- keccak256(sourceChainId ‖ message).
+                // The 70-byte preimage is assembled in the M_9 digest scratch region (same as the
+                // signing-policy hash), so every fixed slot stays intact.
+                mstore(add(memPtrGP0, M_9_digestScratch), srcChainId)
+                calldatacopy(
+                    add(memPtrGP0, add(M_9_digestScratch, 0x20)),
+                    add(SELECTOR_BYTES, signingPolicyLength),
+                    MESSAGE_BYTES
+                )
+                mstore(
+                    add(memPtrGP0, M_1),
+                    keccak256(add(memPtrGP0, M_9_digestScratch), add(0x20, MESSAGE_BYTES))
+                )
             }
 
             // protocolId == 0 means we are relaying new signing policy (Mode 1)
@@ -1375,8 +1307,10 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                     )
                 )
 
+                // computed in the M_9 digest scratch region — stateData at M_5 (read by the
+                // assignStruct update just below) stays live
                 let newSigningPolicyHash := calculateSigningPolicyHash(
-                    mload(0x40),
+                    add(mload(0x40), M_9_digestScratch),
                     add(
                         SELECTOR_BYTES,
                         add(signingPolicyLength, PROTOCOL_ID_BYTES)

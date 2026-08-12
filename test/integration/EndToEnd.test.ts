@@ -780,6 +780,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     };
 
     relay = await deployRelayProxy(relayInitialConfig, flareSystemsManager.address, constants.ZERO_ADDRESS);
+    // Digest computation must use the relay's configured source chain id; on this home deploy it
+    // equals the node's chain id used above — pinned here so a drift fails loudly.
+    expect((await relay.sourceChainId()).toNumber()).to.equal(chainId);
 
     const relayInitialConfig2: RelayInitialConfig = {
       initialRewardEpochId: initialSigningPolicy.rewardEpochId,

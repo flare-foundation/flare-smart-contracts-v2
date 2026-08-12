@@ -349,6 +349,36 @@ A second adversarial review of the updated contract (commit `463fd59c`; 80 agent
 
 ## ✅ RLY-23 — chain-domain binding (cross-chain signature-replay hardening)
 
+> **Update (single-keccak simplification, 2026-08).** The binding shape described below was
+> simplified before any deployment: the chained per-32-byte fold and the two-step wrap
+> `keccak256(sourceChainId ‖ keccak256(content))` are both retired. The current scheme is **one
+> keccak over the raw content bytes** at both sites:
+> `policyHash = keccak256(sourceChainId ‖ encodedPolicyBytes)` (no zero-padding) and
+> `messageDigest = keccak256(sourceChainId ‖ 38-byte message)`. The Mode-1/Mode-2 digest sites in
+> `relay()` assemble the preimage in a dedicated scratch region above the fixed memory slots
+> (`M_9_digestScratch`); `setSigningPolicy` builds the encoded bytes plainly and hashes once.
+> `ChainDomain.ts` (`chainBoundHash`) is deleted — `SigningPolicy.hashEncoded` and
+> `ProtocolMessageMerkleRoot.hash` compute the single keccak directly. The FDC2 cosigner preimage
+> (`Fdc2ProofVerification.toCosignersMessageHash`) tracks the new digest, restoring
+> cosigner ↔ `verifyCustomSignature` signature interchangeability. Migration from the deployed
+> pre-RLY-23 Relay can no longer re-wrap the stored hash: the deploy scripts ALWAYS **reconstruct
+> the full signing policy from chain state** (VoterRegistry + EntityManager + FlareSystemsManager
+> views) and require the old Relay's stored hash to equal one of the two hashes of the
+> reconstructed bytes (legacy chained fold or single-keccak) before seeding the single-keccak
+> hash — there is no scheme knob and no pass-through branch (eliminating the fail-open
+> operator-error path).
+> Coordination note: besides voter/finalizer clients, **all TEE machines require redeployment**
+> — they verify the data-provider signatures inside the enclave before signing, so old binaries
+> (computing the legacy digest) reject new single-keccak signatures. On-chain consumers that
+> only delegate verification to the Relay need no bytecode change, but consumers inlining the
+> internal `Fdc2ProofVerification.toCosignersMessageHash` (the TEE Diamond facets via the
+> `Verification` library, `TeePaymentsConfigVerifier`) need new deployed bytecode
+> (facet replacement / UUPS upgrade). The same batch repoints `Fdc2Verification`'s `relay`
+> reference and deliberately invalidates legacy-digest proofs — the full simultaneous
+> checklist lives in docs/relay-governance.md §6.
+> Everything below this note describes the original two-step implementation; the security
+> rationale (origin binding, mirrors, home-force, fork trade-off) is unchanged.
+
 **Root cause.** Neither pre-image the `relay()` signature loop verifies committed to any chain or
 deployment identifier. The signing-policy hash (`calculateSigningPolicyHash`) folded only the policy
 *content* (voters/weights/threshold/seed); the protocol-message digest was `keccak256(message)` over the

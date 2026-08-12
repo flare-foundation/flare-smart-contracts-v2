@@ -847,7 +847,9 @@ async function fakeFinalize(
       logger.info(`Voter not among registered accounts: ${voter}`);
     }
   }
-  const chainId = await web3.eth.getChainId();
+  // Digests are bound to the Relay's configured source chain id, read from the contract —
+  // never the connected node's chain id (they only coincide on a home deployment).
+  const chainId = BigInt((await c.relay.sourceChainId()).toString());
   const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
   const signatures = await generateSignatures(privateKeysInOrder, messageHash, privateKeysInOrder.length);
 

@@ -61,7 +61,7 @@ export namespace RelayMessage {
       const encodedMessage = ProtocolMessageMerkleRoot.encode(message.protocolMessageMerkleRoot);
       encoded += encodedMessage.slice(2);
       if (verify) {
-        // RLY-23: voters sign the chain-bound digest keccak256(chainId ‖ keccak256(message)).
+        // RLY-23: voters sign the source-bound digest keccak256(chainId ‖ 38-byte message) — one keccak.
         hashToSign = ProtocolMessageMerkleRoot.hash(message.protocolMessageMerkleRoot, chainId!);
       }
     } else {

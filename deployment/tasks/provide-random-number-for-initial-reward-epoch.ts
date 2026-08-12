@@ -104,7 +104,8 @@ export async function provideRandomNumberForInitialRewardEpoch(
           isSecureRandom: true,
           merkleRoot: merkleRoot,
         };
-        const chainId = await web3.eth.getChainId();
+        // Digests are bound to the Relay's configured source chain id, read from the contract.
+        const chainId = BigInt((await relay.sourceChainId()).toString());
         const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
         const signatures = await generateSignatures([initialVoterPrivateKey], messageHash, 1);
 

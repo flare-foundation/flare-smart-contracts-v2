@@ -135,8 +135,9 @@ FlareContractRegistry (the Relay owner via `GovernanceSettings.getGovernanceAddr
 
 Parameters live in **one config per source** —
 [`deployment/chain-config/relay/<source>.json`](../deployment/chain-config/relay/README.md)
-— holding the source's `home` settings (`oldRelayPolicyHashScheme`,
-`timelockDurationSeconds`) plus a `mirrors` map (keyed by chain name) of every target that
+— holding the source's `home` settings (`timelockDurationSeconds` — the initial
+signing-policy hash is always reconstructed from chain state, never configured) plus a
+`mirrors` map (keyed by chain name) of every target that
 mirrors it (`chainId`, `relayOwner`, `feeCollectionAddress`, `timelockDurationSeconds`,
 `feeConfigs`, `feeExemptAddresses`), with a shared top-level `expectedDeployer`. This
 single inventory keeps mirrors from drifting from a shared base and lets every field be
@@ -175,19 +176,97 @@ The sequence for a new target Relay:
    the same set on-chain;
 5. only then publish the Relay address to relayers.
 
-For the separate pre-RLY-23 signing-policy migration on a home deployment, the config
-requires an explicit old-hash scheme (`home.oldRelayPolicyHashScheme`):
+The signing-policy migration on a home deployment is ALWAYS reconstruction-based — there
+is deliberately no configured scheme and no pass-through branch (a mistaken config value
+could otherwise seed the canonical proxy with a hash no policy can ever satisfy). The
+deploy script rebuilds the next epoch's full policy from chain state — (identity voters,
+normalised weights) from VoterRegistry, identity → signing-policy addresses via
+EntityManager at the policy's registration snapshot block, seed/threshold from
+FlareSystemsManager — and requires the old Relay's stored hash to equal ONE of the two
+hashes of the reconstructed bytes:
 
 ```text
-legacy       — wraps the old Relay's nonzero content hash exactly once with the chain id
-chain-bound  — passes an already wrapped hash through
+legacy fold   — the retired chained-fold content hash (what every live deployment
+                stores today; also what the RelayMainDeployed test replica stores)
+single-keccak — keccak256(sourceChainId ‖ encoded policy) (what a new-scheme Relay
+                stores, covering a future new→new migration)
 ```
 
-Zero hashes, malformed hashes and unknown schemes fail before deployment. There is
-intentionally no automatic guess: both forms are indistinguishable nonzero `bytes32`
-values. The currently deployed main-branch Relay (and its exact `RelayMainDeployed` test
-replica) are pre-RLY-23, so that migration must use `legacy`; `chain-bound` is only for a
-source Relay whose deployment provenance confirms it already stores the wrapped form.
+Either match proves the reconstruction byte-exact against the old contract; the seeded
+value is always the single-keccak hash. Zero hashes, malformed hashes and a stored hash
+matching neither candidate fail before deployment.
+
+### The home-deploy window: the last ~1–2 hours of a reward epoch
+
+A home deployment is time-specific. `DeployRelayHome` (and `redeploy-relay.ts`) target
+`initialRewardEpochId = FlareSystemsManager.getCurrentRewardEpochId() + 1` and read data
+that only exists once the FSM has initialized the **next** epoch's signing policy on the
+old Relay: its stored policy hash (nonzero, script- and L-4-enforced),
+`getStartVotingRoundId(N+1)` / `getThreshold(N+1)` (`onlyIfInitialized`), and the
+VoterRegistry/EntityManager reconstruction data. On Flare
+(`newSigningPolicyInitializationStartSeconds = 7200`, ≥30 min registration window) that
+policy typically lands **~1–1.5 h before epoch N+1 starts**:
+
+```text
+epoch N ──────────────────────────┬────────┬──────── epoch N+1 ────────
+                                  │        │
+              policy N+1 initialized      N+1 starts
+              on old Relay        └─deploy─┘
+                                    window
+```
+
+The scripts cannot run outside the window — too early, no policy N+1 (revert); too late
+(N+1 already running), they target N+2 whose policy does not exist yet (revert until the
+tail of N+1). Missing the window costs one reward epoch (~3.5 days), nothing more.
+
+**Inside the window, deploy as early as possible — it is completely safe.** The new Relay
+cannot accept state-changing finalizations before the boundary: it only knows policy N+1
+and `relay()` rejects any message whose voting round maps to an earlier epoch
+(`WrongSignPolicyRewardEpoch`). (Protocol-ID-1 custom verification is not voting-round-
+gated — `verifyCustomSignature` against policy N+1 voters works from the moment of
+deployment — but it is read-only and stores nothing.) Rounds `< startVotingRoundId(N+1)`
+keep finalizing on the old contract, and the new one delegates `verify` / `merkleRoots` /
+`toSigningPolicyHash` reads below the boundary to `oldRelay`. Deploying at the window
+open gives a gapless cutover: every finalization from the first round of N+1 happens on
+the new contract.
+
+**Hard cutover for off-chain signers.** Voters and finalizers must sign the new
+single-keccak digest for rounds `≥ startVotingRoundId(N+1)` and the legacy digest for
+rounds before it. A round signed only under the old scheme can never be finalized on the
+new contract, and the new contract does **not** delegate reads above the boundary — late
+client switching therefore leaves a permanent finalization gap on the new Relay. During
+the boundary rounds, clients should dual-sign (and finalizers submit to both contracts).
+**FDC2/TEE cutover — one simultaneous batch.** The digest change propagates into the
+FDC2/TEE stack, and the following must land together with the voter/finalizer client
+switch (each item alone leaves the stack split across two digest schemes):
+
+- **All TEE machines redeploy** (new enclave binaries): they verify the data-provider
+  signatures inside the enclave before adding their own signature, so an old binary —
+  which computes the legacy digest — will reject every new single-keccak signature.
+- **FDC2 Relay-pointer update**: `Fdc2Verification`'s `relay` reference (AddressUpdatable)
+  must be repointed to the new Relay. Until it is, `verifySigningPolicySignatures`
+  delegates to the old contract and keeps accepting legacy-digest proofs while rejecting
+  new-scheme ones.
+- **Inline-digest bytecode deployment**: on-chain consumers that only delegate
+  verification to the Relay need no bytecode change, but those that inline the cosigner
+  digest — `Fdc2ProofVerification.toCosignersMessageHash` is an internal library function
+  compiled into its callers — need new deployed bytecode: the TEE Diamond facets using
+  the `Verification` library (replaced via `diamondCut`) and `TeePaymentsConfigVerifier`
+  (UUPS upgrade).
+- **Existing testnet proofs are deliberately invalidated**: any stored FDC2 proof whose
+  signing-policy or cosigner signatures were minted under the legacy digest stops
+  verifying once the pointer and bytecode above are switched. This is intentional (the
+  two digest formats must not be interchangeable); such proofs must be regenerated under
+  the new scheme.
+
+**Post-deploy deadlines (softer, ~3.4 days of slack).** During epoch N+1, before the
+N+2 policy-initialization phase begins (~2 h before N+1 ends), governance must repoint
+the FSM (AddressUpdater/registry cutover) to the new Relay: the new contract strictly
+requires the next `setSigningPolicy` to be exactly N+2, and only the configured setter
+can deliver it. Voter `signNewSigningPolicy` clients need no change — they sign whatever
+`relay.toSigningPolicyHash()` returns once the FSM reads the new contract. Mirror deploys
+are not time-specific at all: `PrepareRelaySourceSnapshot` captures the home Relay's
+stored (already new-scheme) hash immediately before each mirror deploy.
 
 ## 7. Implemented tests
 

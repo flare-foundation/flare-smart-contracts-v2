@@ -218,14 +218,15 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         require(teesList.length >= teeThreshold, TeeThresholdNotMet());
     }
 
-    /// See `Verification.toCosignersMessageHash` — the 6-byte prefix is the Relay
-    /// protocol-message wire format for `protocolId=1 || votingRoundId=0 || isSecureRandom=false`.
+    /// See `Fdc2ProofVerification.toCosignersMessageHash` — the Relay Mode-2 digest for
+    /// `protocolId=1 || votingRoundId=0 || isSecureRandom=false || merkleRoot=_messageHash`:
+    /// keccak256(chainId || 6-byte wire prefix || message hash).
     function _toCosignersMessageHash(
         bytes32 _messageHash
     )
-        internal pure
+        internal view
         returns (bytes32)
     {
-        return keccak256(bytes.concat(hex"010000000000", _messageHash));
+        return keccak256(bytes.concat(bytes32(block.chainid), hex"010000000000", _messageHash));
     }
 }

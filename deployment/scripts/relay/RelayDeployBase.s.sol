@@ -282,7 +282,7 @@ abstract contract RelayDeployBase is Script {
     /**
      * Post-deploy assertion suite: the deployed Relay must expose exactly the configured
      * implementation, owner, setter, source chain id, owner-timelock duration, epoch anchors
-     * and initial (chain-bound) signing policy hash.
+     * and initial (source-bound, single-keccak) signing policy hash.
      */
     function _verifyRelay(
         address _relay,
@@ -496,37 +496,73 @@ abstract contract RelayDeployBase is Script {
     }
 
     /**
-     * RLY-23 chain-domain binding: keccak256(sourceChainId ‖ contentHash) — must match
-     * scripts/libs/protocol/ChainDomain.ts.
+     * The Relay signing-policy hash (RLY-23 chain-domain binding):
+     * keccak256(sourceChainId ‖ raw encoded policy bytes) — one keccak over the 32-byte source
+     * id followed by the exact 43 + 22·n encoded bytes, no padding. Must match
+     * Relay.setSigningPolicy / relay() and SigningPolicy.hashEncoded (SigningPolicy.ts).
      */
-    function _chainBoundHash(
-        bytes32 _hash,
+    function _signingPolicyHash(
+        bytes memory _encodedPolicy,
         uint256 _sourceChainId
     )
         internal pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked(_sourceChainId, _hash));
+        return keccak256(abi.encodePacked(_sourceChainId, _encodedPolicy));
     }
 
     /**
-     * Converts a source Relay's stored policy hash into the RLY-23 chain-bound form required
-     * by the new Relay. The scheme must be explicit (mirrors SigningPolicyHashMigration.ts):
-     * `legacy` wraps a pre-RLY-23 content hash exactly once, `chain-bound` passes an already
-     * wrapped hash through. There is intentionally no automatic guess.
+     * Encodes a signing policy into the Relay wire format:
+     * 2B numberOfVoters ‖ 3B rewardEpochId ‖ 4B startVotingRoundId ‖ 2B threshold ‖ 32B seed ‖
+     * n × (20B voter ‖ 2B weight). Must match SigningPolicy.encode (SigningPolicy.ts).
      */
-    function _migratedPolicyHash(
-        bytes32 _oldHash,
-        uint256 _sourceChainId,
-        string memory _scheme
+    function _encodeSigningPolicy(
+        uint24 _rewardEpochId,
+        uint32 _startVotingRoundId,
+        uint16 _threshold,
+        uint256 _seed,
+        address[] memory _voters,
+        uint16[] memory _weights
     )
         internal pure
-        returns (bytes32)
+        returns (bytes memory _encoded)
     {
-        require(_oldHash != bytes32(0), "source Relay signing policy hash is zero");
-        if (_streq(_scheme, "legacy")) return _chainBoundHash(_oldHash, _sourceChainId);
-        if (_streq(_scheme, "chain-bound")) return _oldHash;
-        revert("invalid policy hash scheme; expected 'legacy' or 'chain-bound'");
+        require(_voters.length > 0, "reconstructed signing policy has no voters");
+        require(_voters.length == _weights.length, "reconstructed voters/weights length mismatch");
+        _encoded = abi.encodePacked(
+            uint16(_voters.length), _rewardEpochId, _startVotingRoundId, _threshold, _seed
+        );
+        for (uint256 i = 0; i < _voters.length; i++) {
+            _encoded = bytes.concat(_encoded, bytes20(_voters[i]), bytes2(_weights[i]));
+        }
+    }
+
+    /**
+     * The RETIRED chained-fold content hash of the currently deployed (pre-RLY-23) Relay: the
+     * encoded policy is zero-padded to a multiple of 32 bytes, the first two 32-byte chunks are
+     * hashed together, and every further chunk is folded in with keccak256(hash ‖ chunk).
+     * Used ONLY as a migration sanity check — to prove a policy reconstructed from chain state
+     * is byte-identical to what the old Relay hashed — never to seed the new Relay.
+     */
+    function _legacyPolicyContentHash(
+        bytes memory _encodedPolicy
+    )
+        internal pure
+        returns (bytes32 _hash)
+    {
+        require(_encodedPolicy.length > 32, "encoded policy too short");
+        uint256 paddedLength = ((_encodedPolicy.length + 31) / 32) * 32;
+        bytes memory padded = bytes.concat(_encodedPolicy, new bytes(paddedLength - _encodedPolicy.length));
+        // solhint-disable-next-line no-inline-assembly
+        assembly ("memory-safe") {
+            let dataPtr := add(padded, 0x20)
+            _hash := keccak256(dataPtr, 64)
+            for { let pos := 64 } lt(pos, paddedLength) { pos := add(pos, 32) } {
+                mstore(0x00, _hash)
+                mstore(0x20, mload(add(dataPtr, pos)))
+                _hash := keccak256(0x00, 64)
+            }
+        }
     }
 
     /// Strips ASCII whitespace from both ends (frozen initcode file may end with a newline).

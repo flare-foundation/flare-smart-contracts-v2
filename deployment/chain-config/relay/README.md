@@ -30,7 +30,7 @@ never stored here — the deployer key is read from `DEPLOYER_PRIVATE_KEY`.
   "$schema": "./relay-parameters.json",
   "expectedDeployer": "0x…",              // shared address authority (home + every mirror)
   "home": {                                // this source's home (setter-mode) deployment
-    "oldRelayPolicyHashScheme": "legacy"    // the ONLY home field; epoch/protocol params are
+    "timelockDurationSeconds": 3600         // the ONLY home field; epoch/protocol params are
   },                                        // read from the deployed Relay's stateData()
   "mirrors": {                             // relay-mode targets of this source, keyed by name
     "arbitrum": {
@@ -101,16 +101,20 @@ can host both its own home and a cross-source mirror (e.g. a Flare mirror on cos
 ### `home` (DeployRelayHome)
 | Field | Meaning |
 |-------|---------|
-| `oldRelayPolicyHashScheme` | `legacy` (wrap a pre-RLY-23 content hash once) or `chain-bound` (pass an already-wrapped hash through). Validated. See `docs/relay-governance.md` §6. |
+| `timelockDurationSeconds` | Initial owner-timelock duration (≤ 7 days; 0 = immediate owner calls). |
 
-`oldRelayPolicyHashScheme` is the **only** home field. All home addresses come from the
+`timelockDurationSeconds` is the **only** home field. All home addresses come from the
 FlareContractRegistry, and every epoch/protocol param (`randomNumberProtocolId`,
 `firstVotingRoundStartTs`, `votingEpochDurationSeconds`, `firstRewardEpochStartVotingRoundId`,
 `rewardEpochDurationInVotingEpochs`, `thresholdIncreaseBIPS`,
 `messageFinalizationWindowInRewardEpochs`) is inherited from the currently deployed Relay's
 `stateData()` — four are handshake-enforced to match it anyway, the rest are preserved across the
-redeploy — so nothing is duplicated in config. The Relay constructor re-validates ranges
-authoritatively.
+redeploy — so nothing is duplicated in config. The initial signing-policy hash is not configured
+either: it is always reconstructed from chain state (VoterRegistry + EntityManager +
+FlareSystemsManager), verified byte-exactly against the old Relay's stored hash (legacy chained
+fold or single-keccak — either must match), and seeded as
+`keccak256(sourceChainId ‖ encoded policy)`. See `docs/relay-governance.md` §6. The Relay
+constructor re-validates ranges authoritatively.
 
 ### `mirrors["<name>"]` (DeployRelayMirror)
 | Field | Meaning |

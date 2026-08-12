@@ -44,6 +44,7 @@ import {
   FtsoRewardManagerProxyContract,
   FtsoRewardManagerProxyInstance,
   EntityManagerContract,
+  VoterRegistryContract,
   VoterPreRegistryContract,
   SFlrCustomFeedContract,
   StXrpCustomFeedContract,
@@ -57,7 +58,6 @@ export async function redeployContracts(
   oldContracts: Contracts,
   contracts: Contracts,
   parameters: ChainParameters,
-  oldRelayPolicyHashScheme?: string,
   quiet: boolean = false
 ) {
   const web3 = hre.web3;
@@ -168,15 +168,20 @@ export async function redeployContracts(
     const oldRelay = await Relay.at(contracts.getContractAddress(Contracts.RELAY));
     const currentRewardEpochId = await flareSystemsManager.getCurrentRewardEpochId();
     const startVotingRoundId = await flareSystemsManager.getStartVotingRoundId(currentRewardEpochId);
-    if (!oldRelayPolicyHashScheme) {
-      throw Error("Old Relay policy hash scheme must be explicitly set for Relay migration");
-    }
-    const oldSigningPolicyHash = await oldRelay.toSigningPolicyHash(currentRewardEpochId);
     const relayChainId = await web3.eth.getChainId();
-    const signingPolicyHash = signingPolicyHashForMigration(
-      oldSigningPolicyHash,
-      relayChainId,
-      oldRelayPolicyHashScheme
+    const VoterRegistry = artifacts.require("VoterRegistry") as VoterRegistryContract;
+    // Reconstructs the epoch's signing policy from chain state, verifies it byte-exactly
+    // against the old Relay's stored hash, and hashes it under the single-keccak scheme.
+    const signingPolicyHash = await signingPolicyHashForMigration(
+      {
+        oldRelay,
+        flareSystemsManager,
+        voterRegistry: await VoterRegistry.at(voterRegistry),
+        entityManager: await EntityManager.at(entityManager),
+      },
+      currentRewardEpochId.toNumber(),
+      startVotingRoundId.toNumber(),
+      relayChainId
     );
     const relayInitialConfig: RelayInitialConfig = {
       initialRewardEpochId: currentRewardEpochId.toNumber(),

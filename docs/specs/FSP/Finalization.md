@@ -8,7 +8,7 @@ A sub-protocol round produces a Merkle root off-chain. **Finalization** is the a
 
 | Storage | Description |
 |---------|-------------|
-| `toSigningPolicyHashPrivate[rewardEpochId] → bytes32` | Hash of the signing policy for that epoch. Set by `setSigningPolicy` (callable only by the authorized `signingPolicySetter`, which is `FlareSystemsManager`). Read by every relay. |
+| `toSigningPolicyHashPrivate[rewardEpochId] → bytes32` | Hash of the signing policy for that epoch: `keccak256(sourceChainId ‖ encoded policy bytes)`, one keccak over the 32-byte configured source chain id followed by the raw 43 + 22 × n encoded bytes. Set by `setSigningPolicy` (callable only by the authorized `signingPolicySetter`, which is `FlareSystemsManager`). Read by every relay. |
 | `startingVotingRoundIds[rewardEpochId] → uint256` | First voting round the policy is in force for. |
 | `merkleRootsPrivate[protocolId][votingRoundId] → bytes32` | The finalized Merkle root for that protocol/round. Once written, it does not change. |
 | `isSecureRandomMap[votingRoundId / 256] → bytes32` | One bit per voting round indicating whether a finalized FTSO round produced a secure random. |
@@ -31,8 +31,8 @@ function relay() external returns (bytes memory);
 
 `relay()` is a no-arg public function — the *message* is the entire calldata after the 4-byte selector. The expected layout (assembly-parsed):
 
-1. **Signing policy bytes** — the canonical encoding of the signing policy (43 + 22 × `numberOfVoters` bytes). The contract recomputes its hash on the fly and checks it against `toSigningPolicyHashPrivate[rewardEpochId]`. Wrong policy → revert.
-2. **Protocol message** (38 bytes) — `protocolId` (1) + `votingRoundId` (4) + `isSecureRandom` (1) + `merkleRoot` (32). The protocol hash this message is signed under is `keccak256(protocolMessage)`.
+1. **Signing policy bytes** — the canonical encoding of the signing policy (43 + 22 × `numberOfVoters` bytes). The contract recomputes its hash on the fly — a single `keccak256(sourceChainId ‖ signingPolicyBytes)` over the 32-byte configured source chain id followed by the raw encoded bytes (RLY-23 chain-domain binding, no padding) — and checks it against `toSigningPolicyHashPrivate[rewardEpochId]`. Wrong policy → revert.
+2. **Protocol message** (38 bytes) — `protocolId` (1) + `votingRoundId` (4) + `isSecureRandom` (1) + `merkleRoot` (32). The digest this message is signed under is the analogous single keccak, `keccak256(sourceChainId ‖ protocolMessage)` (before the EIP-191 `"\x19Ethereum Signed Message:\n32"` prefix applied at signature verification).
 3. **Signatures** — count (2 bytes) followed by 67 bytes per signature: `v` (1) + `r` (32) + `s` (32) + `index` (2). The index points into the signing-policy voter list. The contract recovers each signature, checks the recovered address equals `signingPolicy.voters[index]`, accumulates `signingPolicy.weights[index]`, and short-circuits as soon as accumulated weight passes the threshold.
 
 If the protocol message is finalized using a signing policy whose reward epoch matches `lastInitializedRewardEpoch`, the threshold is **multiplied** by `stateData.thresholdIncreaseBIPS / THRESHOLD_BIPS` — `thresholdIncreaseBIPS` is governance-settable, must be ≥ `THRESHOLD_BIPS = 10000` (i.e. ≥ 1.0×), and defaults to `12000` (1.2×). The exact code (in the `relay()` assembly) is `threshold := div(mul(threshold, thresholdIncreaseBIPS), THRESHOLD_BIPS)`. Providers signing a round that straddles a reward-epoch boundary face a slightly higher bar to compensate for the reduced participation a fresh policy might see.

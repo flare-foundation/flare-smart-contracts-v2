@@ -1,5 +1,4 @@
 import { ethers } from "ethers";
-import { chainBoundHash } from "./ChainDomain";
 
 export interface ISigningPolicy {
   rewardEpochId: number;
@@ -145,22 +144,17 @@ export namespace SigningPolicy {
   }
 
   /**
-   * Calculates signing policy hash from encoded signing policy.
-   * The content hash is obtained by padding the byte array with 0 bytes to a multiple of 32 and
-   * sequentially hashing 32-byte chunks with keccak256; since RLY-23 the result is chain-bound:
-   * keccak256(chainId ‖ contentHash) — this is what the Relay contract stores and verifies.
+   * Calculates signing policy hash from encoded signing policy:
+   * keccak256(chainId as 32 bytes ‖ raw encoded policy bytes) — a single keccak over the exact
+   * 43 + 22·n encoded bytes, no padding (RLY-23 chain-domain binding). This is what the Relay
+   * contract stores and verifies.
    * @param signingPolicy
    * @param chainId the configured source chain id (`relay.sourceChainId()`)
    * @returns
    */
   export function hashEncoded(signingPolicy: string, chainId: number | bigint) {
-    const signingPolicyInternal = signingPolicy.startsWith("0x") ? signingPolicy.slice(2) : signingPolicy;
-    const splitted = signingPolicyInternal.match(/.{1,64}/g)!.map((x) => x.padEnd(64, "0"));
-    let hash: string = ethers.keccak256("0x" + splitted[0] + splitted[1]);
-    for (let i = 2; i < splitted.length; i++) {
-      hash = ethers.keccak256("0x" + hash.slice(2) + splitted[i])!;
-    }
-    return chainBoundHash(hash, chainId);
+    const policyBytes = signingPolicy.startsWith("0x") ? signingPolicy : "0x" + signingPolicy;
+    return ethers.keccak256(ethers.solidityPacked(["uint256", "bytes"], [chainId, policyBytes]));
   }
 
   /**

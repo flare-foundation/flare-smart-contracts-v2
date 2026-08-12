@@ -8,11 +8,35 @@ import {IRelay} from "../../../contracts/userInterfaces/IRelay.sol";
 import {IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 
-/// The FlareSystemsManager reads the home Relay deployment needs (epoch anchors).
+/// The FlareSystemsManager reads the home Relay deployment needs (epoch anchors + policy params).
 interface IFlareSystemsManagerRead {
     function getCurrentRewardEpochId() external view returns (uint24);
 
     function getStartVotingRoundId(uint256 _rewardEpochId) external view returns (uint32);
+
+    function getSeed(uint256 _rewardEpochId) external view returns (uint256);
+
+    function getThreshold(uint256 _rewardEpochId) external view returns (uint16);
+}
+
+/// The VoterRegistry reads needed to reconstruct the next reward epoch's signing policy.
+interface IVoterRegistryRead {
+    function getRegisteredVotersAndNormalisedWeights(
+        uint256 _rewardEpochId
+    ) external view returns (address[] memory _voters, uint16[] memory _normalisedWeights);
+
+    function newSigningPolicyInitializationStartBlockNumber(
+        uint256 _rewardEpochId
+    ) external view returns (uint256);
+}
+
+/// The EntityManager read mapping voter identity addresses to their signing-policy addresses
+/// (checkpointed history — callable any time after the policy snapshot block).
+interface IEntityManagerRead {
+    function getSigningPolicyAddresses(
+        address[] memory _voters,
+        uint256 _blockNumber
+    ) external view returns (address[] memory);
 }
 
 // Flare home deployment (chain id 14 / 19, or a dev chain for rehearsal). Deploys the
@@ -22,11 +46,14 @@ interface IFlareSystemsManagerRead {
 // (governance and upgrade authority via the OwnableWithTimelock queue) is the governance
 // address read from GovernanceSettings.
 //
-// The initial signing-policy hash is migrated from the currently deployed Relay for the next
-// reward epoch (see redeploy-relay.ts); the migration scheme (legacy | chain-bound) and the
-// owner-timelock duration are the only values taken from the config. Every epoch/protocol param
-// is inherited from that Relay's stateData() (four are handshake-enforced to match it, the rest
-// are preserved on redeploy), so the home config holds no duplicated protocol parameters.
+// The initial signing-policy hash for the next reward epoch is ALWAYS RECONSTRUCTED from chain
+// state (VoterRegistry + EntityManager + FlareSystemsManager views), verified byte-exactly
+// against the old Relay's stored hash (legacy chained fold or single-keccak — either must match
+// the reconstruction), and seeded as the new single-keccak hash
+// (keccak256(sourceChainId ‖ encoded policy)). The owner-timelock duration is the only value
+// taken from the config. Every epoch/protocol param is inherited from that Relay's stateData()
+// (four are handshake-enforced to match it, the rest are preserved on redeploy), so the home
+// config holds no duplicated protocol parameters.
 //
 // Usage:
 //   forge script deployment/scripts/relay/DeployRelayHome.s.sol:DeployRelayHome \
@@ -65,7 +92,7 @@ contract DeployRelayHome is RelayDeployBase {
 
         // Relay implementation + proxy (setter mode) through the factory.
         IRelay.RelayInitialConfig memory config =
-            _buildHomeConfig(cfg, flareSystemsManager, oldRelay, timelockDurationSeconds);
+            _buildHomeConfig(flareSystemsManager, oldRelay, timelockDurationSeconds);
         address relayImpl = address(new Relay());
         _logDeployed("RelayImplementation", "Relay.sol", relayImpl);
         // Home: source == this chain, so the salt (and address) is this network's own.
@@ -109,7 +136,6 @@ contract DeployRelayHome is RelayDeployBase {
     }
 
     function _buildHomeConfig(
-        string memory _cfg,
         address _flareSystemsManager,
         address _oldRelay,
         uint256 _timelockDurationSeconds
@@ -121,8 +147,6 @@ contract DeployRelayHome is RelayDeployBase {
         IFlareSystemsManagerRead fsm = IFlareSystemsManagerRead(_flareSystemsManager);
         uint32 nextRewardEpochId = uint32(fsm.getCurrentRewardEpochId()) + 1;
         uint32 startVotingRoundId = fsm.getStartVotingRoundId(nextRewardEpochId);
-        bytes32 oldPolicyHash = IRelay(_oldRelay).toSigningPolicyHash(nextRewardEpochId);
-        string memory scheme = vm.parseJsonString(_cfg, ".home.oldRelayPolicyHashScheme");
 
         // Protocol/epoch params are inherited from the currently deployed Relay rather than
         // configured: four of them (firstVotingRoundStartTs, votingEpochDurationSeconds,
@@ -148,7 +172,7 @@ contract DeployRelayHome is RelayDeployBase {
         _config.initialRewardEpochId = nextRewardEpochId;
         _config.startingVotingRoundIdForInitialRewardEpochId = startVotingRoundId;
         _config.initialSigningPolicyHash =
-            _migratedPolicyHash(oldPolicyHash, block.chainid, scheme);
+            _migratedPolicyHash(fsm, _oldRelay, nextRewardEpochId, startVotingRoundId);
         _config.randomNumberProtocolId = randomNumberProtocolId;
         _config.firstVotingRoundStartTs = firstVotingRoundStartTs;
         _config.votingEpochDurationSeconds = votingEpochDurationSeconds;
@@ -165,9 +189,61 @@ contract DeployRelayHome is RelayDeployBase {
     }
 
     /**
-     * Fails fast (before any broadcast) if a home config is missing a required field or carries
-     * an invalid migration scheme. The Relay constructor re-validates ranges authoritatively;
-     * this just turns cryptic parse reverts into actionable messages.
+     * The initial signing-policy hash for the new Relay. ALWAYS reconstructed and verified —
+     * there is deliberately no configured scheme and no pass-through branch (a mistaken config
+     * could otherwise seed the canonical proxy with a hash no policy can satisfy):
+     *   1. (identity voters, normalised weights) from VoterRegistry
+     *   2. voter identity -> signing-policy address via EntityManager at the policy's
+     *      registration snapshot block (checkpointed history)
+     *   3. seed / threshold from FlareSystemsManager
+     * The old Relay's stored hash must equal ONE of the two hashes of the reconstructed bytes —
+     * the retired legacy chained fold (every live deployment today) or the single-keccak hash
+     * (a future migration from a new-scheme Relay). Either way the byte-exact reconstruction is
+     * proven against the old contract, and the returned value is always the single-keccak hash,
+     * keccak256(sourceChainId ‖ encoded policy).
+     */
+    function _migratedPolicyHash(
+        IFlareSystemsManagerRead _fsm,
+        address _oldRelay,
+        uint32 _nextRewardEpochId,
+        uint32 _startVotingRoundId
+    )
+        internal view
+        returns (bytes32)
+    {
+        bytes32 oldPolicyHash = IRelay(_oldRelay).toSigningPolicyHash(_nextRewardEpochId);
+        require(oldPolicyHash != bytes32(0), "source Relay signing policy hash is zero");
+
+        IVoterRegistryRead voterRegistry = IVoterRegistryRead(_registryAddress("VoterRegistry"));
+        IEntityManagerRead entityManager = IEntityManagerRead(_registryAddress("EntityManager"));
+        (address[] memory identityVoters, uint16[] memory weights) =
+            voterRegistry.getRegisteredVotersAndNormalisedWeights(_nextRewardEpochId);
+        uint256 snapshotBlock = voterRegistry.newSigningPolicyInitializationStartBlockNumber(_nextRewardEpochId);
+        require(snapshotBlock != 0, "signing policy snapshot block not set for the next reward epoch");
+        address[] memory policyVoters = entityManager.getSigningPolicyAddresses(identityVoters, snapshotBlock);
+
+        bytes memory encodedPolicy = _encodeSigningPolicy(
+            uint24(_nextRewardEpochId),
+            _startVotingRoundId,
+            _fsm.getThreshold(_nextRewardEpochId),
+            _fsm.getSeed(_nextRewardEpochId),
+            policyVoters,
+            weights
+        );
+        // Byte-exact reconstruction proof against the old Relay before seeding the new one.
+        bytes32 newHash = _signingPolicyHash(encodedPolicy, block.chainid);
+        require(
+            oldPolicyHash == _legacyPolicyContentHash(encodedPolicy) || oldPolicyHash == newHash,
+            "old Relay's stored policy hash matches neither hash of the reconstructed signing policy"
+        );
+        console2.log("Reconstructed signing policy verified against the old Relay; voters:", policyVoters.length);
+        return newHash;
+    }
+
+    /**
+     * Fails fast (before any broadcast) if a home config is missing a required field. The Relay
+     * constructor re-validates ranges authoritatively; this just turns cryptic parse reverts
+     * into actionable messages.
      */
     function _requireHomeConfig(
         string memory _cfg
@@ -175,15 +251,10 @@ contract DeployRelayHome is RelayDeployBase {
         internal view
     {
         _requireField(_cfg, ".home");
-        _requireField(_cfg, ".home.oldRelayPolicyHashScheme");
         _requireField(_cfg, ".home.timelockDurationSeconds");
-        string memory scheme = vm.parseJsonString(_cfg, ".home.oldRelayPolicyHashScheme");
-        require(
-            _streq(scheme, "legacy") || _streq(scheme, "chain-bound"),
-            "home.oldRelayPolicyHashScheme must be 'legacy' or 'chain-bound'"
-        );
         // Epoch/protocol params are read from the currently deployed Relay's stateData(), not
-        // configured — see _buildHomeConfig.
+        // configured — see _buildHomeConfig. The initial signing-policy hash is always
+        // reconstructed from chain state and verified — see _migratedPolicyHash.
     }
 
 }

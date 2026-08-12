@@ -511,7 +511,8 @@ contract TeeAndFdc2Test is Test {
         );
 
         // Create real cosigner signatures — verified by the real Fdc2Verification (pure ECDSA)
-        bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
+        bytes32 cosignersMessageHash =
+            keccak256(bytes.concat(bytes32(block.chainid), hex"010000000000", messageHash));
         Signature[] memory cosignerSigs = new Signature[](cosignersThreshold);
         for (uint256 i = 0; i < cosignersThreshold; i++) {
             cosignerSigs[i] = SignatureHelper.createSignature(vm, cosignersMessageHash, cosigners[i].privateKey);

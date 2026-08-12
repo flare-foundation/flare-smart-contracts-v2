@@ -115,20 +115,15 @@ contract RelayTestBase is Test {
         }
     }
 
-    // RLY-23: chain-domain binding — keccak256(chainid ‖ hash); mirrors the wrap the contract
-    // applies to both stored signing-policy hashes and signed message digests.
-    function _chainBound(bytes32 h) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked(block.chainid, h));
-    }
-
-    // Mirrors Relay.calculateSigningPolicyHash: h = policy[0:32], fold each subsequent 32-byte
-    // chunk (h = keccak(h || chunk)); fold the final partial chunk zero-padded on the right;
-    // RLY-23: then bind to this chain (keccak(chainid ‖ contentHash)).
+    // Mirrors Relay.calculateSigningPolicyHash / setSigningPolicy (RLY-23 chain-domain binding):
+    // one keccak over the 32-byte source chain id followed by the raw encoded policy, no padding.
     function _signingPolicyHash(bytes memory p) internal view returns (bytes32 h) {
-        h = _chainBound(_signingPolicyContentHash(p));
+        h = keccak256(abi.encodePacked(block.chainid, p));
     }
 
-    // The pre-RLY-23 content hash (the chunked keccak fold alone, no chain binding).
+    // The RETIRED chained-fold content hash of the previously deployed Relay (RelayMainDeployed):
+    // h = policy[0:32], fold each subsequent 32-byte chunk (h = keccak(h || chunk)), final partial
+    // chunk zero-padded on the right. Used only by migration tests against the old contract.
     function _signingPolicyContentHash(bytes memory p) internal pure returns (bytes32 h) {
         uint256 len = p.length;
         uint256 full = (len / 32) * 32;
@@ -154,9 +149,12 @@ contract RelayTestBase is Test {
         return abi.encodePacked(protocolId, votingRoundId, isSecureRandom ? uint8(1) : uint8(0), merkleRoot);
     }
 
-    // RLY-23: what voters sign for a protocol message is prefixed(keccak(chainid ‖ keccak(message))).
+    // RLY-23: what voters sign for a protocol message is
+    // prefixed(keccak256(chainid ‖ raw 38-byte message)) — one keccak, no inner hash.
     function _ethSignedHash(bytes memory message) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _chainBound(keccak256(message))));
+        return keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(abi.encodePacked(block.chainid, message)))
+        );
     }
 
     // Sign with the voters at `indices` (must be strictly ascending); returns count(2) || (v,r,s,index)*.
