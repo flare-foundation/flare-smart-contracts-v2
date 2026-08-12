@@ -40,7 +40,7 @@ interface IIRelay is IRelay, IOwnableWithTimelock {
      *      which is trusted. The signing policy setter MUST ensure the signing policy is well-formed; in
      *      particular it MUST guarantee that there are no zero-address voters and no duplicate voters, that
      *      the voters are given in the canonical order, and that the weights are correctly normalised.
-     *      These properties are intentionally NOT re-validated on-chain (RLY-06) — correctness relies on
+     *      These properties are intentionally NOT re-validated on-chain; correctness relies on
      *      the trusted setter.
      */
     function setSigningPolicy(SigningPolicy memory _signingPolicy) external returns (bytes32);

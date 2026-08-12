@@ -167,7 +167,7 @@ contract DeployRelayMirror is RelayDeployBase {
         _config.feeCollectionAddress = _feeCollectionAddress;
         _config.feeConfigs = _readFeeConfigs(_cfg, _base);
         _config.feeExemptAddresses = _readFeeExemptAddresses(_cfg, _base);
-        // RLY-23: the mirror binds to the snapshotted source, not to its own chain.
+        // The mirror binds to the snapshotted source, not to its own chain.
         _config.sourceChainId = _snapshot.sourceChainId;
         _config.timelockDurationSeconds = _timelockDurationSeconds;
     }

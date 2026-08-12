@@ -32,7 +32,7 @@ export interface SigningPolicyUse {
 }
 
 export class MockFinalizer {
-  // RLY-23: signatures are recovered over the source-bound digest
+  // Signatures are recovered over the source-bound digest
   // keccak256(sourceChainId ‖ message); set in run() from relay.sourceChainId().
   private chainId: number | bigint = 0;
   dataSource!: DataSource;

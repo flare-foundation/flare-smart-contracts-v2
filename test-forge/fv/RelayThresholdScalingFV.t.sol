@@ -3,11 +3,11 @@ pragma solidity ^0.8.13;
 
 // solhint-disable func-name-mixedcase
 
-// Phase 3 Step 4 (R5): cross-epoch threshold-increase SCALING soundness.
-// Faithful to Relay.sol:977-987 — on the cross-epoch path (relaying with the OLD signing policy for a
+// Cross-epoch threshold-increase scaling soundness.
+// Faithful to relay()'s cross-epoch path (relaying with the OLD signing policy for a
 // not-yet-initialized newer epoch) the gate threshold is replaced by:
 //     threshold := div(mul(threshold, thresholdIncreaseBIPS), THRESHOLD_BIPS)
-// with thresholdIncreaseBIPS a 16-bit field required >= THRESHOLD_BIPS (Relay.sol:235).
+// with thresholdIncreaseBIPS a 16-bit field required >= THRESHOLD_BIPS.
 // SAFETY: this rescale (which uses truncating EVM division) must NEVER weaken the threshold and must not
 // overflow — otherwise the cross-epoch path could accept on LESS indexed policy weight than the same-epoch path.
 // Self-contained (pure arithmetic with the real constants); models EVM truncating div faithfully.
@@ -21,10 +21,10 @@ contract RelayThresholdScalingFV {
     // solhint-disable-next-line const-name-snakecase
     IVm internal constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    uint256 internal constant THRESHOLD_BIPS = 10000; // Relay.sol:64
-    uint256 internal constant WEIGHT_MASK = 0xffff;   // 16-bit field mask (Relay.sol:98)
+    uint256 internal constant THRESHOLD_BIPS = 10000;
+    uint256 internal constant WEIGHT_MASK = 0xffff; // Relay's 16-bit weight field mask
 
-    // Exact replica of Relay.sol:977-987 (truncating integer division, as EVM div).
+    // Exact replica of relay()'s threshold scaling (truncating integer division, as EVM div).
     function _eff(uint256 threshold, uint256 tib) internal pure returns (uint256) {
         return (threshold * tib) / THRESHOLD_BIPS;
     }
@@ -36,7 +36,7 @@ contract RelayThresholdScalingFV {
     // time out on the /10000; this equivalent is the same theorem and solves instantly.)
     // EXPECT: PASS (proof).
     function check_scaling_neverWeakens(uint16 threshold, uint16 tib) external {
-        vm.assume(tib >= THRESHOLD_BIPS);      // Relay.sol:235: thresholdIncreaseBIPS >= 10000 (uint16 => <=0xffff)
+        vm.assume(tib >= THRESHOLD_BIPS); // thresholdIncreaseBIPS >= 10000 (uint16 => <=0xffff)
         assert(uint256(threshold) * uint256(tib) >= uint256(threshold) * THRESHOLD_BIPS);
     }
 

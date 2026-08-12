@@ -10,16 +10,15 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 Step 4 (AC-6 core / threshold consistency): a signing policy with an out-of-band threshold is
-// REJECTED. setSigningPolicy enforces (Relay.sol:351-358):
+// Threshold consistency: a signing policy with an out-of-band threshold is
+// REJECTED. setSigningPolicy enforces:
 //     threshold*THRESHOLD_BIPS >= totalWeight*MIN_THRESHOLD_BIPS   ("too small threshold")
 //     threshold*THRESHOLD_BIPS <= totalWeight*MAX_THRESHOLD_BIPS   ("too big threshold")
 // (THRESHOLD_BIPS=10000, MIN=5000, MAX=6600). This is the SAME formula the Mode-1 relay path applies via
-// checkThresholdConsistency (Relay.sol:621-667, "too small threshold" @666) before storing a relayed new
-// policy — so verifying it on the setter path covers AC-6's security content (a quorum cannot install a
-// signing policy whose threshold is too small to be safe, nor an unreachably-large one) by formula
-// equivalence; the full Mode-1 message-construction harness is scoped separately (see
-// docs/relay-phase3-documented-items.md).
+// checkThresholdConsistency before storing a relayed new
+// policy — so verifying it on the setter path establishes that a policy cannot be admitted with a
+// threshold below the minimum band or above the maximum band. RelayModeOneFV exercises the same
+// consistency check through the quorum-approved Mode-1 path.
 //
 // Single-voter policy with SYMBOLIC weight W and threshold T (both uint16), so the theorem quantifies over
 // all weight/threshold combinations. Setter mode; epoch 2 (== lastInitialized+1) so the epoch guard passes

@@ -200,7 +200,7 @@ contract RelayThresholdOverrideFV is RelayTestBase {
         assert(!ok);
     }
 
-    // Zero is the no-override sentinel: success/failure and successful return data match the legacy entrypoint.
+    // Zero is the no-override sentinel: success/failure and successful return data match the baseline entrypoint.
     // EXPECT: PASS (proof).
     function check_zeroOverride_matchesLegacy(Sig calldata a, Sig calldata b, Sig calldata c) external {
         bytes memory relayMessage = _customRelayMessage(_threeSigs(a, b, c));
@@ -281,7 +281,7 @@ contract RelayThresholdOverrideFV is RelayTestBase {
         assert(thresholdRelay.fvLoadThresholdOverride() == 0);
     }
 
-    // The caught revert cannot weaken a following legacy verification in the same transaction: two voters
+    // The caught revert cannot weaken a following baseline verification in the same transaction: two voters
     // still fail the policy threshold, which would not hold if the 1-BIPS transient override leaked.
     // EXPECT: PASS (proof).
     function check_caughtRevert_preservesLegacyThreshold(Sig calldata a, Sig calldata b) external {
@@ -292,7 +292,7 @@ contract RelayThresholdOverrideFV is RelayTestBase {
     }
 
     // The reachability/sensitivity control: manually placing 1 BIPS in the real slot can make the exact
-    // same two-voter legacy call accept. Thus the preceding no-leak proof genuinely observes this slot.
+    // same two-voter baseline call accept. Thus the preceding no-leak proof genuinely observes this slot.
     // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_manualOverride_lowersProtocolIdOne(Sig calldata a, Sig calldata b) external {
         thresholdRelay.fvStoreThresholdOverride(1);

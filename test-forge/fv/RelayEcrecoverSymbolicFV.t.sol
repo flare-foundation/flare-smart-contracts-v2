@@ -3,15 +3,15 @@ pragma solidity ^0.8.35;
 
 // solhint-disable func-name-mixedcase
 
-// OP-1 — symbolic internalization of the ecrecover-precompile failure ABI.
+// Symbolic internalization of the ecrecover-precompile failure ABI.
 //
 // Companion to RelayEcrecoverABI.t.sol (which pins the SAME failure ABI on the REAL EVM as a `forge test`).
 // The gap this file closes: Halmos models the `0x01` precompile as a TOTAL function that always returns a
 // well-formed 32-byte address (`returndatasize() == 32` always), so the symbolic suite could not itself
 // reach the bad-signature failure mode — the precompile returns SUCCESS with EMPTY data
-// (`returndatasize() == 0`) and leaves the caller's output buffer UNTOUCHED (stale). That is the behaviour a
-// past bug wrongly assumed to revert. Relay's raw-assembly ecrecover is made safe by three guards
-// (Relay.sol:1283-1302): staticcall success, `returndatasize() == 32`, and recovered-signer != 0.
+// (`returndatasize() == 0`) and leaves the caller's output buffer UNTOUCHED (stale). Relay's raw-assembly
+// ecrecover is made safe by three guards: staticcall success, `returndatasize() == 32`, and
+// recovered-signer != 0.
 //
 // To reach the empty-return branch UNDER HALMOS we call a MOCK (`EcrecoverFailureABIMock`) that reproduces
 // the precompile's exact return ABI — deployed as ordinary code, so Halmos executes both its branches,
@@ -20,8 +20,8 @@ pragma solidity ^0.8.35;
 //   (i)   rejects an EMPTY return (bad signature), whatever stale bytes sit in the output slot;
 //   (ii)  rejects a zero signer (a well-formed 32-byte zero return);
 //   (iii) when it accepts, uses the precompile's FRESH return, never the stale buffer.
-// This is the "symbolic-model internalization" of OP-1 (claims ledger L10 §10.5): the returndatasize/
-// zero-signer guards are now proven load-bearing against the true precompile ABI, not only regression-tested.
+// The returndata-size and zero-signer guards are therefore proven load-bearing against the true
+// precompile ABI, not only regression-tested.
 //
 // The harness mirrors the guard as the boolean conjunction of its three checks; the deployed contract
 // reverts (fail-closed) on any failing check, which is at least as strong as "not accepted".
@@ -59,7 +59,7 @@ contract RelayEcrecoverSymbolicFV {
         prec = new EcrecoverFailureABIMock();
     }
 
-    /// Relay's guarded recovery (Relay.sol:1283-1302): staticcall the precompile with the output slot
+    /// Relay's guarded recovery: staticcall the precompile with the output slot
     /// pre-seeded to the (attacker-controlled) `stale` value, then accept only if the call SUCCEEDED and
     /// returned EXACTLY 32 bytes and the recovered word is NON-ZERO. Returns (accepted, word-read-from-slot).
     function _guardedRecover(uint256 mode, bytes32 word, bytes32 stale)

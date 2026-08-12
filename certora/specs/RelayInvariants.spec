@@ -1,7 +1,7 @@
 /*
- * Relay.sol — current owner-timelock branch: cross-transaction scalar invariants.
+ * Relay.sol — owner-timelock implementation: cross-transaction scalar invariants.
  *
- * These rules deliberately exclude three dispatchers:
+ * These rules deliberately exclude state-establishing and replacement dispatchers:
  *
  * - initialize(...) establishes the proxy's initial state;
  * - upgradeToAndCall(...) may intentionally replace every implementation invariant; and
@@ -11,6 +11,14 @@
  * install arbitrary code, so no implementation-level invariant can soundly quantify
  * over it without constraining the replacement implementation. The separate timelock
  * rules exercise queue/execute/cancel behavior without claiming upgrade equivalence.
+ *
+ * Parametric calls use @withrevert. Reverting calls remain in the method domain
+ * and must preserve sampled state after rollback. This includes a generic ABI
+ * call to relay(), which supplies only the selector and lacks the required
+ * trailing protocol payload, and the deliberately disabled renounceOwnership().
+ * Raw relay execution is modeled by the dedicated concrete-symbolic and
+ * refinement layers within their stated bounds; renunciation also has a direct
+ * reverting rule in RelayWriteOnce.spec.
  *
  * Calls unresolved outside the verification scene are summarized as ECF. This models
  * the old-Relay/read/precompile boundaries while assuming no owner-controlled upgrade
@@ -41,7 +49,7 @@ filtered { f -> preservesCurrentImplementation(f) }
     uint256 pre = sourceChainId();
     require pre != 0;
     env e; calldataarg args;
-    currentContract.f(e, args);
+    currentContract.f@withrevert(e, args);
     uint256 post = sourceChainId();
     assert post == pre, "sourceChainId must remain immutable after initialization";
 }
@@ -53,7 +61,7 @@ filtered { f -> preservesCurrentImplementation(f) }
 {
     address pre = signingPolicySetter();
     env e; calldataarg args;
-    currentContract.f(e, args);
+    currentContract.f@withrevert(e, args);
     address post = signingPolicySetter();
     assert (pre == 0) <=> (post == 0), "signing-policy mode must not change";
 }
@@ -67,7 +75,7 @@ filtered { f -> preservesCurrentImplementation(f) }
     pre, _preStart = lastInitializedRewardEpochData();
     require pre < max_uint32;
     env e; calldataarg args;
-    currentContract.f(e, args);
+    currentContract.f@withrevert(e, args);
     uint32 post; uint32 _postStart;
     post, _postStart = lastInitializedRewardEpochData();
     assert post >= pre, "lastInitializedRewardEpoch must never regress";
@@ -81,7 +89,7 @@ filtered { f -> preservesCurrentImplementation(f) }
     address pre = owner();
     require pre != 0;
     env e; calldataarg args;
-    currentContract.f(e, args);
+    currentContract.f@withrevert(e, args);
     address post = owner();
     assert post != 0, "Relay ownership must not be renounced or transferred to zero";
 }
@@ -94,7 +102,7 @@ filtered { f -> preservesCurrentImplementation(f) }
     uint256 pre = getTimelockDurationSeconds();
     require pre <= 604800;
     env e; calldataarg args;
-    currentContract.f(e, args);
+    currentContract.f@withrevert(e, args);
     uint256 post = getTimelockDurationSeconds();
     assert post <= 604800, "timelock duration must remain at most seven days";
 }
@@ -107,7 +115,7 @@ filtered { f -> preservesCurrentImplementation(f) }
     address pre = feeCollectionAddress();
     require pre != 0;
     env e; calldataarg args;
-    currentContract.f(e, args);
+    currentContract.f@withrevert(e, args);
     address post = feeCollectionAddress();
     assert post != 0, "fee collection address must not become zero";
 }

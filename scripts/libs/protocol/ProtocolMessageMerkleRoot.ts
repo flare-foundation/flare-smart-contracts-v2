@@ -107,7 +107,7 @@ export namespace ProtocolMessageMerkleRoot {
   /**
    * The digest voters sign for a protocol message (before the EIP-191 prefix is applied by the
    * signing routine): keccak256(chainId as 32 bytes ‖ raw 38-byte encoded message) — a single
-   * keccak (RLY-23 chain-domain binding).
+   * source-bound keccak.
    * @param message
    * @param chainId the configured source chain id (`relay.sourceChainId()`)
    */

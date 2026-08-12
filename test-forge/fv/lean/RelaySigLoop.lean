@@ -1,9 +1,7 @@
 /-
-  Relay.sol signature-loop weight invariant — abstract ∀N ∀K proof (Phase A, Lean 4 core only).
+  Relay.sol signature-loop weight invariant — abstract ∀N ∀K proof (Lean 4 core only).
 
-  This is the genuinely-unbounded form of the property the Kontrol harness
-  (test-forge/fv/kontrol/RelaySigLoopFV.t.sol) proves only at fixed N (3,5), and that Halmos proves
-  only at bounded K. Here both are universally quantified: `w` is an arbitrary list of voter weights
+  The theorem quantifies universally: `w` is an arbitrary list of voter weights
   (so N = w.length is arbitrary, up to any bound) and `idxs` is an arbitrary signature stream (K
   arbitrary). The loop maintains  weight ≤ prefixSum(nextUnusedIndex)  and hence
       accept (weight > threshold)  ⟹  total registered weight > threshold,
@@ -11,13 +9,13 @@
 
   Identity boundary: this model contains weights and indices, not voter addresses. Interpreting its total
   as weight from distinct signing identities additionally requires the admitted policy to have unique
-  addresses. Relay currently delegates that invariant to its trusted policy-ingestion path.
+  addresses. The theorem therefore requires a separate unique-address policy-admission invariant for a
+  distinct-identity interpretation.
 
-  Models the on-chain ACCOUNTING; assumes the cryptography (ecrecover/keccak), as in the whole engagement:
+  Models the on-chain ACCOUNTING and assumes the cryptography (ecrecover/keccak):
   here a "signature" is just the index it carries, and we reason about the weight it contributes.
 
-  NEW TO LEAN / THIS SUITE?  See ../README.md §3 (how to read a Lean proof, and how to re-check it). This
-  file is pure ℕ/List — it imports no EVM model, so a mathematician can read it as ordinary induction.
+  This file is pure ℕ/List and imports no EVM model, so it can be read as ordinary induction.
   Orientation for the tactics used below:
     • `induction xs with | nil => … | cons x xs ih => …`  — structural induction; `ih` is the hypothesis.
     • `omega`  — a decision procedure for linear integer arithmetic; it discharges the numeric "glue".
@@ -122,7 +120,7 @@ theorem insufficient_weight_cannot_accept (w : List Nat) (idxs : List Nat) (thr 
 /-! ## Protocol-1 BIPS override seam
 
 The optimized Yul first selects an effective threshold and then enters the
-already-proved strict signature loop.  This section models that selection seam:
+strict signature loop. This section models that selection seam:
 
 * protocol ID 1 with a nonzero transient override selects
   `floor(totalWeight * overrideBIPS / 10000)`;
@@ -195,7 +193,7 @@ theorem selectThreshold_protocolOne
   simp [selectThreshold, hoverride]
 
 /-- Every nonzero total clears every admitted override below 10000 BIPS when
-all of its weight signs. This rules out the former 9999-BIPS dead zone. -/
+all of its weight signs. -/
 theorem fullWeight_accepts_sub10000 (totalWeight bips : Nat)
     (htotal : 0 < totalWeight) (hbips : bips < thresholdBIPS) :
     totalWeight * bips / thresholdBIPS < totalWeight := by

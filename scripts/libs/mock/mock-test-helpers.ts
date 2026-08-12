@@ -50,7 +50,7 @@ export function contractAddress(contractName: string): string {
 }
 
 /**
- * Reads the configured RLY-23 source chain id from the targeted Relay contract. Digest
+ * Reads the configured source chain id from the targeted Relay contract. Digest
  * computation must always use this value — never the connected node's chain id, which only
  * coincides with it on a home deployment (a mirror Relay is bound to the mirrored source's id).
  */

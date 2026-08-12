@@ -1,393 +1,119 @@
-# L8 — The mathematics
+# Mathematical model
 
-> **Evidence note.** Mathematical statements remain useful independently of a build, but a current
-> machine-checked claim requires the matching result in [`CURRENT-STATUS.md`](CURRENT-STATUS.md).
+## Policy and signatures
 
-> **What you get from this level.** The actual objects, in mathematical notation, with theorem
-> statements and proof _sketches_ you could in principle reconstruct by hand. Prose still carries the
-> argument; the verbatim Lean is L9. Three parts: **§A** the abstract model and its soundness theorem;
-> **§B** the EVM as an operational semantics; **§C** the refinement that links them, including the one
-> non-obvious technical device (_fuel-genericity_). Caveats raised here are discharged in L10.
+Let a signing policy contain `N` slots:
 
-Throughout, `ℕ` is the naturals and `𝕌 := Fin 2²⁵⁶` is the type of EVM machine words ("UInt256"),
-with arithmetic performed **modulo 2²⁵⁶**. Keep the distinction `ℕ` vs `𝕌` in view; it is the source of
-one of the two residual caveats.
-
----
-
-## §A. The abstract model and threshold soundness
-
-### A.1 Objects
-
-We model the on-chain accounting over `ℕ` (no overflow at this layer — see the caveat at the end of §A).
-
-**Weights.** A validator set is a list `w : List ℕ`; `w[j]` is voter `j`'s weight and `N := w.length`.
-
-**Prefix sum.** The total weight of the first `k` voters:
-
-$$
-\mathrm{sumTake}(w, 0) = 0, \qquad
-\mathrm{sumTake}([], k{+}1) = 0, \qquad
-\mathrm{sumTake}(x{::}xs, k{+}1) = x + \mathrm{sumTake}(xs, k).
-$$
-
-This is the on-chain `psAt(k)`. It is **monotone** in `k`: `i ≤ j ⟹ sumTake(w,i) ≤ sumTake(w,j)`
-(proved from the one-step fact `sumTake(w, k+1) = sumTake(w,k) + w.getD k 0`, where `getD` returns 0
-past the end of the list).
-
-**The accounting loop.** State is a pair `(weight, nui)` — the running tally and the _next unused index_
-(the smallest voter index not yet consumed). One signature carrying index `idx` does:
-
-$$
-\mathrm{loop}(w,\,\textit{weight},\,\textit{nui},\,[]) = (\textit{weight},\,\textit{nui}), \qquad
-\mathrm{loop}(w,\,\textit{weight},\,\textit{nui},\,\textit{idx}{::}\textit{rest})
-   = \mathrm{loop}\big(w,\ \textit{weight} + w.\mathrm{getD}\,\textit{idx}\,0,\ \textit{idx}{+}1,\ \textit{rest}\big).
-$$
-
-So each signature adds the weight at its index and advances the boundary to `idx+1`.
-
-**Valid signature streams.** The crucial anti-double-counting discipline: signature indices must be
-**strictly increasing and in range**. As an inductive predicate `ValidRun w nui idxs`:
-
-- `ValidRun w nui []` always holds;
-- `ValidRun w nui (idx :: rest)` holds iff `nui ≤ idx`, `idx < N`, and `ValidRun w (idx+1) rest`.
-
-Because each step requires the _next_ index to be at least the _current_ boundary `nui`, and the
-boundary is set to `idx+1` after consuming `idx`, no policy-slot index can be used twice. This does not
-imply that two slots cannot hold the same voter address; address uniqueness is a separate admission premise.
-
-### A.2 The invariant and the theorem
-
-The single load-bearing fact is an **invariant** maintained by the whole loop, for _any_ stream and
-_any_ weights:
-
-> **Lemma (`loop_inv`).** If `weight ≤ sumTake(w, nui)` and `nui ≤ N` and `ValidRun w nui idxs`, then
-> after the loop, `result.weight ≤ sumTake(w, result.nui)` and `result.nui ≤ N`.
-
-_Proof sketch._ Induction on `idxs`. Empty: the hypotheses are the conclusion. Cons `idx :: rest` with
-`nui ≤ idx`, `idx < N`: the new tally is `weight + w[idx]`, the new boundary `idx+1`. We must feed the
-induction hypothesis `weight + w[idx] ≤ sumTake(w, idx+1)`. Now
-`sumTake(w, nui) ≤ sumTake(w, idx)` (monotonicity, since `nui ≤ idx`) and
-`sumTake(w, idx) + w[idx] = sumTake(w, idx+1)` (the one-step recurrence), so from `weight ≤ sumTake(w,
-nui)` we get `weight + w[idx] ≤ sumTake(w, idx) + w[idx] = sumTake(w, idx+1)`. And `idx+1 ≤ N` from `idx
-< N`. Apply the IH. ∎
-
-The invariant says: **the tally never runs ahead of the prefix sum at the current boundary, and the
-boundary never passes the last voter.** Threshold soundness is then immediate:
-
-> **Theorem (`threshold_sound`, ∀N ∀K).** If `ValidRun w 0 idxs` and `thr < (loop w 0 0 idxs).weight`,
-> then `thr < sumTake(w, N)`.
-
-_Proof._ Start the invariant from `weight=0`, `nui=0` (`0 ≤ sumTake(w,0)=0`, `0 ≤ N`). It gives
-`result.weight ≤ sumTake(w, result.nui)` and `result.nui ≤ N`, and monotonicity gives
-`sumTake(w, result.nui) ≤ sumTake(w, N)`. Chain: `thr < result.weight ≤ sumTake(w, result.nui) ≤
-sumTake(w, N)`. ∎
-
-`sumTake(w, N)` is the total registered policy-slot weight. So **acceptance forces that slot total to exceed the
-threshold** — for every slot count `N` and every signature stream length `K`, with no repeated index
-(carried by `ValidRun`). The contrapositive (`insufficient_weight_cannot_accept`) is a one-liner: if the
-total is within the threshold, the loop can never accept.
-
-> ⚠ **Caveat A (discharged in L10).** the abstract proof works over `ℕ`. The on-chain tally lives in `𝕌` (mod
-> 2²⁵⁶). Identifying the two requires that the sums never wrap — i.e. the **overflow bound**. This is a
-> real side condition, established outside the abstract proof (in this engagement, `totalWeight < 2¹⁶`, far below
-> 2²⁵⁶). The abstract proof is the _integer_ truth; L10 states what is needed to import it into `𝕌`.
-
----
-
-## §B. The EVM as an operational semantics
-
-To reach rung R4 we need to _run_ code inside Lean. EVMYulLean provides this as a computable function.
-
-### B.1 An interpreter is a function
-
-The Yul interpreter has (essentially) the shape
-
-$$
-\mathrm{exec} : \mathbb{N} \to \mathrm{Stmt} \to \mathrm{Option\ Contract} \to \mathrm{State} \to
-  \mathrm{Except\ Exception\ State}.
-$$
-
-Read it as: _given a step budget, a statement to run, an optional code override, and a starting state,
-either raise an exception or return a new state._ `Except E A` is the sum `A ⊎ E` (Lean's error monad);
-we live in the success branch `.ok`.
-
-**State.** `State = Ok (machine) (varstore) | OutOfFuel | Checkpoint (jump)`. The two components of an
-`Ok` state are:
-
-- **`machine : SharedState`** — the EVM machine state (memory, calldata, storage, ...). For our purposes
-  it is an opaque carrier that the counting loop never touches.
-- **`varstore : VarStore := Finmap (Identifier ⇀ Literal)`** — the Yul local variables, a _finite map_
-  from identifier names (`Identifier = String`) to machine words (`Literal = 𝕌`).
-
-`Checkpoint` encodes in-flight `break`/`continue`/`leave` control flow; `OutOfFuel` is what you get if
-the budget is exhausted.
-
-### B.2 Fuel: turning a possibly-non-terminating interpreter into a total function
-
-EVM code can loop; a faithful interpreter is therefore not obviously a _total_ mathematical function.
-The standard device is **fuel**: a natural number bounding the number of reduction steps. `exec`
-recurses with strictly smaller fuel and returns `OutOfFuel` at zero. This makes `exec` a _total_ function
-of `(fuel, stmt, state)`, hence definable in Lean.
-
-The semantic reading: a result of the form `exec f stmt s = .ok (Ok s')` for some concrete `f` is the
-**genuine** result — enough fuel was supplied to run to completion, and `OutOfFuel` did not occur. If a
-program halts in `t` real steps, then for every `f ≥ t` the answer is the same `.ok (Ok s')`. (We will
-_not_ rely on a general "more fuel ⟹ same answer" lemma — see §C.3 for the subtlety and the way around
-it.)
-
-### B.3 The loop construct
-
-A Yul `For c post body` (no init — the optimizer hoists it) runs via an auxiliary `loop`:
-
-> `loop fuel c post body s`: evaluate the condition `c` (via `eval`); if it is `0`, exit, restoring the
-> outer variable scope; otherwise `exec body`, handle any `break`/`continue`/`leave`, then `exec post`,
-> then recurse on `For c post body`.
-
-`eval : ℕ → Expr → ... → Except Exception (State × Literal)` evaluates an expression to a word, and the
-per-opcode meaning (e.g. `ADD`, `LT`) is given by a `step` function. These are the pieces our refinement
-drives.
-
----
-
-## §C. The refinement: a validated EVM faithfully runs the unbounded loop
-
-### C.1 The concrete loop (memory-free encoding)
-
-We encode a counting accumulation loop in the actual Yul AST. With identifiers `i` and `w`:
-
-```
-for { } lt(i, N) { i := add(i, 1) }      // cond: i < N ;  post: i := i + 1
-{ w := add(w, i) }                        // body: w := w + i
+```text
+P = [(address_0, weight_0), ..., (address_(N-1), weight_(N-1))]
 ```
 
-i.e. `cond(N) = LT(i, N)`, `post = [ i := ADD(i, 1) ]`, `body = [ w := ADD(w, i) ]`.
+Let an accepted signature stream select indices:
 
-This is a **memory-free** loop: the body adds the loop _index_ `i`, not a value loaded from memory. Two
-deliberate caveats, both discharged in L10:
-
-> ⚠ **Caveat C1 (memory/FFI).** EVMYulLean's memory is backed by a foreign byte-array; memory-touching
-> programs cannot be _concretely evaluated_ inside a plain proof file. A memory-free encoding sidesteps
-> this entirely and lets the refinement reason purely about control flow and the variable store.
-
-> ⚠ **Caveat C2 (addend identity — the central one).** The deployed body adds a _registered weight_
-> `mload(weights[i])`; our body adds `i`. Replacing the memory load by `i` yields a _structurally
-> identical_ accumulation — same iteration count, same "add a per-step quantity to `w`" shape — whose
-> faithful execution is what we prove. The identity "the per-step quantity is the right weight" is the
-> **data layer (BR-1)** — **since discharged** (§C.5): a second development replaces this body with the
-> deployed contract's real `mload(slot) & 0xffff` and proves the analogue, ∀N, on the validated EVM. The
-> memory-free encoding here isolates the loop _mechanism_ — that _the validated EVM really does iterate N
-> times and accumulate the per-step quantity, for all N_ — the part the assembly barrier attacks.
-
-### C.2 The abstract accumulator and the refinement theorem
-
-Mirroring the loop, define over `𝕌` (mod 2²⁵⁶), with `a` the current index and `m` the iterations left:
-
-$$
-\mathrm{absAcc}(a, 0, w) = w, \qquad
-\mathrm{absAcc}(a, m{+}1, w) = \mathrm{absAcc}(a{+}1,\, m,\, w + \mathrm{ofNat}\,a).
-$$
-
-So `absAcc(0, N, 0) = \sum_{a<N} \mathrm{ofNat}\,a` in `𝕌`. This is the `𝕌`-valued mirror of a prefix
-sum; structurally it plays the role `sumTake` plays in the abstract proof (a fold that adds one term per step).
-
-> **Theorem (`bytecode_loop_correct`, ∀ N < 2²⁵⁶).** For any machine state `ss` and any var-store `vs`
-> with `vs[i] = 0` and `vs[w] = 0`, there is a final store `vs'` such that
->
-> $$
-> \mathrm{exec}(3N{+}10,\ \texttt{For}(\mathrm{cond}\,N,\ \mathrm{post},\ \mathrm{body}),\ (\mathrm{Ok}\ ss\ vs))
->   \;=\; .\mathrm{ok}\,(\mathrm{Ok}\ ss\ vs')
-> \quad\text{and}\quad vs'[w] = \mathrm{absAcc}(0, N, 0).
-> $$
-
-In words: **the validated interpreter, given exactly `3N+10` fuel, runs the loop to completion and the
-final value of `w` is precisely the abstract accumulator — for every N.** The machine part `ss` is
-untouched (the loop is memory-free), so the same `ss` appears on both sides.
-
-The fuel count is exact, not a bound: each iteration costs exactly 3 fuel units (condition + body +
-post, at the granularity that matters), plus a fixed `+10` for entry/exit. This exactness is what lets
-the induction go through without any fuel-monotonicity lemma (§C.3).
-
-### C.3 The induction, and the _fuel-genericity_ device
-
-`bytecode_loop_correct` is the `a=0, m=N` case of a stronger statement proved by induction on the number
-of iterations `m`:
-
-> **Lemma (`loop_acc`).** For `N < 2²⁵⁶` and all `m, a` with `a + m = N`, all `w`, and any state with
-> `vs[i] = ofNat a`, `vs[w] = w`: `exec(3m+10, For(cond N, post, body), Ok ss vs) = .ok (Ok ss vs')`
-> with `vs'[w] = absAcc(a, m, w)`.
-
-_Proof sketch._ Induction on `m`.
-
-- **Base `m = 0`:** then `a = N`, the condition `lt(ofNat N, ofNat N)` is `0`, the loop exits
-  immediately, `w` unchanged `= absAcc(a, 0, w)`. Fuel `10` suffices.
-- **Step `m+1`:** then `a < N`, so `lt(ofNat a, ofNat N) ≠ 0`; one iteration fires. The body sets
-  `w ↦ w + ofNat a`; the post sets `i ↦ ofNat a + 1 = ofNat (a+1)`. The resulting state has
-  `i = ofNat(a+1)`, `w = w + ofNat a`, and matches the induction hypothesis at `(a+1, m)` (note
-  `(a+1) + m = N`). Apply it; the accumulator unfolds as `absAcc(a, m+1, w) = absAcc(a+1, m, w + ofNat
-a)`. Fuel: `3(m+1)+10 = (3m+10) + 3`. ∎
-
-The mechanism that makes each iteration's effect provable is the one genuinely non-obvious idea, so we
-state it carefully even at this level.
-
-**The problem.** `exec` is defined by recursion on fuel. We want to know the _effect_ of one statement
-(e.g. "`exec` of the body inserts `w ↦ w + i` into the store"). The naive obstacle: in the inductive
-step the available fuel is a _symbolic_ `3m+10`, not a concrete number, and EVMYulLean offers **no
-lemma** of the form "if `exec f s = r` then `exec (f+1) s = r`" (fuel monotonicity). Without it, you
-seemingly cannot reduce `exec` at a symbolic fuel.
-
-**The device ([fuel-genericity](CONCEPTS.md#15-fuel-and-fuel-genericity)).** You do not need monotonicity. Prove each statement's effect at fuel
-`fuel + K`, where `fuel` is a _universally quantified variable_ and `K` is the _exact concrete_ number
-of recursion layers that statement consumes (here `K = 7` for a single assignment block, `6` for the
-condition). The simplifier, unfolding the definition of `exec`/`eval`, peels off exactly `K` successor
-layers — `succ (succ (... fuel ...))` — and reduces the statement to its effect, **regardless of what
-`fuel` is**. So:
-
-- `body_eff` : `exec (fuel+7) (Block body) (Ok ss vs) = .ok (Ok ss (vs[w ↦ vs[w] + vs[i]]))`, for all
-  `fuel`;
-- `post_eff` : `exec (fuel+7) (Block post) (Ok ss vs) = .ok (Ok ss (vs[i ↦ vs[i] + 1]))`;
-- `cond_eff` : `eval (fuel+6) (cond N) (Ok ss vs) = .ok (Ok ss vs, lt(vs[i], N))`.
-
-In the induction, the symbolic fuel `3m+10` is rewritten as `(3m+3) + 7` (or `+6`) to match, and the
-generic lemma fires. **One statement at a time, at symbolic fuel, with no monotonicity lemma in sight.**
-This is the crux that turned an apparently-blocked proof into a routine induction; it is reusable on any
-fuel-indexed interpreter (L12).
-
-### C.4 Transferring threshold soundness to the bytecode
-
-With the refinement in hand, the soundness step transfers directly:
-
-> **Theorem (`bytecode_threshold_sound`, ∀N).** For `N < 2²⁵⁶`, starting from `i=0, w=0`, if the loop
-> executed by the validated interpreter ends in store `vs'` and **accepts** — `thr < vs'[w]` — then
-> `thr < absAcc(0, N, 0)`.
-
-_Proof._ `bytecode_loop_correct` gives a final store whose `w` equals `absAcc(0, N, 0)`; `exec` is a
-function, so that store _is_ `vs'`, whence `vs'[w] = absAcc(0, N, 0)`. Substitute into the hypothesis. ∎
-
-This is `threshold_sound`'s shape — _accept ⟹ the accumulated total exceeds the threshold_ — now holding
-of a loop run by a **validated model of the real machine**, for all N. That is the rung-R4 statement.
-
-> ⚠ **Caveat C3 (modular order).** `thr < absAcc(0,N,0)` is a comparison in `𝕌` (it compares residues
-> mod 2²⁵⁶). To read it as the Phase-A integer statement `thr < sumTake(w, N)` you need both the
-> overflow bound (Caveat A) and the data layer (Caveat C2). **Both are now discharged** (§C.5): the
-> memory-reading development carries the integer form `bytecode_threshold_sound_mem_int` (under an explicit
-> no-overflow hypothesis) and the bridge to `sumTake`, so `relay_loop_sound` is an _integer_ inequality.
-
----
-
-### C.5 Discharging the addend identity: the memory-reading loop and the full relation
-
-Caveat C2 is no longer a standing assumption. A second development ([`RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean)) replaces the
-memory-free body with the deployed contract's _actual_ masked memory read and proves the analogous theorems,
-∀N, against the validated semantics — then composes with the abstract proof of §A.
-
-**The body.** With slot `i·32`:
-
-```
-{ w := add(w, and(mload(mul(i, 32)), 0xffff)) }   // w := w + (mload(i·32) & 0xffff)
+```text
+i_0 < i_1 < ... < i_(K-1) < N
 ```
 
-each iteration loads a 32-byte word from memory at the per-iteration slot and adds its low 16 bits.
+The strict ordering implies that every index occurs at most once. Define:
 
-**State-preservation of `mload`.** EVMYulLean's `mload` returns a _pair_ — the value and a machine state whose
-`activeWords` may have grown. The key observation: once the slot lies within the already-active region
-(`M(activeWords, slot, 32) = activeWords`, i.e. `slot + 32 ≤ activeWords·32`), the memory-expansion is a
-no-op and `mload` returns the state _unchanged_. Under that hypothesis the body is again `ss`-preserving, and
-`body_effM` gives, at the exact fuel `+15`,
-$$ \mathrm{exec}(\texttt{Block }body_M,\ \mathrm{Ok}\ ss\ vs) = \mathrm{Ok}\ ss\ \big(vs[w \mapsto vs[w] + (\mathrm{rd}(ss,a)\ \&\ \texttt{0xffff})]\big). $$
+```text
+signedWeight = sum(weight_(i_j), j = 0 .. K-1)
+totalWeight  = sum(weight_i, i = 0 .. N-1)
+```
 
-**Accumulator and induction.** Mirroring §C.2 with the masked reads `mrd(k) = \mathrm{rd}(ss,k)\ \&\ \texttt{0xffff}`,
-`absAccM` folds the masked reads; `loop_accM` runs the same induction (fuel `3N+15`), and
-`bytecode_threshold_sound_mem` / `_int` give: ∀N, _accept ⟹ the total of the masked memory reads exceeds the
-threshold_ (modular; and integer, under no overflow).
+Then:
 
-**The bridge.** Under the data-layer correspondence `mrd(k) = w[\,idxs[k]\,]` — the masked read at position `k`
-is the registered weight of the voter that signature `k` selects — `bridge` proves
-$$ \mathrm{absAccMNat}(0,N,0) = (\mathrm{sigLoop}\ w\ 0\ 0\ idxs).1, $$
-the abstract loop's accumulated weight (`sigLoop`/`sumTake`/`ValidRun`/`threshold_sound` of §A are restated
-in-file so one `lake env lean` checks the whole chain). Composing:
+```text
+signedWeight <= totalWeight
+```
 
-> **Theorem (`relay_loop_sound`, ∀N).** If the deployed loop — with its real masked memory read, on the
-> validated EVM — accepts (final `w` > thr), then `thr < sumTake(w, |w|)`: the total registered policy-slot
-> weight exceeds the threshold, with no slot index reused. Unique voter addresses remain an external premise.
-> Hole-free (`[propext, Classical.choice, Quot.sound]`).
+This inequality is independent of ECDSA. It follows from index bounds,
+nonnegative weights, and no repeated index.
 
-**What is now assumed.** Only the _external call_: `ecrecover` is not modeled (MC-2), so the per-iteration
-_selection_ (`hcorr`: which voter each signature recovers to) and _validity_ (`hvalid` = `ValidRun`:
-strictly-increasing in-range indices = the guards passed) are stated hypotheses; the per-slot memory invariant
-`hcov` is the data layer, discharged by `DataLayer.weight_read`. The data layer (Caveat C2) and the overflow
-bound (Caveat A) are discharged. (§C.6 goes further still: the literal loop-body model executes the deployed
-contract's _actual_ body on the validated EVM, so `hcov` and the mechanical half of `hcorr` are _derived_ rather
-than assumed, and the index guards follow from `ValidRun`.)
+## Loop invariant
 
-### C.6 The literal loop-body model: eliminating the memory-read assumptions
+After processing a prefix of the signature stream, let `u` be the next unused
+index and `w` the accumulator. Define:
 
-§C.5's `relay_loop_sound` still _assumes_ the per-slot memory invariant `hcov` and the masked-read
-correspondence `hcorr`. A third development removes both by transliterating the deployed signature-verification
-loop body **statement for statement** and executing it on the validated EVM. It spans three files:
-[`RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean) (the 17-statement
-body `bodyL`, the interpreter atoms, and the calldata decode `sigIdxAt`/`voterWeightAt`/`weightsOf`),
-[`RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean) (the byte-window
-read/decode lemmas), and the integration file
-[`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean).
+```text
+prefixSum(u) = sum(weight_i, 0 <= i < u)
+```
 
-**The body executed in full.** `body_effL` runs the whole 17-statement `bodyL` through EVMYulLean's real
-`exec`/`eval`, threading the genuine `mstore`/`calldatacopy`/`mload` state changes (contrast `body_effM`, which
-_assumed_ the read was state-preserving). Because the memory is now threaded, there is no `hcov` to posit; and
-`mload_masked_voter` _derives_ the masked read — clear a scratch slot, `calldatacopy` the voter record, `mload`,
-mask ⟹ the record's registered weight — so the mechanical half of `hcorr` becomes a theorem.
+The inductive invariant is:
 
-**The chain.** `s16_ww_advance`/`s16_ii_preserved` extract the accounting from `body_effL`'s output state (weight
-advanced by the selected voter's weight; loop counter preserved); `iter_advance` assembles these into the
-per-iteration advance `hstep` the induction consumes; `range_guard_pass`/`order_guard_pass` _derive_ the two
-structural index guards (range `idx < nVot`, order `nui ≤ idx`) from the `ValidRun` numeric discipline;
-`loop_accL` runs the induction (§C.3's template, now threading the evolving memory); and the capstones are
+```text
+w <= prefixSum(u)  and  u <= N
+```
 
-> **Theorem (`relay_loop_sound_literal`, `…_derived`, `…_derived_tight`, ∀N).** If the deployed loop — its
-> _actual_ transliterated body executed by the validated Yul `exec` — completes with a final tally exceeding the
-> threshold, then `thr < sumTake(w, |w|)`: total registered policy-slot weight exceeds the threshold, with no
-> slot index reused. Unique voter addresses are a separate admission premise. `…_derived` discharges the per-iteration `hstep` via `iter_advance`; `…_derived_tight`
-> discharges the structural guards too, leaving one per-iteration hypothesis `IterPremiseT`.
+If the next accepted index is `i >= u`, its weight is added and the next unused
+index becomes `i + 1`. Every weight in the new accumulator lies in the prefix
+ending at `i`, so the invariant is preserved.
 
-The accounting conclusion is identical to `relay_loop_sound`; what shrinks is the assumption surface.
-`IterPremiseT` bundles exactly the **ecrecover boundary** (MC-2/OP-1): the cryptographic guards (`v ∈ {27,28}`,
-low-`s`, `staticcall` success, `returndatasize = 32`, signer ≠ 0, recovered signer matches the registered voter)
-and the accept gate, together with the calldata index decode and the `ValidRun` numeric discipline. Everything
-mechanical — execution, the memory reads, the mask, the tally, the accumulation, the accept gate, and the
-index-range/strict-increase guards — is proved against the validated EVM. The [`RelayLoopMemRead.relay_loop_sound`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean#L455)
-statement of §C.5 remains as the simpler corroborating result; the literal chain is the stronger one. All
-literal-chain theorems are hole-free (`[propext, Classical.choice, Quot.sound]`; the two accounting-extraction
-lemmas need only `[propext, Quot.sound]`), inheriting the same upstream-dischargeable data/window specs
-(`zeroes_data`, `toByteArray_size`) only where the memory _write_ round-trip is used.
+If Relay accepts only when `w > threshold`, the invariant yields:
 
-### Summary of §C
+```text
+accept -> threshold < w <= prefixSum(u) <= totalWeight
+```
 
-| Object                                                                      | Role                                                                                                                                                                                | Rung        |
-| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `cond/post/body`                                                            | the counting loop in real Yul AST                                                                                                                                                   | —           |
-| `absAcc`                                                                    | `𝕌`-valued abstract accumulator (the spec of the loop)                                                                                                                              | —           |
-| `body_eff`, `post_eff`, `cond_eff`                                          | per-statement effects at symbolic fuel (fuel-genericity)                                                                                                                            | R4 bricks   |
-| `loop_acc`                                                                  | the induction: interpreter ⊑ accumulator, all m                                                                                                                                     | R4          |
-| `bytecode_loop_correct`                                                     | refinement at `a=0,m=N`: final `w` = `absAcc(0,N,0)`, all N                                                                                                                         | R4          |
-| `bytecode_threshold_sound`                                                  | soundness transferred onto the validated semantics, all N                                                                                                                           | R4          |
-| `body_effM`, `loop_accM`                                                    | the **memory-reading** body `w += mload(i·32)&0xffff` and its induction, all N                                                                                                      | R4b′ (§C.5) |
-| `bytecode_threshold_sound_mem(_int)`                                        | accept ⟹ Σ masked reads > thr (modular; integer under no overflow), all N                                                                                                           | R4b′        |
-| `bridge`, `relay_loop_sound`                                                | masked-read sum = abstract loop weight; **accept ⟹ total registered policy-slot weight > thr**, all N; unique addresses assumed                                                     | R4b′        |
-| `body_effL`, `iter_advance`                                                 | the **literal hand-transliterated** 17-statement body model; per-iteration advance derived                                                                                          | R4b″ (§C.6) |
-| `range_guard_pass`, `order_guard_pass`, `iter_advance_tight`                | structural index guards derived from `ValidRun`; tightened advance                                                                                                                  | R4b″        |
-| `relay_loop_sound_literal_derived_tight`                                    | conditional **accept ⟹ total registered policy-slot weight > thr**; reads derived, `ValidRun`/execution/acceptance and ecrecover premises explicit, unique addresses assumed, all N | R4b″        |
-| `relay_loop_sound_literal_early`                                            | the same, with the accept branch as the deployed `return(0,0)` — the loop halts at the first threshold crossing (early return, faithful)                                            | R4b″        |
-| `sstore_sload`, `sstore_reads_back`                                         | storage round-trip; accept-write `merkleRootsPrivate[·][·]` (Relay.sol:1394) reads back                                                                                             | R5          |
-| `tstore_tload`, `tstore_zero_tload`, `tstore_otherAccount`                  | transient-storage round-trip, zero clear, and account isolation on the validated EVMYulLean state                                                                                   | R5          |
-| `protocolOne_tload_override_loop_sound`                                     | exact protocol-1 floor/cross-product threshold composed with the literal strict loop; `hsetupThreshold` names the remaining call-frame setup seam                                   | R5          |
-| `dispatch_routes_verify`                                                    | mode dispatch routes faithfully (`protocolId ≠ 1` → verify); modes don't cross-contaminate                                                                                          | R5          |
-| `relay_dispatch_loop_accept`                                                | **end-to-end composition** — dispatch → loop → accept ⟹ registered weight > thr, all N                                                                                              | R5          |
-| `fee_conservation`, `transfer_conservation`, `two_transfer_caller_net_zero` | `fee + (msg.value − fee) = msg.value` (no wrap); `transferBalance` conserves value; caller net-zero                                                                                 | R5          |
+## Slots versus identities
 
-The last four rows are the **R5** breadth extension — the same literal, validated-EVM method applied beyond the
-signature loop to the rest of `relay()` (mode dispatch, storage/accept-write, the dispatch → loop → accept
-composition, and fee conservation). All hole-free; R5 adds coverage, not a new soundness fact. Full walk:
-[L9 §F.5](09-the-formal-detail.md).
+The mathematics above counts slots. If `address_a = address_b` for `a != b`,
+one private key can satisfy both slots using the same signature while preserving
+strict index order. The distinct-signer conclusion needs the extra premise:
 
-**Next:** [L9 — The formal detail](09-the-formal-detail.md): the verbatim Lean, every tactic, the
-EVMYulLean API, the gotchas, and the axiom audit.
+```text
+forall a != b, address_a != address_b
+```
+
+and a nonzero-address premise. Those are policy-admission properties, not
+consequences of the signature-loop invariant.
+
+## BIPS threshold
+
+For `b` basis points, Relay computes:
+
+```text
+t = floor(totalWeight * b / 10000)
+```
+
+and requires `signedWeight > t`. Because all quantities are nonnegative:
+
+```text
+signedWeight > floor(totalWeight * b / 10000)
+iff
+signedWeight * 10000 > totalWeight * b
+```
+
+The strict comparison matters when the product is not divisible by 10000. Any
+formal or off-chain specification must use the same rounding and strictness.
+
+## Random pointer
+
+For accepted random rounds `r`, the intended live-state invariant is:
+
+```text
+liveRound = max(accepted local random rounds)
+```
+
+Monotonicity alone is insufficient. A liveness-safe state machine also requires:
+
+```text
+liveRound is readable
+and
+there exists a representable later valid round when time advances
+```
+
+Accepting the maximum value violates the second condition and can violate the
+first through narrow arithmetic.
+
+## Migration partition
+
+Let `B` be the read-delegation boundary and `S` the start round embedded in the
+initial local policy. A gap-free, overlap-free partition requires:
+
+```text
+S = B
+```
+
+If `S < B`, locally written state can be shadowed by delegated reads. If `S > B`,
+the local policy may not cover the interval beginning at the read cutover.

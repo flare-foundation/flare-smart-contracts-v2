@@ -1,21 +1,27 @@
 /*
  * Relay.sol — write-once and owner-timelock invariants over verification getters.
  *
- * The original spec (RelayInvariants.spec) states these two rules via CVL direct storage access
- * (`currentContract.toSigningPolicyHashPrivate[...]`), which depends on the prover's storage analysis —
- * exactly the analysis Relay's raw-assembly sstores defeat (the documented C-1 wall). Here they are
- * restated over plain-Solidity view getters (certora/harness/RelayHarness.sol) reading the same mappings
+ * CVL direct storage access (`currentContract.toSigningPolicyHashPrivate[...]`) depends on the
+ * prover's storage analysis, which does not reliably track Relay's raw-assembly stores. These rules
+ * use plain-Solidity view getters (certora/harness/RelayHarness.sol) reading the same mappings
  * (visibility-munged private -> internal; faithfulness machine-checked by certora/munge.sh), and the run
  * disables the storage-splitting optimization (-enableStorageSplitting false). Storage then becomes one
  * SMT array and aliasing is decided by the prover's injective hashing model (keccak locations are
  * guaranteed distinct from scalar slots and from each other for distinct keys), so a raw assembly store
  * can no longer spuriously havoc an unrelated mapping entry.
  *
- * ecrecover stays NONDET (uninterpreted-signature modeling contract A2). During queued execution, the five
+ * ecrecover stays NONDET as an uninterpreted recovery function. During queued execution, the five
  * non-upgrade owner methods pessimistically dispatch to the real current implementation; the fallback ECF
  * summary cannot alter Relay storage. UUPS does use delegatecall; direct upgrade and queued-upgrade
  * dispatch are filtered from preservation/execution rules and treated as the explicit trusted-upgrade
  * boundary documented in certora/README.md.
+ *
+ * Parametric preservation calls use @withrevert, so calls that revert remain in the method domain and
+ * must preserve the sampled mappings after rollback. This includes ABI-dispatched relay(), whose generic
+ * zero-argument call supplies only the selector and lacks the required trailing protocol payload, and the
+ * deliberately disabled renounceOwnership(). Raw relay payloads are modeled by the dedicated
+ * concrete-symbolic and refinement layers within their stated bounds, and renunciation also has a direct
+ * rule below.
  */
 
 methods {
@@ -113,8 +119,7 @@ definition isNonUpgradeOwnerGuardedCall(bytes encodedCall) returns bool =
 /// rewardEpochId == lastInitialized + 1). On every REACHABLE state a non-zero hash exists only for epochs
 /// <= lastInitializedRewardEpoch (the constructor seeds the initial epoch and every writer — the setter and
 /// relay() Mode-1 alike — writes exactly lastInitialized+1, then advances the pointer). The require below
-/// restricts the rule to states satisfying that link; without it the prover exhibits exactly the
-/// unreachable-state artifact (Phase-B2 run f4777ba7, legacy codegen).
+/// restricts the rule to states satisfying that reachable-state link.
 rule policyHashWriteOnce(method f, uint256 epoch)
 filtered { f -> preservesCurrentImplementation(f) }
 {
@@ -124,7 +129,7 @@ filtered { f -> preservesCurrentImplementation(f) }
     lastInit, _startRound = lastInitializedRewardEpochData();
     require to_mathint(epoch) <= to_mathint(lastInit);
     env e; calldataarg args;
-    f(e, args);
+    currentContract.f@withrevert(e, args);
     bytes32 post = policyHashAt(epoch);
     assert post == pre, "a finalized signing-policy hash must be write-once";
 }
@@ -137,7 +142,7 @@ filtered { f -> preservesCurrentImplementation(f) }
     bytes32 pre = merkleRootAt(protocolId, votingRoundId);
     require pre != to_bytes32(0);
     env e; calldataarg args;
-    f(e, args);
+    currentContract.f@withrevert(e, args);
     bytes32 post = merkleRootAt(protocolId, votingRoundId);
     assert post == pre, "a finalized Merkle root must be write-once";
 }

@@ -1,65 +1,83 @@
-# Lean 4 — machine-checked signature-loop soundness
+# Lean 4 signature-loop verification
 
-Two Lean developments prove the Relay signature-loop threshold soundness, fully universally quantified,
-where the bounded tools (Halmos: fixed K; Kontrol: fixed N) cannot reach:
+The Lean development proves Relay's indexed-weight accounting for arbitrary voter and signature counts.
+It contains an abstract proof and a refinement over EVMYulLean's validated Yul operational semantics.
 
-| File | Result | Object | Coverage |
-|------|--------|--------|----------|
-| `RelaySigLoop.lean` | **the abstract proof** | the accounting algorithm (no EVM) | **∀N ∀K** |
-| `bytecode-refinement/RelayBytecodeRefinement.lean` | **the bytecode refinement** | a loop run by validated EVM/Yul semantics | **∀N** |
+| File | Current proof object | Quantification |
+|---|---|---|
+| `RelaySigLoop.lean` | abstract indexed-weight accounting | arbitrary voter and signature lists |
+| `bytecode-refinement/RelayBytecodeRefinement.lean` | memory-free Yul loop mechanism | arbitrary loop count |
+| `bytecode-refinement/DataLayer.lean` | byte, memory, value, and 16-bit mask lemmas | arbitrary values satisfying stated bounds |
+| `bytecode-refinement/RelayLoopMemRead.lean` | masked-memory-read loop and accounting bridge | arbitrary loop count |
+| `bytecode-refinement/RelayLoopWindows.lean` | calldata-to-scratch-memory window decoding | arbitrary buffers satisfying stated bounds |
+| `bytecode-refinement/RelayLoopLiteral.lean` | hand-transliterated signature-loop body | statement-level semantics |
+| `bytecode-refinement/RelayBodyEff.lean` | literal-body, dispatch, and protocol-1 threshold composition | arbitrary loop count under explicit premises |
+| `bytecode-refinement/RelayStorageLayer.lean` | persistent and transient storage effects | arbitrary keys and values under stated account premises |
+| `bytecode-refinement/RelayFeeLayer.lean` | fee arithmetic and balance conservation | arbitrary values under stated balance premises |
 
-Both are hole-free: no `sorry`/`admit`/`native_decide`. Most results use only
-`{propext, Classical.choice, Quot.sound}`; the data/window layer declares exactly three
-upstream-dischargeable specifications (`RelayDataLayer.zeroes_data`,
-`RelayDataLayer.toByteArray_size`, `RelayWindows.zeroes_data`), all explicitly allowlisted and reported.
+## Abstract accounting theorem
 
-## `RelaySigLoop.lean` — the abstract proof (∀N ∀K)
+`RelaySigLoop.threshold_sound` states that, for a `ValidRun`, acceptance implies that the total indexed
+policy weight exceeds the threshold. `ValidRun` requires in-range, monotonically increasing policy indices,
+so a policy slot is not counted twice. The theorem does not model voter addresses; interpreting the sum as
+weight from distinct identities requires unique voter addresses at policy admission.
 
-For an arbitrary list of voter weights `w` (so `N = w.length` is arbitrary) and an arbitrary signature
-stream `idxs` (so `K` is arbitrary):
+The same file proves:
 
-- `loop_inv` — the loop maintains `weight ≤ prefixSum(nextUnusedIndex)` and `nextUnusedIndex ≤ N`.
-- `threshold_sound` — **accept ⟹ enough indexed policy weight**: if the loop accepts (final weight > threshold),
-  the total registered weight exceeds the threshold.
-- `insufficient_weight_cannot_accept` — the contrapositive.
-- `bips_floor_strict_iff_cross` — floor division followed by the contract's strict comparison is exactly
-  `signedWeight * 10000 > totalWeight * overrideBIPS`.
-- `override_product_noOverflow` — the threshold product cannot wrap `UInt256` under the parser-wide
-  total-weight bound and the production `overrideBIPS < 10000` guard.
-- `selectThreshold_zero` / `selectThreshold_nonProtocolOne` — zero preserves the policy threshold, and
-  no transient value changes a protocol other than protocol ID 1.
-- `protocolOne_override_loop_sound` — composes the protocol-1 floor threshold with the existing strict
-  signature-loop theorem.
+- the loop invariant and the insufficient-weight contrapositive;
+- equivalence between the strict floor threshold and its cross-product form;
+- absence of `UInt256` wrap in the protocol-1 threshold product under the parser bound and
+  `overrideBIPS < 10000`; and
+- isolation of the protocol-1 threshold override from other protocol IDs.
 
-No policy slot is counted twice: the strictly-increasing-index discipline is encoded in the `ValidRun`
-predicate, so `prefixSum(N)` counts each indexed weight at most once. Addresses are not modeled; a
-distinct-voter conclusion is conditional on policy admission enforcing unique voter addresses.
+## EVMYulLean refinement scope
+
+The refinement executes modeled Yul statements with EVMYulLean at the pinned commit recorded in
+`../verification-manifest.json`. Its strongest composition theorem connects mode dispatch to the
+hand-transliterated signature loop and proves the indexed-weight conclusion under its explicit setup,
+cryptographic-call, validity, and no-overflow premises.
+
+The model intentionally leaves these boundaries explicit:
+
+- `ecrecover` and `keccak` behavior is supplied by theorem premises rather than implemented cryptography;
+- the full compiler-generated program is provenance-gated, but equivalence between that program and the
+  hand-transliterated loop body is not a proved AST refinement;
+- the complete setup path around transient storage, self-call behavior, rollback, and transaction-end
+  clearing is not extracted into the composition theorem; and
+- the accept write and fee-call interpreter wiring are proved as separate components.
+
+## Assumptions and proof audit
+
+The source contains no `sorry`, `admit`, or `native_decide`. The manifest allowlists Lean's standard
+logical axioms and exactly three local declarations:
+
+- `RelayDataLayer.zeroes_data`;
+- `RelayDataLayer.toByteArray_size`; and
+- `RelayWindows.zeroes_data`.
+
+These declarations are explicit semantic assumptions in the current proof set. They specify the result of
+EVMYulLean's opaque zero-filled `ByteArray` constructor and the fixed size of `UInt256.toByteArray`.
+[`bytecode-refinement/AXIOM_DISCHARGE.md`](bytecode-refinement/AXIOM_DISCHARGE.md) gives a reproducible way
+to convert them to theorems in a patched upstream checkout; that procedure does not change their status as
+axioms in this repository.
+
+`verify_lean.py` checks every declared axiom, every `#print axioms` directive, forbidden proof-hole tokens,
+the exact EVMYulLean revision, its Lake dependencies, and the toolchain declared in the manifest.
+
+## Reproduce
+
+Prepare EVMYulLean at the manifest-pinned revision, then run:
 
 ```bash
-lean RelaySigLoop.lean        # Lean 4, core only (no mathlib) — checks in seconds
-#print axioms RelaySigLoop.threshold_sound   # [propext, Quot.sound]
+EVMYUL_DIR=/tmp/evmyul2 python3 test-forge/fv/lean/verify_lean.py
 ```
 
-## `bytecode-refinement/RelayBytecodeRefinement.lean` — the bytecode refinement (∀N)
+For the abstract core alone:
 
-Lifts the abstract result onto a loop executed by NethermindEth's validated EVMYulLean operational
-semantics, for all N: `bytecode_loop_correct` (the interpreter runs the loop to completion and computes
-the accumulator) and `bytecode_threshold_sound` (accept ⟹ total > threshold, on the validated semantics).
-The original encoded loop is memory-free. The later data/window developments discharge the masked-read and
-overflow layers under their stated hypotheses, while the literal-body and dispatch theorems remain a
-hand-transliterated, conditional refinement rather than extraction of the entire compiled program.
-`RelayStorageLayer.tstore_tload` validates EVMYulLean's transient write/read semantics, and
-`RelayBodyEff.protocolOne_tload_override_loop_sound` composes that value with the literal strict-loop
-theorem. Its `hsetupThreshold` premise names the remaining unextracted setup seam across Relay's
-`TSTORE -> self-call -> TLOAD -> threshold-local` path; call rollback and transaction-end clearing are
-therefore not claimed.
-Build/check instructions and the exact assumption boundary are in
-`bytecode-refinement/README.md` and `../../../docs/relay-verification/`.
+```bash
+cd test-forge/fv/lean
+lean RelaySigLoop.lean
+```
 
-## Trust boundary
-
-The abstract proof owns the accounting under `ValidRun`; the bytecode refinement connects that accounting
-to validated EVM semantics for the modeled loop mechanism. The artifact gate binds the FV compiler output
-and committed optimized Yul to the Hardhat deployment bytecode; the bounded behavioral link is the Halmos bridge
-(`../RelayModelBridgeFV.t.sol`, K≤3); cryptography (`ecrecover`/`keccak`) and the boundary-call
-operational contracts are stated assumptions. Full ledger: `../../../docs/relay-verification/`.
+The generated verification report records source hashes, toolchain provenance, theorem audit output, and
+whether the run is release-eligible.

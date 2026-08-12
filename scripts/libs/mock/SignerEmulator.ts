@@ -31,7 +31,7 @@ export class SignerEmulator {
   }
 
   public async signAndEncode(messages: SignDepositMessage[]): Promise<string> {
-    // RLY-23: voters sign the source-bound digest keccak256(sourceChainId ‖ message).
+    // Voters sign the source-bound digest keccak256(sourceChainId ‖ message).
     const chainId = this.sourceChainId;
     const signaturePayloadHexList: string[] = await Promise.all(
       messages.map(async (message) => {

@@ -203,20 +203,20 @@ theorem sstore_sload {τ} (self : EvmYul.State τ) (k v : EvmYul.UInt256)
 /-! ## 7. The exec-level SSTORE effect and the storage-write-reads-back composition
 
 We now lift the `State`-level round trip to NethermindEth's real Yul interpreter
-(`EvmYul.Yul.exec`/`execPrimCall`/`primCall`/`step`), modelling Relay.sol's accept-branch
-storage write `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)`
-(`Relay.sol:1394`). The nested-mapping slot is the deterministic key `K`; we prove that
+(`EvmYul.Yul.exec`/`execPrimCall`/`primCall`/`step`), modelling Relay's accept-branch
+storage write `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)`.
+The nested-mapping slot is the deterministic key `K`; we prove that
 executing `sstore(K, v)` then loading `K` back yields `v`.
 
 Two subtleties versus the pure `State`-level facts above:
 
 * **`step` shape.** SSTORE is a state-transformer op with no stack output, so
   `step .Yul SSTORE none s [key, val]` dispatches (via `dispatchBinaryStateOp .Yul State.sstore`,
-  `Semantics.lean:372`) through `Yul.binaryStateOp`, which applies `State.sstore` to `s.toState`
+  `dispatchBinaryStateOp`) through `Yul.binaryStateOp`, which applies `State.sstore` to `s.toState`
   and writes the result back with `Yul.State.setState`. Hence the post-state is
   `s.setState (State.sstore s.toState key val)` and the returned literal is `none`.
 
-* **The static-mode permission guard.** `primCall` (`Yul/Interpreter.lean:70`) throws
+* **The static-mode permission guard.** `primCall` throws
   `.StaticModeViolation` when `¬s.executionEnv.perm ∧ prim ∈ [.SSTORE, …]`. A normal
   (non-`staticcall`) `relay()` call has `perm = true`, so we take `hperm : s.executionEnv.perm = true`
   (the `perm` flag reached through `EvmYul.Yul.State.executionEnv`). Rewriting with `hperm` collapses
@@ -253,11 +253,11 @@ theorem sstore_eff (fuel : Nat) (s : EvmYul.Yul.State) (key val : EvmYul.UInt256
         hperm]
 
 set_option maxHeartbeats 4000000 in
-/-- **Storage write reads back (the R5.3 payoff).** Executing `sstore(K, v)` and then loading slot
+/-- **Storage write reads back.** Executing `sstore(K, v)` and then loading slot
 `K` back yields exactly `v`. Composes `sstore_eff` (the post-exec state is `State.sstore s.toState K v`)
 with `sstore_sload` (that state reads `K` back as `v`), given the owner account is present. This is
 the "the relayed Merkle root is stored and reads back at its deterministic nested-mapping slot" fact
-for Relay.sol's accept branch (`Relay.sol:1394`). -/
+for Relay's accept branch. -/
 theorem sstore_reads_back (fuel : Nat) (s : EvmYul.Yul.State) (K v : EvmYul.UInt256)
     (acc : EvmYul.Account .Yul)
     (hperm : s.executionEnv.perm = true)

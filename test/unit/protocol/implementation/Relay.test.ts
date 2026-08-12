@@ -107,7 +107,7 @@ function prepareDataWithRandom(messageData: IProtocolMessageMerkleRoot, randomNu
 function generateForgedSignatures(voters: string[], count: number): IECDSASignatureWithIndex[] {
   const signatures: IECDSASignatureWithIndex[] = [];
   for (let i = 0; i < count; i++) {
-    // RLY-16: use a valid v (27) and low s so the canonical-signature checks pass; r = 0 is an
+    // Use a valid v (27) and low s so the canonical-signature checks pass; r = 0 is an
     // invalid recovery input, so ecrecover returns empty and the returndatasize check is exercised.
     void voters;
     signatures.push({
@@ -139,7 +139,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   let relay: RelayInstance;
   // ethers handle bound to the IRelay ABI — used only to decode typed custom errors in matchers.
   let relayIface: any;
-  // RLY-23: policy hashes and signed message digests are chain-bound; set in before().
+  // Policy hashes and signed message digests are source-chain-bound; set in before().
   let chainId: number;
   const selector = ethers.keccak256(ethers.toUtf8Bytes("relay()")).slice(0, 10);
   const N = 100;
@@ -373,7 +373,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     ).to.be.revertedWithCustomError(relayIface, "NotEnoughWeight");
   });
 
-  it("Should fail to relay a Mode-2 message with a zero merkle root [RLY-04]", async () => {
+  it("Should fail to relay a Mode-2 message with a zero merkle root", async () => {
     const newMessageData = { ...messageData };
     newMessageData.protocolId = randomNumberProtocolId + 1; // non-random protocol
     newMessageData.votingRoundId++;
@@ -852,7 +852,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const stateDataRaw = await relay.stateData();
     const stateData = stateDataName(stateDataRaw);
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
-    // RLY-03 monotonicity: this votingRoundId is lower than the one relayed by a previous test, so the
+    // This votingRoundId is lower than the current live pointer, so the
     // live random pointer does not regress to it; the per-round value is still stored and queryable.
     expect(toBN(stateData.randomVotingRoundId).toNumber()).to.be.at.least(newMessageData.votingRoundId);
     const historical = getRandomNumberName(await relay.getRandomNumberHistorical(newMessageData.votingRoundId));
@@ -894,7 +894,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     const stateDataRaw = await relay.stateData();
     const stateData = stateDataName(stateDataRaw);
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
-    // RLY-03 monotonicity: this votingRoundId is lower than the one relayed by a previous test, so the
+    // This votingRoundId is lower than the current live pointer, so the
     // live random pointer does not regress to it; the per-round value is still stored and queryable.
     expect(toBN(stateData.randomVotingRoundId).toNumber()).to.be.at.least(newMessageData.votingRoundId);
     const historical = getRandomNumberName(await relay.getRandomNumberHistorical(newMessageData.votingRoundId));
@@ -1712,7 +1712,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const newBalance = Number(await web3.eth.getBalance(BURN_ADDRESS));
       expect(newBalance - oldBalance).to.equal(1000);
 
-      // RLY-21: overpayment is refunded; feeCollection receives only the fee (1000), not the full 2000.
+      // Overpayment is refunded; feeCollection receives only the fee (1000), not the full 2000.
       const beforeOverpay = Number(await web3.eth.getBalance(BURN_ADDRESS));
       await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, {
         value: "2000",
@@ -1721,7 +1721,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       expect(afterOverpay - beforeOverpay).to.equal(1000);
     });
 
-    it("Should reject verification against an unfinalized (zero) root [RLY-01]", async () => {
+    it("Should reject verification against an unfinalized (zero) root", async () => {
       const signingPolicyData = defaultTestSigningPolicy(
         signers.map((x) => x.address),
         N,
@@ -1747,8 +1747,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         timelockDurationSeconds: 0,
       };
       const relay = await deployRelayProxy(relayInitialConfig, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
-      // Nothing relayed for protocol 16 / round 12345 -> stored root is zero. A zero leaf with an
-      // empty proof would previously have returned true; it must now revert.
+      // Nothing is relayed for protocol 16 / round 12345, so the stored root is zero and verification
+      // must revert even for a zero leaf with an empty proof.
       await expectCustomError(
         relay.verify(randomNumberProtocolId + 1, 12345, constants.ZERO_BYTES32, []),
         "NotFinalized"
@@ -1756,7 +1756,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     });
   });
 
-  describe("Constructor validation [RLY-10/RLY-11]", () => {
+  describe("Constructor validation", () => {
     function baseConfig(): RelayInitialConfig {
       const sp = defaultTestSigningPolicy(
         signers.map((x) => x.address),
@@ -1787,7 +1787,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       await deployRelayProxy(baseConfig(), constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
     });
 
-    it("RLY-11: rejects zero rewardEpochDurationInVotingEpochs", async () => {
+    it("rejects zero rewardEpochDurationInVotingEpochs", async () => {
       const cfg = baseConfig();
       cfg.rewardEpochDurationInVotingEpochs = 0;
       await expectCustomError(
@@ -1796,7 +1796,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       );
     });
 
-    it("RLY-11: rejects zero votingEpochDurationSeconds", async () => {
+    it("rejects zero votingEpochDurationSeconds", async () => {
       const cfg = baseConfig();
       cfg.votingEpochDurationSeconds = 0;
       await expectCustomError(
@@ -1805,7 +1805,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       );
     });
 
-    it("RLY-10: rejects zero feeCollectionAddress in relay mode", async () => {
+    it("rejects zero feeCollectionAddress in relay mode", async () => {
       const cfg = baseConfig();
       cfg.feeCollectionAddress = constants.ZERO_ADDRESS;
       await expectCustomError(
@@ -1814,7 +1814,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       );
     });
 
-    it("RLY-10: allows zero feeCollectionAddress in setter mode", async () => {
+    it("allows zero feeCollectionAddress in setter mode", async () => {
       const cfg = baseConfig();
       cfg.feeCollectionAddress = constants.ZERO_ADDRESS;
       await deployRelayProxy(cfg, signers[0].address, constants.ZERO_ADDRESS); // signingPolicySetter != 0
@@ -2605,7 +2605,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       expect(await relay.isFinalized(messageData.protocolId, messageData.votingRoundId)).to.equal(false);
     });
 
-    it("Sanity check: v=0 forged sig is rejected by the canonical-signature check [RLY-16]", async () => {
+    it("Sanity check: v=0 forged sig is rejected by the canonical-signature check", async () => {
       // const attackVotingRoundId = votingRoundId + 4;
       const attackVotingRoundId = testVotingRoundId + 4;
       const messageData: IProtocolMessageMerkleRoot = {
@@ -2639,7 +2639,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       ).to.be.revertedWithCustomError(relayIface, "BadV");
     });
 
-    it("High-s forged signature is rejected [RLY-16]", async () => {
+    it("High-s forged signature is rejected", async () => {
       const attackVotingRoundId = testVotingRoundId + 5;
       const messageData: IProtocolMessageMerkleRoot = {
         protocolId: randomNumberProtocolId + 1, // non-random protocol (no trailer needed; reverts before)

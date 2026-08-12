@@ -10,21 +10,23 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 Step 4 (L8): cross-epoch "MUST USE NEW SIGN POLICY" gate (Relay.sol:960-974), MULTI-STEP.
+// Cross-epoch must-use-new-policy gate, exercised across multiple calls.
 // In the cross-epoch path (messageRewardEpochId > policyEpoch) the contract branches on lastInitialized:
 //   - lastInitialized == policyEpoch  -> apply the x1.2 threshold increase   (covered by RelayCrossEpochFV)
 //   - lastInitialized  > policyEpoch  -> the NEW epoch is already initialised, so an OLD-policy message for
-//     a voting round at/after the new epoch's start is REJECTED: Relay.sol:972
+//     a voting round at/after the new epoch's start is REJECTED:
 //         if (votingRoundId + 1 > startingVotingRoundIds[policyEpoch+1]) revert "Must use new sign policy"
 // i.e. once epoch E+1 is initialised, the epoch-E policy can no longer finalize rounds that belong to E+1.
 //
 // SETUP (setter mode so we can advance lastInitialized deterministically):
-//   1. deploy with epoch-1 policy P1 (constructor stores hash[1], lastInitialized = 1)
-//   2. setSigningPolicy(P2 @ epoch 2, startVotingRoundId = START_E2)  -> stores hash[2],
-//      startingVotingRoundIds[2] = START_E2, lastInitialized = 2  (> policyEpoch 1 => the L8 branch)
-//   3. relay() with P1 for an epoch-2 message (messageRewardEpochId = 2 > 1)
+//   1. deploy with the epoch-1 policy (constructor stores hash[1], lastInitialized = 1)
+//   2. setSigningPolicy(next policy @ epoch 2, startVotingRoundId = START_E2) -> stores hash[2],
+//      startingVotingRoundIds[2] = START_E2, lastInitialized = 2 (> policyEpoch 1, activating the
+//      initialized-next-policy gate)
+//   3. relay() with the epoch-1 policy for an epoch-2 message (messageRewardEpochId = 2 > 1)
 // Epoch 2 spans voting rounds [2*REWARD_EPOCH_DURATION, 3*REWARD_EPOCH_DURATION) = [6720, 10080); the new
-// epoch's start is delayed to START_E2 = 6820, so a round in [6720, 6820) may still use P1 but a round
+// epoch's start is delayed to START_E2 = 6820, so a round in [6720, 6820) may still use the epoch-1 policy,
+// but a round
 // >= 6820 must not. Signatures symbolic, ecrecover uninterpreted; threshold NOT increased on this branch
 // (3*100 = 300 > 260).
 contract RelayMustUseNewPolicyFV is RelayTestBase {
@@ -75,15 +77,16 @@ contract RelayMustUseNewPolicyFV is RelayTestBase {
         (ok,) = address(relay).call(abi.encodePacked(Relay.relay.selector, policy1, message, sigs));
     }
 
-    // L8 — once epoch 2 is initialised, the epoch-1 policy CANNOT finalize an epoch-2 round at/after the
+    // Once epoch 2 is initialised, the epoch-1 policy CANNOT finalize an epoch-2 round at/after the
     // new epoch's start (votingRoundId >= START_E2): relay() reverts "Must use new sign policy".
     // EXPECT: PASS (proof).
     function check_mustUseNewPolicy_afterStart(Sig calldata a, Sig calldata b, Sig calldata c) external {
         assert(!_relayWithP1(START_E2, a, b, c)); // 6820 >= START_E2 => rejected
     }
 
-    // Anti-vacuity / contrast: a round in the gap [E2_START, START_E2) is still finalizable with P1
-    // (the L8 gate does not fire), so acceptance is reachable there. EXPECT: COUNTEREXAMPLE.
+    // Anti-vacuity / contrast: a round in the gap [E2_START, START_E2) is still finalizable with the
+    // epoch-1 policy (the initialized-next-policy gate does not fire), so acceptance is reachable there.
+    // EXPECT: COUNTEREXAMPLE.
     function check_reach_oldPolicyOkBeforeStart(Sig calldata a, Sig calldata b, Sig calldata c) external {
         assert(!_relayWithP1(E2_START_ROUND, a, b, c)); // 6720 < START_E2 => old policy still OK
     }

@@ -16,13 +16,12 @@ import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
  * Foundry harness + tests for Relay.sol.
  *
  * Reusable base that reconstructs the custom relay() calldata layout in Solidity:
- *  - signing policy encoding (43 + n*22 bytes) and its chunked hash (mirrors calculateSigningPolicyHash),
+ *  - signing policy encoding (43 + n*22 bytes) and its source-bound single-keccak hash,
  *  - 38-byte protocol message,
  *  - EIP-191 prefixed message hash,
  *  - 67-byte (v,r,s,index) signatures with a 2-byte count prefix.
  *
- * This base is intended to be reused by later fixes (e.g. RLY-03 random redesign) and as the
- * substrate for formal verification (Halmos/Kontrol).
+ * This base is shared by Foundry tests and the Halmos formal-verification harnesses.
  */
 contract RelayTestBase is Test {
     // ---- signing-policy parameters ----
@@ -70,7 +69,7 @@ contract RelayTestBase is Test {
         cfg.thresholdIncreaseBIPS = THRESHOLD_INCREASE_BIPS;
         cfg.messageFinalizationWindowInRewardEpochs = MESSAGE_FINALIZATION_WINDOW;
         cfg.feeCollectionAddress = payable(feeCollection);
-        // The RLY-23 source id is mandatory on every deployment; duration 0 keeps owner
+        // The source id is mandatory on every deployment; duration 0 keeps owner
         // calls immediate for tests that do not exercise the timelock queue.
         cfg.sourceChainId = block.chainid;
         cfg.timelockDurationSeconds = 0;
@@ -115,13 +114,13 @@ contract RelayTestBase is Test {
         }
     }
 
-    // Mirrors Relay.calculateSigningPolicyHash / setSigningPolicy (RLY-23 chain-domain binding):
+    // Mirrors Relay.calculateSigningPolicyHash / setSigningPolicy source-domain binding:
     // one keccak over the 32-byte source chain id followed by the raw encoded policy, no padding.
     function _signingPolicyHash(bytes memory p) internal view returns (bytes32 h) {
         h = keccak256(abi.encodePacked(block.chainid, p));
     }
 
-    // The RETIRED chained-fold content hash of the previously deployed Relay (RelayMainDeployed):
+    // Chained-fold content hash used by the oldRelay compatibility model and migration tests:
     // h = policy[0:32], fold each subsequent 32-byte chunk (h = keccak(h || chunk)), final partial
     // chunk zero-padded on the right. Used only by migration tests against the old contract.
     function _signingPolicyContentHash(bytes memory p) internal pure returns (bytes32 h) {
@@ -149,7 +148,7 @@ contract RelayTestBase is Test {
         return abi.encodePacked(protocolId, votingRoundId, isSecureRandom ? uint8(1) : uint8(0), merkleRoot);
     }
 
-    // RLY-23: what voters sign for a protocol message is
+    // What voters sign for a protocol message is
     // prefixed(keccak256(chainid ‖ raw 38-byte message)) — one keccak, no inner hash.
     function _ethSignedHash(bytes memory message) internal view returns (bytes32) {
         return keccak256(
@@ -184,7 +183,7 @@ contract RelayTestBase is Test {
 
 }
 
-// RLY-03: true Merkle-proven random + monotonicity.
+// Merkle-proven randomness and live-pointer monotonicity.
 contract RelayRandomTest is RelayTestBase {
     bytes internal policy;
 
@@ -236,7 +235,7 @@ contract RelayRandomTest is RelayTestBase {
         assertTrue(secH, "historical secure");
     }
 
-    // Core RLY-03 fix: relaying a stale (older) round after a newer one must NOT regress the live pointer.
+    // Relaying a stale (older) round after a newer one must not regress the live pointer.
     function test_random_monotonicity_staleRoundDoesNotRegress() public {
         uint32 v1 = START_VOTING_ROUND_ID;       // older
         uint32 v2 = START_VOTING_ROUND_ID + 1;   // newer, same reward epoch
@@ -276,7 +275,7 @@ contract RelayRandomTest is RelayTestBase {
         assertFalse(ok, "missing trailer should revert");
     }
 
-    // RLY-22: the hardcoded event-signature strings in relay() assembly must stay in sync with the ABI.
+    // The hardcoded event-signature strings in relay() assembly must stay in sync with the ABI.
     function test_event_signatures_match_canonical() public {
         // ProtocolMessageRelayed (non-random protocol)
         bytes memory m1 = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("a"));
@@ -305,7 +304,7 @@ contract RelayRandomTest is RelayTestBase {
         assertTrue(found, "RandomNumberRelayed signature drift");
     }
 
-    // L-1: a legitimately-relayed random value of 0 is returned, not mis-read as "absent".
+    // A legitimately relayed random value of 0 is returned, not misread as absent.
     function test_random_zeroValue_isReturnedNotAbsent() public {
         uint32 vrid = START_VOTING_ROUND_ID;
         (bool ok,) = address(relay).call(_randomRelayMessage(vrid, 0, true, 3));
@@ -317,7 +316,7 @@ contract RelayRandomTest is RelayTestBase {
         relay.getRandomNumberHistorical(vrid + 99);
     }
 
-    // Coverage (High): random monotonicity ACROSS reward epochs (also exercises the threshold-increase branch).
+    // Random monotonicity across reward epochs also exercises the threshold-increase branch.
     function test_random_monotonicity_acrossRewardEpochs() public {
         uint32 vEpoch2 = START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION; // reward epoch 2
         uint32 vEpoch1 = START_VOTING_ROUND_ID + 1;                     // reward epoch 1 (older)
@@ -333,7 +332,7 @@ contract RelayRandomTest is RelayTestBase {
         assertEq(rndH, 0xE1, "older-epoch historical value not stored");
     }
 
-    // Coverage (Med): a trailer whose length is not a multiple of 32 reverts ("Incorrect merkle proof").
+    // A trailer whose length is not a multiple of 32 reverts with IncorrectMerkleProof.
     function test_random_malformedTrailerLength_reverts() public {
         uint32 vrid = START_VOTING_ROUND_ID;
         (bytes32 root, bytes32 sibling) = _treeFor(vrid, 0xAAAA, true);
@@ -344,7 +343,7 @@ contract RelayRandomTest is RelayTestBase {
         assertFalse(ok, "non-multiple-of-32 trailer should revert");
     }
 
-    // Coverage (Med): a deep (multi-node) Merkle proof exercises the fold loop more than once.
+    // A deep (multi-node) Merkle proof exercises the fold loop more than once.
     function test_random_deepMerkleProof() public {
         uint32 vrid = START_VOTING_ROUND_ID;
         uint256 value = 0xD;
@@ -361,7 +360,7 @@ contract RelayRandomTest is RelayTestBase {
         assertEq(rnd, value);
     }
 
-    // Coverage (Med): a message isSecure byte != {0,1} is normalized to 1 (RLY-14); the leaf uses 1.
+    // A message isSecure byte outside {0,1} is normalized to 1; the leaf uses 1.
     function test_random_isSecureNormalization() public {
         uint32 vrid = START_VOTING_ROUND_ID;
         uint256 value = 0x5;
@@ -386,7 +385,7 @@ contract RelayRandomTest is RelayTestBase {
         }
     }
 
-    // Coverage (Med): a trailer shorter than the 32-byte random word hits the distinct "No random number"
+    // A trailer shorter than the 32-byte random word hits the distinct NoRandomNumber
     // guard (calldatasize < proofStart+32), separate from the non-multiple-of-32 "Incorrect merkle proof".
     function test_random_shortTrailer_revertsNoRandomNumber() public {
         uint32 vrid = START_VOTING_ROUND_ID;
@@ -400,7 +399,7 @@ contract RelayRandomTest is RelayTestBase {
     }
 }
 
-// RLY-01: verify() must reject an uninitialized (zero) Merkle root.
+// verify() must reject an uninitialized (zero) Merkle root.
 contract RelayVerifyTest is RelayTestBase {
     bytes internal policy;
 
@@ -439,7 +438,7 @@ contract RelayVerifyTest is RelayTestBase {
         assertTrue(relay.verify(pid, vrid, leaf, proof), "valid proof against finalized root should pass");
     }
 
-    // RLY-13: oldRelay fallback must fail closed if oldRelay.verify returns false (fee already forwarded).
+    // oldRelay fallback must fail closed if oldRelay.verify returns false (fee already forwarded).
     // Old-relay migration is home-only, so the new relay deploys in setter mode (no fees).
     function _deployWithOldRelay(bool oldReturns) internal returns (Relay r) {
         MockOldRelay mock = new MockOldRelay(
@@ -463,7 +462,7 @@ contract RelayVerifyTest is RelayTestBase {
         assertTrue(r.verify(3, 100, keccak256("x"), new bytes32[](0)));
     }
 
-    // RLY-21: verify() forwards only the protocol fee and refunds the overpayment to the caller.
+    // verify() forwards only the protocol fee and refunds the overpayment to the caller.
     function test_verify_refundsOverpayment() public {
         uint8 pid = 3;
         uint32 vrid = START_VOTING_ROUND_ID;
@@ -644,7 +643,7 @@ contract RelayVerifyTest is RelayTestBase {
         r.setFeeExemptions(exemptions);
     }
 
-    // RLY-04: a Mode-2 relay with a zero merkle root must revert (else isFinalized / already-relayed break).
+    // A Mode-2 relay with a zero Merkle root must revert so finalization presence remains unambiguous.
     function test_relay_zeroMerkleRoot_reverts() public {
         // identical setup differing only in the root: non-zero finalizes, zero reverts
         bytes memory okMsg = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("root"));
@@ -666,7 +665,7 @@ contract RelayVerifyTest is RelayTestBase {
         }
     }
 
-    // RLY-16: a non-canonical v is rejected with "Bad v" (before ecrecover).
+    // A non-canonical v is rejected with BadV before ecrecover.
     function test_relay_badV_reverts() public {
         bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("r"));
         (, bytes32 r, bytes32 s) = vm.sign(pks[0], _ethSignedHash(message));
@@ -676,7 +675,7 @@ contract RelayVerifyTest is RelayTestBase {
         this.relayRaw(rm);
     }
 
-    // RLY-16: a high-s (non-canonical) signature is rejected with "Bad s" (before ecrecover).
+    // A high-s (non-canonical) signature is rejected with BadS before ecrecover.
     function test_relay_highS_reverts() public {
         bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("r"));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pks[0], _ethSignedHash(message));
@@ -688,7 +687,7 @@ contract RelayVerifyTest is RelayTestBase {
         this.relayRaw(rm);
     }
 
-    // M-1: oldRelay fallback forwards only the old relay's fee and refunds the overpayment.
+    // oldRelay fallback forwards only the old relay's fee and refunds the overpayment.
     // (The NEW relay is fee-less setter mode — old-relay migration is home-only — but the OLD
     // relay's own fee schedule is still honoured by the delegation path.)
     function test_verify_oldRelayFallback_refundsOverpayment() public {
@@ -708,7 +707,7 @@ contract RelayVerifyTest is RelayTestBase {
         assertEq(selfBefore - address(this).balance, 700, "caller net cost is the old fee (overpayment refunded)");
     }
 
-    // Coverage (Med): weight == threshold must FAIL (strict '>'); weight > threshold passes.
+    // Weight == threshold must fail because acceptance is strict `>`; weight > threshold passes.
     function test_threshold_exactBoundary_strictGreater() public {
         uint16 thr = 300; // 3 voters * 100 == 300 (the boundary)
         bytes memory pol = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, thr, SEED);
@@ -727,7 +726,7 @@ contract RelayVerifyTest is RelayTestBase {
         assertTrue(ok4, "weight > threshold must pass");
     }
 
-    // Coverage (Med): if the fee-collection address rejects ETH, verify() reverts "Transfer failed".
+    // If the fee-collection address rejects ETH, verify() reverts with TransferFailed.
     function test_verify_feeReceiverReverts() public {
         RevertingReceiver rr = new RevertingReceiver();
         IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
@@ -750,7 +749,7 @@ contract RelayVerifyTest is RelayTestBase {
         r.verify{value: 500}(3, START_VOTING_ROUND_ID, leaf, proof);
     }
 
-    // Coverage (Med): if the caller (refund recipient) rejects ETH, the overpayment refund reverts "Refund failed".
+    // If the caller (refund recipient) rejects ETH, the overpayment refund reverts with RefundFailed.
     function test_verify_refundReceiverReverts() public {
         RevertingReceiver rr = new RevertingReceiver();
         IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy)); // feeCollection accepts ETH
@@ -772,7 +771,7 @@ contract RelayVerifyTest is RelayTestBase {
         rr.callVerify{value: 5000}(r, 3, START_VOTING_ROUND_ID, leaf, proof); // overpays -> refund to rr reverts
     }
 
-    // Coverage (Med): a valid proof for the WRONG leaf against a finalized root reverts "merkle proof invalid".
+    // A valid proof for the wrong leaf against a finalized root reverts with MerkleProofInvalid.
     function test_verify_merkleProofInvalid_reverts() public {
         uint8 pid = 3;
         uint32 vrid = START_VOTING_ROUND_ID;
@@ -785,31 +784,31 @@ contract RelayVerifyTest is RelayTestBase {
         relay.verify(pid, vrid, leaf, badProof);
     }
 
-    // Coverage (Med): verify() on the new-relay path rejects a reserved protocol id (<= 1).
+    // verify() on the local path rejects a reserved protocol id (<= 1).
     function test_verify_invalidProtocolId_reverts() public {
         vm.expectRevert(IRelay.InvalidProtocolId.selector);
         relay.verify(1, START_VOTING_ROUND_ID, keccak256("x"), new bytes32[](0));
     }
 
-    // Coverage (Med): in relay mode (signingPolicySetter == 0) merkleRoots() is locked out.
+    // In relay mode (signingPolicySetter == 0), merkleRoots() is locked out.
     function test_merkleRoots_relayMode_reverts() public {
         vm.expectRevert(IRelay.NoAccessToMerkleRoots.selector);
         relay.merkleRoots(3, START_VOTING_ROUND_ID);
     }
 
-    // Coverage (Med): in relay mode toSigningPolicyHash() is locked out.
+    // In relay mode, toSigningPolicyHash() is locked out.
     function test_toSigningPolicyHash_relayMode_reverts() public {
         vm.expectRevert(IRelay.NoAccessToSigningPolicyHashes.selector);
         relay.toSigningPolicyHash(REWARD_EPOCH_ID);
     }
 
-    // Coverage (Med): getVotingRoundId underflow guard.
+    // getVotingRoundId rejects timestamps before the configured start.
     function test_getVotingRoundId_beforeStart_reverts() public {
         vm.expectRevert(IRelay.HistoryBeforeStart.selector);
         relay.getVotingRoundId(uint256(FIRST_VOTING_ROUND_TS) - 1);
     }
 
-    // Coverage (Low, RLY-20): getRandomNumber() before any random relay returns (0, false, ts), no revert.
+    // Before any random relay, getRandomNumber() returns the configured default tuple without reverting.
     function test_getRandomNumber_beforeAnyRelay_returnsDefault() public {
         (uint256 rnd, bool sec, uint256 tsv) = relay.getRandomNumber();
         assertEq(rnd, 0, "no random yet");
@@ -817,7 +816,7 @@ contract RelayVerifyTest is RelayTestBase {
         assertEq(tsv, uint256(FIRST_VOTING_ROUND_TS) + uint256(1) * VOTING_EPOCH_DURATION, "ts for round 0+1");
     }
 
-    // ---- M-1 oldRelay fallback fee edges ----
+    // ---- oldRelay fallback fee edges ----
 
     // Old-relay migration is home-only, so the new relay deploys in setter mode (no own fees);
     // the delegation path still honours the OLD relay's fee schedule.
@@ -831,7 +830,7 @@ contract RelayVerifyTest is RelayTestBase {
         r = deployRelay(cfg, address(this), IRelay(address(mock)));
     }
 
-    // M-1: msg.value below the old relay's fee reverts "too low fee".
+    // msg.value below the old relay's fee reverts with TooLowFee.
     function test_verify_oldRelayFallback_tooLowFee_reverts() public {
         (, Relay r) = _oldRelayWithFee(700);
         vm.deal(address(this), 1 ether);
@@ -839,7 +838,7 @@ contract RelayVerifyTest is RelayTestBase {
         r.verify{value: 699}(3, 100, keccak256("x"), new bytes32[](0)); // round 100 < START -> fallback
     }
 
-    // M-1: exact fee -> oldRefund == 0 -> the refund call is SKIPPED. A refund-rejecting caller paying
+    // Exact fee -> oldRefund == 0 -> the refund call is skipped. A refund-rejecting caller paying
     // the exact fee must therefore NOT revert (proves the if(oldRefund > 0) false-branch).
     function test_verify_oldRelayFallback_exactFee_skipsRefund() public {
         (MockOldRelay mock, Relay r) = _oldRelayWithFee(700);
@@ -850,7 +849,7 @@ contract RelayVerifyTest is RelayTestBase {
         assertEq(address(mock).balance - mockBefore, 700, "old relay received exactly its fee, no refund attempted");
     }
 
-    // M-1: oldFee == 0 with overpayment -> full refund to caller.
+    // oldFee == 0 with overpayment -> full refund to caller.
     function test_verify_oldRelayFallback_zeroFee_fullRefund() public {
         (MockOldRelay mock, Relay r) = _oldRelayWithFee(0);
         vm.deal(address(this), 1 ether);
@@ -862,7 +861,7 @@ contract RelayVerifyTest is RelayTestBase {
         assertEq(selfBefore - address(this).balance, 0, "caller fully refunded");
     }
 
-    // Coverage (Med): the four read paths delegate to the old relay below the switchover boundary.
+    // The four read paths delegate to oldRelay below the switchover boundary.
     function test_oldRelay_readDelegation_belowBoundary() public {
         (, Relay r) = _oldRelayWithFee(0);
         assertEq(r.merkleRoots(3, 100), bytes32(uint256(0xABCDEF)), "merkleRoots delegated");
@@ -875,7 +874,7 @@ contract RelayVerifyTest is RelayTestBase {
         assertTrue(sec, "historical isSecure delegated");
     }
 
-    // Coverage (Low, DiD): a caller that re-enters a verify()-path read during the refund callback.
+    // A caller that re-enters a verify()-path read during the refund callback observes stable state.
     // verify() does no state writes, so this is benign: reentrancy observes consistent state and
     // feeCollection receives exactly one fee.
     function test_verify_reentrantReceiver_consistentNoExtraEth() public {
@@ -906,7 +905,7 @@ contract RelayVerifyTest is RelayTestBase {
 
     // ---- signature-loop index / count edges ----
 
-    // Coverage (Low): a signature index == numberOfVoters is out of range.
+    // A signature index equal to numberOfVoters is out of range.
     function test_relay_indexOutOfRange_reverts() public {
         bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("r"));
         (uint8 v, bytes32 rr, bytes32 s) = vm.sign(pks[0], _ethSignedHash(message));
@@ -916,7 +915,7 @@ contract RelayVerifyTest is RelayTestBase {
         this.relayRaw(rm);
     }
 
-    // Coverage (Low): signature indices must be strictly increasing.
+    // Signature indices must be strictly increasing.
     function test_relay_indexOutOfOrder_reverts() public {
         bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("r"));
         bytes32 sh = _ethSignedHash(message);
@@ -928,7 +927,7 @@ contract RelayVerifyTest is RelayTestBase {
         this.relayRaw(rm);
     }
 
-    // Coverage (Low): a zero-signature message falls through to NotEnoughWeight.
+    // A zero-signature message falls through to NotEnoughWeight.
     function test_relay_zeroSignatures_notEnoughWeight() public {
         bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("r"));
         bytes memory sigs = abi.encodePacked(uint16(0)); // declared count 0, no signature bytes
@@ -940,7 +939,7 @@ contract RelayVerifyTest is RelayTestBase {
     receive() external payable {}
 }
 
-// RLY-10 / RLY-11: constructor input validation.
+// Initializer input validation.
 contract RelayConstructorTest is RelayTestBase {
     bytes internal policy;
 
@@ -985,7 +984,7 @@ contract RelayConstructorTest is RelayTestBase {
         assertEq(r.signingPolicySetter(), address(this));
     }
 
-    // L-4: a zero initialSigningPolicyHash bricks the initial epoch and is rejected.
+    // A zero initialSigningPolicyHash makes the initial epoch unusable and is rejected.
     function test_ctor_rejects_zeroInitialSigningPolicyHash() public {
         IRelay.RelayInitialConfig memory c = _cfg();
         c.initialSigningPolicyHash = bytes32(0);
@@ -1013,7 +1012,7 @@ contract RelayConstructorTest is RelayTestBase {
         new RelayProxy(address(implementation), _cfg(), address(0), IRelay(address(mock)), RELAY_TEST_GOVERNANCE);
     }
 
-    // Coverage (Med): a setter-mode new deployment against a RELAY-mode old relay is incompatible.
+    // A setter-mode deployment rejects a relay-mode oldRelay as incompatible.
     function test_ctor_oldRelay_incompatibleRelayMode_reverts() public {
         MockOldRelayRelayMode mock = new MockOldRelayRelayMode();
         Relay implementation = new Relay();
@@ -1024,7 +1023,7 @@ contract RelayConstructorTest is RelayTestBase {
         );
     }
 
-    // Coverage (Med): a timing-field mismatch with the old relay is rejected ("wrong start ts").
+    // A timing-field mismatch with oldRelay is rejected with OldRelayWrongStartTs.
     function test_ctor_oldRelay_wrongStartTs_reverts() public {
         MockOldRelay mock = new MockOldRelay(
             true, FIRST_VOTING_ROUND_TS + 1, VOTING_EPOCH_DURATION, // ts differs by 1

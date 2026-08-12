@@ -9,12 +9,11 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase-2 (bounded multi-transaction, Halmos): random monotonicity across a SEQUENCE of relay() calls.
-// The live random pointer stateData.randomVotingRoundId only advances for a strictly-newer round
-// (Relay.sol monotonic guard ~1462), so relaying an OLDER round after a NEWER one must NOT regress the
+// Bounded multi-transaction Halmos proof: random monotonicity across two relay() calls.
+// The live random pointer stateData.randomVotingRoundId only advances for a strictly-newer round,
+// so relaying an OLDER round after a NEWER one must NOT regress the
 // "current" random. We prove the 2-call instance for both orders and that both rounds stay retrievable
-// historically. This is the bounded version of the Phase-2 monotonicity obligation; the unbounded
-// (any-length sequence) form is a Kontrol/inductive task — see docs/relay-fv.md.
+// historically. The exact claim is the two-call transition; no arbitrary-length sequence is asserted.
 //
 // Two concrete same-epoch rounds R_HI > R_LO (both in reward epoch 1, both >= startVotingRoundId, so no
 // threshold-increase: 3 signatures suffice). Signatures are symbolic; ecrecover is uninterpreted, so the

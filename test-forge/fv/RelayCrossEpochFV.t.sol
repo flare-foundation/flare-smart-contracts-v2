@@ -9,12 +9,12 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase-2 (bounded, Halmos): no-repeat-index and indexed-weight soundness on the CROSS-EPOCH path, where the
-// threshold-INCREASE applies. Relay.sol:960 enters when messageRewardEpochId > policy rewardEpochId, and
-// :976 multiplies the threshold by thresholdIncreaseBIPS/THRESHOLD_BIPS (here 12000/10000 = x1.2) when
+// Bounded Halmos proofs of no-repeat-index and indexed-weight soundness on the cross-epoch path, where the
+// threshold-INCREASE applies. relay() enters this path when messageRewardEpochId > policy rewardEpochId
+// and multiplies the threshold by thresholdIncreaseBIPS/THRESHOLD_BIPS (here 12000/10000 = x1.2) when
 // lastInitializedRewardEpoch == policy rewardEpochId (no newer policy relayed yet). The same-epoch
-// harnesses (RelaySigParamFV, RelaySigFV) deliberately never exercise this; this file closes the
-// docs/relay-fv.md §6 caveat that (N)/(T) were only proved against the UN-increased threshold.
+// harnesses (RelaySigParamFV, RelaySigFV) do not exercise this path. The proof uses the effective increased
+// threshold, not the policy's base threshold.
 //
 // Setup mirrors the concrete test_random_monotonicity_acrossRewardEpochs: an epoch-2 message
 // (votingRoundId = START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION) finalized by the epoch-1 policy, so the

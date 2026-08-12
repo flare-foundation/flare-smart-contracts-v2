@@ -1,10 +1,10 @@
 /-
   RelayFeeLayer.lean
 
-  R5.4: the fee logic of Relay.sol `verify()` as a hole-free Lean lemma set, on
+  The fee logic of Relay.sol `verify()` as a hole-free Lean lemma set, on
   NethermindEth's EVMYulLean semantics.
 
-  Models the fee-forwarding `else` branch of `verify()` (Relay.sol ~1591-1613):
+  Models the fee-forwarding `else` branch of `verify()`:
 
       uint256 fee = protocolFeeInWei[_protocolId];
       require(msg.value >= fee, "too low fee");
@@ -22,7 +22,7 @@
   Anchored on EVMYulLean (commit 047f6307…):
     * EvmYul/UInt256.lean          — `UInt256.add`/`.sub` are Fin (2^256) arithmetic.
     * EvmYul/Maps/AccountMap.lean  — `increaseBalance`/`decreaseBalance`/`transferBalance`.
-    * EvmYul/Yul/Interpreter.lean  — the Yul `.CALL` primitive uses `transferBalance` (:78).
+    * EvmYul/Yul/Interpreter.lean  — the Yul `.CALL` primitive uses `transferBalance`.
 
   Self-contained: imports `EvmYul` only. Every `#print axioms` at the bottom is a
   subset of `{propext, Classical.choice, Quot.sound}` — no sorry/native_decide.
@@ -117,7 +117,7 @@ theorem refund_le (fee msgValue : EvmYul.UInt256) (h : fee.val ≤ msgValue.val)
 /-! ## Section 2.  `transferBalance` conservation (the balance-primitive anchor)
 
 The Yul `.CALL` primitive moves `value` from caller to callee via
-`accountMap.transferBalance .Yul codeOwner address value` (Interpreter.lean:78). -/
+`accountMap.transferBalance .Yul codeOwner address value`. -/
 
 /-- **Full characterization of a successful `transferBalance`.**  For `A ≠ B`, both present,
 `A` funded (`¬ accA.balance < amt`), the transfer succeeds and the resulting map is exactly
@@ -269,12 +269,11 @@ theorem two_transfer_caller_net_zero {τ} (σ : AccountMap τ)
 /-! ## Section 4.  The honest boundary — the exec-level `call` layer (NOT proved here)
 
 Sections 2-3 anchor conservation at the **balance primitive** `AccountMap.transferBalance`,
-which is precisely the value-movement the Yul `.CALL` primitive performs
-(Interpreter.lean:78: `transferBalance .Yul codeOwner address value`).
+which is precisely the value-movement the Yul `.CALL` primitive performs through
+`transferBalance .Yul codeOwner address value`.
 
 What is **not** covered here is wiring Relay.sol's `feeCollectionAddress.call{value: fee}("")`
-through the *full* exec-level `.CALL` path in `EvmYul.Yul.primCall`/`callDispatcher`
-(Interpreter.lean:65-…):
+through the *full* exec-level `.CALL` path in `EvmYul.Yul.primCall`/`callDispatcher`:
   * decoding the 7 stack args and `AccountAddress.ofUInt256 address_arg`;
   * the static-mode / depth-1024 / insufficient-funds branches
     (each returning a `buildContractCallEmptyReturnState`);

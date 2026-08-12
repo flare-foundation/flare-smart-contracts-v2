@@ -272,7 +272,7 @@ export async function deployContracts(
     quiet
   );
 
-  // RLY-23: the initial signing-policy hash must be bound to the chain this Relay is deployed on.
+  // The initial signing-policy hash is bound to this Relay's source chain.
   const relayChainId = await web3.eth.getChainId();
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: initialSigningPolicy.rewardEpochId,

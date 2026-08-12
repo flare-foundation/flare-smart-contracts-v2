@@ -453,7 +453,7 @@ export async function deployContracts(
   );
   addressUpdatableContracts.push(rewardManager.address);
 
-  // RLY-23: the initial signing-policy hash must be bound to the chain this Relay is deployed on.
+  // The initial signing-policy hash is bound to this Relay's source chain.
   const relayChainId = await hre.web3.eth.getChainId();
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: initialSigningPolicy.rewardEpochId,
@@ -468,7 +468,7 @@ export async function deployContracts(
     messageFinalizationWindowInRewardEpochs: 100,
     feeCollectionAddress: ZERO_ADDRESS,
     feeConfigs: [],
-    // Test deploy: the RLY-23 source id is mandatory; owner-timelock off so the governance
+    // Test deploy: the source id is mandatory; owner-timelock off so the governance
     // account can act immediately.
     sourceChainId: relayChainId,
     timelockDurationSeconds: 0,

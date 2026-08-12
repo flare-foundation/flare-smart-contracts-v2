@@ -20,7 +20,7 @@ export interface RelayInitialConfig {
   // a home deploy). Optional here — deploy boundaries default it to [] — so existing configs and
   // test fixtures that never seed exemptions need not list it.
   feeExemptAddresses?: string[];
-  // RLY-23 source network id, bound into every stored policy hash and signed digest. MUST be
+  // Source network id, bound into every stored policy hash and signed digest. MUST be
   // explicit and NONZERO on every deployment — a home deploy states its own chain id (enforced
   // on-chain), a mirror the mirrored network's.
   sourceChainId: number;

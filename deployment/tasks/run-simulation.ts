@@ -821,7 +821,7 @@ async function fakeFinalize(
   const votingRoundId = epochSettings.votingEpochForTime(now);
   const rewardEpochId = epochSettings.rewardEpochForTime(now);
 
-  // The finalized protocol is the random-number protocol, so relay() requires the RLY-03
+  // The finalized protocol is the random-number protocol, so relay() requires the
   // random trailer: the Merkle-proven random leaf must be part of the finalized root and
   // the (randomNumber || merkleProof) trailer appended after the signatures.
   const toHex32 = (x: string | number) => web3.utils.leftPad(web3.utils.toHex(x), 64);
@@ -1007,7 +1007,7 @@ export function encodeContractNames(web3: Web3, names: string[]): string[] {
 export function encodeString(text: string, web3: Web3): string {
   return web3.utils.keccak256(web3.eth.abi.encodeParameters(["string"], [text]));
 }
-// RLY-23: the signing-policy hash the Relay stores/verifies is chain-bound.
+// The signing-policy hash that Relay stores and verifies is source-bound.
 export function getSigningPolicyHash(signingPolicy: ISigningPolicy, chainId: number): string {
   return SigningPolicy.hash(signingPolicy, chainId);
 }

@@ -1,42 +1,30 @@
 # `test-forge/fv/` — the Relay formal-verification suite (a reader's guide)
 
-This directory holds the machine-checked proofs about `Relay.sol` — rungs **R2–R4** of the fidelity ladder.
-The narrative, audit-facing companion is [`docs/relay-verification/`](../../docs/relay-verification/) (start at
-[`00-README.md`](../../docs/relay-verification/00-README.md)); the working notes are
-[`docs/relay-fv.md`](../../docs/relay-fv.md). This file is the **tooling primer**: it assumes you are a
-mathematician / computer scientist but _not_ yet fluent in the verification tools, and tells you how to read,
-run, and trust everything here.
+This directory holds the machine-checked proofs about `Relay.sol`. The narrative,
+audit-facing companion is [`docs/relay-verification/`](../../docs/relay-verification/),
+starting at [`00-README.md`](../../docs/relay-verification/00-README.md). This file
+explains how to read, run, and audit the verification tooling.
 
-> **Current scope (2026-08-12):** the exact manifest contains 123 Halmos checks
-> (86 proofs and 37 reachability controls) across 27 harness contracts. It covers
-> the signing-policy, `relay()`, Merkle, randomness, fees, and 16
-> owner/timelock/UUPS checks plus the protocol-1 threshold/transient path. The
-> retired cross-chain Safe-governance inventory is absent. Counts are inventory;
-> the current local verdict is PASS 123/123 with 0 violations. See
-> [`CURRENT-STATUS.md`](../../docs/relay-verification/CURRENT-STATUS.md) for
-> actual current development and cloud verdicts.
->
-> **Latest-source status:** the local deployment/ABI/artifact, Halmos, Lean, and
-> Certora-front-end reports bind reviewed source revision `d5af7136…` and manifest `7ae2208f…` and
-> all pass. They are development-only solely because generation occurred in a
-> dirty worktree. The aggregate bundle also passes as development-only and
-> validates all six reports (SHA-256 `be386d63…`). Supplemental Certora cloud
-> evidence is PARTIAL: threshold passes, while scalar and write-once retain
-> sanity failures.
+The exact manifest contains **126 Halmos checks: 88 proofs and 38 reachability
+controls**. It covers signing-policy admission and rotation, `relay()`, Merkle
+proofs, randomness, fees, owner timelocks/UUPS, protocol-1 threshold overrides,
+single-keccak policy hashing, and old-Relay migration-mode restrictions. These
+numbers describe the normative inventory, not a cached verdict. The reproducible
+gates below establish a verdict for the checked-out source.
 
 ---
 
 ## 1. The one-paragraph mental model
 
-We prove the same accounting property at increasing fidelity. Foundry runs the **real compiled bytecode** on
-concrete and random inputs (R0/R1). **Halmos** runs that _same_ Solidity harness **symbolically** — every
-function argument becomes a logical variable and the [SMT solver](../../docs/relay-verification/CONCEPTS.md#1-what-is-an-smt-solver) either proves the assertion for _all_ inputs
-(in a bounded region) or returns a concrete counterexample (R2). **Kontrol** does symbolic execution at a
-fixed signer count on KEVM (R3). **Lean + EVMYulLean** lifts the argument to a `∀N` theorem against a
-_validated_ model of the EVM (R4). Cryptography (`ecrecover`, `keccak`) is never _proved_ — it is modeled as
+We prove related properties at increasing fidelity. Foundry runs the **real compiled bytecode** on
+concrete and random inputs. **Halmos** runs the Solidity harness **symbolically** — every
+function argument becomes a logical variable and the [SMT solver](../../docs/relay-verification/CONCEPTS.md#smt-solver) either proves the assertion for _all_ inputs
+(in a bounded region) or returns a concrete counterexample. **Lean + EVMYulLean** lifts the signature-loop
+accounting argument to a `∀N` theorem against a validated model of the EVM. Cryptography
+(`ecrecover`, `keccak`) is never proved — it is modeled as
 an **uninterpreted function**, which is the sound, conservative choice (see §5).
 
-New to the vocabulary (SMT, k-induction, CEX, psAt, KEVM)? The plain-words FAQ is
+New to the vocabulary (SMT, induction, CEX, psAt)? The plain-words FAQ is
 [`docs/relay-verification/CONCEPTS.md`](../../docs/relay-verification/CONCEPTS.md).
 
 If you read only one thing next, read a small proof end to end:
@@ -68,10 +56,11 @@ calldata that breaks the property.
    signature loop runs once per signature, so at the default bound a proof about 3+ signatures silently has
    its accepting iteration _truncated_ — the accept path looks unreachable and negative properties pass
    **vacuously** (true, but for the wrong reason). This project sets `loop = 6` in
-   [`../../halmos.toml`](../../halmos.toml). It is a real hazard: it bit this suite once at the default.
+   [`../../halmos.toml`](../../halmos.toml). Reachability controls fail closed if the configured bound
+   cannot reach the intended acceptance path.
 
 2. **The anti-vacuity control.** Because a vacuous pass is worthless, every harness carries a **reachability
-   control** that asserts the _negation_ of a reachable event, so Halmos **must refute it with a [witness](../../docs/relay-verification/CONCEPTS.md#7-what-is-a-cex-counterexamples-and-why-half-the-suite-celebrates-them)**.
+   control** that asserts the _negation_ of a reachable event, so Halmos **must refute it with a [witness](../../docs/relay-verification/CONCEPTS.md#reachability-and-vacuity)**.
    The gate script
    [`verify_fv.py`](verify_fv.py) enforces both halves: every `check_` proof must PASS **and** every
    declared control must produce a **validated counterexample model**. A timeout, stuck path, exception,
@@ -99,10 +88,6 @@ Consequences to respect when adding checks:
   - reachability controls with `EXPECT: COUNTEREXAMPLE` (canonical:
     `// EXPECT: COUNTEREXAMPLE (reachability control).`).
 
-(The Kontrol harnesses under [`kontrol/`](kontrol/) follow the same idea with the `prove_` prefix and
-`prove_reach_*` controls. Their JUnit output is checked against a separate exact manifest by
-`kontrol/verify_kontrol.py`.)
-
 Run the whole gate the way CI does (`test-fv-halmos`). Fresh clone? `./scripts/bootstrap-fv.sh` sets up
 everything (node deps, forge build, the reference venv `./.venv-halmos`) and ends by running this gate:
 
@@ -126,7 +111,7 @@ root under a sanitized, audited Foundry environment; unrelated mixed-version rep
 sources cannot enter the proof build. The gate pins the tracked config, loop bound,
 artifact directory, and Z3 solver on the child command, then hashes and audits the exact
 compiler settings, source binding, and semantic bytecode of Relay,
-RelayProxy, and all 28 declaring harness contracts before and after symbolic
+RelayProxy, and all declaring harness contracts before and after symbolic
 execution. Any extra Halmos CLI arguments are diagnostic-only and can never mint
 release evidence.
 
@@ -153,22 +138,25 @@ in which case the bundle itself remains development-only.
 
 ## 3. Reading a Lean proof (`lean/…`)
 
-The R4 proofs are in [Lean 4](lean/) (a [theorem prover](../../docs/relay-verification/CONCEPTS.md#12-theorem-prover-lean-4)) and are checked against **EVMYulLean** (NethermindEth's Lean
+The R4 proofs are in [Lean 4](lean/) and are checked against **EVMYulLean** (NethermindEth's Lean
 formalization of EVM/Yul, itself validated against the standard `ethereum/tests` EVM conformance suite, incl. EEST-generated fixtures). Two entry points:
 
 - [`lean/RelaySigLoop.lean`](lean/RelaySigLoop.lean) — the abstract `∀N ∀K` accounting proof, pure `ℕ`/`List`,
-  no EVM. Readable by any mathematician: `threshold_sound` says _accept ⟹ total registered policy-slot weight > threshold_, conditional on unique voter addresses at admission.
+  no EVM. `threshold_sound` unconditionally says _accept ⟹ total registered policy-slot weight > threshold_
+  under its indexed-run premises. Only the stronger distinct-signer interpretation requires unique voter
+  addresses at admission.
 - [`lean/bytecode-refinement/`](lean/bytecode-refinement/) — the same soundness lifted onto a loop executed by
   the _validated EVM semantics_, for all N. See its [`README.md`](lean/bytecode-refinement/README.md).
 
-**"[Hole-free](../../docs/relay-verification/CONCEPTS.md#13-hole-free-and-print-axioms)" is a precise claim, and you can check it yourself.** Every declared audited result has a
+**"[Hole-free](../../docs/relay-verification/CONCEPTS.md#hole-free-lean-proof-and-axiom-audit)" is a precise claim, and you can check it yourself.** Every declared audited result has a
 `#print axioms` directive. A proof is trusted when that list is a subset of
 `[propext, Classical.choice, Quot.sound]` — Lean's three standard
-axioms — with **no `sorryAx`** (no gaps) and **no `Lean.ofReduceBool`** (no `native_decide`). Two proofs add
-`zeroes_data` / `toByteArray_size`: these are _[documented, upstream-dischargeable specs](../../docs/relay-verification/CONCEPTS.md#14-the-two-extra-axioms-zeroes_data-tobytearray_size)_ (an `opaque` FFI
-symbol and a `private` bound), not semantic assumptions — the file headers explain each, and the exact
-upstream patches + verified discharge proofs are archived in
-[`lean/bytecode-refinement/AXIOM_DISCHARGE.md`](lean/bytecode-refinement/AXIOM_DISCHARGE.md). To re-check:
+axioms — with **no `sorryAx`** (no gaps) and **no `Lean.ofReduceBool`** (no `native_decide`). The manifest
+also explicitly allows three local axioms: `RelayDataLayer.zeroes_data`,
+`RelayDataLayer.toByteArray_size`, and `RelayWindows.zeroes_data`. They are semantic assumptions of the
+current proofs. [`lean/bytecode-refinement/AXIOM_DISCHARGE.md`](lean/bytecode-refinement/AXIOM_DISCHARGE.md)
+documents how upstream definitions/visibility changes would let these declarations be replaced by
+theorems. To re-check:
 
 ```bash
 git clone https://github.com/NethermindEth/EVMYulLean /tmp/evmyul2
@@ -179,12 +167,12 @@ cp <repo>/test-forge/fv/lean/RelaySigLoop.lean . && lake env lean RelaySigLoop.l
 
 ---
 
-## 4. The other two tools (pointers)
+## 4. Certora
 
-- **Kontrol / KEVM** — [`kontrol/`](kontrol/): symbolic execution at a _fixed_ signer count, `vm.assume`-driven,
-  cryptography uninterpreted. See [`kontrol/README.md`](kontrol/README.md).
-- **Certora** — [`../../certora/specs/RelayInvariants.spec`](../../certora/specs/RelayInvariants.spec): storage
-  invariants in CVL; `ecrecover`/self-call/`oldRelay` left `NONDET` so they cannot havoc `Relay`'s storage.
+[`../../certora/specs/RelayInvariants.spec`](../../certora/specs/RelayInvariants.spec) specifies storage
+  invariants in CVL. External boundaries use explicit summaries: queued execution pessimistically
+  dispatches the five modeled owner calls, while unmatched external calls use an ECF fallback that
+  cannot mutate Relay storage; `ecrecover` remains nondeterministic.
   [`verify_certora_local.py`](verify_certora_local.py) fail-closes on compiler,
   CVL typecheck, config, toolchain, and munge drift. It is not a cloud-proof
   substitute.
@@ -202,13 +190,13 @@ are a separate policy-admission premise and are not currently enforced on-chain.
 What is **not** proved is "a non-voter cannot forge a signature" — that is ECDSA
 unforgeability, a cryptographic fact outside the EVM model.
 
-One subtlety is load-bearing and easy to get wrong (it caused a past bug): the **precompile `0x01` does not
+One subtlety is load-bearing: the **precompile `0x01` does not
 revert on a bad signature** — it returns _success with empty return data_ (`returndatasize()==0`) and leaves
 the caller's output buffer _stale_. This differs from Solidity's high-level `ecrecover`, which returns
 `address(0)`. `Relay.sol` calls the precompile in raw assembly, so it must guard with `staticcall` success +
 `returndatasize()==32` + non-zero signer. That failure ABI is pinned concretely by
 [`RelayEcrecoverABI.t.sol`](RelayEcrecoverABI.t.sol) (real EVM) and proved symbolically by
-[`RelayEcrecoverSymbolicFV.t.sol`](RelayEcrecoverSymbolicFV.t.sol) (obligation **OP-1** in the claims ledger,
+[`RelayEcrecoverSymbolicFV.t.sol`](RelayEcrecoverSymbolicFV.t.sol), with the trust boundary recorded in
 [`docs/relay-verification/10-…`](../../docs/relay-verification/10-claims-ledger-trust-and-residual.md)).
 
 The full trust base — every assumption, where it lives, and how it is discharged — is the claims ledger:
@@ -220,11 +208,11 @@ The full trust base — every assumption, where it lives, and how it is discharg
 
 **Signature loop / threshold accounting (the core property).**
 [`RelaySigFV.t.sol`](RelaySigFV.t.sol) · [`RelaySigParamFV.t.sol`](RelaySigParamFV.t.sol) ·
-[`RelayCanonicalityFV.t.sol`](RelayCanonicalityFV.t.sol) (bad-`v`/high-`s`/zero-signer gates) ·
+[`RelayCanonicalityFV.t.sol`](RelayCanonicalityFV.t.sol) (bad-`v`/high-`s` gates) ·
 [`RelayModelBridgeFV.t.sol`](RelayModelBridgeFV.t.sol) (bytecode ↔ prefix-sum model).
 
-**ecrecover failure ABI (OP-1).** [`RelayEcrecoverABI.t.sol`](RelayEcrecoverABI.t.sol) (concrete) ·
-[`RelayEcrecoverSymbolicFV.t.sol`](RelayEcrecoverSymbolicFV.t.sol) (symbolic).
+**ecrecover failure ABI.** [`RelayEcrecoverABI.t.sol`](RelayEcrecoverABI.t.sol) (concrete) ·
+[`RelayEcrecoverSymbolicFV.t.sol`](RelayEcrecoverSymbolicFV.t.sol) (symbolic return-data and zero-signer guards).
 
 **Epoch / policy-rotation decision matrix.** [`RelayWrongEpochFV.t.sol`](RelayWrongEpochFV.t.sol) ·
 [`RelayDelayedPolicyFV.t.sol`](RelayDelayedPolicyFV.t.sol) ·
@@ -249,27 +237,10 @@ The full trust base — every assumption, where it lives, and how it is discharg
 
 **Harness base + gate + Lean.** [`../unit/protocol/implementation/Relay.t.sol`](../unit/protocol/implementation/Relay.t.sol)
 (the shared `RelayTestBase` calldata encoders, reused by the Halmos harnesses) ·
-[`verify_fv.py`](verify_fv.py) (the CI gate) · [`lean/`](lean/) (R4 Lean proofs) · [`kontrol/`](kontrol/).
+[`verify_fv.py`](verify_fv.py) (the Halmos gate) · [`lean/`](lean/) (Lean proofs).
 
-**Safe governance (retired).** The `SafeGovernanceFV` harness, the
-`verify_gss_governance.py` gate and the fixed-block source-Safe checker were
-removed with the retired Safe-governance design (git history); their inventories
-are absent from the current manifest.
-
-Do not cite the Halmos inventory as a proof of ECDSA. Kontrol remains historical;
-Lean covers indexed accounting plus the supported protocol-1 threshold seam,
-not cryptography or the complete self-call call frame. The Certora rules under
-`certora/` have been re-baselined to owner/timelock and threshold inputs, and
-their local front end passes 3/3 configs and 15 rules on `d5af7136…`. This is
-compilation/munging/CVL-typecheck evidence, not a prover verdict. The normalized
-supplemental cloud report is PARTIAL: the
-[threshold job](https://prover.certora.com/output/3798318/a133698c16d54e7cb4a518a3251dd73a)
-passes, while the
-[scalar](https://prover.certora.com/output/3798318/96136f4b1ce349889963c722745f6d8a)
-and
-[write-once](https://prover.certora.com/output/3798318/5f29c9d404134b7aa3578484455bf424)
-jobs retain sanity failures. The threshold job proves exact arithmetic and
-fail-fast behavior for `_thresholdBIPS >= 10000` before any `SSTORE`, `TSTORE`,
-or external `CALL`; successful forwarding, cleanup, rollback, and mode
-isolation remain Halmos/Lean claims. See the current status page for report
-hashes and the complete evidence boundary.
+Do not cite the Halmos inventory as a proof of ECDSA. Lean covers indexed
+accounting plus the protocol-1 threshold seam, not cryptography or the complete
+self-call frame. Certora's local gate establishes compilation, munging, and CVL
+typechecking; it is not a cloud prover verdict. Consult the current generated
+reports and the claims ledger for the exact evidence boundary.

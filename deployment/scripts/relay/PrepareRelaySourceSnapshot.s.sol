@@ -13,15 +13,15 @@ import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 //   forge script deployment/scripts/relay/PrepareRelaySourceSnapshot.s.sol:PrepareRelaySourceSnapshot \
 //     --rpc-url $FLARE_RPC
 //
-// It reads the home Relay's RLY-23 source id, epoch anchors and its stored, already source-bound
+// It reads the home Relay's source id, epoch anchors and stored source-bound
 // signing-policy hash for the last initialized reward epoch — every mirror binds to the SAME
 // source (Flare), so that wrapped hash is valid unchanged on every target.
 //
 // The home Relay address is a deploy OUTPUT, read from the committed, persistent
 // deployment/deploys/<source>.json (the repo's deployed-address registry, written by
 // save-deployed-addresses.ts and carrying the latest addresses even before governance cuts the
-// FlareContractRegistry over). (Deliberately NOT the registry Relay: pre-cutover that is still
-// the old pre-RLY-23 relay, which would seed a wrongly bound initial policy.)
+// FlareContractRegistry over). The registry may not yet point to the implementation whose
+// source-bound policy hash is required by the mirror.
 contract PrepareRelaySourceSnapshot is RelayDeployBase {
 
     function run() external {

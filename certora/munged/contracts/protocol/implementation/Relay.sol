@@ -55,19 +55,6 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         uint32 messageFinalizationWindowInRewardEpochs;
     }
 
-    // Auxilary struct for memory variables
-    struct Counters {
-        uint256 weightIndex;
-        uint256 weightPos;
-        uint256 voterIndex;
-        uint256 voterPos;
-        uint256 count;
-        uint256 bytesToTake;
-        bytes32 nextSlot;
-        uint256 pos;
-        uint256 signingPolicyPos;
-    }
-
     // 4-byte custom-error selectors for the hand-written relay() assembly (compile-time
     // folded; the matching error declarations live on IRelay). One selector per failure.
     /* solhint-disable const-name-snakecase */
@@ -237,6 +224,10 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     uint256 private constant M_6_merkleRoot = 192;
     uint256 private constant M_7_randomNumber = 224;
     uint256 private constant M_8_signatureStart = 256;
+    /// Start of the digest scratch region, above every fixed slot: the single-keccak digest
+    /// computations write sourceChainId followed by the raw content bytes here (up to
+    /// 32 + 43 + MAX_VOTERS * 22 bytes for a signing policy), so no fixed slot is ever clobbered.
+    uint256 private constant M_9_digestScratch = 288;
 
     uint256 private constant ADDRESS_OFFSET = 12;
     /* solhint-enable const-name-snakecase */
@@ -265,7 +256,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     /// The state of the relay contract.
     StateData public stateData;
 
-    /// The relayed (Merkle-proven) random number for a given voting round id (RLY-03).
+    /// The relayed (Merkle-proven) random number for a given voting round id.
     //slither-disable-next-line uninitialized-state
     mapping(uint256 votingRoundId => uint256) private toRandomNumberPrivate;
 
@@ -278,11 +269,11 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     /// Addresses allowed to call verify() without paying the protocol fee (e.g. DVN
     /// adapters). Owner-set via setFeeExemptions.
     mapping(address account => bool) public override feeExemptAddress;
-    /// RLY-23: the source network id bound into every stored signing-policy hash and, via the
-    /// analogous wrap in relay(), every signed protocol-message digest —
-    /// keccak256(sourceChainId ‖ contentHash) — so policies and messages minted for another
-    /// network are rejected even under a fully overlapping voter set. Explicit and nonzero on
-    /// every deployment, set once in initialize; home deploys force it to block.chainid.
+    /// The source network id bound into every stored signing-policy hash and, via the analogous
+    /// digest in relay(), every signed protocol-message digest —
+    /// keccak256(sourceChainId ‖ raw content bytes), one keccak — so policies and messages minted
+    /// for another network are rejected even under a fully overlapping voter set. Explicit and
+    /// nonzero on every deployment, set once in initialize; home deploys force it to block.chainid.
     uint256 public override sourceChainId;
 
     /// Only signingPolicySetter address/contract can call this method.
@@ -298,12 +289,13 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
 
     /**
      * Initializes the Relay behind its proxy. One atomic call configures EVERYTHING —
-     * protocol config, the RLY-23 source binding, the owner-timelock duration and the
+     * protocol config, the source-network binding, the owner-timelock duration and the
      * per-chain owner — and it runs inside the proxy constructor (see RelayProxy), so the
      * deterministic proxy address never exists uninitialized.
      * @param _initialConfig The initial configuration of the relay.
      * @param _signingPolicySetter The address of the signing policy setter.
-     * @param _oldRelay The old relay contract (can be address(0)).
+     * @param _oldRelay The old relay contract (can be address(0)); home/setter-mode deployments
+     * only — must be zero in relay mode (mirrors), see OldRelayNotAllowedInRelayMode.
      * @param _initialOwner The per-chain owner (multisig): authorizes the fee setters and
      * upgrades through the OwnableWithTimelock queue (see IOwnableWithTimelock).
      */
@@ -317,13 +309,14 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     {
         __Ownable_init(_initialOwner);
         require(_initialConfig.thresholdIncreaseBIPS >= THRESHOLD_BIPS, ThresholdIncreaseTooSmall());
-        // RLY-11: reject zero epoch durations (would cause div-by-zero / silent-zero in epoch math).
+        // Epoch durations are divisors in relay() and timestamp calculations and must be nonzero.
         require(_initialConfig.rewardEpochDurationInVotingEpochs > 0, RewardEpochDurationZero());
         require(_initialConfig.votingEpochDurationSeconds > 0, VotingEpochDurationZero());
-        // L-4: a zero initial signing-policy hash would brick the initial epoch (no relay message could match).
-        // RLY-23: the supplied hash must already be source-bound — keccak256(sourceChainId ‖ contentHash) —
-        // matching what relay()/setSigningPolicy store and verify. A content hash (or a hash bound to another
-        // source) fails closed: no relay message can ever match it. Deploy scripts wrap on migration.
+        // A zero initial signing-policy hash would make every policy fail the initial-epoch hash check.
+        // The supplied hash must already be source-bound — keccak256(sourceChainId ‖ encoded policy
+        // bytes), one keccak — matching what relay()/setSigningPolicy store and verify. A hash of another
+        // shape (or bound to another source) fails closed: no relay message can ever match it. Deploy
+        // scripts reconstruct the full policy from chain state and hash it under this scheme on migration.
         require(_initialConfig.initialSigningPolicyHash != bytes32(0), InitialSigningPolicyHashZero());
         require(_initialConfig.firstRewardEpochStartVotingRoundId +
             _initialConfig.initialRewardEpochId * _initialConfig.rewardEpochDurationInVotingEpochs <=
@@ -331,10 +324,9 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         initialRewardEpochId = _initialConfig.initialRewardEpochId;
         startingVotingRoundIdForInitialRewardEpochId =
             _initialConfig.startingVotingRoundIdForInitialRewardEpochId;
-        // Migration handshake: lastInitializedRewardEpoch is seeded to initialRewardEpochId, and setSigningPolicy
-        // strictly requires the next call to be exactly initialRewardEpochId + 1 ("not next reward epoch"). The
-        // deployer (redeploy-relay.ts) must therefore cut over so the trusted setter's next policy is that epoch;
-        // a zero next-epoch policy hash on the old relay is fail-closed by the L-4 require above.
+        // lastInitializedRewardEpoch is seeded to initialRewardEpochId, so the first subsequent
+        // setSigningPolicy call must provide exactly initialRewardEpochId + 1. Deployment configuration
+        // and the trusted setter's policy sequence must agree on this cutover epoch.
         stateData.lastInitializedRewardEpoch = _initialConfig.initialRewardEpochId;
         startingVotingRoundIds[_initialConfig.initialRewardEpochId] =
             _initialConfig.startingVotingRoundIdForInitialRewardEpochId;
@@ -354,7 +346,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             require(_initialConfig.feeConfigs.length == 0, FeeConfigNotAllowed());
             require(_initialConfig.feeExemptAddresses.length == 0, FeeExemptionsNotAllowed());
             require(_initialConfig.feeCollectionAddress == address(0), FeeConfigNotAllowed());
-            // RLY-23 home-force: a live signing-policy setter (home deploy) must bind this chain.
+            // A home deployment must bind policy and message digests to its own chain.
             require(
                 _initialConfig.sourceChainId == block.chainid,
                 SourceChainIdMismatchOnHomeDeploy()
@@ -383,27 +375,32 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             feeExemptAddress[exemptAccount] = true;
             emit FeeExemptionSet(exemptAccount, true);
         }
-        // RLY-23: the source-network id is mandatory on every deployment — home, mirror and
-        // old-relay migration alike (the same artifact ships to every chain). A live
+        // The source-network id is mandatory on every deployment — home, mirror and
+        // old-relay migration alike. A live
         // signing-policy setter (home deploy) additionally forces it to this chain (checked above).
         require(_initialConfig.sourceChainId != 0, SourceChainIdZero());
         sourceChainId = _initialConfig.sourceChainId;
         // The owner-timelock duration is deploy-configured so the owner (a multisig) needs no
         // post-deploy ceremony call. Writing the ERC-7201 namespaced state via the base's
-        // internal getState() keeps the inherited OwnableWithTimelock file byte-identical to
-        // its origin; the guard mirrors setTimelockDuration.
+        // internal getState() preserves the base contract's ERC-7201 storage layout; the guard
+        // matches setTimelockDuration.
         require(
             _initialConfig.timelockDurationSeconds <= MAX_TIMELOCK_DURATION_SECONDS,
             TimelockDurationTooLong()
         );
         getState().timelockDurationSeconds = _initialConfig.timelockDurationSeconds;
         emit TimelockDurationSet(_initialConfig.timelockDurationSeconds);
-        // new relay must be deployed in a compatible way (policy setter or not)
         if (address(_oldRelay) != address(0)) {
-            require((_signingPolicySetter != address(0) && _oldRelay.signingPolicySetter() != address(0)) ||
-                (_signingPolicySetter == address(0) && _oldRelay.signingPolicySetter() == address(0)),
-                OldRelayIncompatible()
-            );
+            // Old-relay migration is HOME-ONLY (setter mode). In relay mode (mirrors) verify()
+            // charges fees, and serving pre-boundary rounds through an old relay would force the
+            // fee and fee-exemption logic to consult that contract's schedule too — fragile fee
+            // accounting with no mirror use case (a mirror seeds a fresh source snapshot instead).
+            // A compatible production home Relay maintains zero verification fees; verify() still
+            // queries the configured old Relay and forwards any fee it reports, so this is an
+            // operational compatibility requirement rather than an interface-level guarantee.
+            require(_signingPolicySetter != address(0), OldRelayNotAllowedInRelayMode());
+            // The old relay must itself be a home (setter-mode) deployment.
+            require(_oldRelay.signingPolicySetter() != address(0), OldRelayIncompatible());
             (
                 ,
                 uint32 firstVotingRoundStartTs,
@@ -439,18 +436,13 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         external onlySigningPolicySetter
         returns (bytes32)
     {
-        // RLY-06: the signing policy setter (trusted; FlareSystemsManager on Flare) is responsible for
-        // ensuring the policy is well-formed — no zero-address voters, no duplicate voters, canonical
-        // voter order, normalised weights. These are intentionally NOT re-validated here.
+        // The trusted signing policy setter is responsible for nonzero unique voters, canonical voter
+        // order and normalized weights. This function validates only the structural and threshold
+        // constraints below.
         require(stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId, NotNextRewardEpoch());
-        // L-6 (documented, not enforced): the reward-epoch decision matrix (see the relay() gate that reads
-        // startingVotingRoundIds[rewardEpochId + 1]) assumes a non-decreasing startVotingRoundId across epochs.
-        // Like RLY-06, this canonical-ordering invariant is the trusted signing-policy setter's
-        // (FlareSystemsManager) responsibility and is intentionally NOT re-checked here — an on-chain require
-        // conflicts with legitimate setter-driven configurations. On pure-relay deployments (this setter is
-        // unused) startingVotingRoundIds is instead written by the Mode-1 relay() path from the relayed policy
-        // metadata; there the invariant is carried transitively by the voter quorum's signature over the
-        // signing-policy hash (a faithfully-relayed canonical policy preserves it).
+        // Policy selection reads startingVotingRoundIds[rewardEpochId + 1] and therefore requires
+        // non-decreasing startVotingRoundId values across epochs. The setter must preserve this invariant;
+        // relay-mode deployments rely on quorum-signed policies preserving the same invariant.
         require(_signingPolicy.voters.length > 0, SigningPolicyEmpty());
         require(_signingPolicy.voters.length <= MAX_VOTERS, TooManyVoters());
         require(_signingPolicy.voters.length == _signingPolicy.weights.length, VotersWeightsSizeMismatch());
@@ -468,96 +460,49 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             ThresholdTooHigh()
         );
 
-        bytes memory signingPolicyBytes = new bytes(
-            SIGNING_POLICY_PREFIX_BYTES +
-                _signingPolicy.voters.length *
-                ADDRESS_AND_WEIGHT_BYTES
-        );
-
-        Counters memory m;
-
-        // bytes32 currentHash;
-        // RLY-19: _signingPolicy.rewardEpochId is uint24 (see IIRelay.SigningPolicy), so the bytes3(...)
-        // narrowing below is lossless and matches the mapping key — no >2**24 truncation is possible.
-        bytes memory toHash = bytes.concat(
-            bytes2(uint16(_signingPolicy.voters.length)),
-            bytes3(_signingPolicy.rewardEpochId),
-            bytes4(_signingPolicy.startVotingRoundId),
-            bytes2(_signingPolicy.threshold),
-            bytes32(uint256(_signingPolicy.seed)),
-            bytes20(_signingPolicy.voters[0]),
-            bytes1(uint8(_signingPolicy.weights[0] >> 8))
-        );
-
-        for (; m.signingPolicyPos < 64; m.signingPolicyPos++) {
-            signingPolicyBytes[m.signingPolicyPos] = toHash[m.signingPolicyPos];
+        uint256 numberOfVoters = _signingPolicy.voters.length;
+        uint256 policyLength = SIGNING_POLICY_PREFIX_BYTES + numberOfVoters * ADDRESS_AND_WEIGHT_BYTES;
+        // One word of slack so the packed 32-byte mstores below never write outside the allocation;
+        // the length is shrunk to the real encoded size right after.
+        bytes memory signingPolicyBytes = new bytes(policyLength + 32);
+        assembly ("memory-safe") {
+            mstore(signingPolicyBytes, policyLength)
         }
 
-        bytes32 currentHash = keccak256(toHash);
-
-        m.weightIndex = 0;
-        m.weightPos = 1;
-        m.voterIndex = 1;
-        m.voterPos = 0;
-
-        while (m.weightIndex < _signingPolicy.voters.length) {
-            m.count = 0;
-            m.nextSlot = bytes32(uint256(0));
-            m.bytesToTake = 0;
-            while (
-                m.count < 32 && m.weightIndex < _signingPolicy.voters.length
-            ) {
-                if (m.weightIndex < m.voterIndex) {
-                    m.bytesToTake = 2 - m.weightPos;
-                    m.pos = m.weightPos;
-                    bytes32 weightData = bytes32(
-                        uint256(
-                            uint16(_signingPolicy.weights[m.weightIndex])
-                        ) << (30 * 8)
-                    );
-                    if (m.count + m.bytesToTake > 32) {
-                        m.bytesToTake = 32 - m.count;
-                        m.weightPos += m.bytesToTake;
-                    } else {
-                        m.weightPos = 0;
-                        m.weightIndex++;
-                    }
-                    m.nextSlot |= bytes32(
-                        ((weightData << (8 * m.pos)) >> (8 * m.count))
-                    );
-                } else {
-                    m.bytesToTake = 20 - m.voterPos;
-                    m.pos = m.voterPos;
-                    bytes32 voterData = bytes32(
-                        uint256(uint160(_signingPolicy.voters[m.voterIndex])) <<
-                            (12 * 8)
-                    );
-                    if (m.count + m.bytesToTake > 32) {
-                        m.bytesToTake = 32 - m.count;
-                        m.voterPos += m.bytesToTake;
-                    } else {
-                        m.voterPos = 0;
-                        m.voterIndex++;
-                    }
-                    m.nextSlot |= bytes32(
-                        ((voterData << (8 * m.pos)) >> (8 * m.count))
-                    );
-                }
-                m.count += m.bytesToTake;
-            }
-            if (m.count > 0) {
-                currentHash = keccak256(bytes.concat(currentHash, m.nextSlot));
-                for (uint256 i = 0; i < m.count; i++) {
-                    signingPolicyBytes[m.signingPolicyPos] = m.nextSlot[i];
-                    m.signingPolicyPos++;
-                }
+        // _signingPolicy.rewardEpochId is uint24 (see IIRelay.SigningPolicy), so the packing
+        // below is lossless and matches the mapping key — no >2**24 truncation is possible.
+        bytes memory prefix = abi.encodePacked(
+            uint16(numberOfVoters),
+            _signingPolicy.rewardEpochId,
+            _signingPolicy.startVotingRoundId,
+            _signingPolicy.threshold,
+            _signingPolicy.seed
+        );
+        assembly ("memory-safe") {
+            mcopy(add(signingPolicyBytes, 0x20), add(prefix, 0x20), SIGNING_POLICY_PREFIX_BYTES)
+        }
+        for (uint256 i = 0; i < numberOfVoters; i++) {
+            address voter = _signingPolicy.voters[i];
+            uint256 weight = _signingPolicy.weights[i];
+            assembly ("memory-safe") {
+                let ptr := add(
+                    add(signingPolicyBytes, 0x20),
+                    add(SIGNING_POLICY_PREFIX_BYTES, mul(i, ADDRESS_AND_WEIGHT_BYTES))
+                )
+                // 20-byte address followed by the 2-byte weight; each mstore writes a full word whose
+                // tail is overwritten by the next write (the last one lands in the slack word above)
+                mstore(ptr, shl(96, voter))
+                mstore(add(ptr, ADDRESS_BYTES), shl(240, weight))
             }
         }
-        // RLY-23: chain-domain binding — the stored signing-policy hash commits to the configured
-        // source network: keccak256(sourceChainId ‖ contentHash). Signatures over policies (and, via
-        // the analogous wrap in relay(), over protocol messages) minted for another network are thereby
-        // rejected even under a fully overlapping voter set. On a home deploy sourceChainId == block.chainid.
-        currentHash = keccak256(abi.encodePacked(sourceChainId, currentHash));
+
+        // Chain-domain binding: the stored signing-policy hash commits to the configured
+        // source network: keccak256(sourceChainId ‖ signingPolicyBytes), one keccak over the 32-byte
+        // source id followed by the raw encoded policy (no padding). Signatures over policies (and,
+        // via the analogous digest in relay(), over protocol messages) minted for another network are
+        // thereby rejected even under a fully overlapping voter set. On a home deploy
+        // sourceChainId == block.chainid.
+        bytes32 currentHash = keccak256(abi.encodePacked(sourceChainId, signingPolicyBytes));
         toSigningPolicyHashPrivate[_signingPolicy.rewardEpochId] = currentHash;
         stateData.lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
         startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy.startVotingRoundId;
@@ -588,7 +533,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     /**
      * @inheritdoc IRelay
      * @dev The override travels to the relay() self-call through a transient (EIP-1153) slot,
-     * so relay()'s calldata layout and 35-byte return discriminator (RLY-07) stay untouched.
+     * so relay()'s calldata layout and 35-byte return discriminator stay untouched.
      * The slot is cleared before returning; on revert the tstore is rolled back with the frame,
      * so no override can ever leak into a later call of the same transaction.
      */
@@ -734,7 +679,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
      * @inheritdoc IRelay
      */
     function relay() external returns (bytes memory){
-        // RLY-23: read once here; bound below into the signing-policy hash (threaded into
+        // Read once here; bound below into the signing-policy hash (threaded into
         // the calculateSigningPolicyHash helper as _sourceChainId) and, directly in the
         // main assembly body, into the protocol-message digest.
         uint256 srcChainId = sourceChainId;
@@ -795,44 +740,23 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 )
             }
 
-            // Helper function to calculate the signing policy hash while trying to minimize the usage of memory
-            // Uses slots 0 and 32
+            // Helper function to calculate the signing policy hash: one keccak over the 32-byte
+            // source chain id followed by the raw encoded policy bytes (no padding).
+            // Chain-domain binding: the hash commits to the configured source network,
+            // so policies minted for another network are rejected even under a fully overlapping
+            // voter set. The id is set once at initialize (threaded in as _sourceChainId), so the
+            // same policy verifies on every Relay that mirrors this source.
+            // Writes 32 + _policyLength bytes of scratch starting at _memPos — callers pass the
+            // M_9_digestScratch region so no fixed memory slot is clobbered.
             function calculateSigningPolicyHash(
                 _memPos,
                 _calldataPos,
                 _policyLength,
                 _sourceChainId
             ) -> _policyHash {
-                // first byte
-                calldatacopy(_memPos, _calldataPos, 32)
-                // all but last 32-byte word
-                let endPos := add(_calldataPos, mul(div(_policyLength, 32), 32))
-                for {
-                    let pos := add(_calldataPos, 32)
-                } lt(pos, endPos) {
-                    pos := add(pos, 32)
-                } {
-                    calldatacopy(add(_memPos, M_1), pos, 32)
-                    mstore(_memPos, keccak256(_memPos, 64))
-                }
-                if iszero(mod(_policyLength, 32)) {
-                    // no additinal bytes
-                    _policyHash := mload(_memPos)
-                }
-                if gt(mod(_policyLength, 32), 0) {
-                    // handle the remaining bytes
-                    mstore(add(_memPos, M_1), 0)
-                    calldatacopy(add(_memPos, M_1), endPos, mod(_policyLength, 32)) // remaining bytes
-                    mstore(_memPos, keccak256(_memPos, 64))
-                    _policyHash := mload(_memPos)
-                }
-                // RLY-23: chain-domain binding — the signing-policy hash commits to the configured
-                // source network: keccak256(sourceChainId ‖ contentHash). Reuses the two scratch slots
-                // this function already owns. The id is set once at initialize (threaded in as
-                // _sourceChainId), so the same policy verifies on every Relay that mirrors this source.
                 mstore(_memPos, _sourceChainId)
-                mstore(add(_memPos, M_1), _policyHash)
-                _policyHash := keccak256(_memPos, 64)
+                calldatacopy(add(_memPos, 0x20), _calldataPos, _policyLength)
+                _policyHash := keccak256(_memPos, add(0x20, _policyLength))
             }
 
             function extractVotingRoundIdFromMessage(
@@ -911,7 +835,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 )
             }
 
-            // RLY-03: verify a random-number Merkle proof and persist the value.
+            // Verify a random-number Merkle proof and persist the value.
             // The calldata after the signatures must be: randomNumber (32 bytes) followed by the
             // Merkle proof (a sequence of 32-byte nodes). The leaf is
             //   keccak256(abi.encode(uint256 votingRoundId, uint256 value, uint256 isSecure))
@@ -1025,10 +949,11 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
 
             ///////////// Verifying signing policy /////////////
             // signing policy hash temporarily stored to slot M_2
+            // (computed in the M_9 digest scratch region — stateData at M_5 stays live)
             mstore(
                 add(memPtr, M_2_signingPolicyHashTmp),
                 calculateSigningPolicyHash(
-                    memPtr,
+                    add(memPtr, M_9_digestScratch),
                     SELECTOR_BYTES,
                     signingPolicyLength,
                     srcChainId
@@ -1224,10 +1149,9 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                         }
                     }
                     if eq(lastInitializedRewardEpoch, rewardEpochId) {
-                        // RLY-05 (deferred, Low, no exploit): truncating integer `div` — the scaled
-                        // threshold can be up to 1 weight-unit below the exact value, a sub-unit bias
-                        // toward an attacker. Immaterial against the aggregate threshold; a ceil-div
-                        // fix is deferred by decision. See docs/relay-fixes.md.
+                        // Integer division rounds the scaled threshold down. Combined with the strict
+                        // weight > threshold acceptance test, this differs from the exact rational
+                        // threshold by less than one normalized weight unit.
                         threshold := div(
                             mul(
                                 threshold,
@@ -1248,14 +1172,21 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 }
                 // all revert conditions are checked
 
-                // Prepare the message hash into slot M_1
-                mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, MESSAGE_BYTES))
-                // RLY-23: chain-domain binding — the signed digest commits to the configured source:
-                // M_1 <- keccak256(sourceChainId ‖ keccak256(message)). Slot M_0 (the spent message
-                // bytes) is safe to reuse as scratch: this is the last statement of the block and the
-                // accept path re-reads the message from calldata.
-                mstore(memPtrGP0, srcChainId)
-                mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, 64))
+                // Prepare the signed digest into slot M_1.
+                // Chain-domain binding: the digest commits to the configured source in a
+                // single keccak over the raw content: M_1 <- keccak256(sourceChainId ‖ message).
+                // The 70-byte preimage is assembled in the M_9 digest scratch region (same as the
+                // signing-policy hash), so every fixed slot stays intact.
+                mstore(add(memPtrGP0, M_9_digestScratch), srcChainId)
+                calldatacopy(
+                    add(memPtrGP0, add(M_9_digestScratch, 0x20)),
+                    add(SELECTOR_BYTES, signingPolicyLength),
+                    MESSAGE_BYTES
+                )
+                mstore(
+                    add(memPtrGP0, M_1),
+                    keccak256(add(memPtrGP0, M_9_digestScratch), add(0x20, MESSAGE_BYTES))
+                )
             }
 
             // protocolId == 0 means we are relaying new signing policy (Mode 1)
@@ -1375,8 +1306,10 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                     )
                 )
 
+                // computed in the M_9 digest scratch region — stateData at M_5 (read by the
+                // assignStruct update just below) stays live
                 let newSigningPolicyHash := calculateSigningPolicyHash(
-                    mload(0x40),
+                    add(mload(0x40), M_9_digestScratch),
                     add(
                         SELECTOR_BYTES,
                         add(signingPolicyLength, PROTOCOL_ID_BYTES)
@@ -1396,12 +1329,10 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                     )
                 )
 
-                // RLY-08 (deferred, Note, no exploit): the two signing-policy storage writes below
-                // (startingVotingRoundIds and toSigningPolicyHashPrivate) precede the signature-aggregate
-                // threshold check (the accept gate later in the loop). This is atomicity-safe — if the
-                // threshold is not met the whole transaction reverts and unwinds them (see the IMPORTANT
-                // note a few lines down). A structural write-after-verify reorder is deferred by decision
-                // (risky inline-assembly change for a no-exploit note). See docs/relay-fixes.md.
+                // These two signing-policy writes precede the signature-aggregate acceptance check.
+                // Every insufficient-weight path reaches the final transaction revert, which unwinds
+                // both writes and the event below. Changes to the control flow must preserve this
+                // atomic rollback invariant.
                 // startingVotingRoundId[newSigningPolicyRewardEpochId] = newMetadata.startingVotingRoundId
                 mstore(mload(0x40), newSigningPolicyRewardEpochId)
                 mstore(add(mload(0x40), M_1), startingVotingRoundIds.slot)
@@ -1455,7 +1386,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 NUMBER_OF_SIGNATURES_MASK
             )
             signatureStart := add(signatureStart, NUMBER_OF_SIGNATURES_BYTES)
-            // RLY-03: stash signatureStart for the random-proof trailer (read deep in the random branch
+            // Stash signatureStart for the random-proof trailer (read deep in the random branch
             // where keeping it on the stack would risk stack-too-deep)
             mstore(add(memPtr, M_8_signatureStart), signatureStart)
             if lt(
@@ -1515,7 +1446,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 )
 
                 // Index sanity checks in regard to signing policy.
-                // RLY-06 linkage: signing policies are NOT re-checked for zero-address/duplicate voters
+                // Signing policies are not re-checked for zero-address or duplicate voters
                 // (the trusted setter, or for relayed policies the signed policy hash, owns that). The
                 // strictly-increasing index below prevents the same policy SLOT from being counted twice.
                 // It does not prevent one ADDRESS from occupying multiple indices; threshold soundness is
@@ -1531,7 +1462,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 }
                 nextUnusedIndex := add(index, 1)
 
-                // RLY-16: reject non-canonical ECDSA signatures (defence-in-depth; strict index
+                // Reject non-canonical ECDSA signatures (defence-in-depth; strict index
                 // ordering already neutralizes malleability double-counting). v must be 27 or 28,
                 // and s must lie in the lower half of the curve order (EIP-2 low-s).
                 if iszero(or(
@@ -1563,8 +1494,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 if iszero(eq(returndatasize(),32)) {
                     revertWithError(memPtrFor, ERR_ECRECOVER_RETURNED_BAD_DATA)
                 }
-                // RLY-18: explicit zero-recovered-signer guard. Already implied by the returndatasize
-                // check above (a successful recovery is never address(0)); kept for clarity/robustness.
+                // Require an explicit nonzero recovered signer in addition to the return-data check.
                 if iszero(mload(add(memPtrFor, M_2))) {
                     revertWithError(memPtrFor, ERR_ZERO_SIGNER)
                 }
@@ -1618,7 +1548,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                             32
                         )
                         if eq(protocolId, 1) {
-                            // RLY-07: this is the ONLY relay() path that returns non-empty data
+                            // This is the only relay() path that returns non-empty data
                             // (35 bytes: 32-byte merkleRoot/hash + 3-byte rewardEpochId). Every other
                             // path returns 0 bytes or reverts, so _verifyCustomSignature uses the 35-byte
                             // length as the discriminator for this path — preserve it if changing returns.
@@ -1630,7 +1560,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                             return (memPtrFor, add(32, REWARD_EPOCH_ID_BYTES))
                         }
 
-                        // RLY-04: reject a zero merkle root (would break isFinalized and the
+                        // Reject a zero Merkle root: it would break isFinalized and the
                         // already-relayed sentinel, and allow repeated event spam for the round).
                         if iszero(mload(add(memPtrFor, M_6_merkleRoot))) {
                             revertWithError(memPtrFor, ERR_ZERO_MERKLE_ROOT)
@@ -1708,7 +1638,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                                 SD_MASK_randomNumberProtocolId
                             )
                         ) {
-                            // RLY-14: read and normalize isSecureRandom from the message to {0,1}
+                            // Read and normalize isSecureRandom from the message to {0,1}.
                             calldatacopy(
                                 memPtrFor,
                                 add(SELECTOR_BYTES, signingPolicyLength),
@@ -1722,7 +1652,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                                 )
                             ))
 
-                            // RLY-03: verify the random Merkle proof against the signed merkleRoot and store
+                            // Verify the random Merkle proof against the signed merkleRoot and store
                             // toRandomNumberPrivate[votingRoundId] (always, so historical lookups work).
                             // The trailer (randomNumber || proof) starts right after the signatures.
                             processRandomMerkleProof(
@@ -1741,11 +1671,11 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                                 setIsSecureRandomBit(add(memPtrFor, M_3), votingRoundId)
                             }
 
-                            // RLY-03 monotonicity: advance the live random pointer only for a newer round,
+                            // Advance the live random pointer only for a newer round,
                             // so a stale (within-window) older round cannot regress the reported "current" random.
-                            // L-7 (narrow/accepted): the stored pointer starts at 0, so a FIRST-ever random relayed
-                            // at votingRoundId 0 would not advance it. The random protocol's first round is always
-                            // > 0 in practice (firstRewardEpochStartVotingRoundId), so this edge is not reachable.
+                            // Because the stored pointer starts at 0, configuration must ensure that the first
+                            // accepted random-protocol round is greater than 0 for the pointer and secure flag
+                            // to be updated.
                             if gt(
                                 votingRoundId,
                                 structValue(
@@ -1780,7 +1710,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                                 protocolId, votingRoundId
                             )
 
-                            // RLY-03: emit RandomNumberRelayed(votingRoundId, randomNumber, isSecureRandom)
+                            // Emit RandomNumberRelayed(votingRoundId, randomNumber, isSecureRandom).
                             // data: randomNumber (M_6) + isSecureRandom (M_7); indexed topic: votingRoundId
                             calldatacopy(
                                 add(memPtrFor, M_6_merkleRoot),
@@ -1819,15 +1749,13 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         returns (bool)
     {
         // Read-delegation boundary: rounds below startingVotingRoundIdForInitialRewardEpochId are served by
-        // the old relay (here and in merkleRoots/isFinalized/getRandomNumberHistorical/toSigningPolicyHash).
-        // No new-relay write can land below this boundary (so there is no silent shadowing): the lowest stored
-        // signing policy is initialRewardEpochId, and the relay() gates "Wrong sign policy reward epoch"
-        // (messageRewardEpochId >= policy rewardEpochId) and "Delayed sign policy"
-        // (votingRoundId >= policy startVotingRoundId) force every Mode-2 write to have
-        // votingRoundId >= startingVotingRoundIdForInitialRewardEpochId. Write domain == read-delegation domain.
+        // the old relay (here and in merkleRoots/isFinalized/getRandomNumberHistorical). The initial
+        // signing policy is supplied as an opaque hash, so deployment configuration must ensure its encoded
+        // startVotingRoundId equals this boundary; otherwise locally stored roots can be shadowed or a
+        // finalization gap can be created at the cutover.
         if (address(oldRelay) != address(0) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
-            // RLY-13: fail closed if the old relay returns false (rather than reverting).
-            // M-1: forward only the old relay's fee and refund any overpayment, so the fallback honours
+            // Fail closed if the old relay returns false rather than reverting.
+            // Forward only the old relay's fee and refund any overpayment, so the fallback honors
             // the same fee/refund contract as the new-relay path below.
             uint256 oldFee = oldRelay.protocolFeeInWei(_protocolId);
             require(msg.value >= oldFee, TooLowFee());
@@ -1848,11 +1776,11 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             // which forwards the old relay's own fee schedule.
             uint256 fee = feeExemptAddress[msg.sender] ? 0 : protocolFeeInWei[_protocolId];
             require(msg.value >= fee, TooLowFee());
-            // RLY-01: never verify against an uninitialized (zero) Merkle root.
+            // Never verify against an uninitialized (zero) Merkle root.
             bytes32 root = merkleRootsPrivate[_protocolId][_votingRoundId];
             require(root != bytes32(0), NotFinalized());
             require(_proof.verifyCalldata(root, _leaf), MerkleProofInvalid());
-            // RLY-21: forward only the fee to the collection address and refund any overpayment.
+            // Forward only the fee to the collection address and refund any overpayment.
             // verify() performs no state writes, so these external calls cannot corrupt contract state.
             if (fee > 0) {
                 /* solhint-disable avoid-low-level-calls */
@@ -1883,8 +1811,8 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         if (address(oldRelay) != address(0) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
             return oldRelay.isFinalized(_protocolId, _votingRoundId);
         }
-        // RLY-09: a non-zero stored root is the finalized sentinel; RLY-04 guarantees relayed roots are
-        // non-zero, so this sentinel is reliable (no zero-root "relayed-but-not-finalized" ambiguity).
+        // A nonzero stored root is the finalized sentinel. relay() rejects zero roots, so there is no
+        // "relayed but not finalized" ambiguity.
         return merkleRootsPrivate[_protocolId][_votingRoundId] != bytes32(0);
     }
 
@@ -1913,8 +1841,8 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             uint256 _randomTimestamp
         )
     {
-        // RLY-03: return the relayed (Merkle-proven) random value for the latest random round.
-        // RLY-20: before the first random relay this returns (0, false, ts); consumers MUST gate on
+        // Return the relayed (Merkle-proven) random value for the latest random round.
+        // Before the first random relay this returns (0, false, ts); consumers must gate on
         // _isSecureRandom (getRandomNumberHistorical instead reverts for an absent round).
         _randomNumber = toRandomNumberPrivate[stateData.randomVotingRoundId];
         _isSecureRandom = stateData.isSecureRandom;
@@ -1938,8 +1866,8 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         if (address(oldRelay) != address(0) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
             return oldRelay.getRandomNumberHistorical(_votingRoundId);
         }
-        // RLY-03 + L-1: gate presence on the finalized (non-zero, per RLY-04) merkle root, NOT on the value,
-        // so a legitimately-relayed random value of 0 is returned rather than mis-read as "absent".
+        // Gate presence on the finalized nonzero Merkle root, not on the random value, so a valid
+        // relayed random value of 0 is not treated as absent.
         require(merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId] != bytes32(0), NoRandomNumber());
         _randomNumber = toRandomNumberPrivate[_votingRoundId];
         _isSecureRandom =
@@ -1994,11 +1922,9 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         (bool success, bytes memory returnData) = address(this).call(_relayMessage);
         /* solhint-enable avoid-low-level-calls */
         require(success, VerificationFailed());
-        // 32 bytes hash + 3 bytes reward epoch id.
-        // RLY-07 (deferred, Note, no exploit): the 35-byte length is the unique discriminator of relay()'s
-        // protocolId==1 path (all other paths return 0 bytes or revert). Preserve this invariant if relay()'s
-        // returns change. A robust typed protocol discriminator would need an assembly return-format change
-        // (higher risk for a no-exploit note), so it is deferred by decision. See docs/relay-fixes.md.
+        // The 35-byte return length (32-byte hash plus 3-byte reward epoch id) uniquely identifies
+        // relay()'s protocolId == 1 path; every other path returns no data or reverts. Changes to
+        // relay() return formats must preserve this discriminator or replace it with a typed one.
         require(returnData.length == 35, WrongVerificationData());
         bytes32 returnHash;
         uint256 returnRewardEpochId;

@@ -9,11 +9,11 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 Step 4 (L-decision-matrix): the "DELAYED SIGN POLICY" gate (Relay.sol:956).
+// The delayed-signing-policy gate.
 // In the same-epoch case (messageRewardEpochId == policyEpoch) a Mode-2 message whose votingRoundId is
 // BEFORE the policy's own startVotingRoundId is rejected:
 //     if (protocolId != 1 && votingRoundId < startingVotingRoundId) revert "Delayed sign policy"
-// (decision-matrix row exp(v)==r, v<s => REVERT, Relay.sol:746-747). This prevents finalizing rounds that
+// (decision-matrix row exp(v)==r, v<s => REVERT). This prevents finalizing rounds that
 // precede the validity start of the signing policy.
 //
 // CONFIG (relay-only, single-call). Epoch-1 policy with a DELAYED start: startVotingRoundId = 3410, while

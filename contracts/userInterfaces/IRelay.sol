@@ -32,7 +32,7 @@ interface IRelay is RandomNumberV2Interface {
         address[] feeExemptAddresses;                          // Accounts exempt from the verify() fee at
                                                                // deployment (e.g. DVN adapters). Relay mode
                                                                // only; must be empty on a home deploy.
-        uint256 sourceChainId;                                 // RLY-23 source network id bound into every
+        uint256 sourceChainId;                                 // Source network id bound into every
                                                                // policy hash and signed digest. Explicit and
                                                                // nonzero on EVERY deployment; a home deploy
                                                                // (signingPolicySetter set) forces it to
@@ -106,156 +106,88 @@ interface IRelay is RandomNumberV2Interface {
     );
 
 
-    // ---- Typed failure ABI (replaces the pre-2026-08 string reasons; the legacy string is
-    // ---- noted per error). relay() raises these from its assembly via 4-byte selectors.
-    /// Legacy reason: "Already relayed".
+    // ---- Typed failure ABI. relay() raises these from its assembly via 4-byte selectors.
     error AlreadyRelayed();
-    /// Legacy reason: "Bad s".
     error BadS();
-    /// Legacy reason: "Bad v".
     error BadV();
-    /// Legacy reason: "Delayed sign policy".
     error DelayedSignPolicy();
-    /// Legacy reason: "ecrecover error".
     error EcrecoverError();
-    /// Legacy reason: "ecrecover returned bad data".
     error EcrecoverReturnedBadData();
-    /// Legacy reason: "fee collection address zero".
     error FeeCollectionAddressZero();
-    /// Legacy reason: "fee cannot be set".
     error FeeConfigNotAllowed();
     /// An initial fee-exempt address is the zero address.
     error FeeExemptAddressZero();
     /// Initial fee-exempt addresses supplied on a setter-mode (home) deploy, which charges no fee.
     error FeeExemptionsNotAllowed();
-    /// Legacy reason: "Transfer failed".
     error FeeTransferFailed();
-    /// Legacy reason: "before the start".
     error HistoryBeforeStart();
-    /// Legacy reason: "Incorrect merkle proof".
     error IncorrectMerkleProof();
-    /// Legacy reason: "Index out of order".
     error IndexOutOfOrder();
-    /// Legacy reason: "Index out of range".
     error IndexOutOfRange();
-    /// Legacy reason: "initial signing policy hash zero".
     error InitialSigningPolicyHashZero();
-    /// Legacy reason: "Invalid config hash".
     error InvalidConfigHash();
-    /// Legacy reason: "invalid initial starting voting round id".
     error InvalidInitialStartingVotingRoundId();
-    /// Legacy reason: "invalid protocol id".
     error InvalidProtocolId();
-    /// Legacy reason: "Invalid random number proof".
     error InvalidRandomNumberProof();
-    /// Legacy reason: "random number protocol id must be > 1".
     error InvalidRandomNumberProtocolId();
-    /// Legacy reason: "Invalid sign policy length".
     error InvalidSignPolicyLength();
-    /// Legacy reason: "Invalid sign policy metadata".
     error InvalidSignPolicyMetadata();
-    /// Legacy reason: "Invalid voting round id".
     error InvalidVotingRoundId();
-    /// Legacy reason: "merkle proof invalid".
     error MerkleProofInvalid();
-    /// Legacy reason: "Message too old".
     error MessageTooOld();
-    /// Legacy reason: "Must use new sign policy".
     error MustUseNewSignPolicy();
-    /// Legacy reason: "no access to merkle roots".
     error NoAccessToMerkleRoots();
-    /// Legacy reason: "no access to signing policy hashes".
     error NoAccessToSigningPolicyHashes();
-    /// Legacy reason: "No new sign policy size".
     error NoNewSignPolicySize();
-    /// Legacy reason: "No random number" / "no random number".
     error NoRandomNumber();
-    /// Legacy reason: "No signature count".
     error NoSignatureCount();
-    /// Legacy reason: "Not enough signatures".
     error NotEnoughSignatures();
-    /// Legacy reason: "Not enough weight".
     error NotEnoughWeight();
-    /// Legacy reason: "not finalized".
     error NotFinalized();
-    /// Legacy reason: "Not next reward epoch" / "not next reward epoch".
     error NotNextRewardEpoch();
-    /// Legacy reason: "Not with last intialized".
     error NotWithLastInitialized();
-    /// Legacy reason: "old relay incompatible".
     error OldRelayIncompatible();
     /// Old-relay migration is home-only: a relay-mode (mirror) deployment charges verify() fees,
     /// and delegating pre-boundary calls to an old relay would entangle its fee schedule with
     /// this contract's fee and fee-exemption logic. Mirrors seed a fresh source snapshot instead.
     error OldRelayNotAllowedInRelayMode();
-    /// Legacy reason: "old relay verification failed".
     error OldRelayVerificationFailed();
-    /// Legacy reason: "wrong first reward epoch start".
     error OldRelayWrongFirstRewardEpochStart();
-    /// Legacy reason: "wrong reward epoch duration".
     error OldRelayWrongRewardEpochDuration();
-    /// Legacy reason: "wrong start ts".
     error OldRelayWrongStartTs();
-    /// Legacy reason: "wrong voting epoch duration".
     error OldRelayWrongVotingEpochDuration();
-    /// Legacy reason: "only sign policy setter".
     error OnlySigningPolicySetterRole();
-    /// Legacy reason: "Refund failed".
     error RefundFailed();
-    /// Legacy reason: "reward epoch duration zero".
     error RewardEpochDurationZero();
-    /// Legacy reason: "Sign policy relay disabled".
     error SignPolicyRelayDisabled();
-    /// Legacy reason: "must be non-trivial".
     error SigningPolicyEmpty();
-    /// Legacy reason: "Signing policy hash mismatch".
     error SigningPolicyHashMismatch();
     /// Updating the signing-policy setter on a relay-mode deployment (the mode is fixed at
     /// deploy, so a relay-mode deployment can never gain a setter).
     error SigningPolicySetterNotAllowed();
     /// The signing-policy setter update is the zero address (the mode cannot be cleared).
     error SigningPolicySetterZero();
-    /// Legacy reason: "source chain id must match on home deploy".
     error SourceChainIdMismatchOnHomeDeploy();
-    /// The configured RLY-23 source network id is zero.
+    /// The configured source network id is zero.
     error SourceChainIdZero();
-    /// Legacy reason: "threshold increase too small".
     error ThresholdIncreaseTooSmall();
-    /// Legacy reason: "too big threshold".
     error ThresholdTooHigh();
-    /// Legacy reason: "too small threshold".
     error ThresholdTooLow();
-    /// Legacy reason: "too low fee".
     error TooLowFee();
-    /// Legacy reason: "too many voters".
     error TooManyVoters();
-    /// Legacy reason: "Too short message".
     error TooShortMessage();
-    /// Legacy reason: "total weight too big".
     error TotalWeightTooBig();
-    /// Legacy reason: "This should never happen".
     error UnreachableCode();
-    /// Legacy reason: "Verification failed".
     error VerificationFailed();
-    /// Legacy reason: "size mismatch".
     error VotersWeightsSizeMismatch();
-    /// Legacy reason: "voting epoch duration zero".
     error VotingEpochDurationZero();
-    /// Legacy reason: "Wrong message format".
     error WrongMessageFormat();
-    /// Legacy reason: "Wrong message format2".
     error WrongMessageFormat2();
-    /// Legacy reason: "Wrong sign policy reward epoch".
     error WrongSignPolicyRewardEpoch();
-    /// Legacy reason: "Wrong signature".
     error WrongSignature();
-    /// Legacy reason: "Wrong size for new sign policy".
     error WrongSizeForNewSignPolicy();
-    /// Legacy reason: "Wrong verification data".
     error WrongVerificationData();
-    /// Legacy reason: "zero merkle root".
     error ZeroMerkleRoot();
-    /// Legacy reason: "Zero signer".
     error ZeroSigner();
 
     /**
@@ -263,15 +195,17 @@ interface IRelay is RandomNumberV2Interface {
      * signed for protocol message Merkle root of the form (1, 0, 0, _messageHash).
      * If the check is successful, reward epoch id of the signing policy is returned.
      * Otherwise the function reverts.
-     * **SECURITY (L-3, updated by RLY-23):** This is a generic signature-quorum oracle — it only checks that
-     *           enough current voters signed _messageHash. Since RLY-23 the verified digest is source-bound:
-     *           voters sign keccak256(sourceChainId ‖ 38-byte message) over the protocol message
-     *           (1, 0, 0, _messageHash), so cross-CHAIN replay of the same signatures is rejected.
-     *           The digest still does NOT bind this contract's address or any nonce:
-     *           callers MUST still domain-separate _messageHash themselves (e.g. include the consuming contract
-     *           address and an application nonce); otherwise the same voter signatures can be replayed for the
-     *           same _messageHash on another deployment on THIS chain with an overlapping signing policy.
-     * @param _relayMessage The relay message.
+     * **SECURITY:** This is a generic signature-quorum oracle. Relay verifies EIP-191
+     *           signatures over `keccak256(sourceChainId ‖ (1, 0, 0, _messageHash))` using
+     *           the signing policy encoded in `_relayMessage`. `sourceChainId` identifies the
+     *           configured signing source; it does not bind the destination chain, this Relay
+     *           instance, the consuming contract, an operation, or a nonce. The same signatures
+     *           can therefore be replayed against another Relay with the same source-domain and
+     *           accepted signing policy, including a Relay on another destination chain. Callers
+     *           must domain-separate `_messageHash` for their application, including every replay
+     *           boundary they require (for example destination chain id, consuming contract,
+     *           operation and nonce).
+     * @param _relayMessage Full calldata for the `relay()` self-call, including its 4-byte selector.
      * @param _messageHash The hash of the message.
      * @return _rewardEpochId The reward epoch id of the signing policy.
      */
@@ -287,11 +221,11 @@ interface IRelay is RandomNumberV2Interface {
      * threshold instead of the signing policy's own. The override applies ONLY to this
      * verification (the protocolId == 1 path, which stores nothing); protocol
      * finalization and signing-policy relay always use the policy threshold.
-     * The same L-3 domain-separation caveat as `verifyCustomSignature` applies.
-     * NOTE: a threshold below the signing policy's only weakens THIS caller's acceptance
+     * The same domain-separation caveat as `verifyCustomSignature` applies.
+     * NOTE: an override below the signing policy threshold weakens only this caller's acceptance
      * rule — the result then means "more than the requested fraction of the weight signed",
      * not that the protocol's quorum was reached.
-     * @param _relayMessage The relay message.
+     * @param _relayMessage Full calldata for the `relay()` self-call, including its 4-byte selector.
      * @param _messageHash The hash of the message.
      * @param _thresholdBIPS The threshold in BIPS of the signing policy's total normalized
      * weight (e.g. 5000 = 50%); 0 uses the signing policy's own threshold (the
@@ -316,21 +250,28 @@ interface IRelay is RandomNumberV2Interface {
      * It can be used as finalization contract on Flare chain or as relay contract on other EVM chain.
      * Can be called in two modes. It expects calldata that is parsed in a custom manner.
      * Hence the transaction calls should assemble relevant calldata in the 'data' field.
-     * Depending on the data provided, the contract operations in essentially two modes:
+     * Depending on the data provided, the contract operates in two modes:
      * (1) Relaying signing policy. The structure of the calldata is:
      *        function signature (4 bytes) + active signing policy
-     *             + 0 (1 byte) + new signing policy,
-     *     total of exactly 4423 bytes.
+     *             + 0 (1 byte) + new signing policy
+     *             + signature count (2 bytes) + indexed ECDSA signatures (67 bytes each).
+     *     Each policy has variable length `43 + 22 * numberOfVoters`, so the
+     *     complete calldata length depends on both voter counts.
      * (2) Relaying signed message. The structure of the calldata is:
      *        function signature (4 bytes) + signing policy
-     *           + signed message (38 bytes) + ECDSA signatures with indices (67 bytes each)
+     *           + signed message (38 bytes) + signature count (2 bytes)
+     *           + indexed ECDSA signatures (67 bytes each).
+     *     For the configured random-number protocol, the signatures are followed by a
+     *     random number (32 bytes) and zero or more Merkle-proof nodes (32 bytes each).
      *     This case splits into two subcases:
      *     - protocolId = 1: Message id must be of the form (protocolId, 0, 0, merkleRoot).
      *       The validity of the signatures of sufficient weight is checked and if
-     *       successful, the merkleRoot from the message is returned (32 bytes) and the
-     *       reward epoch id of the signing policy as well (additional 3 bytes)
+     *       successful, raw return data contains the merkleRoot from the message (32 bytes)
+     *       followed by the reward epoch id of the signing policy (3 bytes). No state is written.
      *     - protocolId > 1: The validity of the signatures of sufficient weight is checked and if
      *       it is valid, the merkleRoot is published for protocolId and votingRoundId.
+     *     Signature indices must be strictly increasing, and accepted weight must strictly
+     *     exceed the applicable threshold.
      * Reverts if relaying is not successful.
      */
     function relay() external returns (bytes memory);
@@ -341,8 +282,8 @@ interface IRelay is RandomNumberV2Interface {
      * A fee may need to be paid. It is protocol specific.
      * **NOTE:** Overpayment above the protocol fee is refunded to the caller via a value-bearing call, so a
      *           contract caller MUST be able to receive ETH (or send exactly the fee);
-     *           otherwise verify() reverts (L-2).
-     * **NOTE (RLY-15):** A leaf equal to the (finalized, non-zero) root verifies with an empty proof —
+     *           otherwise verify() reverts.
+     * **NOTE:** A leaf equal to the (finalized, non-zero) root verifies with an empty proof —
      *           a standard Merkle property. Off-chain leaf encoding MUST be domain-separated from internal
      *           and root node hashes so an internal node cannot be presented as a differently-typed leaf.
      * @param _protocolId The protocol id.
@@ -358,7 +299,7 @@ interface IRelay is RandomNumberV2Interface {
     /**
      * Returns the address of the signing policy setter.
      * If the address is zero, the contract is used as a pure relay,
-     * otherwise the contract is deployed on mainnet.
+     * otherwise the contract operates in setter (home) mode.
      */
     function signingPolicySetter() external view returns (address);
 
@@ -366,11 +307,10 @@ interface IRelay is RandomNumberV2Interface {
      * Returns the signing policy hash for given reward epoch id.
      * The function is reverted if signingPolicySetter is NOT set, hence on all
      * deployments where the contract is used as a pure relay.
-     * **RLY-23:** the returned hash is source-bound: keccak256(sourceChainId ‖ encoded policy bytes) —
+     * The returned hash is source-bound: keccak256(sourceChainId ‖ encoded policy bytes) —
      * one keccak over the 32-byte source chain id followed by the raw 43 + 22 * n byte encoding, no
-     * padding. Off-chain code comparing against a locally computed policy hash must use the same scheme
-     * (epochs served by an old-format `oldRelay` fallback still return that contract's retired
-     * chained-fold content hash).
+     * padding. Off-chain code comparing against a locally computed policy hash must use the same scheme.
+     * Epochs served by an `oldRelay` fallback return that contract's configured hash format.
      * @param _rewardEpochId The reward epoch id.
      * @return _signingPolicyHash The signing policy hash.
      */
@@ -436,7 +376,7 @@ interface IRelay is RandomNumberV2Interface {
     function feeExemptAddress(address account) external view returns (bool);
 
     /**
-     * Returns the configured source-network id (RLY-23 origin binding): the network whose
+     * Returns the configured source-network id: the network whose
      * voter quorum this Relay verifies. Equals block.chainid on home deployments.
      */
     function sourceChainId() external view returns (uint256);

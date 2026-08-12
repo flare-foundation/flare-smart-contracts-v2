@@ -9,25 +9,25 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase-1 PARAMETRIC proofs of the relay() signature/threshold accounting (see docs/relay-fv.md).
+// Parametric proofs of relay() signature/threshold accounting.
 // Symbolic weights + threshold, so the theorems quantify over all weight distributions and thresholds.
 //
 // Threshold soundness is proved in the TIGHT per-prefix contrapositive form: provide exactly K
 // signatures, ASSUME their total weight <= threshold, and prove relay() cannot accept — for K=1,2,3.
-// Because relay() accepts on the FIRST prefix whose running weight exceeds the threshold (Relay.sol:1330),
+// Because relay() accepts on the first prefix whose running weight exceeds the threshold,
 // this rules out premature-accept at every prefix (not just the over-approximate total-sum bound).
 //
 // Weights/threshold are symbolic check_ args, so the policy + relay are deployed INSIDE each check
 // (no-op setUp; base setUp uses vm.addr/sorting -> multiple paths under Halmos). ecrecover is
-// uninterpreted; voters are concrete distinct addresses (A4 by construction); message is same-epoch so
-// the Relay.sol:976 threshold-increase does not apply. halmos.toml sets loop = 6 (>= signer count);
+// uninterpreted; voters are a concrete distinct-address fixture by construction; message is same-epoch so
+// the cross-epoch threshold increase does not apply. halmos.toml sets loop = 6 (>= signer count);
 // the reachability control is the anti-vacuity tripwire (must produce a counterexample).
 //
 // New to Halmos? See test-forge/fv/README.md §2 — a `check_` function is a ∀-proof over its symbolic
 // arguments; `vm.assume` restricts that ∀ (a hypothesis), `assert` is the goal, and `check_reachability_*`
 // is the anti-vacuity control that verify_fv.py requires to be REFUTED by a counterexample.
 contract RelaySigParamFV is RelayTestBase {
-    bytes32 internal constant ROOT = keccak256("fv-root"); // concrete, non-zero (RLY-04)
+    bytes32 internal constant ROOT = keccak256("fv-root"); // concrete, non-zero
     uint256 internal constant NV = 3;
 
     struct Sig { uint8 v; bytes32 r; bytes32 s; }
@@ -57,7 +57,7 @@ contract RelaySigParamFV is RelayTestBase {
         (ok, ) = address(r).call(abi.encodePacked(Relay.relay.selector, p, message, sigs));
     }
 
-    // ---- P2 (parametric, TIGHT) — threshold soundness, per prefix length K=1,2,3 ----
+    // ---- Parametric tight threshold soundness, per prefix length K=1,2,3 ----
     // For each K: provide K signatures at distinct indices 0..K-1, assume their total weight <= thr,
     // and prove relay() cannot accept. This pins the contract's actual (prefix) accept condition.
 
@@ -97,7 +97,7 @@ contract RelaySigParamFV is RelayTestBase {
         assert(!_call(r, p, sigs));
     }
 
-    // ---- P1 (parametric) — no-repeat-index, two duplicate-index layouts ----
+    // ---- Parametric no-repeat-index checks for two duplicate-index layouts ----
     // A repeated voter index cannot inflate weight past the threshold. We assume single-counting the
     // non-repeated prefix is insufficient, so the only way to clear the threshold would be to count a
     // voter twice; the strict-increase guard rejects the repeat, so relay() cannot accept.
@@ -112,7 +112,7 @@ contract RelaySigParamFV is RelayTestBase {
         // Hypothesis: counting voters 0 and 1 ONCE each (w0+w1) does not clear thr. So the only route to
         // acceptance would be to count voter 1 a SECOND time via the repeated index — which the contract's
         // strict-increase index guard forbids. A PASS excludes repeated slots; voter addresses are
-        // distinct by this harness's A4 construction, not by a production admission check.
+        // distinct by this harness's distinct-address fixture, not by a production admission check.
         vm.assume(uint256(w0) + uint256(w1) <= uint256(thr));
         (Relay r, bytes memory p) = _deploy(w0, w1, 0, thr);
         bytes memory sigs = abi.encodePacked(

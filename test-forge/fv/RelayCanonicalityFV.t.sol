@@ -9,15 +9,15 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase-1 PARAMETRIC proof of OBLIGATION P3 — Canonicality gating. See docs/relay-fv.md §4 (P3).
+// Parametric proof of ECDSA canonicality gating.
 //
 // Claim: a SINGLE signature whose registered weight w0 > threshold (i.e. it WOULD on its own suffice
 // to finalize) must NOT let relay() accept if it is non-canonical:
-//   - v not in {27,28}                      -> revert "Bad v"      (Relay.sol:1269-1273)
-//   - s > secp256k1n/2 (high-s, EIP-2)       -> revert "Bad s"      (Relay.sol:1275-1280)
-// Both guards fire BEFORE ecrecover and BEFORE the weight add at Relay.sol:1325, so the non-canonical
-// signature contributes zero weight and the accept test (weight > threshold, Relay.sol:1330) is never
-// reached. We prove this even though ecrecover is uninterpreted (assumption A2): the solver may freely
+//   - v not in {27,28}                      -> revert "Bad v"
+//   - s > secp256k1n/2 (high-s, EIP-2)       -> revert "Bad s"
+// Both guards fire before ecrecover and before the weight add, so the non-canonical
+// signature contributes zero weight and the accept test (weight > threshold) is never
+// reached. We prove this with ecrecover at the uninterpreted recovery boundary: the solver may freely
 // set the recovered signer == voters[0] (the conservative worst case), yet acceptance is still
 // impossible because the canonicality revert precedes the recovery entirely.
 //
@@ -25,7 +25,7 @@ import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 // thr, deployed INSIDE each check (empty setUp; the base setUp uses vm.addr/sorting -> multiple paths
 // under Halmos). The single signature means the signature loop runs exactly ONCE (loopBoundNeeded = 1,
 // well within halmos.toml loop = 6). Message is same-epoch (votingRoundId = START_VOTING_ROUND_ID) so
-// the Relay.sol:976 threshold-increase path is inert. The reachability control is the anti-vacuity
+// the cross-epoch threshold-increase path is inert. The reachability control is the anti-vacuity
 // tripwire: a CANONICAL (v=27, low-s) single signature with w0 > thr MUST be able to accept, asserted
 // as !accept EXPECTING A COUNTEREXAMPLE — if it ever PASSES the two negative proofs are vacuous.
 //
@@ -33,10 +33,10 @@ import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 // arguments; `vm.assume` is a hypothesis, `assert` is the goal, and `check_p3_reachability_*` is the
 // anti-vacuity control that verify_fv.py requires to be REFUTED by a counterexample.
 contract RelayCanonicalityFV is RelayTestBase {
-    bytes32 internal constant ROOT = keccak256("fv-root"); // concrete, non-zero (RLY-04)
+    bytes32 internal constant ROOT = keccak256("fv-root"); // concrete, non-zero
     uint256 internal constant NV = 1;
 
-    // secp256k1n / 2 (EIP-2 low-s bound). s STRICTLY GREATER than this is "Bad s" (Relay.sol:1277).
+    // secp256k1n / 2 (EIP-2 low-s bound). s STRICTLY GREATER than this is "Bad s".
     uint256 internal constant HALF_N =
         0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
 
@@ -71,8 +71,8 @@ contract RelayCanonicalityFV is RelayTestBase {
         (ok, ) = address(r).call(abi.encodePacked(Relay.relay.selector, p, message, sigs));
     }
 
-    // ---- P3.a — bad v: v not in {27,28} cannot accept, even when w0 > thr. EXPECT: PASS. ----
-    // The "Bad v" revert (Relay.sol:1269) precedes the weight add (:1325), so no acceptance is possible.
+    // ---- Bad-v canonicality: v not in {27,28} cannot accept, even when w0 > thr. EXPECT: PASS. ----
+    // The "Bad v" revert precedes the weight add, so no acceptance is possible.
     // w0 > thr supplies the "would otherwise suffice" premise; v is fully symbolic, ASSUMED non-canonical.
     // Reads as: ∀ w0,thr,a . (v∉{27,28} ∧ w0>thr) ⟹ ¬accept. The first assume restricts the ∀ to
     // non-canonical v (the case under test); the second supplies the "would otherwise suffice" premise
@@ -84,12 +84,12 @@ contract RelayCanonicalityFV is RelayTestBase {
         assert(!_call(r, p, _oneSig(a)));
     }
 
-    // ---- P3.b — high s: s > secp256k1n/2 cannot accept, even with canonical v and w0 > thr. PASS. ----
-    // The "Bad s" revert (Relay.sol:1275) precedes the weight add (:1325). v is pinned canonical (27)
+    // ---- High-s canonicality: s > secp256k1n/2 cannot accept, even with canonical v and w0 > thr. PASS. ----
+    // The "Bad s" revert precedes the weight add. v is pinned canonical (27)
     // so ONLY the s-malleability gate can be responsible for rejection; s is symbolic, ASSUMED high.
     // EXPECT: PASS (proof).
     function check_p3_highS_cannotAccept(uint16 w0, uint16 thr, bytes32 s) external {
-        vm.assume(uint256(s) > HALF_N); // EIP-2 high-s half: rejected by Relay.sol:1277
+        vm.assume(uint256(s) > HALF_N); // EIP-2 high-s half: rejected by the canonicality guard
         vm.assume(uint256(w0) > uint256(thr));
         (Relay r, bytes memory p) = _deploy(w0, thr);
         bytes memory sigs = abi.encodePacked(uint16(1), _sig(27, bytes32(uint256(0xa11ce)), s, 0));
@@ -101,14 +101,14 @@ contract RelayCanonicalityFV is RelayTestBase {
     // uninterpreted so the solver may match recovered == voters[0]; the canonicality gates pass, the
     // weight add fires, weight = w0 > thr accepts. Asserting !accept must therefore yield a
     // COUNTEREXAMPLE. If this PASSES, the loop bound is too small or the accept path is otherwise
-    // unreachable and P3.a/P3.b are vacuous. EXPECT: COUNTEREXAMPLE.
+    // unreachable and both canonicality checks are vacuous. EXPECT: COUNTEREXAMPLE.
     function check_p3_reachability_canonicalAccepts(uint16 w0, uint16 thr, bytes32 r_) external {
         vm.assume(uint256(w0) > uint256(thr));
         (Relay r, bytes memory p) = _deploy(w0, thr);
         // v=27 canonical; s = 1 is well below secp256k1n/2 (low-s); r symbolic so ecrecover can match.
         // Inverted contract: this assert MUST be refuted. Because ecrecover is uninterpreted the solver is
         // free to set recovered == voters[0], so a canonical winning-weight sig reaches acceptance and the
-        // witness (a concrete r_) proves the two P3 negatives above rule out something actually reachable.
+        // witness (a concrete r_) proves the two canonicality negatives above rule out something reachable.
         bytes memory sigs = abi.encodePacked(uint16(1), _sig(27, r_, bytes32(uint256(1)), 0));
         assert(!_call(r, p, sigs)); // EXPECT counterexample (canonical acceptance is reachable)
     }

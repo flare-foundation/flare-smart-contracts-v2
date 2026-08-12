@@ -7,7 +7,7 @@ export interface IRelayMessage {
   protocolMessageMerkleRoot?: IProtocolMessageMerkleRoot | undefined;
   newSigningPolicy?: ISigningPolicy | undefined;
   signatures: IECDSASignatureWithIndex[];
-  // RLY-03: for the random-number protocol, the relay message carries a trailer after the
+  // For the random-number protocol, the relay message carries a trailer after the
   // signatures: the random number value plus its Merkle proof against the message merkleRoot.
   isRandomNumberGeneratingProtocolMessage?: boolean;
   randomNumber?: string; // uint256 as 0x-prefixed 32-byte hex string
@@ -29,8 +29,7 @@ export namespace RelayMessage {
    * - threshold is met
    * @param message
    * @param verify
-   * @param chainId the configured source chain id (`relay.sourceChainId()`)
-   *                (RLY-23 chain-domain binding; required when verify is true)
+   * @param chainId the configured source chain id (`relay.sourceChainId()`), required when verify is true
    * @returns
    */
   export function encode(message: IRelayMessage, verify = false, chainId?: number | bigint): string {
@@ -38,7 +37,7 @@ export namespace RelayMessage {
       throw Error("Relay message is undefined");
     }
     if (verify && chainId === undefined) {
-      throw Error("chainId is required when verify is true (RLY-23 chain-domain binding)");
+      throw Error("chainId is required when verify is true (source-domain binding)");
     }
     if (!message.signingPolicy) {
       throw Error("Invalid relay message: no signing policy");
@@ -61,7 +60,7 @@ export namespace RelayMessage {
       const encodedMessage = ProtocolMessageMerkleRoot.encode(message.protocolMessageMerkleRoot);
       encoded += encodedMessage.slice(2);
       if (verify) {
-        // RLY-23: voters sign the source-bound digest keccak256(chainId ‖ 38-byte message) — one keccak.
+        // Voters sign the source-bound digest keccak256(chainId ‖ 38-byte message) — one keccak.
         hashToSign = ProtocolMessageMerkleRoot.hash(message.protocolMessageMerkleRoot, chainId!);
       }
     } else {
@@ -69,14 +68,14 @@ export namespace RelayMessage {
       const encodedNewSigningPolicy = SigningPolicy.encode(message.newSigningPolicy!);
       encoded += encodedNewSigningPolicy.slice(2);
       if (verify) {
-        // RLY-23: the signed (and stored) signing-policy hash is chain-bound.
+        // The signed and stored signing-policy hash is source-bound.
         hashToSign = SigningPolicy.hashEncoded(encodedNewSigningPolicy, chainId!);
       }
     }
     let lastObservedIndex = -1;
     let totalWeight = 0;
     encoded += ECDSASignatureWithIndex.encodeSignatureList(message.signatures).slice(2);
-    // RLY-03: append the random-number trailer (randomNumber || merkleProof) after the signatures.
+    // Append the random-number trailer (randomNumber || merkleProof) after the signatures.
     if (message.isRandomNumberGeneratingProtocolMessage) {
       if (
         !message.randomNumber ||
@@ -147,7 +146,7 @@ export namespace RelayMessage {
       protocolMessageMerkleRoot = ProtocolMessageMerkleRoot.decode(rest, false);
       encodedSignatures = rest.slice(protocolMessageMerkleRoot.encodedLength);
     }
-    // RLY-03: separate the signature list from an optional random-number trailer. `decodeSignatureList`
+    // Separate the signature list from an optional random-number trailer. `decodeSignatureList`
     // requires an exact-length input, so we cannot hand it the trailer — slice the list precisely first
     // (2-byte count prefix + count * 67-byte records) and treat any remainder as the trailer that
     // `encode()` appended (randomNumber || merkleProof).
@@ -165,7 +164,7 @@ export namespace RelayMessage {
     let randomNumber: string | undefined;
     let merkleProof: string[] | undefined;
     if (trailer.length > 0) {
-      // RLY-03 trailer: a 32-byte random number followed by zero or more 32-byte Merkle-proof elements
+      // The trailer is a 32-byte random number followed by zero or more 32-byte Merkle-proof elements
       // (mirror of the append in `encode()`).
       if (trailer.length % 64 !== 0) {
         throw Error(`Invalid relay message: random trailer length (${trailer.length}) not a multiple of 64`);

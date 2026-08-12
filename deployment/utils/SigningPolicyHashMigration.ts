@@ -27,11 +27,11 @@ export interface SigningPolicyReconstructionSources {
 }
 
 /**
- * The RETIRED chained-fold content hash of the currently deployed (pre-RLY-23) Relay: the encoded
+ * The migration-compatible chained-fold signing-policy content hash: the encoded
  * policy is zero-padded to a multiple of 32 bytes, the first two 32-byte chunks are hashed
  * together, and every further chunk is folded in with keccak256(hash ‖ chunk). Used ONLY to
- * verify that a policy reconstructed from chain state is byte-identical to what the old Relay
- * hashed — never to seed the new Relay.
+ * verify that a policy reconstructed from chain state is byte-identical to the source Relay's
+ * policy — never to seed the target Relay.
  */
 export function legacyPolicyContentHash(encodedPolicy: string): string {
   const data = encodedPolicy.startsWith("0x") ? encodedPolicy.slice(2) : encodedPolicy;
@@ -50,7 +50,7 @@ export function legacyPolicyContentHash(encodedPolicy: string): string {
  * Reconstructs the full signing policy of a reward epoch from chain state:
  *   1. (identity voters, normalised weights) from VoterRegistry
  *   2. voter identity -> signing-policy address via EntityManager at the policy's registration
- *      snapshot block (checkpointed history, callable any time later)
+ *      snapshot block (checkpointed state, callable any time later)
  *   3. seed / threshold from FlareSystemsManager
  * Mirrors FlareSystemsManager._initializeNextSigningPolicy / VoterRegistry.createSigningPolicySnapshot.
  */
@@ -80,16 +80,16 @@ export async function reconstructSigningPolicy(
 }
 
 /**
- * The initial signing-policy hash for a new Relay, migrated from the old Relay for the given
+ * The initial signing-policy hash for a target Relay, migrated from the source Relay for the given
  * reward epoch.
  *
  * ALWAYS reconstructs and verifies — there is deliberately no scheme parameter and no
- * pass-through branch (a mistaken caller could otherwise seed the new Relay with a hash no
- * policy can satisfy). The full policy is reconstructed from chain state and the old Relay's
- * stored hash must equal ONE of the two hashes of the reconstructed bytes: the retired legacy
- * chained fold (every live deployment today) or the single-keccak hash (a future migration from
- * a new-scheme Relay). Either way the reconstruction is proven byte-exact against the old
- * contract, and the returned value is always the single-keccak hash,
+ * pass-through branch (a mistaken caller could otherwise seed the target Relay with a hash no
+ * policy can satisfy). The full policy is reconstructed from chain state and the source Relay's
+ * stored hash must equal one of the two supported hashes of the reconstructed bytes: the
+ * chained-fold migration format or the source-bound single-keccak format. Either way the
+ * reconstruction is proven byte-exact against the source contract, and the returned value is
+ * the source-bound single-keccak hash,
  * keccak256(sourceChainId ‖ encoded policy).
  */
 export async function signingPolicyHashForMigration(
@@ -104,7 +104,7 @@ export async function signingPolicyHashForMigration(
   }
   const policy = await reconstructSigningPolicy(sources, rewardEpochId, startVotingRoundId);
   const encoded = SigningPolicy.encode(policy);
-  // Byte-exact reconstruction proof against the old Relay before seeding the new one.
+  // Byte-exact reconstruction proof against the source Relay before seeding the target.
   const newHash = SigningPolicy.hashEncoded(encoded, chainId);
   const storedHash = oldHash.toLowerCase();
   if (storedHash !== legacyPolicyContentHash(encoded) && storedHash !== newHash.toLowerCase()) {

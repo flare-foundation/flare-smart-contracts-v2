@@ -12,13 +12,12 @@ statement/expression *atoms* (against EVMYulLean's real `exec`/`eval`), `RelayLo
 *decode* lemmas, `DataLayer` the `mstore(slot,0)` zero-init bridge, and `RelayStorageLayer` the
 validated transient-storage operations, this file *composes* them into the
 effect of the deployed signature-verification loop body (`RelayLoopLiteral.bodyL`), deriving the
-per-iteration accounting that `RelayLoopMemRead.relay_loop_sound` currently assumes (`hcorr`/`hvalid`).
+per-iteration accounting represented by `RelayLoopMemRead.relay_loop_sound`'s `hcorr`/`hvalid` premises.
 
-**This is the first inter-file-dependent proof file.** Unlike the others (each self-contained), it
-`import`s four sibling modules, so checking it requires compiling those into the package lib first:
+This file imports four sibling modules, so checking it requires compiling those into the package lib first:
 
 ```bash
-# (after the one-time EVMYulLean setup in ./README.md)
+# after preparing EVMYulLean as described in ./README.md
 LIB=/tmp/evmyul2/.lake/build/lib/lean
 for f in DataLayer RelayLoopWindows RelayLoopLiteral RelayStorageLayer; do
   cp <repo>/test-forge/fv/lean/bytecode-refinement/$f.lean /tmp/evmyul2/
@@ -28,9 +27,9 @@ cp <repo>/test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean /tmp/evmyul2/
 cd /tmp/evmyul2 && lake env lean RelayBodyEff.lean                # exit 0; prints clean axiom lists
 ```
 
-Everything here is hole-free: `#print axioms` ⊆ `{propext, Classical.choice, Quot.sound}` plus the two
-already-documented upstream-dischargeable specs (`RelayWindows.zeroes_data`,
-`RelayDataLayer.toByteArray_size`) inherited through the imported lemmas — no new axiom.
+Everything here is hole-free. The `#print axioms` results contain Lean's standard axioms plus the imported
+semantic assumptions `RelayWindows.zeroes_data` and `RelayDataLayer.toByteArray_size`; this file declares
+no additional axiom.
 -/
 
 namespace RelayBodyEff
@@ -538,8 +537,8 @@ theorem eval_badv_cond (f : Nat) (x : EvmYul.Identifier) (c1 c2 : EvmYul.UInt256
 /-- **Wrong-signature guard.** `iszero(eq(mload(mr), shr(16, mload(mv))))` — the deepest guard, with
     two *state-changing* `mload`s: `shr(16, mload(mv))` (the registered signer, at the voter slot `mv`)
     evaluated first, then `mload(mr)` (the recovered signer, at `mr`). The guard is not taken iff the two
-    coincide, i.e. `ecrecover` returned the registered signer (assumption MC-2). Both `mload`s thread
-    their `activeWords` bump: `s → s1 → s2`. -/
+    coincide, i.e. `ecrecover` returned the registered signer (the uninterpreted recovery boundary).
+    Both `mload`s thread their `activeWords` bump: `s → s1 → s2`. -/
 theorem eval_wrongsig_cond (f mr mv : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
     let s  := EvmYul.Yul.State.Ok ss vs
     let s1 := s.setMachineState (s.toSharedState.toMachineState.mload (UInt256.ofNat mv)).2
@@ -660,7 +659,7 @@ end LetEffects
 `not(0)` is *not* a literal, so `staticcall_hyp_compose` (which assumes literal args) doesn't apply
 directly; `hargs_staticcall` first evaluates all six arguments (`not(0)` via `step_NOT`, the rest
 literals). `seam_guard_eval` then composes the per-call ecrecover hypothesis `hsc` (from
-`RelayLoopLiteral.recHypothesis .success` — the OP-1/MC-2 modeling) through `eval_primcall` and
+`RelayLoopLiteral.recHypothesis .success` — the uninterpreted ecrecover model) through `eval_primcall` and
 `eval_iszero`: the guard evaluates to `⟨0⟩` (not taken) and threads the state to the post-staticcall
 `s1` (the recovered signer written to `m+64`). This is the seam integrated as a guard peel. -/
 
@@ -896,9 +895,9 @@ theorem body_prefix9 (fuel m sigStart : Nat) (nVot sHalf : EvmYul.UInt256) (ss :
 
 open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral in
 set_option maxHeartbeats 4000000 in
-/-- **Full literal loop-body effect (brick 36).** Chains all seventeen statements of the
+/-- **Full literal loop-body effect.** Chains all seventeen statements of the
     deployed signature-verification loop body `bodyL` (transliterated from
-    `relay_ir_optimized.yul:1518-1632`) through the EVMYulLean interpreter's real
+    `relay_ir_optimized.yul`) through the EVMYulLean interpreter's real
     `exec`/`eval` semantics, threading genuine `mstore`/`mload`/`calldatacopy` state
     changes. Given the nine guard-condition pass hypotheses (`hg4..hg17`, one per `if`
     that must NOT revert on the advance path) and the two staticcall-produced states
@@ -1229,7 +1228,7 @@ theorem loop_accL (NN : Nat) (hN : NN < UInt256.size)
     exact ⟨ss', vs', hexec, hWW⟩
 
 
--- ===================== THE LITERAL CAPSTONE (brick 38) =====================
+-- ===================== literal-loop accounting theorem =====================
 -- Accumulator bridge (accNat = sigLoop weight) + relay_loop_sound_literal: the literal analog of
 -- RelayLoopMemRead.relay_loop_sound, composed from loop_accL (real 17-statement body) + threshold_sound.
 /-- Selected voter indices: signature `k` (of `nSig`) selects voter `sigIdxAt cd sigStart k`. -/
@@ -1272,7 +1271,7 @@ theorem val_ofNat_of_lt (n : Nat) (h : n < UInt256.size) : (UInt256.ofNat n).val
   show n % UInt256.size = n
   exact Nat.mod_eq_of_lt h
 
--- ===================== accounting extraction (brick 39) =====================
+-- ===================== accounting extraction =====================
 -- The accounting half of the per-iteration `hstep`: body_effL's output state s16 carries exactly the
 -- advanced accumulator (weight += selected voter's registered weight, via mload_masked_voter = hcorr)
 -- and preserves the loop counter i. Machine-checks that the literal body computes the right tally.
@@ -1329,7 +1328,7 @@ theorem s16_ii_preserved (m : Nat) (ss15 : EvmYul.SharedState .Yul) (vs15 : EvmY
       = UInt256.ofNat k := by
   rw [ins_setMS_ne _ _ _ WW II _ (by decide), hII]
 
--- ===================== hstep DERIVED: iter_advance (brick 40) =====================
+-- ===================== derived per-iteration advance =====================
 set_option maxHeartbeats 4000000 in
 /-- **Per-iteration advance (`iter_advance`).** Assembles `body_effL` (the executed 17-statement body) with
     the accounting extraction (`s16_ww_advance`/`s16_ii_preserved`) into exactly the per-iteration `hstep`
@@ -1337,8 +1336,8 @@ set_option maxHeartbeats 4000000 in
     that preserves the loop counter `i = k` and advances the accumulator `weight` to `accNat (k+1)`.
 
     The nine guard-pass hypotheses (`hg4..hg17`, one per `if` that must not revert on the advance path) and
-    the two ecrecover-output states (`ss10/vs10`, `ss15/vs15`) are the **OP-1 boundary** — ecrecover is
-    uninterpreted by design, so "the recovered signer matches the registered voter / v,s are valid /
+    the two ecrecover-output states (`ss10/vs10`, `ss15/vs15`) are the **uninterpreted ecrecover boundary**:
+    ecrecover is uninterpreted by design, so "the recovered signer matches the registered voter / v,s are valid /
     returndatasize is 32 / the index is in range and strictly increasing" enter as hypotheses (exactly the
     literal, eval-level form of `relay_loop_sound`'s `hvalid`). The accounting inputs `hWW`/`hII` (weight and
     counter entering the update — untouched by the ecrecover call and the guards) and `hcorr` (the masked
@@ -1394,10 +1393,10 @@ theorem iter_advance (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteAr
   · exact s16_ii_preserved m ss15 vs15 k hII
   · exact s16_ww_advance m ss15 vs15 cd sigStart nVotN k hWW hcorr hidxlt
 
--- ===================== structural guards DERIVED: iter_advance_tight (brick 42) =====================
+-- ===================== structural-guard derivation =====================
 -- hg4 (range idx<nVot) / hg5 (order nui≤idx) are discharged from ValidRun's numeric conditions +
 -- the calldata index decode, NOT assumed — shrinking iter_advance's assumed content to the genuinely
--- cryptographic guards (v/s/ecrecover/signer-match), the true OP-1 boundary.
+-- cryptographic guards (v/s/ecrecover/signer-match), the uninterpreted ecrecover boundary.
 theorem gt_eq_lt_swap (a b : UInt256) : UInt256.gt a b = UInt256.lt b a := rfl
 
 theorem gt_add_one_eq_zero (idx nVotN : Nat) (hlt : idx < nVotN) (hsz : nVotN < UInt256.size) :
@@ -1432,10 +1431,11 @@ set_option maxHeartbeats 4000000 in
 /-- **Per-iteration advance with the STRUCTURAL guards derived (`iter_advance_tight`).** Same conclusion
     as `iter_advance`, but the range/order guards (`hg4`/`hg5`) are no longer assumed — they are discharged
     from the ValidRun numeric conditions (`nui ≤ idx < nVot`) plus the calldata index decode
-    (`index = sigIdxAt`, itself derivable, not OP-1). The remaining guard hypotheses are exactly the
-    genuinely cryptographic ones (`v ∈ {27,28}`, low-`s`, ecrecover success, returndatasize = 32,
-    signer ≠ 0, recovered signer matches the registered voter) plus the accept gate — the true OP-1
-    boundary. This shrinks the assumed content of the per-iteration premise to the ecrecover facts. -/
+    (`index = sigIdxAt`, itself derivable rather than part of the recovery boundary). The remaining guard
+    hypotheses are exactly the genuinely cryptographic ones (`v ∈ {27,28}`, low-`s`, ecrecover success,
+    returndatasize = 32,
+    signer ≠ 0, recovered signer matches the registered voter) plus the accept gate — the uninterpreted
+    ecrecover boundary. This shrinks the assumed content of the per-iteration premise to the recovery facts. -/
 theorem iter_advance_tight (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray) (nVotN k nui : Nat)
     (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
     (ss10 : EvmYul.SharedState .Yul) (vs10 : EvmYul.Yul.VarStore)
@@ -1464,7 +1464,7 @@ theorem iter_advance_tight (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : 
     nVot = UInt256.ofNat nVotN →
     nui ≤ sigIdxAt cd sigStart k →
     nVotN < UInt256.size →
-    -- cryptographic guards (∀-fuel) — the true OP-1 boundary:
+    -- cryptographic guards (∀-fuel) — the uninterpreted ecrecover boundary:
     (∀ fuel, EvmYul.Yul.eval (fuel+121) (bc .ISZERO [bc .OR [bc .EQ [V VV, litN 27], bc .EQ [V VV, litN 28]]]) none s7 = .ok (s7, ⟨0⟩)) →
     (∀ fuel, EvmYul.Yul.eval (fuel+120) (bc .GT [bc .MLOAD [litN (m+96)], litU SECP_HALF]) none s7 = .ok (s9, ⟨0⟩)) →
     (∀ fuel, EvmYul.Yul.eval (fuel+119) (bc .ISZERO [bc .STATICCALL [bc .NOT [litN 0], litN 1, litN m, litN 128, litN (m+64), litN 32]]) none s9 = .ok (s10, ⟨0⟩)) →
@@ -1500,11 +1500,12 @@ set_option maxHeartbeats 4000000 in
     signing identities additionally require unique voter addresses in the admitted policy.
 
     Mirrors `RelayLoopMemRead.relay_loop_sound` but with the genuine loop body (`body_effL`) rather than the
-    abstract masked-read body. The external call remains an **assumption** (OP-1): `hstep` packages, per
-    iteration, exactly what `body_effL` delivers — one turn of `bodyL` preserves the counter and adds the
+    abstract masked-read body. The external call remains an **uninterpreted ecrecover assumption**:
+    `hstep` packages, per iteration, exactly what `body_effL` delivers — one turn of `bodyL` preserves the
     selected voter's registered weight — which is provable from `body_effL` once ecrecover's outcome
     (`recHypothesis`) and the guard passes (`hvalid`) are supplied. `hvalid` (`ValidRun`) is the
-    strictly-increasing-in-range index discipline (guards passed, no repeated slot); `hnoovf` is BR-2. -/
+    strictly-increasing-in-range index discipline (guards passed, no repeated slot); `hnoovf` is the
+    no-overflow premise. -/
 theorem relay_loop_sound_literal
     (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
     (hN : NN < UInt256.size)
@@ -1548,9 +1549,9 @@ theorem relay_loop_sound_literal
   exact RelayLoopLiteral.threshold_sound (weightsOf cd nVotN) (idxSel cd sigStart NN) thr.val hvalid h3
 
 
--- ===================== hstep DISCHARGED: full derived soundness (brick 41) =====================
-/-- Per-iteration OP-1 premise: entering the body at index `k` with state `(ssk, vsk)`, there exist
-    ecrecover-output states such that the nine guards pass (execution does not revert) and the accounting
+-- ===================== derived loop soundness =====================
+/-- Per-iteration uninterpreted ecrecover premise: entering the body at index `k` with state `(ssk, vsk)`,
+    there exist recovery-output states such that the nine guards pass (execution does not revert) and the accounting
     inputs hold (weight/counter preserved into the update; the masked read is the selected voter's weight).
     This is the literal, eval-level statement of `relay_loop_sound`'s `hvalid` + the (now derived) `hcorr`. -/
 def IterPremise (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray) (nVotN k : Nat)
@@ -1593,8 +1594,8 @@ def IterPremise (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray) 
 set_option maxHeartbeats 4000000 in
 /-- **Relay signature loop soundness with `hstep` DERIVED.** The literal capstone
     `relay_loop_sound_literal` assumed a per-iteration advance `hstep`; here it is discharged by
-    `iter_advance`, so the only remaining hypotheses are the per-iteration OP-1 facts (`hiters`, i.e.
-    `IterPremise` at each valid entering state) plus `hvalid`/`hnoovf`/the accept. If the deployed loop —
+    `iter_advance`, so the only remaining hypotheses are the per-iteration uninterpreted recovery facts
+    (`hiters`, i.e. `IterPremise` at each valid entering state) plus `hvalid`/`hnoovf`/the accept. If the deployed loop —
     its ACTUAL transliterated body executed by validated Yul `exec` — completes with a final tally
     exceeding the threshold, the total indexed policy weight exceeds it; no policy slot is counted twice.
     This does not prove address uniqueness across distinct slots. -/
@@ -1627,10 +1628,10 @@ theorem relay_loop_sound_literal_derived
 
 
 
--- ===================== tightened top theorem: hstep derived + structural guards discharged (brick 43) =====================
+-- ===================== loop soundness with structural guards discharged =====================
 /-- Per-iteration premise with the STRUCTURAL guards already discharged: only the cryptographic guards
     (v/s/ecrecover/signer-match/accept) + the calldata index decode + the ValidRun numeric conditions
-    remain. This is the tightened OP-1 boundary. -/
+    remain. This is the tightened uninterpreted ecrecover boundary. -/
 def IterPremiseT (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray) (nVotN k : Nat)
     (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore) : Prop :=
   ∃ (ss10 : EvmYul.SharedState .Yul) (vs10 : EvmYul.Yul.VarStore)
@@ -1786,7 +1787,7 @@ theorem protocolOne_tload_override_loop_sound
 
 
 
--- ===================== faithful early-return model (brick 44 / C.1) =====================
+-- ===================== early-return model =====================
 -- loop propagates a body that HALTS with an error (e.g. a `return`): the accept/early-return step.
 theorem loop_step_accept (fuel : Nat) (c : Expr) (po bo : List Stmt)
     (sa : EvmYul.SharedState .Yul) (va : EvmYul.Yul.VarStore) (x : EvmYul.UInt256) (e : EvmYul.Yul.Exception)
@@ -1924,7 +1925,7 @@ theorem relay_loop_sound_literal_early
 
 end LoopLayer
 
--- ===================== mode dispatch (brick 45 / R5.2) =====================
+-- ===================== mode dispatch =====================
 section DispatchLayer
 open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral
 
@@ -1934,7 +1935,7 @@ def PID : EvmYul.Identifier := "protocolId"
 
 /-- The deployed mode dispatch: `if eq(protocolId,1) {custom}; if iszero(eq(protocolId,1)) {verify}` — the
     two mutually-exclusive top-level branches of relay() (custom-signature vs the verify/signature-loop path;
-    protocolId==0 is a sub-branch inside verify). Mirrors Relay.sol:894 / 916. -/
+    protocolId==0 is a sub-branch inside verify). -/
 def dispatchL (customBranch verifyBranch : List Stmt) : List Stmt :=
   [ Stmt.If (bc .EQ [V PID, litN 1]) customBranch,
     Stmt.If (bc .ISZERO [bc .EQ [V PID, litN 1]]) verifyBranch ]
@@ -2005,17 +2006,17 @@ theorem dispatch_routes_verify (fuel : Nat) (ss : EvmYul.SharedState .Yul) (vs :
 
 end DispatchLayer
 
--- ===================== end-to-end composition (brick 48 / R5 capstone) =====================
+-- ===================== dispatch and loop composition =====================
 /-! ## Composing dispatch → signature loop → accept
 
-The three R5 pieces (`dispatch_routes_verify`, the signature-loop capstone, the accept-write) are proven
-independently. This section stitches the first two into a single **top-level `relay()` accept** statement:
+The dispatch theorem, signature-loop capstone, and accept-write theorem are independent. This section
+composes the first two into a single **top-level `relay()` accept** statement:
 from the mode dispatch, `protocolId ≠ 1` routes into the verify branch, whose signature loop — given a valid
 signer set that crosses the threshold — halts with the accept `return(0,0)` **and** the total registered
 weight exceeds the threshold. The composition is exact in fuel (dispatch adds a fixed overhead over the
 loop), so no fuel-monotonicity is assumed.
 
-**Modeling boundary (stated honestly, not papered over).** Between the verify-branch entry and the loop,
+**Modeling boundary.** Between the verify-branch entry and the loop,
 relay() runs ~hundreds of assembly lines of setup (calldata decode, message-hash reconstruction). Two tiers:
 
 * `dispatch_then_loop_accept` / `relay_dispatch_loop_accept` (Tier A) take the verify body to *be* the loop
@@ -2025,10 +2026,10 @@ relay() runs ~hundreds of assembly lines of setup (calldata decode, message-hash
   the real setup statements *is* a single `Stmt`, `setupStmt := Stmt.Block realSetup` makes this faithful:
   the only thing assumed is the setup's aggregate effect, which is exactly the unmodeled boundary.
 
-The accept-*write* (R5.3, `RelayStorageLayer.sstore_reads_back`) is deliberately NOT folded in here: the loop
+The accept write (`RelayStorageLayer.sstore_reads_back`) is not folded in here: the loop
 model's D3 deviation returns `return(0,0)` on accept (rather than `break`-then-write), so the write is a
-separate, independently-verified piece. Reconciling D3 (re-model accept as break→write→return) is the
-remaining end-to-end boundary — see docs/relay-verification/10. -/
+separate, independently verified piece. The difference between immediate accept and the deployed
+break→write→return path is an explicit model boundary. -/
 section CompositionLayer
 open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral
 
@@ -2071,7 +2072,7 @@ theorem dispatch_setup_loop_accept (fuel : Nat) (setupStmt loopStmt : Stmt) (cus
   exact hloop
 
 set_option maxHeartbeats 4000000 in
-/-- **R5 capstone — dispatch to accept, fully closed.** From the top-level mode dispatch, `protocolId ≠ 1`
+/-- **Dispatch-to-accept theorem.** From the top-level mode dispatch, `protocolId ≠ 1`
     routes into the verify branch (taken to be the signature loop), and — under the loop's iteration premises
     (`hstep`/`haccept`, the ecrecover boundary; `hi`/`hw`, the accumulator init) plus a valid signer prefix
     crossing the threshold at step `t` — relay() halts with the accept `return(0,0)` AND the total registered

@@ -27,7 +27,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
   const rewardEpochId = Math.floor((votingRoundId - firstRewardEpochVotingRoundId) / rewardEpochDurationInEpochs);
   let signingPolicyData: ISigningPolicy;
   let newSigningPolicyData: ISigningPolicy;
-  // RLY-23: signed relay digests are chain-bound; set in before().
+  // Signed relay digests are source-chain-bound; set in before().
   let chainId: number;
 
   before(async () => {
@@ -122,7 +122,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     expect(RelayMessage.equals(relayMessage2, decodedRelayMessage)).to.be.true;
   });
 
-  it("Should encode and decode a random-number Relay message with the RLY-03 trailer", async () => {
+  it("Should encode and decode a random-number Relay message with its proof trailer", async () => {
     const merkleRoot = ethers.hexlify(ethers.randomBytes(32));
     const messageData = {
       protocolId: 2,
@@ -151,11 +151,11 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
 
     const fullData = RelayMessage.encode(relayMessage);
     const decoded = RelayMessage.decode(fullData);
-    // the trailer is now parsed (previously decode() threw on the extra bytes)
+    // The decoder recognizes and returns the random-number proof trailer.
     expect(decoded.isRandomNumberGeneratingProtocolMessage).to.be.true;
     expect(decoded.randomNumber!.toLowerCase()).to.equal(randomNumber.toLowerCase());
     expect(decoded.merkleProof!.map((x) => x.toLowerCase())).to.deep.equal(merkleProof.map((x) => x.toLowerCase()));
-    // the core message still round-trips and re-encoding reproduces the exact bytes (incl. the trailer)
+    // The core message round-trips and re-encoding reproduces the exact bytes, including the trailer.
     expect(decoded.signatures.length).to.equal(signatures.length);
     expect(RelayMessage.equals(relayMessage, decoded)).to.be.true;
     expect(RelayMessage.encode(decoded)).to.equal(fullData);

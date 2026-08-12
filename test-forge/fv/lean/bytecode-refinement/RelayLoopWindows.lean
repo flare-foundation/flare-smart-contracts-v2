@@ -16,9 +16,9 @@ Payoff lemmas: `weight_of_window` (`and(mload(voterSlot), 0xffff)` = the 2-byte 
 reads `read_zero_then_write_suffix` / `_at31` / `read_sig_window_r` / `_s` / `read_index_window_head`
 matching the `mstore(0)` + `calldatacopy` pattern of the IR body.
 
-Self-contained (checks with one `lake env lean` against the pinned EVMYulLean `047f6307`). Only assumption
-beyond Lean's standard three: `zeroes_data` (spec of the `opaque` FFI `memset_zero`), exactly as in
-`DataLayer.lean`; the value-decode half (Part 2) uses none of it. Verified hole-free.
+Self-contained (checks with one `lake env lean` against the pinned EVMYulLean `047f6307`). Its only local
+semantic assumption beyond Lean's standard three is `zeroes_data`, which specifies the `opaque` FFI
+`memset_zero`; the value-decode half uses none of it. The source is hole-free.
 -/
 
 namespace RelayWindows
@@ -26,7 +26,7 @@ namespace RelayWindows
 /-- The minimal spec for the `opaque ffi.ByteArray.zeroes` (`memset_zero`), as in `DataLayer.lean`. -/
 axiom zeroes_data (n : USize) : (ffi.ByteArray.zeroes n).data = Array.replicate n.toNat (0 : UInt8)
 
-/-! ## Bricks copied from the committed `DataLayer.lean` -/
+/-! ## ByteArray helper lemmas -/
 
 /-- `ByteArray` append is `Array` append on `.data`. -/
 theorem append_data (a b : ByteArray) : (a ++ b).data = a.data ++ b.data := by

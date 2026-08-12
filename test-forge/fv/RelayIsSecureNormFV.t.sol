@@ -9,27 +9,26 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase-1 symbolic proof of OBLIGATION P5 — isSecure normalization (RLY-14). See docs/relay-fv.md §4 (P5).
+// Symbolic proof of the `isSecure` byte normalization.
 //
 // CLAIM. For the random-number protocol (protocolId == RANDOM_PROTOCOL_ID = 2, a Mode-2 relay carrying the
 // random trailer randomNumber||proof), let `b` be the raw isSecureRandom byte in the signed message
-// (Relay.sol message layout :103-108: protocolId(1)||votingRoundId(4)||isSecureRandom(1)||merkleRoot(32)).
-// The contract normalizes it once, `isSecure := iszero(iszero(b))` (Relay.sol:1450-1456), i.e. isSecure ==
+// (message layout: protocolId(1)||votingRoundId(4)||isSecureRandom(1)||merkleRoot(32)).
+// The contract normalizes it once, `isSecure := iszero(iszero(b))`, i.e. isSecure ==
 // (b != 0), and then uses that SAME local in every sink:
-//   - the Merkle LEAF hash  keccak256(abi.encode(votingRoundId, value, isSecure))  (processRandomMerkleProof
-//     :704-708, fed isSecure at :1469),
-//   - the historical bit  isSecureRandomMap[vrid/256] bit (vrid%256)  (set iff isSecure, :1473-1475 via
-//     setIsSecureRandomBit :674-686),
-//   - the live  stateData.isSecureRandom  (assignStruct at :1499-1501, first-round branch),
-//   - the emitted ProtocolMessageRelayed / RandomNumberRelayed bool (:1508, :1526).
+//   - the Merkle LEAF hash keccak256(abi.encode(votingRoundId, value, isSecure));
+//   - the historical bit isSecureRandomMap[vrid/256] bit (vrid%256), set by setIsSecureRandomBit;
+//   - the live stateData.isSecureRandom field; and
+//   - the emitted ProtocolMessageRelayed / RandomNumberRelayed bool.
 // We prove the three on-chain SINKS that are externally observable all equal (b != 0):
-//   (S1) getRandomNumberHistorical(vrid)._isSecureRandom  — reads the stored isSecureRandomMap bit (:1681-1683),
-//   (S2) getRandomNumber()._isSecureRandom               — reads stateData.isSecureRandom (:1653),
-//   (S3) the LEAF isSecure — established BY CONSTRUCTION + injective keccak (A1): the message's signed
+//   (S1) getRandomNumberHistorical(vrid)._isSecureRandom — reads the stored isSecureRandomMap bit,
+//   (S2) getRandomNumber()._isSecureRandom — reads stateData.isSecureRandom,
+//   (S3) the LEAF isSecure — established BY CONSTRUCTION under the keccak
+//        collision-resistance/injectivity model: the message's signed
 //        merkleRoot is built here as sortedPair(randomLeaf(vrid, value, b != 0), sibling); relay() recomputes
-//        the leaf from ITS normalized isSecure and reverts ("Invalid random number proof", :723) unless the
+//        the leaf from ITS normalized isSecure and reverts unless the
 //        recomputed root equals the signed root. So a NON-reverting (accepting) run forces the contract's leaf
-//        to equal randomLeaf(vrid, value, b != 0); under A1 (keccak injective) its leaf-isSecure == (b != 0).
+//        to equal randomLeaf(vrid, value, b != 0); injectivity then gives leaf-isSecure == (b != 0).
 //        We do not read the contract's internal leaf word directly (see CAVEATS) — S3 is the "proof verifies
 //        with a root committed to (b != 0)" argument, machine-checked via reachability of the accept path.
 //
@@ -45,18 +44,19 @@ import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 // WHY THE PROOF VERIFIES FOR ALL b. The signed merkleRoot here is built with the SAME normalization the
 // contract uses (randomLeaf(.., b != 0)). relay()'s leaf recompute uses isSecure == (b != 0) too, so the
 // recomputed root equals the signed root for every b and the proof passes — acceptance does not depend on the
-// concrete byte, exactly the RLY-14 normalization we are checking. The 2-leaf tree [randomLeaf, sibling] gives
-// a 1-node proof, so the Merkle fold loop (:709-722) runs once.
+// concrete byte, exactly the normalization we are checking. The 2-leaf tree [randomLeaf, sibling] gives
+// a 1-node proof, so the Merkle fold loop runs once.
 //
 // CONFIG. Fully-concrete signing policy (no vm.addr/vm.sign/sorting -> single deterministic setUp path under
 // Halmos): N=3 voters weight 100 each (total 300) > threshold 260, so 3 distinct signatures suffice to accept.
 // Only the SIGNATURES (v,r,s) and the isSecure byte are symbolic; ecrecover is the uninterpreted function E
-// (assumption A2), so the solver may freely set E(h,v_i,r_i,s_i) = voters[i] (the conservative worst case) and
+// at the uninterpreted recovery boundary, so the solver may freely set E(h,v_i,r_i,s_i) = voters[i]
+// (the conservative worst case) and
 // no real keypairs are needed. votingRoundId = START_VOTING_ROUND_ID maps to the policy's own reward epoch via
 // rewardEpochIdFromVotingRoundId ((3360-0)/3360 = 1 = REWARD_EPOCH_ID), so the same-epoch path is taken and the
-// threshold-increase block (Relay.sol:960/976) is never entered; this is the FIRST random relay so
+// threshold-increase block is never entered; this is the FIRST random relay so
 // randomVotingRoundId starts at 0 < START_VOTING_ROUND_ID and the live-pointer/stateData.isSecureRandom write
-// at :1482-1504 fires (S2 is meaningful). The signature loop runs once per signature (3 sigs) and the Merkle
+// update fires (S2 is meaningful). The signature loop runs once per signature (3 sigs) and the Merkle
 // fold once (1-node proof): max loop depth 3 <= halmos.toml loop = 6 (loopBoundNeeded = 3).
 contract RelayIsSecureNormFV is RelayTestBase {
     bytes internal policy;
@@ -84,12 +84,12 @@ contract RelayIsSecureNormFV is RelayTestBase {
     // ---- Merkle helpers mirroring the contract (RelayRandomTest._sortedPair/_randomLeaf), kept local
     //      because they live on RelayRandomTest, not RelayTestBase. ----
 
-    // OpenZeppelin sorted-pair parent hash (matches processRandomMerkleProof :716-721).
+    // OpenZeppelin sorted-pair parent hash (matches processRandomMerkleProof).
     function _sortedPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
         return a < b ? keccak256(abi.encodePacked(a, b)) : keccak256(abi.encodePacked(b, a));
     }
 
-    // leaf = keccak256(abi.encode(votingRoundId, value, isSecure)) — mirrors Relay.sol:704-708
+    // leaf = keccak256(abi.encode(votingRoundId, value, isSecure)) — mirrors processRandomMerkleProof
     // (abi.encode left-pads each field to 32 bytes; isSecure encoded as 1/0).
     function _randomLeaf(uint32 vrid, uint256 value, bool isSecure) internal pure returns (bytes32) {
         return keccak256(abi.encode(uint256(vrid), value, uint256(isSecure ? 1 : 0)));
@@ -99,7 +99,7 @@ contract RelayIsSecureNormFV is RelayTestBase {
         return abi.encodePacked(x.v, x.r, x.s, index);
     }
 
-    // Three signatures at strictly-increasing indices 0,1,2 (so the strict-index guard at Relay.sol:1261
+    // Three signatures at strictly-increasing indices 0,1,2 (so the strict-index guard
     // passes and all three weights are counted -> 300 > 260 -> accept on the third signature).
     function _threeSigs(Sig calldata a, Sig calldata b, Sig calldata c) internal pure returns (bytes memory) {
         return abi.encodePacked(uint16(3), _sig(a, 0), _sig(b, 1), _sig(c, 2));
@@ -136,10 +136,10 @@ contract RelayIsSecureNormFV is RelayTestBase {
         (ok, ) = address(relay).call(_randomCalldataLeaf(isSecureByte, leafBit, _threeSigs(a, b, c)));
     }
 
-    // ===================== P5 proofs: every observable isSecure sink == (b != 0) =====================
+    // ===================== Every observable isSecure sink equals (b != 0) =====================
 
-    // P5.S1 — historical stored bit: accepting run => getRandomNumberHistorical(VRID)._isSecureRandom == (b != 0).
-    // Reads the persisted isSecureRandomMap bit (Relay.sol:1681-1683), set iff isSecure at :1473-1475.
+    // Historical stored bit: accepting run => getRandomNumberHistorical(VRID)._isSecureRandom == (b != 0).
+    // Reads the persisted isSecureRandomMap bit, which is set iff isSecure.
     // EXPECT: PASS.
     function check_historicalSecure_eq_byteNonZero(
         uint8 isSecureByte, Sig calldata a, Sig calldata b, Sig calldata c
@@ -151,9 +151,9 @@ contract RelayIsSecureNormFV is RelayTestBase {
         }
     }
 
-    // P5.S2 — live flag: accepting run => getRandomNumber()._isSecureRandom == (b != 0).
-    // Reads stateData.isSecureRandom (Relay.sol:1653), written from isSecure in the first-round branch
-    // :1499-1501 (VRID > 0 = initial randomVotingRoundId, so the branch fires). EXPECT: PASS.
+    // Live flag: accepting run => getRandomNumber()._isSecureRandom == (b != 0).
+    // Reads stateData.isSecureRandom, written from isSecure in the first-round branch
+    // (VRID > 0 = initial randomVotingRoundId, so the branch fires). EXPECT: PASS.
     function check_liveSecure_eq_byteNonZero(
         uint8 isSecureByte, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {
@@ -164,7 +164,7 @@ contract RelayIsSecureNormFV is RelayTestBase {
         }
     }
 
-    // P5.cross — the two persisted sinks agree with each other on every accepting run (no path stores the
+    // Cross-sink consistency: the two persisted sinks agree on every accepting run (no path stores the
     // historical bit and the live flag inconsistently). EXPECT: PASS.
     function check_liveAndHistorical_agree(
         uint8 isSecureByte, Sig calldata a, Sig calldata b, Sig calldata c
@@ -177,13 +177,14 @@ contract RelayIsSecureNormFV is RelayTestBase {
         }
     }
 
-    // P5.S3 (machine-checked) — LEAF normalization is exactly (b != 0), for all b in 0..255.
+    // Machine-checked leaf normalization is exactly (b != 0), for all b in 0..255.
     // We build the signed root from an INDEPENDENT symbolic leaf bit `lb` (decoupled from the message byte
-    // b). The contract recomputes its leaf from ITS rule and reverts (Relay.sol:723) unless the recomputed
-    // root equals this signed root; by injective keccak (A1, same VRID/VALUE) acceptance holds iff the
+    // b). The contract recomputes its leaf from ITS rule and reverts unless the recomputed
+    // root equals this signed root; under the keccak collision-resistance/injectivity model (with the same
+    // VRID and VALUE), acceptance holds iff the
     // contract's leaf-isSecure equals `lb`. Therefore `accept => (b != 0) == lb` MACHINE-CHECKS that the
     // contract's leaf rule is exactly (b != 0): a divergent rule (e.g. b & 1) would let some (b, lb) accept
-    // with lb != (b != 0), refuting the assertion. EXPECT: PASS. (Upgrades the former by-construction S3.)
+    // with lb != (b != 0), refuting the assertion. EXPECT: PASS.
     function check_leafNorm_machineChecked(
         uint8 isSecureByte, uint8 lb, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {

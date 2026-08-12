@@ -109,8 +109,8 @@ function stripCborMetadata(value, label) {
   fail(`${label} has no valid Solidity CBOR metadata segment`);
 }
 
-// The legacy codegen pipeline places the runtime object (and thus its CBOR metadata suffix) at
-// the very end of the creation bytecode; via_ir emits constructor code after the embedded runtime,
+// With viaIR disabled, solc places the runtime object (and thus its CBOR metadata suffix) at
+// the very end of the creation bytecode; viaIR emits constructor code after the embedded runtime,
 // so the metadata sits mid-stream. Excise the runtime's exact suffix bytes wherever they occur.
 function stripEmbeddedCborMetadata(value, runtimeSuffix, label) {
   const bytes = bytesFromHex(value, label);

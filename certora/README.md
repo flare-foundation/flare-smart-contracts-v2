@@ -1,54 +1,33 @@
 # Certora verification for Relay
 
-This directory targets the current `relay-owner-timelock` architecture:
+This directory targets the current Relay architecture:
 
 - upgradeable `Relay` implementation compiled with Solidity 0.8.35;
 - per-chain `OwnableUpgradeable` owner;
 - exact-calldata owner timelock in an ERC-7201 namespace; and
 - UUPS upgrades guarded by that same owner-timelock path.
 
-The retired cross-chain Safe/GSS model is not part of the current source graph.
-Its specifications and configurations were removed rather than left as apparently
-executable evidence. Git history remains the record of that abandoned design.
+## Evidence outputs
 
-## Current evidence status
-
-> **Current normalized evidence.** At HEAD
-> `d5af7136c03d6bab83307b0f4bd49101b8792e40`, manifest SHA-256
-> `7ae2208f96a520f477b528ee808909f87e9402247bacab00e04052fa02ec2cb1`
-> binds 3 Certora configs and an exact 15-rule inventory. The normalized local
-> report SHA-256
-> `9d3ce0394ebcfadb2b415021a077a0a29761814a11a510d90d23364f97185067`
-> is **PASS** (3/3 configs, 15 rules, 0 local violations). This is a
-> compilation/CVL front-end result, not a prover verdict. The aggregate local
-> evidence bundle SHA-256
-> `be386d63acdd336b99ab84c64cb0f32ba9c3bafbba02b17164ebd176b7e4f64a`
-> is also **PASS**, but both artifacts are development-only solely because they
-> were generated from a dirty worktree. A clean committed rerun is required for
-> release-eligible evidence.
-
-The current three-config local run used:
+The verification manifest binds three Certora configurations and 15 rules. The
+local preparation gate compiles the Solidity scenes and type-checks every CVL
+rule with:
 
 - `certora-cli 8.16.1`;
-- Java 26 (the manifest requires at least Java 21);
+- Java at or above the manifest's minimum version;
 - `solc 0.8.35+commit.47b9dedd`;
 - Cancun EVM, optimizer 200, `viaIR=true`; and
 - OpenZeppelin contracts and upgradeable contracts 5.7.0.
 
-The normalized supplemental cloud report SHA-256
-`93d09d86d1acbf3b3ffdb0f6d9f8145b094722b9b7de94e131ef8e8e97ca4821`
-binds the same HEAD and manifest and is **PARTIAL**. Its threshold configuration
-is **PASS**; the scalar and write-once configurations are **PARTIAL** because of
-sanity exclusions. Across all three jobs, the normalized semantic totals are
-308 `SUCCESS`, 2 `SATISFIED`, and 24 `SANITY_FAIL`, with no semantic assertion
-counterexample, `UNKNOWN`, or `TIMEOUT`. Imported cloud results are supplemental
-evidence, not a constituent of the local aggregate bundle or a release verdict.
+The local result is a compilation and CVL front-end result, not a prover
+verdict. `verification-reports/relay-certora-local.json` records the exact Git
+commit, manifest, tool versions, source hashes, commands and rule inventory.
 
-Current cloud jobs:
-
-- [scalar invariants](https://prover.certora.com/output/3798318/96136f4b1ce349889963c722745f6d8a)
-- [threshold fail-fast and arithmetic](https://prover.certora.com/output/3798318/a133698c16d54e7cb4a518a3251dd73a)
-- [write-once and timelock transitions](https://prover.certora.com/output/3798318/5f29c9d404134b7aa3578484455bf424)
+Cloud runs are normalized into
+`verification-reports/relay-certora-cloud.json`. Cloud evidence is supplemental:
+it is not a constituent of the local aggregate bundle or a release verdict. Use
+the report's provenance, completeness, sanity and per-rule result fields rather
+than copying job metadata into this document.
 
 ## Rule inventory
 
@@ -94,9 +73,18 @@ show that a conditional `reverted || property` reached the successful branch.
 The two success-conditional timelock rules therefore include explicit `satisfy`
 witnesses. `ownershipRenounceAlwaysReverts` and the threshold fail-fast rule
 intentionally have no successful path: rejection is their property, so a generic
-non-revert witness is inapplicable. The current normalized cloud report records
-24 sanity exclusions and two concrete SAT witnesses. These outcomes must be read
-per rule and per method rather than hidden behind the CLI's aggregate banner.
+non-revert witness is inapplicable. Sanity exclusions and SAT witnesses are
+recorded in the normalized cloud report and must be read per rule and method
+rather than hidden behind the CLI's aggregate banner.
+
+The parametric scalar and write-once rules invoke generic methods with
+`@withrevert`. Reverting calls remain in the method domain and must preserve the
+sampled state after rollback. This includes ABI-dispatched `relay()`, whose
+generic zero-argument call supplies only the selector and lacks the required
+trailing protocol payload, and the deliberately disabled `renounceOwnership()`.
+Raw relay payloads are modeled by the manifest-bound Halmos and Lean layers
+within their stated bounds; the direct `ownershipRenounceAlwaysReverts` rule also
+covers the disabled ownership path.
 
 All three configurations set `loop_iter=3` and `optimistic_loop=true`. Certora may
 assume away executions that continue past three loop iterations, so a cloud
@@ -122,11 +110,11 @@ every `uint16` threshold at or above 10000 is rejected before either kind of sto
 or the raw-calldata self-call. There is no dispatcher, `HAVOC`, or `NONDET`
 summary in this spec.
 
-Certora does **not** currently claim the below-100% successful path. In the
-superseded attempt, solc's via-IR lowering did not leave the Prover a sufficient
-relation between `_relayMessage`'s CVL bytes and the low-level `CALL` selector for
-a pessimistic dispatcher to eliminate its fail-closed fallback. An optimistic
-dispatcher would merely assume the key match. Successful override forwarding,
+Certora does **not** claim the below-100% successful path. Solc's via-IR lowering
+does not expose a sufficient relation between `_relayMessage`'s CVL bytes and the
+low-level `CALL` selector for a pessimistic dispatcher to eliminate its
+fail-closed fallback. An optimistic dispatcher would merely assume the key
+match. Successful override forwarding,
 `TSTORE -> self-call -> TLOAD`, zero cleanup, caught-revert rollback, address
 scope, and protocol-mode isolation therefore remain the responsibility of the
 bounded Halmos checks and the stated Lean operation/state refinement seam, with
@@ -141,17 +129,14 @@ layer does not by itself link that identity to the production
 identity remains mathematical only: production treats zero as the no-override
 sentinel and uses the policy threshold.
 
-All three scenes compile through `viaIR=true`. The current jobs preserve their
-cloud call-resolution diagnostics. A “failed to locate internal function” diagnostic
+All three scenes compile through `viaIR=true`. A “failed to locate internal function” diagnostic
 does not by itself omit that code: without an internal summary, the TAC remains
 inlined and attributed to the enclosing external method. It does limit internal
 function attribution, decomposition, and the applicability of an internal
-summary. The normalized report contains no semantic counterexample, `UNKNOWN`,
-or `TIMEOUT`, but its `viaIR` resolution diagnostics and 24 sanity failures remain
-limitations of the current scalar and write-once jobs. In particular, the direct
-implementation scene cannot establish full proxy-context reachability for UUPS;
-proxy upgrade behavior remains a separate proxy-aware verification and test
-obligation.
+summary. Any such diagnostics and sanity failures are explicit limitations on
+the affected cloud claims. The direct implementation scene cannot establish
+full proxy-context reachability for UUPS; proxy upgrade behavior remains a
+separate proxy-aware verification and test obligation.
 
 ## Trusted-upgrade boundary
 
@@ -163,7 +148,7 @@ The parametric scalar and mapping-preservation rules exclude:
 3. `executeTimelockedCall(...)`, because it can dispatch the queued upgrade.
 
 This exclusion is necessary for sound specification. An owner-authorized UUPS
-upgrade can install arbitrary code, so an invariant over the old implementation
+upgrade can install arbitrary code, so an invariant over the modeled implementation
 cannot quantify over arbitrary replacement semantics. The CVL still checks the
 owner entry guard and current-implementation timelock queue behavior. The
 `successfulExecutionConsumesQueue` uses a positive, exact-selector allowlist for
@@ -181,9 +166,7 @@ methods, so a matching selector executes real current-implementation code; only
 unmatched calls fall back to `HAVOC_ECF`. The explicit success witness further
 requires canonical `setTimelockDuration(uint256)` calldata and an observed
 in-range duration change. Thus neither a queued no-op nor the fallback summary
-can be the sole reachability evidence. The current detailed SAT model
-exhibited the intended queued duration call's ETA consumption, transient-flag
-cleanup, and applied duration mutation.
+can be the sole reachability evidence.
 
 Upgrade arguments are deliberately not parsed or constrained: every call to the
 UUPS entry point is outside the execution rule, including malformed calls that
@@ -210,9 +193,9 @@ changes exactly these two visibility keywords from `private` to `internal`:
 - `toSigningPolicyHashPrivate`; and
 - `merkleRootsPrivate`.
 
-All current owner-timelock dependencies are copied byte-for-byte. The script deletes
-the generated tree first, preventing retired architecture files from surviving a
-regeneration, then fails if the Relay diff is anything other than those two lines.
+All required dependencies are copied byte-for-byte. The script deletes the
+generated tree first so unlisted files cannot survive a regeneration, then fails
+if the Relay diff is anything other than those two lines.
 The harness adds read-only raw getters; it does not alter production storage.
 
 ## Reproduce the local preparation gate
@@ -275,12 +258,4 @@ counterexample. The normalizer binds job identity, archive inputs, config/spec
 semantics, every authoritative result block, and the detailed SAT witness table.
 Imported cloud evidence remains development-only. Record the commit, manifest,
 compiler settings, rule inventory, report URLs, per-method outcomes, and every
-sanity exclusion before updating the claims ledger.
-
-## Historical evidence
-
-Earlier jobs targeted predecessor source, manifests, or a non-upgradeable,
-pre-owner-timelock Relay with different compiler settings. They remain useful for
-explaining why the successful threshold-path dispatcher was retired, but none is
-evidence for the current revision. Use only the current normalized reports and
-the three current job URLs listed above for present-tense claims.
+sanity exclusion in the normalized report.

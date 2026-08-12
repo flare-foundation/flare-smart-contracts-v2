@@ -20,8 +20,7 @@ establishes the loop *mechanism* on validated semantics. The data-layer fact (ea
 registered weight), the 256-bit overflow bound, and the encoding fidelity are stated assumptions; see
 the verification documentation's claims ledger.
 
-New to this suite? See `../../README.md` §3 (how to read a Lean proof + how to re-check it against
-EVMYulLean) and `README.md` in this directory (the ∀N refinement, walked). Reading aid for the tactics:
+See `README.md` in this directory for scope, assumptions, and reproduction. Reading aid for the tactics:
 `unfold`/`simp only` rewrite by definitions; `omega` decides linear arithmetic; the `set_option
 maxHeartbeats` lines just raise the elaboration budget for the heavier `whnf` reductions. Trust check: the
 `#print axioms` lines at the bottom must each be `[propext, Classical.choice, Quot.sound]` (no `sorryAx`).
@@ -214,7 +213,7 @@ theorem bytecode_loop_correct (N : Nat) (hN : N < UInt256.size)
 -- bytecode "accepts" — its final weight strictly exceeds the threshold — then the TOTAL accumulated weight
 -- exceeds the threshold. This is RelaySigLoop.threshold_sound's content (accept ⟹ enough weight), now on
 -- the VALIDATED-SEMANTICS bytecode, for ALL N. (absAcc 0 N ⟨0⟩ = Σ_{j<N} ofNat j is the UInt256 mirror of
--- RelaySigLoop.sumTake over the registered weights; see PROGRESS.md.)
+-- RelaySigLoop.sumTake over the registered weights.)
 theorem bytecode_threshold_sound (N : Nat) (hN : N < UInt256.size)
     (ss : EvmYul.SharedState .Yul) (vs vs' : VarStore) (thr : EvmYul.UInt256)
     (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
@@ -229,10 +228,10 @@ theorem bytecode_threshold_sound (N : Nat) (hN : N < UInt256.size)
   rw [hex2, hWW] at haccept
   exact haccept
 
--- ===================== BR-2: the modular accumulator carries the INTEGER sum (no overflow) =====================
+-- ===================== No-overflow refinement: modular accumulator carries the INTEGER sum =====================
 -- `absAccNat` is the ℕ-valued mirror of `absAcc`. Under a no-overflow bound the deployed loop's modular
 -- (𝕌) accumulator equals `ofNat` of the integer accumulator, so the 𝕌 threshold comparison IS the integer
--- comparison — discharging the BR-2 side condition inside Lean rather than leaving it a prose remark.
+-- comparison — discharging the no-overflow premise inside Lean rather than leaving it a prose remark.
 def absAccNat : Nat → Nat → Nat → Nat
   | _, 0,     w => w
   | a, m + 1, w => absAccNat (a + 1) m (w + a)

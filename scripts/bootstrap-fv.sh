@@ -7,11 +7,9 @@
 #                                        #   ~30-60 min first time) and run the 9-file Lean gate
 #
 # What "done" looks like: every gate prints PASS/OK and Halmos reports the exact manifest inventory.
-# The reference interpretation of every verdict: docs/relay-verification/11-reproducibility.md.
+# The evidence and reproduction rules: docs/relay-verification/11-reproducibility.md.
 #
-# Not automated (deliberately): the Kontrol Docker image (~18.5 GB — see test-forge/fv/kontrol/README.md)
-# and Certora cloud runs (need CERTORAKEY — see certora/README.md). Java (JDK) is only needed for
-# Certora's local typecheck.
+# Certora cloud runs require CERTORAKEY; Java is needed only for Certora's local typecheck.
 set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root
 
@@ -116,8 +114,9 @@ if [ "$RUN_LEAN" = 1 ]; then
   fi
   git -C "$EVMYUL_DIR" checkout "$PIN"
   (cd "$EVMYUL_DIR" && lake exe cache get && lake build)
-  EVMYUL_DIR="$EVMYUL_DIR" python3 test-forge/fv/lean/verify_lean.py
+  EVMYUL_DIR="$EVMYUL_DIR" python3 test-forge/fv/lean/verify_lean.py \
+    --report-output verification-reports/relay-lean.json
 fi
 
 step "bootstrap complete"
-echo "Start reading at: CLAUDE.md -> docs/relay-verification/00-README.md -> docs/relay-verification/CHECKPOINT.md"
+echo "Start reading at: CLAUDE.md -> docs/relay-verification/00-README.md -> docs/relay-verification/AUDIT-TRAIL.md"

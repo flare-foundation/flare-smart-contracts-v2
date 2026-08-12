@@ -46,7 +46,7 @@ abstract contract RelayDeployBase is Script {
     /// Flare), so the source-bound signing-policy hash is identical on every target — the
     /// snapshot makes that reuse explicit and auditable.
     struct SourceSnapshot {
-        uint256 sourceChainId;              // the home Relay's RLY-23 source network id
+        uint256 sourceChainId;              // the home Relay's source network id
         uint32 initialRewardEpochId;
         uint32 startingVotingRoundId;
         bytes32 initialSigningPolicyHash;   // already source-bound (bound to Flare) — pass through
@@ -496,7 +496,7 @@ abstract contract RelayDeployBase is Script {
     }
 
     /**
-     * The Relay signing-policy hash (RLY-23 chain-domain binding):
+     * The Relay source-bound signing-policy hash:
      * keccak256(sourceChainId ‖ raw encoded policy bytes) — one keccak over the 32-byte source
      * id followed by the exact 43 + 22·n encoded bytes, no padding. Must match
      * Relay.setSigningPolicy / relay() and SigningPolicy.hashEncoded (SigningPolicy.ts).
@@ -538,11 +538,11 @@ abstract contract RelayDeployBase is Script {
     }
 
     /**
-     * The RETIRED chained-fold content hash of the currently deployed (pre-RLY-23) Relay: the
+     * The migration-compatible chained-fold signing-policy content hash: the
      * encoded policy is zero-padded to a multiple of 32 bytes, the first two 32-byte chunks are
      * hashed together, and every further chunk is folded in with keccak256(hash ‖ chunk).
-     * Used ONLY as a migration sanity check — to prove a policy reconstructed from chain state
-     * is byte-identical to what the old Relay hashed — never to seed the new Relay.
+     * Used only as a migration sanity check to prove that a policy reconstructed from chain
+     * state is byte-identical to the source Relay's policy — never to seed the target Relay.
      */
     function _legacyPolicyContentHash(
         bytes memory _encodedPolicy

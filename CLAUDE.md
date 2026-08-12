@@ -597,59 +597,52 @@ The upgrade script:
 
 ---
 
-# Relay.sol verification & hardening engagement (merged from relay-fix-3)
+# Relay.sol security and formal verification
 
-This branch also carries the **formal verification + hardening of
-`contracts/protocol/implementation/Relay.sol`** (originally branch `relay-fix-3`, MR !135).
-The cross-chain Safe (GSS) governance that was later merged here has been retired before
-any deployment; Relay is now governed by a per-chain owner + timelock — see
-[`docs/relay-governance.md`](docs/relay-governance.md).
+The current `Relay` is upgradeable and uses a per-chain owner with an
+exact-calldata timelock. Its implementation, security review and formal evidence
+must be reviewed together.
 
 ## Read in this order
 
-1. [`docs/relay-verification/00-README.md`](docs/relay-verification/00-README.md) — the audience-facing
-   account (12-level ladder: tutorial → audit → reproducibility). Skim L2 + L10 first.
-2. [`docs/relay-verification/CHECKPOINT.md`](docs/relay-verification/CHECKPOINT.md) — the raw engagement
-   log. **The ⭐ banners at the top are the current state and the resume point.**
-3. [`test-forge/fv/README.md`](test-forge/fv/README.md) — how to read/run the FV suites (Halmos, Kontrol,
-   Lean, Certora).
-4. [`docs/relay-verification/CONCEPTS.md`](docs/relay-verification/CONCEPTS.md) — plain-words explanations
-   of the concepts (SMT, k-induction, CEX, psAt, …), if any are unfamiliar.
+1. [`docs/relay-security-review.md`](docs/relay-security-review.md) — current security findings, assumptions and residual risks.
+2. [`docs/relay-verification/00-README.md`](docs/relay-verification/00-README.md) — formal-verification tutorial and claim boundaries.
+3. [`docs/relay-verification/AUDIT-TRAIL.md`](docs/relay-verification/AUDIT-TRAIL.md) — current evidence inventory and provenance requirements.
+4. [`test-forge/fv/README.md`](test-forge/fv/README.md) — how to run and interpret the proof suites.
 
 ## Toolchain bootstrap
 
 ```bash
-./scripts/bootstrap-fv.sh          # node deps, forge build, ./.venv-halmos (from the lock), Halmos gate
-./scripts/bootstrap-fv.sh --lean   # + pinned EVMYulLean at /tmp/evmyul2 (~30-60 min) + Lean gate
+./scripts/bootstrap-fv.sh          # deployment/ABI/artifact gates and the pinned Halmos suite
+./scripts/bootstrap-fv.sh --lean   # also run the pinned EVMYulLean gate
 ```
 
-The Halmos venv `./.venv-halmos` is the **reference toolchain** (gitignored; reconstructed from
-`test-forge/fv/requirements-halmos.lock`). Judge FV verdicts **only** from this venv or CI — a stray local
-install has been observed to misreport nonlinear proofs at identical package versions.
+The verification manifest is the source of truth for tool versions, source
+closures and exact check inventories. Do not copy counts or hashes into durable
+documentation; read them from the manifest and normalized reports.
 
-## Hard rules (they bite)
+## Verification rules
 
-- **Never edit `/tmp/evmyul2/EvmYul/**`** — the pinned EVMYulLean (commit `047f6307…`) is read-only ground
-  truth. Check Lean files with `lake env lean <file>` only; **never `lake build`** in that checkout.
-- **Hole-free bar for Lean results:** `#print axioms` ⊆ `{propext, Classical.choice, Quot.sound}` plus the
-  two documented data-layer specs (`zeroes_data`, `toByteArray_size`). No `sorry`, no `native_decide`.
-  Enforced by `test-forge/fv/lean/verify_lean.py`.
-- **Deferred contract issues stay deferred:** RLY-05/08/12 and RLY-07 are comment-only in `Relay.sol` — do
-  not "fix" them (see `docs/relay-fixes.md`).
+- Treat `/tmp/evmyul2/EvmYul/**` as read-only pinned semantics. Check project Lean
+  files through `test-forge/fv/lean/verify_lean.py`.
+- Lean results must remain free of `sorryAx` and `native_decide`; the verifier
+  enforces the manifest's exact allowed-axiom set.
+- Judge Halmos by the normalized gate: proofs must pass and every reachability
+  control must produce its expected counterexample.
+- A Certora local preparation pass establishes compilation and CVL type-checking,
+  not a cloud-prover verdict.
+- A release-capable bundle must bind clean-worktree reports to one Git commit and
+  one manifest hash.
 
-## The gates (green = healthy)
+## Gates
 
 | Gate | Command | Checks |
 |------|---------|--------|
-| Halmos | `HALMOS=$PWD/.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py` | exact 89-check inventory vs `test-forge/fv/verification-manifest.json`: 60 proofs PASS + 29 reachability controls with validated counterexamples |
-| Lean | `EVMYUL_DIR=/tmp/evmyul2 python3 test-forge/fv/lean/verify_lean.py` | all proof files hole-free vs the pinned semantics |
-| Artifact parity | `test-forge/fv/verify_relay_artifact.py` | FV solc output ≡ deployment artifact; optimized Yul ≡ the committed Lean source snapshot |
-| Doc links | `python3 docs/relay-verification/verify_links.py --check` (`--fix` to repair) | symbol-addressed code links in the docs stay current |
-| Kontrol | `test-forge/fv/kontrol/run.sh` in the Docker image (see its README) | 14 proofs + 6 CEX-by-design vs its manifest (signature loop at N=3 **and** N=5, plus random monotonicity) |
-
-**NOTE (owner-timelock upgradeable refactor):** the Relay governance refactor on this branch
-(OwnableWithTimelock base, UUPS proxies, solc 0.8.35; the retired Safe/GSS design and its
-suites are gone) deliberately leaves the FV gates red pending a full re-baseline (manifest
-hash pins — including dropping the retired `gss_*` inventories and `check_gss_*` entries —
-Lean Yul snapshot, Certora munge, Kontrol, compiler re-pins). Do not "fix" the gates
-piecemeal; the re-baseline is a dedicated follow-up task.
+| Deployment provenance | `node scripts/relay-artifact-provenance.js` | deployment bytecode, ABI and compiler provenance |
+| Custom-error ABI | `python3 test-forge/fv/verify_relay_custom_error_abi.py` | assembly revert payloads against Solidity error selectors |
+| Artifact parity | `test-forge/fv/verify_relay_artifact.py --deployment-report verification-reports/relay-deployment.json` | FV solc output against the deployment artifact and committed optimized Yul |
+| Halmos | `HALMOS=$PWD/.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py` | manifest-bound proofs and non-vacuity controls |
+| Lean | `EVMYUL_DIR=/tmp/evmyul2 python3 test-forge/fv/lean/verify_lean.py` | required theorems and allowed axioms against pinned semantics |
+| Certora local | `python3 test-forge/fv/verify_certora_local.py --solc /path/to/solc-0.8.35` | exact three-config front-end preparation |
+| Bundle | `python3 test-forge/fv/verify_bundle.py --output verification-reports/relay-fv-bundle.json` | one provenance-bound aggregate result |
+| Documentation links | `python3 docs/relay-verification/verify_links.py --check` | symbol-addressed links resolve to current source |

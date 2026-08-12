@@ -10,18 +10,18 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 Step 4 (L3): message FINALIZATION WINDOW gate (Relay.sol:929-947), MULTI-STEP.
+// Message finalization-window gate, exercised across multiple calls.
 // To bound the influence of participants in OLD signing policies, relay() rejects a message that is more
 // than `messageFinalizationWindowInRewardEpochs` reward epochs behind lastInitialized:
 //     if (messageRewardEpochId + finalizationWindow < lastInitializedRewardEpoch) revert "Message too old"
 // (MESSAGE_FINALIZATION_WINDOW = 5 here.)
 //
-// SETUP (setter mode): deploy with epoch-1 policy P1 (lastInitialized = 1), then advance lastInitialized
+// SETUP (setter mode): deploy with the epoch-1 policy (lastInitialized = 1), then advance lastInitialized
 // to 7 by initialising epochs 2..7 via setSigningPolicy. With lastInitialized = 7 and window = 5, an
-// epoch-1 message (messageRewardEpochId = 1) is too old: 1 + 5 = 6 < 7. The epoch-7 policy P7 is kept so
+// epoch-1 message (messageRewardEpochId = 1) is too old: 1 + 5 = 6 < 7. The epoch-7 policy is kept so
 // the anti-vacuity control can finalize a RECENT (not-too-old) message and show acceptance is reachable in
 // this same state. Advance policies use threshold 180 (valid band for totalWeight 300: 180*10000 ∈
-// [300*5000, 300*6600]); P1's constructor threshold (260) is irrelevant since the too-old gate fires first.
+// [300*5000, 300*6600]); the constructor policy's threshold (260) is irrelevant because the too-old gate fires first.
 contract RelayFinalizationWindowFV is RelayTestBase {
     bytes internal policy1; // epoch-1 policy (too-old when relayed)
     bytes internal policy7; // epoch-7 policy (recent; for the reachability control)
@@ -45,7 +45,7 @@ contract RelayFinalizationWindowFV is RelayTestBase {
         sp.startVotingRoundId = _epochStart(epoch);
         sp.threshold = ADV_THR;
         sp.seed = SEED;
-        sp.voters = voters; // same 3 voters/weights as P1
+        sp.voters = voters; // same 3 voters/weights as the constructor policy
         sp.weights = weights;
     }
 
@@ -81,7 +81,8 @@ contract RelayFinalizationWindowFV is RelayTestBase {
         (ok,) = address(relay).call(abi.encodePacked(Relay.relay.selector, pol, message, sigs));
     }
 
-    // L3 — an epoch-1 message (6 = 1+window < lastInitialized 7) is rejected as too old, with the epoch-1
+    // Finalization-window property: an epoch-1 message (6 = 1+window < lastInitialized 7) is rejected as
+    // too old, with the epoch-1
     // policy. EXPECT: PASS (relay cannot finalize a too-old message).
     function check_messageTooOld_rejected(Sig calldata a, Sig calldata b, Sig calldata c) external {
         assert(!_relay(policy1, START_VOTING_ROUND_ID, a, b, c)); // votingRound 3360 => epoch 1, too old

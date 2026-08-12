@@ -503,7 +503,7 @@ contract RelayOwnableWithTimelockTest is Test {
         c.messageFinalizationWindowInRewardEpochs = 1;
         c.feeCollectionAddress = payable(address(0xFEE));
         c.feeConfigs = new IRelay.FeeConfig[](0);
-        c.sourceChainId = block.chainid; // the RLY-23 source id is mandatory
+        c.sourceChainId = block.chainid; // the source-network id is mandatory
         c.timelockDurationSeconds = _timelockDurationSeconds;
     }
 }

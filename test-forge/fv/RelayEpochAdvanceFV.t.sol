@@ -10,8 +10,8 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 Step 4 (L1): signing-policy LIFECYCLE — strict sequential reward-epoch advance.
-// setSigningPolicy (Relay.sol:321) requires, BEFORE any other validation (Relay.sol:331-334):
+// Signing-policy lifecycle: strict sequential reward-epoch advance.
+// setSigningPolicy requires, before any other validation:
 //     stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId
 // so initialised epochs can only ever step forward by exactly one — no skip, no replay, no regress.
 // Proven against the REAL setSigningPolicy on an otherwise-fully-valid policy (1 voter, weight 100,
@@ -39,14 +39,15 @@ contract RelayEpochAdvanceFV is RelayTestBase {
         sp.weights[0] = 100; // totalWeight = 100 < 2**16
     }
 
-    // L1 — any epoch other than lastInitialized+1 (==2) is REJECTED (no skip/replay/regress).
+    // Sequential-epoch property: any epoch other than lastInitialized+1 (==2) is REJECTED
+    // (no skip/replay/regress).
     // EXPECT: PASS (proof).
     function check_epochAdvance_requiresSequential(uint24 epoch) external {
         vm.assume(epoch != uint24(REWARD_EPOCH_ID) + 1); // != 2
         Relay r = _deploySetter();
         IIRelay.SigningPolicy memory sp = _validPolicy(epoch);
         (bool ok,) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
-        assert(!ok); // wrong epoch => revert at Relay.sol:331
+        assert(!ok); // wrong epoch => sequential-epoch guard reverts
     }
 
     // Anti-vacuity: the correct next epoch (==2) IS accepted, so the guard is not trivially always-revert.
@@ -58,11 +59,8 @@ contract RelayEpochAdvanceFV is RelayTestBase {
         assert(!ok); // EXPECT counterexample: the sequential epoch succeeds
     }
 
-    // L1-MONOTONE (state effect / unbounded monotonicity step): a SUCCESSFUL setSigningPolicy advances
-    // lastInitializedRewardEpoch by EXACTLY +1 (Relay.sol — the new epoch is written as lastInitialized+1).
-    // This is the inductive STEP for unbounded monotonicity: by base (constructor sets it to
-    // initialRewardEpochId) + this step, the pointer is strictly increasing across ANY sequence of
-    // policy initialisations — it can never stall or regress (meta-induction, as for the sig-loop / fold).
+    // In this modeled transition, a successful setSigningPolicy advances
+    // lastInitializedRewardEpoch by exactly one.
     // EXPECT: PASS (proof).
     function check_epochAdvance_incrementsByOne() external {
         Relay r = _deploySetter();

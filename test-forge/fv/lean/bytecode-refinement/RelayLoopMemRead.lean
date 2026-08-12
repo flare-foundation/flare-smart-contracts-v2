@@ -6,7 +6,7 @@ open EvmYul EvmYul.Yul EvmYul.Yul.Ast
 
 This strengthens `RelayBytecodeRefinement.lean` (whose loop body adds the index `i`) to a body that performs
 the deployed contract's **actual masked weight read** — `w := w + (mload(i·32) & 0xffff)` — executed by
-NethermindEth's validated EVMYulLean Yul semantics, for all N. It closes the data-layer half of BR-1
+NethermindEth's validated EVMYulLean Yul semantics, for all N. It closes the data-layer refinement
 *inside the loop*: the per-iteration addend is a real `MLOAD` from memory, masked by `0xffff`, not the
 loop index.
 
@@ -24,16 +24,17 @@ Capstones (all hole-free; `#print axioms` ⊆ `{propext, Classical.choice, Quot.
                        weight exceeds the threshold — no policy slot counted twice.
 
 Modeling choice: weights are memory-resident at 32-byte-aligned slots, and the loop reads
-`mload(slot) & 0xffff`. The behaviour of the external call is an **assumption**, as throughout the
-engagement: ecrecover (the `0x01` staticcall) is *not* modeled — its effect (signature `k` selects voter
+`mload(slot) & 0xffff`. The behaviour of the external call is an **assumption**: ecrecover (the `0x01`
+staticcall) is *not* modeled — its effect (signature `k` selects voter
 `idxs[k]`, whose registered weight is the addend) and the strict-index discipline are captured by the
-hypotheses of `relay_loop_sound` (`hcov`, `hcorr`, `hvalid`, `hnoovf`; assumptions MC-2 / OP-1 / BR-1 / BR-2).
+hypotheses of `relay_loop_sound`: `hcov` and `hcorr` capture the data-layer and uninterpreted ecrecover
+boundary, `hvalid` captures the strictly increasing in-range indices, and `hnoovf` is the no-overflow premise.
 Everything else — the loop mechanism, the `mload`, the mask, the accumulation, the accept gate, and the
 accounting soundness — is *proven* against the validated semantics. `DataLayer.weight_read` discharges the
 per-slot read (`hcorr`); the abstract `sigLoop`/`threshold_sound` are restated here (identical to
 `../RelaySigLoop.lean`) so a single `lake env lean` checks the whole chain.
 
-New to this suite? See `../../README.md` §3. This file is the capstone of the ∀N refinement: `relay_loop_sound`
+This file's capstone is `relay_loop_sound`:
 is the top theorem (deployed loop accepts ⟹ total registered weight > threshold, for all N). Read the header
 tables in `RelayBytecodeRefinement.lean` and `DataLayer.lean` first — this file composes their results with
 the abstract proof. The trust check is the same everywhere: the `#print axioms` at the bottom must be
@@ -269,7 +270,7 @@ theorem bytecode_threshold_sound_mem (N : Nat) (hN : N < UInt256.size) (rdv : Na
   rw [hex2, hWW] at haccept
   exact haccept
 
--- ===================== BR-2 for the memory loop: modular accumulator carries the INTEGER sum =====================
+-- ===================== No-overflow refinement for the memory-loop accumulator =====================
 theorem zero_ofNat : (⟨0⟩ : EvmYul.UInt256) = UInt256.ofNat 0 := by
   unfold UInt256.ofNat; simp only [Id.run]; congr 1
 
@@ -440,7 +441,7 @@ theorem bridge (w : List Nat) (rdv : Nat → EvmYul.UInt256) :
     indexed policy weight exceeds the threshold. No policy slot is counted twice. This theorem does not
     establish that distinct indices contain distinct voter addresses.
 
-    The behaviour of the external call is an **assumption**, as throughout the engagement: ecrecover (the
+    The behaviour of the external call is an **assumption**: ecrecover (the
     `0x01` staticcall) is not modeled; instead its effect — that signature `k` selects voter `idxs[k]`, whose
     registered weight is what the iteration adds — is captured by the hypotheses
     * `hcov`  — each per-iteration slot read is state-preserving and returns `rdv k` (the memory holds the
@@ -449,7 +450,7 @@ theorem bridge (w : List Nat) (rdv : Nat → EvmYul.UInt256) :
                 (this is where ecrecover→recovered-signer→voter and the calldata decode enter);
     * `hvalid`— `ValidRun w 0 idxs`: the selected indices are strictly increasing and in range (the deployed
                 guards passed, i.e. execution did not revert — no repeated policy slot);
-    * `hnoovf`— the accumulated weight stays below `2²⁵⁶` (BR-2).
+    * `hnoovf`— the accumulated weight stays below `2²⁵⁶` (the no-overflow premise).
     Everything *else* — the loop mechanism, the memory read, the mask, the accumulation, the accept gate — is
     proven against the validated semantics. -/
 theorem relay_loop_sound (w idxs : List Nat) (rdv : Nat → EvmYul.UInt256)

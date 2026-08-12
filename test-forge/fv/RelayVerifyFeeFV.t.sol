@@ -3,16 +3,15 @@ pragma solidity ^0.8.13;
 
 // solhint-disable func-name-mixedcase
 
-// Phase 3 Step 6 (AC-9 / RLY-21): verify() FEE CONSERVATION arithmetic.
-// verify() (Relay.sol:1550-1600) requires msg.value >= fee, forwards exactly `fee` to the collection
+// verify() fee-conservation arithmetic.
+// verify() requires msg.value >= fee, forwards exactly `fee` to the collection
 // address (or oldFee to the old relay), and refunds the remainder `msg.value - fee` to msg.sender:
 //   require(msg.value >= fee);  ... forward fee ...  refund = msg.value - fee;  if (refund>0) send refund.
 // SAFETY: no ETH is created or destroyed (forwarded + refunded == msg.value) and the refund cannot
-// underflow. This complements P7 (RelayFeeConservationFV — the REAL balance movements of a succeeding
+// underflow. This complements RelayFeeConservationFV (the REAL balance movements of a succeeding
 // verify() on the new-relay branch): here the conservation ARITHMETIC is pinned for both branches — the
 // new-relay branch (fee/feeCollection) and the old-relay delegation branch (oldFee/oldRelay) conserve.
-// Pure-arithmetic model of the value flow (the external sends are state-less; see Step-6 doc for the
-// reentrancy/no-state-write argument). Self-contained.
+// Pure-arithmetic model of the value flow. The real-path harness separately checks balance movements.
 interface IVm { function assume(bool) external; }
 
 contract RelayVerifyFeeFV {
@@ -29,7 +28,7 @@ contract RelayVerifyFeeFV {
     // AC-9a — conservation: forwarded + refund == msg.value (no ETH created or destroyed).
     // EXPECT: PASS (proof).
     function check_fee_conserved(uint256 msgValue, uint256 fee) external {
-        vm.assume(msgValue >= fee); // the require(msg.value >= fee) guard (Relay.sol:1566/1580)
+        vm.assume(msgValue >= fee); // the require(msg.value >= fee) guard
         (uint256 forwarded, uint256 refund) = _split(msgValue, fee);
         assert(forwarded + refund == msgValue);
     }

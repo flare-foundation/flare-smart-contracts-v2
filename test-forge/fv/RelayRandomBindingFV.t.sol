@@ -9,29 +9,29 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase-1 symbolic proof of OBLIGATION P4 — Random-proof VALUE binding (second-preimage / no-forgery).
-// See docs/relay-fv.md §4 (P4).
+// Symbolic proof of random-proof value binding (second-preimage / no-forgery).
 //
 // CLAIM. For the random-number protocol (Mode-2 relay with the trailer randomNumber||proof), the contract
 // reads the random VALUE from the trailer, recomputes the Merkle leaf keccak256(abi.encode(vrid, value,
-// isSecure)) (processRandomMerkleProof, Relay.sol:704-708) and REVERTS ("Invalid random number proof",
-// :723) unless that leaf reproduces the SIGNED merkleRoot via the provided proof; only then does it store
-// toRandomNumberPrivate[vrid] = value (:1384/storage). Therefore toRandomNumberPrivate[vrid] can only ever
+// isSecure)) in processRandomMerkleProof and reverts unless that leaf reproduces the SIGNED merkleRoot via
+// the provided proof; only then does it store toRandomNumberPrivate[vrid] = value. Therefore that mapping can only ever
 // hold a value that is committed (as a leaf) under the signed root — no off-tree value can be stored.
 //
 // HOW (decoupled oracle — machine-checked, NOT by-construction). We DECOUPLE the COMMITTED value `cv`
 // (used to build the signed root) from the TRAILER value `tv` (the value the contract actually reads and
-// stores). By injective keccak (A1, same vrid & isSecure), the contract's recomputed leaf reproduces the
+// stores). Under the keccak collision-resistance/injectivity model (with the same vrid and isSecure),
+// the contract's recomputed leaf reproduces the
 // signed root IFF tv == cv. Hence:
-//   (P4.a) tv != cv  =>  relay() cannot accept   (a value not committed under the root cannot be stored), and
-//   (P4.b) accept    =>  stored value == cv       (the stored random equals the committed value).
+//   - tv != cv  =>  relay() cannot accept (a value not committed under the root cannot be stored), and
+//   - accept    =>  stored value == cv (the stored random equals the committed value).
 // A contract bug that stored a value other than the leaf-committed one, or skipped the leaf check, would be
 // caught — the harness root is built from cv, independent of the tv the contract reads.
 //
 // CONFIG (mirrors RelayIsSecureNormFV). Concrete N=3/weight-100/threshold-260 policy (3 sigs accept),
-// fully-concrete setUp, symbolic signatures (ecrecover uninterpreted A2), fixed 2-leaf tree (1-node proof),
-// same-epoch VRID (no threshold-increase), isSecure fixed true (P5 covers isSecure; here VALUE is the
-// variable). Loops: 3-signature loop + 1-node Merkle fold => depth 3 <= halmos.toml loop = 6.
+// fully-concrete setUp, symbolic signatures at the uninterpreted ecrecover boundary, fixed 2-leaf tree
+// (1-node proof), same-epoch VRID (no threshold-increase), and isSecure fixed true
+// (RelayIsSecureNormFV covers isSecure; here VALUE is the variable). Loops: 3-signature loop + 1-node
+// Merkle fold => depth 3 <= halmos.toml loop = 6.
 contract RelayRandomBindingFV is RelayTestBase {
     bytes internal policy;
     uint256 internal constant NV = 3;
@@ -55,7 +55,7 @@ contract RelayRandomBindingFV is RelayTestBase {
         return a < b ? keccak256(abi.encodePacked(a, b)) : keccak256(abi.encodePacked(b, a));
     }
 
-    // leaf = keccak256(abi.encode(votingRoundId, value, isSecure)) — mirrors Relay.sol:704-708.
+    // leaf = keccak256(abi.encode(votingRoundId, value, isSecure)) — mirrors processRandomMerkleProof.
     function _randomLeaf(uint32 vrid, uint256 value, bool isSecure) internal pure returns (bytes32) {
         return keccak256(abi.encode(uint256(vrid), value, uint256(isSecure ? 1 : 0)));
     }
@@ -86,7 +86,7 @@ contract RelayRandomBindingFV is RelayTestBase {
         (ok, ) = address(relay).call(_calldata(cv, tv, _threeSigs(a, b, c)));
     }
 
-    // P4.a — a trailer value DIFFERENT from the committed (signed) value cannot finalize. EXPECT: PASS.
+    // An uncommitted trailer value cannot finalize. EXPECT: PASS.
     // Establishes no-forgery: a random value not committed as a leaf under the signed root cannot be stored.
     function check_p4_uncommittedValue_cannotStore(
         uint256 cv, uint256 tv, Sig calldata a, Sig calldata b, Sig calldata c
@@ -95,7 +95,7 @@ contract RelayRandomBindingFV is RelayTestBase {
         assert(!_relay(cv, tv, a, b, c));
     }
 
-    // P4.b — on any accepting run the STORED random (live + historical) equals the committed value cv.
+    // On any accepting run the STORED random (live + historical) equals the committed value cv.
     // EXPECT: PASS. Machine-checks the binding: getRandomNumber / getRandomNumberHistorical return exactly
     // the value committed under the signed Merkle root.
     function check_p4_storedEqualsCommitted(
@@ -110,7 +110,7 @@ contract RelayRandomBindingFV is RelayTestBase {
     }
 
     // Non-vacuity control — the committed value (tv == cv) CAN finalize. EXPECT: COUNTEREXAMPLE.
-    // If this PASSES the accept path is unreachable (loop bound too small) and P4.a/P4.b are vacuous.
+    // If this PASSES, the accept path is unreachable (loop bound too small) and both binding checks are vacuous.
     function check_p4_reachability(uint256 cv, Sig calldata a, Sig calldata b, Sig calldata c) external {
         assert(!_relay(cv, cv, a, b, c));
     }

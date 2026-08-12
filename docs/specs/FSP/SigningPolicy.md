@@ -15,7 +15,7 @@ The on-chain signing policy struct (see `IIRelay.SigningPolicy`) is:
 | `threshold` | `mulDivRoundUp(sum(weights), signingPolicyThresholdPPM, PPM_MAX)` — currently set so the threshold is "more than half" of total normalized weight. Stored as `uint16`. |
 | `seed` | The secure random number drawn at vote-power-block selection. Used by sub-protocols for finalizer sortition (see [Finalization](./Finalization.md)) and as the random seed exposed to FTSO and FCC. |
 
-`Relay.setSigningPolicy(signingPolicy)` stores its hash — `keccak256(sourceChainId ‖ encoded policy bytes)`, a single keccak over the 32-byte configured source chain id followed by the raw 43 + 22 × n byte encoding (RLY-23 chain-domain binding) — retrievable via `Relay.toSigningPolicyHash(rewardEpochId)`. `Relay.SigningPolicyInitialized(...)` is emitted with the full struct as event data; off-chain consumers reconstruct the policy from logs.
+`Relay.setSigningPolicy(signingPolicy)` stores its hash — `keccak256(sourceChainId ‖ encoded policy bytes)`, a single keccak over the 32-byte configured source chain id followed by the raw 43 + 22 × n byte encoding — retrievable via `Relay.toSigningPolicyHash(rewardEpochId)`. `Relay.SigningPolicyInitialized(...)` is emitted with the full struct as event data; off-chain consumers reconstruct the policy from logs.
 
 ## Definition lifecycle
 

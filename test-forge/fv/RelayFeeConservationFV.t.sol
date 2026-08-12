@@ -9,8 +9,7 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase-1 symbolic proof of OBLIGATION P7 — fee conservation in verify() (the NEW-relay path,
-// oldRelay == address(0)). See docs/relay-fv.md §4 (P7) and §6 (caveats).
+// Symbolic proof of fee conservation in verify() when oldRelay == address(0).
 //
 // CLAIM (formal): for a deployed relay with feeCollectionAddress = FEE_COLLECTION and
 // protocolFeeInWei[PID] = fee (symbolic), with a finalized non-zero root for (PID, VRID) and an
@@ -25,31 +24,30 @@ import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 //    merkleRootsPrivate, base storage slot 1 per the Relay storage layout) rather than a relay()
 //    Mode-2 call, which would needlessly drag in the signature loop. PID and VRID are CONCRETE, so the
 //    nested-mapping slot keccak(VRID . keccak(PID . 1)) is fully concrete and the value we vm.store is
-//    exactly what verify()'s SLOAD reads back (Halmos keccak is uninterpreted but functional — equal
-//    concrete preimages give the same term).  Relay.sol merkleRootsPrivate read: :1582.
+//    exactly what verify()'s merkleRootsPrivate SLOAD reads back (Halmos keccak is uninterpreted but
+//    functional — equal concrete preimages give the same term).
 //  - EMPTY Merkle proof (length 0): MerkleProof.processProofCalldata returns the leaf unchanged, so the
 //    proof loop runs ZERO iterations (loop bound irrelevant here) and verifyCalldata passes iff
-//    leaf == root. We set leaf == ROOT.  Relay.sol verifyCalldata: :1585.
+//    leaf == root. We set leaf == ROOT.
 //  - `fee` is SYMBOLIC (passed through the constructor feeConfigs), so the theorem quantifies over ALL
 //    fees, including fee == 0 (no fee transfer; full refund) — hence the deploy is INSIDE each check and
 //    setUp is a no-op (the base setUp uses vm.addr/sorting -> "Multiple paths in setUp" under Halmos).
 //  - `msg.value` is SYMBOLIC with fee <= msgValue <= CAP; this contract is dealt CAP and has a
-//    receive() so the overpayment refund (msg.sender.call) succeeds.  Relay.sol refund: :1597-:1603.
+//    receive() so the overpayment refund (msg.sender.call) succeeds.
 //  - feeCollection is a concrete code-less EOA (0xFEE...), distinct from this caller and from the relay,
 //    so fee + refund land in three distinct accounts and the deltas are unambiguous.
-//    Relay.sol fee transfer: :1590-:1596.
 //  - ANTI-VACUITY: check_p7_reachability asserts verify() reverts and EXPECTS A COUNTEREXAMPLE,
 //    proving the success path (on which (1)-(3) are asserted) is actually reachable at this config.
 contract RelayFeeConservationFV is RelayTestBase {
     // Concrete, distinct accounts so balance deltas are unambiguous.
     address payable internal constant FEE_COLLECTION = payable(address(0xFEE));
 
-    // Concrete (protocolId, votingRoundId): protocolId > 1 (passes the :1578 "invalid protocol id" gate),
+    // Concrete (protocolId, votingRoundId): protocolId > 1 (passes the "invalid protocol id" gate),
     // same-epoch round so no epoch/threshold interaction is touched (verify() does no epoch math anyway).
     uint8  internal constant PID  = 3;
     uint256 internal constant VRID = uint256(START_VOTING_ROUND_ID);
 
-    bytes32 internal constant ROOT = keccak256("p7-root"); // concrete, non-zero (passes RLY-04 :1583)
+    bytes32 internal constant ROOT = keccak256("p7-root"); // concrete, non-zero
 
     // Large concrete bankroll for the caller; msg.value is bounded by this.
     uint256 internal constant CAP = 1 << 128;
@@ -65,7 +63,7 @@ contract RelayFeeConservationFV is RelayTestBase {
         IRelay.RelayInitialConfig memory cfg;
         cfg.initialRewardEpochId = uint32(REWARD_EPOCH_ID);
         cfg.startingVotingRoundIdForInitialRewardEpochId = START_VOTING_ROUND_ID;
-        cfg.initialSigningPolicyHash = keccak256("p7-sp"); // non-zero (constructor :240 require)
+        cfg.initialSigningPolicyHash = keccak256("p7-sp"); // non-zero as initialize requires
         cfg.randomNumberProtocolId = RANDOM_PROTOCOL_ID;
         cfg.firstVotingRoundStartTs = FIRST_VOTING_ROUND_TS;
         cfg.votingEpochDurationSeconds = VOTING_EPOCH_DURATION;
@@ -74,9 +72,9 @@ contract RelayFeeConservationFV is RelayTestBase {
         cfg.thresholdIncreaseBIPS = THRESHOLD_INCREASE_BIPS;
         cfg.messageFinalizationWindowInRewardEpochs = MESSAGE_FINALIZATION_WINDOW;
         cfg.feeCollectionAddress = FEE_COLLECTION;
-        cfg.sourceChainId = block.chainid; // the RLY-23 source id is mandatory
+        cfg.sourceChainId = block.chainid; // the source id is mandatory
         cfg.feeConfigs = new IRelay.FeeConfig[](1);
-        cfg.feeConfigs[0] = IRelay.FeeConfig(PID, fee); // protocolFeeInWei[PID] = fee  (constructor :281)
+        cfg.feeConfigs[0] = IRelay.FeeConfig(PID, fee); // protocolFeeInWei[PID] = fee
         r = deployRelay(cfg, address(0), IRelay(address(0)));
     }
 
@@ -111,7 +109,7 @@ contract RelayFeeConservationFV is RelayTestBase {
         );
     }
 
-    // ---- P7 main proof: fee conservation on the succeeding new-relay verify() path. EXPECT: PASS. ----
+    // ---- Fee-conservation proof on the succeeding new-relay verify() path. EXPECT: PASS. ----
     // For all fee and all msg.value >= fee, IF verify() succeeds THEN (1)-(3) hold exactly.
     function check_p7_feeConservation(uint256 fee, uint256 msgValue) external {
         vm.assume(fee <= msgValue);

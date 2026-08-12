@@ -41,7 +41,6 @@ REPO = Path(__file__).resolve().parents[2]
 
 SOL_SOURCES = [
     "test-forge/fv/*.t.sol",
-    "test-forge/fv/kontrol/*.t.sol",
     "test-forge/unit/protocol/implementation/Relay.t.sol",
 ]
 LEAN_SOURCES = [
@@ -262,9 +261,8 @@ def main() -> int:
 
     all_changes: list[str] = []
     hard_problems: list[str] = []
-    # Engagement-log files are historical records: exempt from auto-linking so code moves
-    # never churn their text (they are prose logs, not navigable reference docs).
-    SKIP_DOCS = {"CHECKPOINT.md", "CONCEPTS.md"}
+    # The glossary intentionally uses free-standing identifiers rather than source links.
+    SKIP_DOCS = {"CONCEPTS.md"}
     for doc in _expand(DOCS):
         if doc.name == Path(__file__).name or doc.name in SKIP_DOCS:
             continue

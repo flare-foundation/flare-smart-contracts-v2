@@ -12,7 +12,7 @@ import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
 import { RelayTestBase } from "./Relay.t.sol";
 
-// RLY-23: chain-domain binding (origin form). The signing-policy hash the contract stores/verifies
+// Source-domain binding. The signing-policy hash the contract stores/verifies
 // and the digest voters sign both commit to the configured SOURCE network id in a single keccak
 // over the raw content bytes (keccak256(sourceChainId ‖ encoded policy) resp.
 // keccak256(sourceChainId ‖ 38-byte message)) — a deploy-time immutable naming the chain where the
@@ -23,9 +23,8 @@ import { RelayTestBase } from "./Relay.t.sol";
 //   - mirrors: a Relay deployed on another chain but configured with a foreign source ACCEPTS that
 //     source's messages — the same signatures verify on the home Relay and on every mirror of it;
 //   - the home-force: a deployment with a live signing-policy setter must bind its own chain;
-//   - same-chain redeployments still accept the same consensus messages (old→new Relay migration);
-//   - the fork trade-off: because the source is an immutable, a chain-id-changing fork does NOT fail
-//     closed (the deliberate price of enabling mirrors) — contrast the earlier runtime-chainid design.
+//   - same-source deployments accept the same consensus messages; and
+//   - changing the execution environment's chain id does not mutate the configured source identity.
 contract RelayChainDomainTest is RelayTestBase {
     uint256 internal constant FLARE_CHAIN_ID = 14;
     uint256 internal constant SONGBIRD_CHAIN_ID = 19;
@@ -37,9 +36,8 @@ contract RelayChainDomainTest is RelayTestBase {
         policy = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
     }
 
-    // Deploys a pure-relay Relay (no signing-policy setter). The config leaves sourceChainId = 0, so
-    // the constructor captures the CURRENT block.chainid as the immutable source; the seeded policy
-    // hash (built by the helper under the same block.chainid) matches. Shared voter set.
+    // Deploys a relay-mode Relay (no signing-policy setter). _initialConfig sets sourceChainId to the
+    // current block.chainid, and the seeded policy hash uses the same source. Shared voter set.
     function _deployRelay() internal returns (Relay) {
         return deployRelay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
     }
@@ -96,8 +94,7 @@ contract RelayChainDomainTest is RelayTestBase {
         sp.weights = weights;
     }
 
-    // Same fields, but typed for the standalone RelayMainDeployed replica (it no longer
-    // shares IIRelay's struct — the current IIRelay carries the owner-governance surface).
+    // Same fields, typed for the standalone RelayMainDeployed oldRelay compatibility model.
     function _legacyPolicyStruct(uint24 epoch, uint32 startVotingRoundId)
         internal view returns (RelayMainDeployed.SigningPolicy memory sp)
     {
@@ -202,12 +199,12 @@ contract RelayChainDomainTest is RelayTestBase {
         assertTrue(stored != keccak256(policy), "stored hash must not be the unbound policy hash");
         assertTrue(
             stored != _signingPolicyContentHash(policy),
-            "stored hash must not be the retired chained fold"
+            "stored hash must not use the oldRelay chained-fold format"
         );
         assertEq(setterRelay.toSigningPolicyHash(REWARD_EPOCH_ID), stored, "getter disagrees with stored hash");
     }
 
-    // The core RLY-23 property: a message finalized on Flare is rejected by a Songbird Relay
+    // A message finalized on Flare is rejected by a Songbird Relay
     // carrying the SAME voter set — the signatures recover to non-voters under the other domain.
     function test_crossChain_message_rejected() public {
         vm.chainId(FLARE_CHAIN_ID);
@@ -251,8 +248,8 @@ contract RelayChainDomainTest is RelayTestBase {
         assertEq(sbEpoch, REWARD_EPOCH_ID, "songbird epoch must not advance");
     }
 
-    // verifyCustomSignature (T1-b): the cross-CHAIN half of the third-party replay residual is
-    // closed — the same relay message is rejected by an identical-policy Relay on another chain.
+    // verifyCustomSignature rejects the same relay message on an identical-policy Relay bound to
+    // another source chain.
     function test_crossChain_customSignature_rejected() public {
         vm.chainId(FLARE_CHAIN_ID);
         Relay flareRelay = _deployRelay();
@@ -266,8 +263,7 @@ contract RelayChainDomainTest is RelayTestBase {
         songbirdRelay.verifyCustomSignature(rm, mh);
     }
 
-    // Old-format (unbound) signatures — prefixed(keccak(message)) without the chain binding — are
-    // dead on the new contract: the format break is total, in both directions.
+    // Unbound signatures — prefixed(keccak(message)) without the source binding — are rejected.
     function test_unboundSignatures_rejected() public {
         bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("root"));
         bytes32 oldFormatDigest =
@@ -279,8 +275,8 @@ contract RelayChainDomainTest is RelayTestBase {
         this.relayTo(relay, rm);
     }
 
-    // The never-shipped two-step RLY-23 draft digest — prefixed(keccak(chainid ‖ keccak(message)))
-    // — is equally dead: only the single keccak over the raw message verifies.
+    // A two-step digest — prefixed(keccak(chainid ‖ keccak(message))) — is rejected; only the
+    // single keccak over the raw message verifies.
     function test_twoStepBoundSignatures_rejected() public {
         bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("root"));
         bytes32 twoStepDigest = keccak256(
@@ -296,8 +292,8 @@ contract RelayChainDomainTest is RelayTestBase {
         this.relayTo(relay, rm);
     }
 
-    // Deliberate non-goal: two Relays on the SAME chain accept the same consensus message — this
-    // preserves the old→new Relay migration flow (finalizers submit identical calldata to both).
+    // Two Relays bound to the same source accept the same consensus message. Consumers must not
+    // interpret Relay address as part of the signed domain.
     function test_sameChain_secondDeployment_accepts() public {
         Relay second = _deployRelay(); // same chain id as the setUp relay
         bytes memory rm = _msgRelay(3, START_VOTING_ROUND_ID, keccak256("root"), 3);
@@ -308,12 +304,10 @@ contract RelayChainDomainTest is RelayTestBase {
         assertTrue(relay.isFinalized(3, START_VOTING_ROUND_ID) && second.isFinalized(3, START_VOTING_ROUND_ID));
     }
 
-    // Full legacy-to-single-keccak migration using the exact Relay implementation deployed on
-    // main. The legacy Relay stores the retired chained-fold policy hash, from which the new
-    // single-keccak hash cannot be derived — the deploy scripts therefore RECONSTRUCT the full
-    // policy from chain state, verify its legacy fold byte-exactly against the old Relay's
-    // stored hash, and only then re-hash it under keccak256(sourceChainId ‖ encoded policy).
-    // This test models that exact flow with the policy bytes in hand.
+    // oldRelay-to-current migration using the RelayMainDeployed compatibility model. The oldRelay
+    // stores a chained-fold policy hash, from which the source-bound single-keccak hash cannot be
+    // derived. Deployment therefore reconstructs the complete policy from source state, verifies
+    // its chained fold against oldRelay, then hashes it as keccak256(sourceChainId ‖ encoded policy).
     function test_migration_fromMainRelay_reconstructsPolicyAndPreservesLiveRelay() public {
         vm.chainId(FLARE_CHAIN_ID);
 
@@ -324,17 +318,15 @@ contract RelayChainDomainTest is RelayTestBase {
             uint24(REWARD_EPOCH_ID + 2), START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION, THRESHOLD, SEED
         );
 
-        // This is the deployed/main contract, not a reduced compatibility stub. Flare uses the
-        // trusted signing-policy setter mode; relay-mode migration and fee-message migration are
-        // deliberately out of scope here.
+        // RelayMainDeployed models the full oldRelay interface used by migration, not a reduced
+        // read-only stub. This fixture uses trusted-setter mode; relay-mode and fee migration are out of scope.
         RelayMainDeployed oldRelay = new RelayMainDeployed(
             _mainDeployedConfig(_signingPolicyContentHash(policy)),
             address(this),
             IRelay(address(0))
         );
 
-        // Populate realistic pre-cutover history: two policies installed by the trusted setter
-        // and one legacy-format message finalized under each active policy.
+        // Populate oldRelay state with two setter-installed policies and one message under each policy.
         (bool ok,) = address(oldRelay).call(_legacyMessageRelay(policy, START_VOTING_ROUND_ID, keccak256("old-1")));
         assertTrue(ok, "legacy message under policy 1 failed");
         oldRelay.setSigningPolicy(
@@ -349,14 +341,13 @@ contract RelayChainDomainTest is RelayTestBase {
         );
 
         bytes32 legacyHash = oldRelay.toSigningPolicyHash(REWARD_EPOCH_ID + 2);
-        // The migration's byte-exact reconstruction proof: the reconstructed policy's legacy
-        // chained fold must equal the old Relay's stored hash (here policy3 stands in for the
+        // The migration's byte-exact reconstruction check: the reconstructed policy's chained fold
+        // must equal oldRelay's stored hash (here policy3 stands in for the
         // policy the deploy scripts rebuild from VoterRegistry/EntityManager/FSM views).
         assertEq(legacyHash, _signingPolicyContentHash(policy3), "reconstruction proof against old Relay failed");
 
-        // This is the migration operation: the verified reconstructed policy is re-hashed under
-        // the new single-keccak scheme and seeds the new Relay. Its compatibility checks also
-        // consume the exact old Relay.
+        // The verified reconstructed policy is re-hashed under the source-bound single-keccak
+        // scheme and seeds the current Relay. Initialization also validates oldRelay compatibility.
         IRelay.RelayInitialConfig memory migratedConfig = _initialConfig(_signingPolicyHash(policy3));
         migratedConfig.initialRewardEpochId = REWARD_EPOCH_ID + 2;
         migratedConfig.startingVotingRoundIdForInitialRewardEpochId =
@@ -376,16 +367,13 @@ contract RelayChainDomainTest is RelayTestBase {
             "migrated Relay did not finalize the post-cutover message"
         );
 
-        // The format transition is intentional: the pre-RLY-23 deployment cannot consume the
-        // chain-bound digest, even though it has the same voters and policy content.
-        // NOTE: RelayMainDeployed is the pre-conversion production contract — string reasons.
+        // RelayMainDeployed expects the unbound digest and therefore rejects the source-bound digest,
+        // even though it has the same voters and policy content. Its interface uses string reverts.
         vm.expectRevert("Wrong signature");
         this.relayToLegacy(oldRelay, postCutover);
 
-        // Data providers signing a policy for the RLY-23 contract cannot use that policy-relay
-        // message on the deployed/main contract. Flare runs both contracts in trusted-setter
-        // mode, so the old contract rejects the mode before it can process the chain-bound
-        // signatures; policy changes must go through the setter instead.
+        // A source-bound policy-relay message cannot be used on RelayMainDeployed. In setter mode,
+        // that contract rejects policy relay before processing signatures; policy changes use the setter.
         bytes memory policy4 = _buildSigningPolicy(
             uint24(REWARD_EPOCH_ID + 3), START_VOTING_ROUND_ID + 3 * REWARD_EPOCH_DURATION, THRESHOLD, SEED
         );
@@ -430,11 +418,9 @@ contract RelayChainDomainTest is RelayTestBase {
         new RelayProxy(address(implementation), cfg, address(this), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
     }
 
-    // Fork trade-off: the source is a deploy-time IMMUTABLE, so a chain-id-changing fork does NOT
-    // fail closed — the Relay keeps accepting messages bound to its configured source. This is the
-    // deliberate price of enabling mirrors (the same signatures must verify wherever the source's
-    // data is relayed); a fork re-bootstraps by redeploying with the new id. (The earlier
-    // runtime-chainid design failed closed here instead.)
+    // sourceChainId is fixed at initialization. Changing block.chainid does not change the signed
+    // domain, so this Relay continues accepting messages bound to its configured source. A deployment
+    // that needs a different source identity must initialize another Relay with that identity.
     function test_fork_immutableSource_doesNotFailClosed() public {
         vm.chainId(FLARE_CHAIN_ID);
         Relay flareRelay = _deployRelay(); // immutable sourceChainId = 14

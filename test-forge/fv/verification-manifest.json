@@ -238,9 +238,7 @@
     "halmos": "0.3.3",
     "z3": "4.12.6.0",
     "evmyullean_commit": "047f63070309f436b66c61e276ab3b6d1169265a",
-    "lean_toolchain": "leanprover/lean4:v4.22.0",
-    "kontrol": "1.0.248",
-    "k": "7.1.334"
+    "lean_toolchain": "leanprover/lean4:v4.22.0"
   },
   "certora_local": {
     "certora_cli": "8.16.1",
@@ -359,13 +357,14 @@
     "function_prefix": "check_",
     "source_glob": "*.t.sol",
     "expected_process_exitcode": 1,
-    "expected_check_count": 123,
+    "expected_check_count": 126,
     "max_bounded_loops": 0,
     "proofs": [
       "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_setSigningPolicy_onlySetter",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_badV_cannotAccept",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_highS_cannotAccept",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_homeForce_rejectsForeignSource",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_relayMode_rejectsOldRelayExactly",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsLowThresholdIncrease",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroPolicyHash",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroRewardEpochDuration",
@@ -373,6 +372,7 @@
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_setterMode_rejectsFeeCollectorExactly",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_setterMode_rejectsFeeConfigExactly",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_setterMode_rejectsFeeExemptionExactly",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_setterMode_rejectsRelayModeOldExactly",
       "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_noDoubleCount",
       "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_threshold",
       "test-forge/fv/RelayDelayedPolicyFV.t.sol:RelayDelayedPolicyFV.check_delayedPolicy_rejected",
@@ -453,6 +453,7 @@
       "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_reach_setter_canCall",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_reachability_canonicalAccepts",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_reach_ctor_validDeploys",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_reach_ctor_compatibleOldRelayDeploys",
       "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_reachability",
       "test-forge/fv/RelayDelayedPolicyFV.t.sol:RelayDelayedPolicyFV.check_reach_atStart",
       "test-forge/fv/RelayEcrecoverSymbolicFV.t.sol:RelayEcrecoverSymbolicFV.check_reach_validSigner_accepted",

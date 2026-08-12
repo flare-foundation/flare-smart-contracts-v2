@@ -8,9 +8,9 @@ import {IOwnableWithTimelock} from "../../userInterfaces/IOwnableWithTimelock.so
  * @title OwnableWithTimelock
  * @notice Ownable extension that timelocks selected owner calls using a dedicated storage slot.
  * @dev Upgradeable: built on `OwnableUpgradeable`; the concrete contract calls
- *      `__Ownable_init` from its `initialize`. Ownership transfer is one step - atomic and
- *      immediate, unrecoverable if the target is wrong - by decision; the deploy pre-flight's
- *      owner checks are the guard. Its own state lives at a fixed ERC-7201 slot, independent
+ *      `__Ownable_init` from its `initialize`. Ownership transfer is one-step, atomic, and
+ *      immediate; callers must validate the nonzero target because an incorrect target cannot be
+ *      recovered by this contract. Its own state lives at a fixed ERC-7201 slot, independent
  *      of the inherited namespaced storage.
  */
 abstract contract OwnableWithTimelock is OwnableUpgradeable, IOwnableWithTimelock {

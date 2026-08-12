@@ -2,17 +2,16 @@ import EvmYul.Yul.Interpreter
 open EvmYul EvmYul.Yul EvmYul.Yul.Ast
 
 /-!
-# Relay signature loop — the LITERAL body (work in progress: deriving `hcorr`/`hvalid`)
+# Relay signature loop — literal-body model
 
-This file transliterates the deployed signature loop's **actual body** — from the committed optimized-IR
-snapshot `../relay_ir_optimized.yul:1518-1632` — into the EVMYulLean Yul AST: both `calldatacopy`s (the
+This file transliterates the deployed signature loop's **actual body** from the committed optimized-IR
+snapshot `../relay_ir_optimized.yul` into the EVMYulLean Yul AST: both `calldatacopy`s (the
 67-byte signature record; the 22-byte voter record), the **fixed scratch-slot addressing** (`m+32`…`m+128`),
 the full guard cascade (index range/order, canonical `v`, low-`s`, `staticcall`-success,
 `returndatasize()==32`, non-zero signer, signer==expected), the masked weight accumulation, and the
-**early-return accept gate**. The goal (in progress): prove that a *successful/accepting* execution of this
-body forces the guards to have passed — deriving `RelayLoopMemRead.relay_loop_sound`'s hypotheses
-`hcorr`/`hvalid` from a raw-calldata precondition instead of assuming them, and closing the address-map and
-early-exit fidelity notes of L7 §7.4 (BR-3 items 1–2).
+**early-return accept gate**. `RelayBodyEff.lean` composes this body with the calldata-window and storage
+layers, derives its structural index conditions from `ValidRun`, and retains the cryptographic call results
+as explicit premises.
 
 Deviations from the IR, each deliberate and accounting-irrelevant (fidelity register):
 * **D1 — folded addressing.** The IR writes `add(usr$memPtrFor, 32)` with `memPtrFor` loop-invariant
@@ -125,9 +124,8 @@ def loopL (m sigStart : Nat) (nSig nVot thr : EvmYul.UInt256) : Stmt :=
 
 /-! ## The calldata layout, as pure decode functions
 
-These interpret the raw calldata exactly as the deployed loop's `calldatacopy` offsets do; the capstone
-(in progress) will quantify over an arbitrary calldata `cd : ByteArray` and conclude about
-`weightsOf cd nVot` — deriving what `relay_loop_sound` currently assumes via `hcorr`/`hvalid`. -/
+These interpret raw calldata exactly as the modeled loop's `calldatacopy` offsets do. The composition
+theorems quantify over an arbitrary calldata `cd : ByteArray` and use `weightsOf cd nVot`. -/
 
 /-- Base offset of signature record `k`: `sigStart + 67·k + 2` (67-byte stride, 2-byte count prefix;
     record layout `v(1) ‖ r(32) ‖ s(32) ‖ index(2)`). -/
@@ -239,7 +237,7 @@ theorem threshold_sound (w : List Nat) (idxs : List Nat) (thr : Nat)
 Opcode `step` reductions and control-flow `exec` equations for every construct the literal body uses. Each
 proves by `unfold … ; rfl` (or `conv_lhs => unfold` where the RHS also mentions `exec` at opaque fuel), so
 they are decidable per-construct facts about the actual interpreter. These are the substrate for the
-per-statement effect lemmas (in progress). `set_option maxHeartbeats 1000000` covers the large `step` match. -/
+per-statement effect lemmas. `set_option maxHeartbeats 1000000` covers the large `step` match. -/
 
 -- Arithmetic / comparison / bitwise
 set_option maxHeartbeats 1000000 in
@@ -378,14 +376,14 @@ theorem return_eff (fuel : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
         EvmYul.Yul.execPrimCall, EvmYul.Yul.primCall,
         EvmYul.Yul.cons', EvmYul.Yul.reverse', EvmYul.Yul.multifill', step_RETURN]
 
-/-! ## The STATICCALL / ecrecover seam (OP-1: uninterpreted recovery, per-call hypothesis)
+/-! ## The STATICCALL / ecrecover seam (uninterpreted recovery, per-call hypothesis)
 
 `ecrecover` (the `0x01` staticcall) is modeled as a **per-call hypothesis** on `primCall`, mirroring the
 interpreter's dispatcher-backed (`accountMap.find? = some`) branch — `perm` preserved, `returnData := ret`,
 memory written via `copySlice`. This is the sound modeling: the empty-account (`find? = none`) branch is
 NOT usable here — it leaves `perm := false` (S1, pinned by `staticcall_empty` below), which would make every
 later `SSTORE` throw `.StaticModeViolation`. `staticcall_hyp_compose` composes such a hypothesis through the
-deployed guard `iszero(staticcall(not(0),1,m,128,m+64,32))`; the `returndatasize` bridges handle both OP-1
+deployed guard `iszero(staticcall(not(0),1,m,128,m+64,32))`; the `returndatasize` bridges handle both recovery
 ABI outcomes (32-byte success ⟹ guard passes; empty ⟹ guard fails ⟹ the iteration reverts). -/
 
 set_option maxHeartbeats 4000000
@@ -465,21 +463,21 @@ theorem returndatasize_eq32_eval (f : Nat) (s₁ : EvmYul.Yul.State) :
              primCall_RETURNDATASIZE]
   rw [show f + 5 = (f + 4) + 1 from rfl, primCall_EQ]; rfl
 
-/-- OP-1 success: 32-byte returndata ⟹ the `returndatasize()==32` guard passes (`⟨1⟩`). -/
+/-- Recovery success: 32-byte returndata ⟹ the `returndatasize()==32` guard passes (`⟨1⟩`). -/
 theorem returndatasize_eq32_bridge (f : Nat) (s₁ : EvmYul.Yul.State)
     (h : s₁.toMachineState.returnData.size = 32) :
     EvmYul.Yul.eval (f + 6) (Expr.Call (Sum.inl Operation.EQ)
         [Expr.Call (Sum.inl Operation.RETURNDATASIZE) [], Expr.Lit ⟨32⟩]) none s₁ = .ok (s₁, ⟨1⟩) := by
   rw [returndatasize_eq32_eval, h]; rfl
 
-/-- OP-1 failure (bad signature): EMPTY returndata ⟹ the guard fails (`⟨0⟩`) ⟹ the iteration reverts. -/
+/-- Recovery failure (bad signature): EMPTY returndata ⟹ the guard fails (`⟨0⟩`) ⟹ the iteration reverts. -/
 theorem returndatasize_eq32_bridge_empty (f : Nat) (s₁ : EvmYul.Yul.State)
     (h : s₁.toMachineState.returnData = ByteArray.empty) :
     EvmYul.Yul.eval (f + 6) (Expr.Call (Sum.inl Operation.EQ)
         [Expr.Call (Sum.inl Operation.RETURNDATASIZE) [], Expr.Lit ⟨32⟩]) none s₁ = .ok (s₁, ⟨0⟩) := by
   rw [returndatasize_eq32_eval, h]; rfl
 
-/-- The two OP-1 recovery outcomes (uninterpreted): success (32-byte address) or failure (empty return). -/
+/-- The two uninterpreted recovery outcomes: success (32-byte address) or failure (empty return). -/
 inductive RecOutcome where
   | success (ret : ByteArray) (hret : ret.size = 32)
   | failure
@@ -490,11 +488,11 @@ def recSuccessShared (ss : EvmYul.SharedState .Yul) (oo os : EvmYul.UInt256) (re
   { ss with memory := ret.copySlice 0 ss.memory oo.toNat (min os.toNat ret.size),
             returnData := ret, H_return := ByteArray.empty }
 
-/-- Post-state of a failed recovery: memory UNCHANGED, `returnData := ∅` (the stale-buffer OP-1 ABI). -/
+/-- Post-state of a failed recovery: memory UNCHANGED, `returnData := ∅` (the stale-buffer recovery ABI). -/
 def recFailShared (ss : EvmYul.SharedState .Yul) : EvmYul.SharedState .Yul :=
   { ss with returnData := ByteArray.empty, H_return := ByteArray.empty }
 
-/-- The per-iteration ecrecover hypothesis, one form per OP-1 branch (the modeling of MC-2/OP-1). -/
+/-- The per-iteration uninterpreted ecrecover hypothesis, one form per recovery branch. -/
 def recHypothesis (f : Nat) (ss : EvmYul.SharedState .Yul) (vs : VarStore)
     (g a io is oo os : EvmYul.UInt256) : RecOutcome → Prop
   | .success ret _ =>
@@ -504,7 +502,7 @@ def recHypothesis (f : Nat) (ss : EvmYul.SharedState .Yul) (vs : VarStore)
       EvmYul.Yul.primCall f (.Ok ss vs) Operation.STATICCALL [g, a, io, is, oo, os]
         = .ok (.Ok (recFailShared ss) vs, [⟨1⟩])
 
-/-- Failure leaves memory unchanged (definitionally) — the stale output buffer of OP-1. -/
+/-- Failure leaves memory unchanged (definitionally) — the stale output buffer of the recovery ABI. -/
 theorem recFailShared_memory (ss : EvmYul.SharedState .Yul) : (recFailShared ss).memory = ss.memory := rfl
 
 /-! ## Statement effect atoms (lifting the step bricks through `exec`)
@@ -802,7 +800,7 @@ theorem ge_ne (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) (k j : E
 
 /-! ## The two `calldatacopy` statement effects
 
-Assembling `calldatacopy_eff` (brick 8) with the pure argument evaluations gives each memory-copy
+Composing `calldatacopy_eff` with the pure argument evaluations gives each memory-copy
 statement's concrete effect on the shared state. `bodyL` has two: the signature blob copy
 `calldatacopy(m+63, add(add(sigStart, mul(i,67)), 2), 67)` and the voter-record copy
 `calldatacopy(m+106, add(47, mul(index,22)), 22)`. Each rewrites memory to

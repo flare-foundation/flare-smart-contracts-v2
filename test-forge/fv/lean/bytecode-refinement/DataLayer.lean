@@ -3,68 +3,66 @@ import EvmYul.MachineStateOps
 open EvmYul
 
 /-!
-# BR-1 (data layer) — foundation bricks
+# Data-layer refinement — foundation bricks
 
-Work toward discharging **BR-1** from the claims ledger: that each signature-loop iteration's accumulated
-value is the registered weight `mload(weights[i]) = w[i]`. This file collects the **hole-free** sub-results
-of that data-layer refinement, committed incrementally (no `sorry`/`admit`).
+This file establishes the data-layer facts used by the signature-loop refinement: each modeled
+iteration's accumulated value is the registered weight `mload(weights[i]) = w[i]`. The results are
+hole-free (no `sorry`/`admit`).
 
 ## The two upstream-dischargeable specs
 
-These proofs add exactly two assumptions beyond Lean's standard three (`propext`, `Classical.choice`,
-`Quot.sound`), both *access-modifier limitations* rather than trust assumptions:
+These proofs declare exactly two semantic assumptions beyond Lean's standard three (`propext`,
+`Classical.choice`, `Quot.sound`):
 
 1. `zeroes_data` — `ffi.ByteArray.zeroes` (EVMYulLean's `@[extern "memset_zero"]`) is declared `opaque`, so
-   it has no proof-level content. We give its minimal, obviously-true spec. Dischargeable upstream by
+   it has no proof-level content. `zeroes_data` specifies that it returns zero-filled bytes. It can be
+   converted to a theorem upstream by
    changing `opaque ByteArray.zeroes` to a real `def … @[implemented_by memset_zero]`.
-2. `toByteArray_size` — `UInt256.toByteArray` always yields 32 bytes. **Verified** provable (short proof,
-   below) but blocked downstream because the supporting bound `toBytes'_UInt256_le` is `private`. Exposing
-   that one upstream lemma turns this axiom into a theorem.
+2. `toByteArray_size` — specifies that `UInt256.toByteArray` yields 32 bytes. Its proof needs the private
+   upstream bound `toBytes'_UInt256_le`; exposing that lemma turns this axiom into a theorem.
 
-Both become theorems with one-line upstream edits; neither is a semantic assumption about the EVM.
-**The exact upstream patches and the verified discharge proofs are archived in `AXIOM_DISCHARGE.md`**
-(this directory) — the "verified provable" claims are reproducible from there, not anecdotal.
+Both remain axioms in this repository. `AXIOM_DISCHARGE.md` gives the exact upstream changes and proofs
+needed to replace them with theorems in a patched EVMYulLean checkout.
 
-## Status (see `docs/relay-verification/10-claims-ledger-trust-and-residual.md` §10.5)
+## Results
 
-* **Byte-decode round-trip — DONE** (`fromBytesBigEndian_toBytesBigEndian`).
-* **Memory keystone — DONE** (`keystone`): `copySlice`/`extract` round-trip, *no* `zeroes` axiom.
-* **ByteArray memory round-trip — DONE** (`mem_roundtrip`): `readWithPadding (write …) … = src`, against
+* **Byte-decode round-trip** (`fromBytesBigEndian_toBytesBigEndian`).
+* **Memory keystone** (`keystone`): `copySlice`/`extract` round-trip, *no* `zeroes` axiom.
+* **ByteArray memory round-trip** (`mem_roundtrip`): `readWithPadding (write …) … = src`, against
   EVMYulLean's actual `ByteArray.write`/`readWithPadding`. This is the heart of `mload∘mstore`.
-* **Value decode — DONE** (`ofNat_toNat`, `size_append`, `toList_data`, and `fromByteArray_toByteArray`:
+* **Value decode** (`ofNat_toNat`, `size_append`, `toList_data`, and `fromByteArray_toByteArray`:
   `fromByteArrayBigEndian (v.toByteArray) = v.toNat`, via the `toList`/`toByteArray` loop invariants + the
   leading-zero argument).
-* **MachineState `mstore`/`mload` wrapping — DONE** (`mstore_lookupMemory`, `mstore_mload`): on EVMYulLean's
+* **MachineState `mstore`/`mload` wrapping** (`mstore_lookupMemory`, `mstore_mload`): on EVMYulLean's
   validated `MachineState`, `(mstore a v).mload a = v` whenever the buffer has room and the active-word
   count does not overflow. Discharges the `activeWords`/size guard and composes the byte layer; this is the
   operational `mload∘mstore = id` for a 32-byte word.
-* **`& 0xffff` weight mask — DONE** (`mask16_toNat`, `mask16_of_lt`): `and(x, 0xffff)` extracts the low 16
+* **`& 0xffff` weight mask** (`mask16_toNat`, `mask16_of_lt`): `and(x, 0xffff)` extracts the low 16
   bits (`= x.toNat mod 2¹⁶`), and is the identity on a 16-bit registered weight. *No* axioms beyond the
-  standard three. This is the masked weight read at `Relay.sol:1327`.
-* **Data-layer capstone — DONE** (`weight_read`): a 16-bit weight written to a 32-byte slot is recovered by
+  standard three. This is the masked weight read used by the signature loop.
+* **Data-layer capstone** (`weight_read`): a 16-bit weight written to a 32-byte slot is recovered by
   the deployed read pattern `and(mload(slot), 0xffff)` under EVMYulLean's validated `MachineState` —
-  i.e. `mload(weights[i]) & 0xffff = w[i]` for one slot, the heart of BR-1.
+  i.e. `mload(weights[i]) & 0xffff = w[i]` for one slot, the core data-layer refinement.
 * **Consumed by**: the memory-reading ∀N loop and the simulation relation `R` in `RelayLoopMemRead.lean` —
   whose **accounting core is complete** (`relay_loop_sound`: the deployed loop accepts ⟹ total registered
   weight > threshold, ∀N; `weight_read` below discharges its per-slot data-layer hypothesis; the
   selection/validity half of `R` remains its stated hypotheses). This file supplies the bounded data-layer
   bricks that composition rests on; no fact about the *read* itself remains open.
 
-New to this suite? See `../../README.md` §3 (how to read a Lean proof + re-check it). Orientation: this file
-reasons about EVMYulLean's *real* `ByteArray`/`MachineState` operations. Lean 4.22 has no `ByteArray` lemma
+This file reasons about EVMYulLean's *real* `ByteArray`/`MachineState` operations. Lean 4.22 has no `ByteArray` lemma
 layer, so the proofs deliberately descend to the underlying `Array` via `ByteArray.ext` (two `ByteArray`s are
 equal iff their `.data` arrays are). The two `axiom`s below (`zeroes_data`, `toByteArray_size`) are documented
-*upstream-dischargeable specs* — one for an `opaque` FFI symbol, one for a `private` upstream bound — not
-semantic assumptions; each `#print axioms` at the bottom shows exactly which results depend on them.
+semantic assumptions: one for an `opaque` FFI symbol and one for a `private` upstream bound. Each
+`#print axioms` at the bottom shows exactly which results depend on them.
 -/
 
 namespace RelayDataLayer
 
-/-- The minimal spec for the `opaque ffi.ByteArray.zeroes` (`memset_zero`). The single documented trust
-    addition; dischargeable upstream (`opaque → def + @[implemented_by]`). -/
+/-- Semantic specification for the `opaque ffi.ByteArray.zeroes` (`memset_zero`), replaceable by an
+    upstream theorem after exposing a proof-level definition. -/
 axiom zeroes_data (n : USize) : (ffi.ByteArray.zeroes n).data = Array.replicate n.toNat (0 : UInt8)
 
-/-- BR-1 brick: the big-endian byte encode/decode is the identity, about EVMYulLean's real functions. -/
+/-- Data-layer brick: the big-endian byte encode/decode is the identity for EVMYulLean's real functions. -/
 theorem fromBytesBigEndian_toBytesBigEndian (n : Nat) :
     fromBytesBigEndian (toBytesBigEndian n) = n := by
   simp [fromBytesBigEndian, toBytesBigEndian]
@@ -309,13 +307,9 @@ theorem mstore_mload_val (ms : MachineState) (a v : UInt256)
   simp only [MachineState.mload]
   exact mstore_lookupMemory ms a v h32 hmem hM32
 
-/-- The **second** (and final) upstream-dischargeable spec, sibling to `zeroes_data`: EVMYulLean's
-    `UInt256.toByteArray` always yields exactly 32 bytes. This is TRUE and **verified** — its discharge is a
-    short proof: `(toBytesBigEndian v.toNat).length ≤ 32` (from the existing upstream bound
-    `toBytes'_UInt256_le`) plus the `zeroes ++ BE` size split (`size_append`, `zeroes_size`, and the USize
-    literal). It is blocked downstream *only* because `toBytes'_UInt256_le` is declared `private`; exposing
-    that one lemma upstream turns this axiom into a theorem. Like `zeroes_data`, this is an access-modifier
-    limitation, not a trust assumption. (Discharge proof verified against a locally-patched EVMYulLean.) -/
+/-- Semantic specification that `UInt256.toByteArray` yields exactly 32 bytes. Its proof uses the upstream
+    bound `toBytes'_UInt256_le`, which is private in the pinned EVMYulLean revision. `AXIOM_DISCHARGE.md`
+    gives the visibility patch and theorem; this declaration remains an assumption in the current source. -/
 axiom toByteArray_size (v : UInt256) : (UInt256.toByteArray v).size = 32
 
 /-- **Unconditional MachineState round-trip.** Storing `v` at `a` and loading it back returns `v`, whenever
@@ -328,7 +322,7 @@ theorem mstore_mload (ms : MachineState) (a v : UInt256)
     ((ms.mstore a v).mload a).1 = v :=
   mstore_mload_val ms a v (toByteArray_size v) hmem hM32
 
-/-! ## The `& 0xffff` weight mask (Relay.sol:1327, `and(mload(…), 0xffff)`) -/
+/-! ## The `& 0xffff` weight mask (`and(mload(…), 0xffff)`) -/
 
 /-- Bitwise AND with `0xffff` is reduction mod 2¹⁶ (proved bit-by-bit; no `zeroes_data`). -/
 theorem land_65535 (n : Nat) : n &&& 65535 = n % 65536 := by
@@ -345,7 +339,7 @@ theorem toNat_inj {a b : UInt256} (h : a.toNat = b.toNat) : a = b := by
   apply congrArg UInt256.mk; apply Fin.ext; exact h
 
 /-- **Weight mask.** `and(x, 0xffff)` on EVMYulLean's `UInt256.land` extracts the low 16 bits: its value
-    is `x.toNat mod 2¹⁶`. This is the weight read at `Relay.sol:1327`. -/
+    is `x.toNat mod 2¹⁶`. This is the signature-loop weight read. -/
 theorem mask16_toNat (x : UInt256) :
     (UInt256.land x (⟨0xffff⟩ : UInt256)).toNat = x.toNat % 65536 := by
   have hb : ((⟨0xffff⟩ : UInt256)).val.val = 65535 := by
@@ -357,23 +351,21 @@ theorem mask16_toNat (x : UInt256) :
   exact Nat.mod_eq_of_lt (lt_trans (Nat.mod_lt _ (by norm_num)) (by unfold UInt256.size; omega))
 
 /-- A value already below 2¹⁶ is unchanged by the `& 0xffff` mask: registered weights are 16-bit
-    (`totalWeight < 2¹⁶`, `Relay.sol:350`), so the mask is the identity on a stored weight. -/
+    (`totalWeight < 2¹⁶`), so the mask is the identity on a stored weight. -/
 theorem mask16_of_lt (x : UInt256) (h : x.toNat < 65536) :
     UInt256.land x (⟨0xffff⟩ : UInt256) = x :=
   toNat_inj (by rw [mask16_toNat, Nat.mod_eq_of_lt h])
 
-/-! ## BR-1 data-layer capstone (bounded part) -/
+/-! ## Data-layer capstone (bounded part) -/
 
 /-- **The data-layer read, end to end.** A 16-bit weight `w` written into a 32-byte memory slot is
     recovered by the deployed contract's actual read pattern — `and(mload(slot), 0xffff)` — executed under
-    EVMYulLean's validated `MachineState`. This is exactly the BR-1 data-layer claim
+    EVMYulLean's validated `MachineState`. This is exactly the data-layer refinement claim
     "`mload(weights[i]) & 0xffff = w[i]`" for one slot: it composes the byte-decode round-trip
     (`mem_roundtrip`/`fromByteArray_toByteArray`), the `mstore`/`mload` guard discharge (`mstore_mload`),
-    and the weight mask (`mask16_of_lt`). Hole-free modulo the two documented upstream-dischargeable specs.
+    and the weight mask (`mask16_of_lt`). Hole-free modulo the two declared semantic assumptions.
 
-    What remains for full BR-1 (the simulation relation `R`, §10.5 item iv) is *plumbing this into the
-    ∀N loop*: identifying the per-iteration slot from the calldata/memory layout and transferring
-    `RelaySigLoop.threshold_sound` — not any further fact about the read itself. -/
+    `RelayBodyEff.lean` composes this fact with the calldata/memory layout and arbitrary-length loop. -/
 theorem weight_read (ms : MachineState) (slot w : UInt256)
     (hw : w.toNat < 65536)
     (hmem : slot.toNat + 32 ≤ ms.memory.size)

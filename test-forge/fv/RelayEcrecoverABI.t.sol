@@ -3,22 +3,22 @@ pragma solidity ^0.8.13;
 
 // solhint-disable func-name-mixedcase
 
-// OP-1 evidence (run on the REAL EVM, not Halmos).
+// Concrete ecrecover-precompile failure-ABI evidence (run on the real EVM, not Halmos).
 //
 // The `ecrecover` precompile (address 0x01) does NOT revert on a bad signature: the staticcall returns
 // SUCCESS with EMPTY return data (returndatasize() == 0) and leaves the caller's output buffer UNTOUCHED
-// (stale). That is the behavioral assumption a past bug violated ("it reverts on a wrong signature" —
-// false). Relay's raw-assembly ecrecover is made safe by three checks (Relay.sol:1283-1302): staticcall
+// (stale). Relay therefore cannot assume that an invalid signature reverts. Its raw-assembly recovery
+// is made safe by three checks: staticcall
 // success, returndatasize()==32, and recovered-signer != 0. This test pins that failure ABI as an
 // executable fact and shows the returndatasize discriminator is load-bearing.
 //
 // Why this is a `forge test`, not a Halmos `check_` harness: Halmos models the 0x01 precompile as a TOTAL
 // function returning a well-formed 32-byte address (returndatasize()==32 always), so its BUILT-IN model
-// cannot exercise this empty-return/stale-buffer failure mode (assumption OP-1 in the claims ledger). The
+// cannot exercise this empty-return/stale-buffer failure mode. The
 // real EVM (revm, via `forge test`) does. The companion `RelayEcrecoverSymbolicFV.t.sol` internalizes the
 // same obligation *symbolically*: it reaches the empty-return branch via a mock that reproduces the
 // precompile's failure ABI, and proves the returndatasize/zero-signer guard rejects it over ALL stale-buffer
-// contents. Together the two discharge OP-1 both concretely (this file) and symbolically (the companion).
+// contents. Together the two establish the expected guard behavior concretely and symbolically.
 //
 // RUN: forge test --match-contract RelayEcrecoverABITest -vvv
 
@@ -47,12 +47,12 @@ contract RelayEcrecoverABITest {
             outWord := mload(outPtr)
         }
         // (1) the precompile does NOT revert on a bad signature:
-        require(ok, "OP-1 FAIL: precompile reverted (it must NOT revert on a bad signature)");
+        require(ok, "ecrecover ABI: precompile reverted on a bad signature");
         // (2) it returns EMPTY data, not 32 bytes:
-        require(outSize == 0, "OP-1 FAIL: a bad signature must return empty data (returndatasize 0)");
+        require(outSize == 0, "ecrecover ABI: bad signature must return empty data");
         // (3) the output buffer is left UNTOUCHED -> reading it yields stale (here, attacker-free) bytes.
         //     Without a returndatasize==32 check, this stale value would be read as the "recovered signer".
-        require(outWord == bytes32(uint256(0xdead)), "OP-1 FAIL: output buffer must be left stale on failure");
+        require(outWord == bytes32(uint256(0xdead)), "ecrecover ABI: failure must leave output buffer stale");
     }
 
     /// The safe discriminator: requiring returndatasize()==32 rejects the bad signature.
@@ -69,12 +69,12 @@ contract RelayEcrecoverABITest {
             // Relay's guard: accept only if the call succeeded AND returned exactly 32 bytes.
             accepted := and(ok, eq(returndatasize(), 32))
         }
-        require(!accepted, "OP-1 FAIL: returndatasize==32 guard must reject a bad signature");
+        require(!accepted, "ecrecover ABI: returndata-size guard accepted a bad signature");
     }
 
     /// Solidity's high-level `ecrecover` is safe by construction: it returns address(0) (never reverts).
     function test_solidityBuiltin_returnsZeroOnBadSig() external pure {
         address rec = ecrecover(keccak256("msg"), uint8(V), bytes32(R), bytes32(S));
-        require(rec == address(0), "OP-1 FAIL: Solidity ecrecover should return address(0) on a bad signature");
+        require(rec == address(0), "ecrecover ABI: Solidity builtin must return zero on a bad signature");
     }
 }

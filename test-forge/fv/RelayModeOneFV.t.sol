@@ -9,21 +9,21 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 (AC-6 FULL): Mode-1 (relay-only) new-signing-policy relay — threshold consistency on the REAL
-// protocolId==0 path (Relay.sol:1004-1160), not just the setter-formula equivalent.
+// Mode-1 (relay-only) new-signing-policy relay: threshold consistency on the real
+// protocolId==0 path, not just the setter-formula equivalent.
 //
 // Mode-1 installs a new signing policy by relaying it, signed by the CURRENT policy's voter quorum. The
 // calldata layout (reverse-engineered from the parser) is:
 //     selector(4) || oldPolicy(43+No*22) || protocolId(1, ==0) || newPolicy(43+Nn*22) || signatures
 // where the "message" is protocolId(0) || newPolicy and the old voters sign the NEW policy hash. Before the
-// signature loop, the contract runs checkThresholdConsistency on the NEW policy (Relay.sol:1109/621-668):
+// signature loop, the contract runs checkThresholdConsistency on the NEW policy:
 //     totalWeight <= 2**16-1                                  ("total weight too big")
 //     threshold*THRESHOLD_BIPS >= totalWeight*MIN_THRESHOLD_BIPS   ("too small threshold")
 // (Note: Mode-1 enforces only the MIN band, unlike setSigningPolicy which also checks MAX.) So a quorum
-// cannot relay-install a new policy whose threshold is too small to be safe — AC-6, proven on the live path.
+// cannot relay-install a new policy whose threshold is below the minimum band, as proved on the live path.
 //
-// Mode-1 is only enabled in RELAY-ONLY mode (signingPolicySetter==0; setter mode sets noSigningPolicyRelay,
-// Relay.sol:267-269). Old policy: epoch 1, 3 voters weight 100, threshold 260 (the signing quorum, 300>260).
+// Mode-1 is only enabled in relay mode (signingPolicySetter==0; setter mode disables signing-policy relay).
+// Old policy: epoch 1, 3 voters weight 100, threshold 260 (the signing quorum, 300>260).
 // New policy: epoch 2 (== lastInitialized+1), 1 voter weight 100, SYMBOLIC threshold T. Symbolic signatures,
 // ecrecover uninterpreted (so the old voters can sign the new policy hash for any T).
 contract RelayModeOneFV is RelayTestBase {
@@ -73,7 +73,7 @@ contract RelayModeOneFV is RelayTestBase {
         (ok, ) = address(relay).call(cd);
     }
 
-    // AC-6 — a Mode-1 new policy whose threshold is below the MIN band cannot be installed (rejected at
+    // A Mode-1 new policy whose threshold is below the MIN band cannot be installed (rejected at
     // checkThresholdConsistency, before signatures even matter).
     // EXPECT: PASS (proof).
     function check_modeOne_thresholdTooSmall_rejected(

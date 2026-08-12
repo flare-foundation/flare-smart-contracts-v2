@@ -157,7 +157,7 @@ export namespace SignaturePayload {
       return false;
     }
     const message: IProtocolMessageMerkleRoot = signaturePayloads[0].payload.message;
-    // RLY-23: voters sign the source-bound digest keccak256(sourceChainId ‖ 38-byte message).
+    // Voters sign the source-bound digest keccak256(sourceChainId ‖ 38-byte message).
     const messageHash = ProtocolMessageMerkleRoot.hash(message, chainId);
     const signatures: IECDSASignature[] = [];
     for (const payload of signaturePayloads) {
@@ -182,7 +182,7 @@ export namespace SignaturePayload {
     chainId: number | bigint
   ) {
     const web3 = new Web3();
-    // RLY-23: voters sign the source-bound digest keccak256(sourceChainId ‖ 38-byte message).
+    // Voters sign the source-bound digest keccak256(sourceChainId ‖ 38-byte message).
     const messageHash = ProtocolMessageMerkleRoot.hash(signaturePayload.message, chainId);
     const signer = web3.eth.accounts
       .recover(
@@ -294,7 +294,7 @@ export namespace SignaturePayload {
         throw Error(`Invalid payload message`);
       }
     }
-    // RLY-23: voters sign the source-bound digest keccak256(sourceChainId ‖ 38-byte message).
+    // Voters sign the source-bound digest keccak256(sourceChainId ‖ 38-byte message).
     const messageHash = ProtocolMessageMerkleRoot.hash(signaturePayloads[0].payload.message, chainId);
     let newSignaturePayloads = signaturePayloads.map((value) => {
       const signer = web3.eth.accounts

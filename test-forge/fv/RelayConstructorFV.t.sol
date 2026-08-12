@@ -8,13 +8,34 @@ import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 Step 1 (AC-11 + L4 + RLY-11): INITIALIZER config validation.
+contract RelayModeOldRelayFV {
+    function signingPolicySetter() external pure returns (address) {
+        return address(0);
+    }
+}
+
+contract CompatibleOldRelayFV {
+    function signingPolicySetter() external pure returns (address) {
+        return address(0x5E77E5);
+    }
+
+    function stateData()
+        external pure
+        returns (uint8, uint32, uint8, uint32, uint16, uint16, uint32, bool, uint32, bool, uint32)
+    {
+        return (0, 1_700_000_000, 90, 0, 3360, 0, 0, false, 0, false, 0);
+    }
+}
+
+// Initializer configuration validation.
 // The initializer fail-closes on malformed initial config — these cases are proven rejected:
 //   thresholdIncreaseBIPS < THRESHOLD_BIPS          (no sub-1.0x increase)
-//   rewardEpochDurationInVotingEpochs == 0          (RLY-11, no div-by-zero)
-//   votingEpochDurationSeconds == 0                 (RLY-11)
-//   initialSigningPolicyHash == 0                   (L-4, would brick epoch)
-//   sourceChainId != block.chainid on setter deploy (RLY-23 home-force)
+//   rewardEpochDurationInVotingEpochs == 0          (no div-by-zero)
+//   votingEpochDurationSeconds == 0
+//   initialSigningPolicyHash == 0                   (would brick the initial epoch)
+//   sourceChainId != block.chainid on setter deploy (home-domain binding)
+//   oldRelay != 0 on a relay-mode deployment
+//   a relay-mode oldRelay on a setter-mode deployment
 // Each check builds the otherwise-valid base config and corrupts exactly one field, then asserts that
 // the real Relay initializer reverts; the reachability control confirms the valid config initializes.
 // Exact RelayProxy constructor atomicity is covered by concrete Foundry tests, while the real-proxy
@@ -29,11 +50,15 @@ contract RelayConstructorFV is Relay {
     // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Initializable")) - 1)) & ~bytes32(uint256(0xff)).
     bytes32 internal constant INITIALIZABLE_STORAGE =
         0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00;
+    RelayModeOldRelayFV internal immutable relayModeOldRelay;
+    CompatibleOldRelayFV internal immutable compatibleOldRelay;
 
     /// Relay's production constructor correctly locks the implementation by storing uint64.max
     /// in this namespace. A fresh Halmos harness instance checks that exact lock, then clears only
     /// this verification-only word so each check can exercise the real external initializer once.
     constructor() {
+        relayModeOldRelay = new RelayModeOldRelayFV();
+        compatibleOldRelay = new CompatibleOldRelayFV();
         bytes32 slot = INITIALIZABLE_STORAGE;
         uint256 locked;
         assembly {
@@ -66,8 +91,15 @@ contract RelayConstructorFV is Relay {
     }
 
     function _tryInitialize(IRelay.RelayInitialConfig memory cfg) internal returns (bool ok, bytes memory returnData) {
+        return _tryInitializeWith(cfg, address(this), IRelay(address(0)));
+    }
+
+    function _tryInitializeWith(IRelay.RelayInitialConfig memory cfg, address setter, IRelay oldRelay)
+        internal
+        returns (bool ok, bytes memory returnData)
+    {
         (ok, returnData) = address(this)
-            .call(abi.encodeCall(Relay.initialize, (cfg, address(this), IRelay(address(0)), RELAY_TEST_GOVERNANCE)));
+            .call(abi.encodeCall(Relay.initialize, (cfg, setter, oldRelay, RELAY_TEST_GOVERNANCE)));
     }
 
     function _revertSelector(bytes memory returnData) internal pure returns (bytes4 selector) {
@@ -88,7 +120,7 @@ contract RelayConstructorFV is Relay {
         assert(!ok);
     }
 
-    // zero reward-epoch duration is rejected (RLY-11).
+    // A zero reward-epoch duration is rejected.
     // EXPECT: PASS (proof).
     function check_ctor_rejectsZeroRewardEpochDuration() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
@@ -97,7 +129,7 @@ contract RelayConstructorFV is Relay {
         assert(!ok);
     }
 
-    // zero voting-epoch duration is rejected (RLY-11).
+    // A zero voting-epoch duration is rejected.
     // EXPECT: PASS (proof).
     function check_ctor_rejectsZeroVotingEpochDuration() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
@@ -106,7 +138,7 @@ contract RelayConstructorFV is Relay {
         assert(!ok);
     }
 
-    // zero initial signing-policy hash is rejected (L-4).
+    // A zero initial signing-policy hash is rejected.
     // EXPECT: PASS (proof).
     function check_ctor_rejectsZeroPolicyHash() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(0));
@@ -114,7 +146,7 @@ contract RelayConstructorFV is Relay {
         assert(!ok);
     }
 
-    // RLY-23 home-force: on a home deploy (signing-policy setter present, as _tryInitialize passes) a
+    // On a home deploy (signing-policy setter present, as _tryInitialize passes), a
     // source chain id that is nonzero and != block.chainid is rejected — a live setter cannot bind a
     // foreign domain. EXPECT: PASS (proof).
     function check_ctor_homeForce_rejectsForeignSource(uint256 src) external {
@@ -161,11 +193,41 @@ contract RelayConstructorFV is Relay {
         assert(_revertSelector(returnData) == IRelay.FeeExemptionsNotAllowed.selector);
     }
 
+    // Relay mode cannot configure an old Relay. Pin the exact mode error so a preceding
+    // configuration guard cannot satisfy this property accidentally.
+    // EXPECT: PASS (proof).
+    function check_ctor_relayMode_rejectsOldRelayExactly() external {
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
+        cfg.feeCollectionAddress = payable(address(0xFEE));
+        (bool ok, bytes memory returnData) =
+            _tryInitializeWith(cfg, address(0), IRelay(address(compatibleOldRelay)));
+        assert(!ok);
+        assert(_revertSelector(returnData) == IRelay.OldRelayNotAllowedInRelayMode.selector);
+    }
+
+    // A setter-mode deployment accepts migration only from another setter-mode Relay.
+    // EXPECT: PASS (proof).
+    function check_ctor_setterMode_rejectsRelayModeOldExactly() external {
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
+        (bool ok, bytes memory returnData) =
+            _tryInitializeWith(cfg, address(this), IRelay(address(relayModeOldRelay)));
+        assert(!ok);
+        assert(_revertSelector(returnData) == IRelay.OldRelayIncompatible.selector);
+    }
+
     // Anti-vacuity: the valid base config initializes successfully.
     // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_ctor_validDeploys() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         (bool ok,) = _tryInitialize(cfg);
         assert(!ok); // EXPECT counterexample: valid config initializes
+    }
+
+    // A setter-mode deployment with matching timing parameters and a setter-mode old Relay initializes.
+    // EXPECT: COUNTEREXAMPLE (reachability control).
+    function check_reach_ctor_compatibleOldRelayDeploys() external {
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
+        (bool ok,) = _tryInitializeWith(cfg, address(this), IRelay(address(compatibleOldRelay)));
+        assert(!ok); // EXPECT counterexample: compatible migration configuration initializes
     }
 }

@@ -146,7 +146,7 @@ export namespace SigningPolicy {
   /**
    * Calculates signing policy hash from encoded signing policy:
    * keccak256(chainId as 32 bytes ‖ raw encoded policy bytes) — a single keccak over the exact
-   * 43 + 22·n encoded bytes, no padding (RLY-23 chain-domain binding). This is what the Relay
+   * 43 + 22·n encoded bytes, no padding. This is what the Relay
    * contract stores and verifies.
    * @param signingPolicy
    * @param chainId the configured source chain id (`relay.sourceChainId()`)
@@ -167,7 +167,7 @@ export namespace SigningPolicy {
     return signingPolicy;
   }
   /**
-   * Calculates the (RLY-23 chain-bound) signing policy hash from signing policy object.
+   * Calculates the source-bound signing policy hash from a signing policy object.
    * @param signingPolicy
    * @param chainId the configured source chain id (`relay.sourceChainId()`)
    * @returns

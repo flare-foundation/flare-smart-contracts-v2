@@ -31,7 +31,7 @@ interface IVoterRegistryRead {
 }
 
 /// The EntityManager read mapping voter identity addresses to their signing-policy addresses
-/// (checkpointed history — callable any time after the policy snapshot block).
+/// (checkpointed state, callable any time after the policy snapshot block).
 interface IEntityManagerRead {
     function getSigningPolicyAddresses(
         address[] memory _voters,
@@ -48,8 +48,8 @@ interface IEntityManagerRead {
 //
 // The initial signing-policy hash for the next reward epoch is ALWAYS RECONSTRUCTED from chain
 // state (VoterRegistry + EntityManager + FlareSystemsManager views), verified byte-exactly
-// against the old Relay's stored hash (legacy chained fold or single-keccak — either must match
-// the reconstruction), and seeded as the new single-keccak hash
+// against the source Relay's stored hash (the chained-fold migration format or source-bound
+// single-keccak — either must match the reconstruction), and seeded as the target hash
 // (keccak256(sourceChainId ‖ encoded policy)). The owner-timelock duration is the only value
 // taken from the config. Every epoch/protocol param is inherited from that Relay's stateData()
 // (four are handshake-enforced to match it, the rest are preserved on redeploy), so the home
@@ -151,7 +151,7 @@ contract DeployRelayHome is RelayDeployBase {
         // Protocol/epoch params are inherited from the currently deployed Relay rather than
         // configured: four of them (firstVotingRoundStartTs, votingEpochDurationSeconds,
         // firstRewardEpochStartVotingRoundId, rewardEpochDurationInVotingEpochs) are
-        // handshake-enforced to equal the old Relay by Relay.initialize anyway, and the rest
+        // handshake-enforced to equal the source Relay by Relay.initialize, and the rest
         // (randomNumberProtocolId, thresholdIncreaseBIPS, messageFinalizationWindowInRewardEpochs)
         // are preserved across a redeploy. Reading them from stateData() removes duplication and a
         // whole class of misconfiguration (same 11-field read the initialize handshake relies on).
@@ -183,23 +183,23 @@ contract DeployRelayHome is RelayDeployBase {
         // Setter mode: no fee collection address, no fee configs (Relay.initialize enforces both).
         _config.feeCollectionAddress = payable(address(0));
         _config.feeConfigs = new IRelay.FeeConfig[](0);
-        // RLY-23 home-force: a home deployment binds its own chain.
+        // A home deployment binds its own chain as the signing source.
         _config.sourceChainId = block.chainid;
         _config.timelockDurationSeconds = _timelockDurationSeconds;
     }
 
     /**
-     * The initial signing-policy hash for the new Relay. ALWAYS reconstructed and verified —
+     * The initial signing-policy hash for the target Relay. ALWAYS reconstructed and verified —
      * there is deliberately no configured scheme and no pass-through branch (a mistaken config
      * could otherwise seed the canonical proxy with a hash no policy can satisfy):
      *   1. (identity voters, normalised weights) from VoterRegistry
      *   2. voter identity -> signing-policy address via EntityManager at the policy's
-     *      registration snapshot block (checkpointed history)
+     *      registration snapshot block (checkpointed state)
      *   3. seed / threshold from FlareSystemsManager
-     * The old Relay's stored hash must equal ONE of the two hashes of the reconstructed bytes —
-     * the retired legacy chained fold (every live deployment today) or the single-keccak hash
-     * (a future migration from a new-scheme Relay). Either way the byte-exact reconstruction is
-     * proven against the old contract, and the returned value is always the single-keccak hash,
+     * The source Relay's stored hash must equal one of the two supported hashes of the
+     * reconstructed bytes: the chained-fold migration format or the source-bound
+     * single-keccak format. Either way, the byte-exact reconstruction is proven against the
+     * source contract and the returned value is the source-bound single-keccak hash,
      * keccak256(sourceChainId ‖ encoded policy).
      */
     function _migratedPolicyHash(
@@ -230,7 +230,7 @@ contract DeployRelayHome is RelayDeployBase {
             policyVoters,
             weights
         );
-        // Byte-exact reconstruction proof against the old Relay before seeding the new one.
+        // Byte-exact reconstruction proof against the source Relay before seeding the target.
         bytes32 newHash = _signingPolicyHash(encodedPolicy, block.chainid);
         require(
             oldPolicyHash == _legacyPolicyContentHash(encodedPolicy) || oldPolicyHash == newHash,

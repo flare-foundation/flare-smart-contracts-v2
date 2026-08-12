@@ -1,11 +1,12 @@
-# Appendix: discharging the two documented axioms (`zeroes_data`, `toByteArray_size`)
+# Replacing the local data-layer axioms with upstream theorems
 
-[`DataLayer.lean`](DataLayer.lean) declares exactly two axioms beyond Lean's standard three. Both are
-*access-modifier limitations* of the pinned EVMYulLean (`047f6307`), not semantic assumptions, and both were
-**verified provable** against a locally-patched EVMYulLean during the engagement (2026-06-20/07-01). This
-appendix archives the exact patches and proofs so that claim is *reproducible*, not anecdotal. Nothing here
-is built by default — the committed proofs keep the two `axiom` declarations precisely because we refuse to
-commit a patched third-party dependency.
+[`DataLayer.lean`](DataLayer.lean) declares two semantic assumptions beyond Lean's standard three:
+`zeroes_data` and `toByteArray_size`. `RelayLoopWindows.lean` declares the same `zeroes_data` specification
+in its namespace. These declarations are part of the current proof's trust boundary.
+
+This document gives a reproducible procedure for replacing those assumptions with theorems in a patched
+checkout of the manifest-pinned EVMYulLean revision. The repository gate does not apply these patches and
+continues to report the declarations as axioms.
 
 Throughout: EVMYulLean at the pinned commit, built once —
 
@@ -65,7 +66,7 @@ which exists upstream as `toBytes'_UInt256_le` (`EvmYul/UInt256.lean:321`) but i
 
 then rebuild the touched modules: `lake build EvmYul.UInt256 EvmYul.Wheels EvmYul.MachineStateOps`.
 
-**The discharge proof, verbatim as verified.** Save as `/tmp/evmyul2/ToByteArraySizeDischarge.lean` and run
+**Discharge proof.** Save as `/tmp/evmyul2/ToByteArraySizeDischarge.lean` and run
 `lake env lean ToByteArraySizeDischarge.lean`:
 
 ```lean
@@ -143,14 +144,14 @@ theorem toByteArray_size (v : UInt256) : (UInt256.toByteArray v).size = 32 := by
 end AxiomDischarge
 ```
 
-**Verified output** (2026-06-20, EVMYulLean `047f6307` + the two-word patch):
+**Expected output** with EVMYulLean `047f6307` and the visibility patch:
 
 ```
 'AxiomDischarge.toByteArray_size' depends on axioms: [propext, Classical.choice, Quot.sound, AxiomDischarge.zeroes_data]
 ```
 
-i.e. `toByteArray_size` is a theorem modulo `zeroes_data` alone; apply the Axiom-1 patch as well and the
-list is exactly the standard three.
+This shows that `toByteArray_size` depends only on `zeroes_data` in addition to Lean's standard axioms.
+Applying the first patch as well replaces that dependency with the `zeroes_data` theorem.
 
 ---
 
@@ -159,8 +160,8 @@ list is exactly the standard three.
 | Axiom | Blocker at `047f6307` | Upstream fix | Discharge after fix |
 |---|---|---|---|
 | `zeroes_data` | `opaque` FFI symbol | `opaque` → `def … := ⟨Array.replicate n.toNat 0⟩` (keep `@[extern]`) | `rfl` |
-| `toByteArray_size` | `private` bound `toBytes'_UInt256_le` | delete two `private`s in `EvmYul/UInt256.lean` | proof above (verified) |
+| `toByteArray_size` | `private` bound `toBytes'_UInt256_le` | delete two `private`s in `EvmYul/UInt256.lean` | proof above |
 
-Neither patch changes any runtime behaviour; both are candidates for an upstream PR to EVMYulLean, after
-which `DataLayer.lean` can replace its two `axiom`s with theorems and every result in this directory checks
-with axioms exactly `[propext, Classical.choice, Quot.sound]`.
+After applying both patches, `DataLayer.lean` and `RelayLoopWindows.lean` can replace their local axiom
+declarations with the corresponding theorems. Without those patches, the manifest allowlist and generated
+report must continue to identify all three namespace-qualified declarations as semantic assumptions.

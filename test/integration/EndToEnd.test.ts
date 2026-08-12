@@ -210,12 +210,12 @@ async function setMockStakingData(
   return data;
 }
 
-// RLY-23: the signing-policy hash the Relay stores/verifies is chain-bound.
+// The signing-policy hash the Relay stores and verifies is source-chain-bound.
 function getSigningPolicyHash(signingPolicy: ISigningPolicy, chainId: number): string {
   return SigningPolicy.hash(signingPolicy, chainId);
 }
 
-// RLY-03: the random-number protocol now requires a trailer (random number + Merkle proof)
+// The random-number protocol requires a trailer containing the random number and Merkle proof.
 // after the signatures. The contract rebuilds the leaf and verifies it against the message's
 // merkleRoot. These helpers (adapted from the migrated Relay unit test) build that trailer.
 interface RandomResult {
@@ -396,7 +396,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       isSecureRandom: false,
       merkleRoot: message,
     };
-    // RLY-23: the signed digest is chain-bound.
+    // The signed digest is source-chain-bound.
     const messageHash = ProtocolMessageMerkleRoot.hash(messageData, chainId);
 
     const signatures = await generateSignatures(
@@ -481,7 +481,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
   const btcPublicKeys: string[] = [];
 
   let addressUpdater: AddressUpdaterInstance;
-  // RLY-23: signed relay digests and stored policy hashes are chain-bound; set in before().
+  // Signed relay digests and stored policy hashes are source-chain-bound; set in before().
   let chainId: number;
   let wNat: WNatInstance;
   let pChainStakeMirror: PChainStakeMirrorInstance;
@@ -795,7 +795,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
       thresholdIncreaseBIPS: 12000,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
-      // RLY-10: relay-mode (zero signingPolicySetter) requires a non-zero fee-collection address
+      // Relay mode (zero signingPolicySetter) requires a nonzero fee-collection address.
       feeCollectionAddress: "0x000000000000000000000000000000000000dEaD",
       feeConfigs: [],
       sourceChainId: chainId,
@@ -1363,7 +1363,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       1;
     const quality = true;
 
-    // RLY-03: random-number protocol message now carries a trailer; build the random Merkle
+    // The random-number protocol message carries a trailer; build the random Merkle
     // tree, set messageData.merkleRoot to its root and spread the trailer into the relay message.
     const messageData: IProtocolMessageMerkleRoot = {
       protocolId: FTSO_PROTOCOL_ID,
@@ -1434,7 +1434,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       rewardEpochId: 1,
       startVotingRoundId: startVotingRoundId,
       threshold: Math.floor(65535 / 2),
-      // RLY-03: getRandomNumber() now returns the relayed random value (RANDOM_ROOT), so the
+      // getRandomNumber() returns the relayed random value (RANDOM_ROOT), so the
       // signing-policy seed equals RANDOM_ROOT rather than keccak256(RANDOM_ROOT).
       seed: RANDOM_ROOT,
       voters: accounts.slice(30, 34),
@@ -1588,7 +1588,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       decimals: 1,
     };
 
-    // RLY-03: the relayed message must both carry the random trailer and commit to the feed.
+    // The relayed message must both carry the random trailer and commit to the feed.
     // Build a Merkle tree containing the random leaf and the feed leaf; the feed's Merkle proof
     // is reused below when publishing the feed.
     const messageData: IProtocolMessageMerkleRoot = {
@@ -1622,7 +1622,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       data: RELAY_SELECTOR + fullData.slice(2),
     });
     expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(messageData.merkleRoot);
-    // RLY-03: getCurrentRandom() now returns the relayed random value, not keccak256(merkleRoot).
+    // getCurrentRandom() returns the relayed random value, not keccak256(merkleRoot).
     expect((await submission.getCurrentRandom()).eq(toBN(RANDOM_ROOT3))).to.be.true;
     expect((await submission.getCurrentRandomWithQuality())[1]).to.be.true;
 
@@ -1686,7 +1686,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       1;
     const quality = true;
 
-    // RLY-03: add the random trailer; the relayed value RANDOM_ROOT2 becomes reward epoch 2's seed.
+    // Add the random trailer; the relayed value RANDOM_ROOT2 becomes reward epoch 2's seed.
     const messageData: IProtocolMessageMerkleRoot = {
       protocolId: FTSO_PROTOCOL_ID,
       votingRoundId: votingRoundId,
@@ -1756,7 +1756,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       rewardEpochId: toBN(2),
       startVotingRoundId: toBN(votingRoundId),
       voters: accounts.slice(30, 34),
-      // RLY-03: seed equals the relayed random value RANDOM_ROOT2, not keccak256(RANDOM_ROOT2).
+      // The seed equals the relayed random value RANDOM_ROOT2, not keccak256(RANDOM_ROOT2).
       seed: toBN(RANDOM_ROOT2),
       threshold: toBN(32767),
       weights: [toBN(34848), toBN(20727), toBN(6229), toBN(3729)],

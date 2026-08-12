@@ -4,8 +4,8 @@
 # WHY THIS EXISTS. The write-once rules (certora/specs/RelayWriteOnce.spec) must READ
 # `toSigningPolicyHashPrivate` / `merkleRootsPrivate` before and after each method call. Both mappings are
 # `private`, so no harness can read them, and CVL direct storage access is unavailable on this contract
-# (Relay's raw-assembly stores defeat the prover's storage analysis — the documented C-1 wall). The
-# standard Certora practice is a munged verification copy. The ONLY semantic-source change made here is the visibility of
+# because Relay's raw-assembly stores are not tracked reliably by that analysis. The
+# verification scene therefore uses a munged copy. The ONLY semantic-source change made here is the visibility of
 # those two mappings: `private` -> `internal` (same storage layout, same slots, no behavior change), which
 # lets certora/harness/RelayHarness.sol expose plain Solidity view getters over them.
 #
@@ -19,8 +19,8 @@ cd "$(dirname "$0")/.."   # repo root
 SRC=contracts
 DST=certora/munged/contracts
 
-# This directory is generated output. Recreate it so files from a retired
-# architecture can never remain in the Certora source graph unnoticed.
+# This directory is generated output. Recreate it so unlisted files cannot
+# remain in the Certora source graph unnoticed.
 rm -rf "$DST"
 mkdir -p \
   "$DST/protocol/implementation" \

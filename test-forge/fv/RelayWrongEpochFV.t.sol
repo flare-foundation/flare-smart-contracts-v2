@@ -9,10 +9,10 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 Step 4 (decision matrix, final gate): "WRONG SIGN POLICY REWARD EPOCH" (Relay.sol:925-927).
+// Wrong-signing-policy reward-epoch gate.
 // A signing policy for reward epoch R can sign messages in epoch R or LATER, never earlier:
 //     if (messageRewardEpochId < rewardEpochId) revert "Wrong sign policy reward epoch"
-// (decision-matrix row exp(v) < r => REVERT, Relay.sol:744). Prevents an old message being finalized by a
+// (decision-matrix row exp(v) < r => REVERT). Prevents an old message being finalized by a
 // newer signing policy. Together with the already-verified gates this completes the relay() epoch decision
 // matrix: exp(v)<r (here), exp(v)==r & v<s (RelayDelayedPolicyFV), exp(v)>r & i==r threshold-increase
 // (RelayCrossEpochFV/RelayThresholdScalingFV), exp(v)>r & i>r must-use-new-policy (RelayMustUseNewPolicyFV),

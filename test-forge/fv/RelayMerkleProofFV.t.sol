@@ -9,15 +9,16 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 Step 5 (M2 + M3/M8): Merkle PROOF-PATH soundness for the random-number proof
-// (processRandomMerkleProof, Relay.sol:700-730). P4 (RelayRandomBindingFV) proved the LEAF VALUE cannot be
-// forged; this proves the PROOF ELEMENTS cannot be forged either, and the calldata-alignment guard.
-//   M2 — a proof element (sibling) different from the one committed under the signed root cannot reproduce
-//        the root, so relay() rejects: the sorted-pair fold (Relay.sol:716-721) binds the proof path, not
-//        just the leaf. (Decoupled: the signed root is built from `cs`; the trailer submits `ts`.)
-//   M3/M8 — the trailer (randomNumber || proof) must be a whole number of 32-byte words (Relay.sol:701);
+// Bounded Merkle proof-path checks for the random-number proof.
+// RelayRandomBindingFV checks leaf binding in its modeled
+// shape; this harness checks a single-node proof path and the calldata-alignment guard.
+//   - A proof element (sibling) different from the one committed under the signed root cannot reproduce
+//        the root, so relay() rejects: the sorted-pair fold binds the proof path, not
+//        just the leaf in this modeled depth-1 shape, assuming collision-resistant keccak256.
+//        (Decoupled: the signed root is built from `cs`; the trailer submits `ts`.)
+//   - The trailer (randomNumber || proof) must be a whole number of 32-byte words;
 //        a misaligned proof is rejected "Incorrect merkle proof", and the fold loop consumes every element.
-// Together with P4: neither the random value nor any proof element can be forged.
+// These checks do not constitute a machine-checked unbounded anti-forgery theorem.
 //
 // CONFIG mirrors RelayRandomBindingFV: concrete N=3/weight-100/threshold-260, symbolic signatures, fixed
 // same-epoch VRID, isSecure=true; a depth-1 (single-node) proof so the sibling IS the only proof element.
@@ -68,7 +69,7 @@ contract RelayMerkleProofFV is RelayTestBase {
         );
     }
 
-    // M2 — a submitted sibling different from the committed one cannot reproduce the root => reject.
+    // A submitted sibling different from the committed one cannot reproduce the root => reject.
     // EXPECT: PASS (proof).
     function check_m2_wrongSibling_cannotStore(
         uint256 val, bytes32 cs, bytes32 ts, Sig calldata a, Sig calldata b, Sig calldata c
@@ -77,7 +78,7 @@ contract RelayMerkleProofFV is RelayTestBase {
         assert(!_relay(val, cs, ts, "", a, b, c));
     }
 
-    // M3/M8 — a misaligned trailer (one extra byte => proof not a whole number of 32-byte words) is rejected.
+    // A misaligned trailer (one extra byte => proof not a whole number of 32-byte words) is rejected.
     // EXPECT: PASS (proof).
     function check_m3_misalignedProof_rejected(
         uint256 val, bytes32 cs, Sig calldata a, Sig calldata b, Sig calldata c

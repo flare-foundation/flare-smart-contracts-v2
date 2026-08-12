@@ -29,21 +29,26 @@ These bounds are enforced **by `Relay` itself** in `setSigningPolicy`, independe
 function relay() external returns (bytes memory);
 ```
 
-`relay()` is a no-arg public function — the *message* is the entire calldata after the 4-byte selector. The expected layout (assembly-parsed):
+`relay()` is a no-arg public function whose calldata is parsed directly. Every call starts with an active signing policy. The next byte selects one of two layouts:
 
-1. **Signing policy bytes** — the canonical encoding of the signing policy (43 + 22 × `numberOfVoters` bytes). The contract recomputes its hash on the fly — a single `keccak256(sourceChainId ‖ signingPolicyBytes)` over the 32-byte configured source chain id followed by the raw encoded bytes (RLY-23 chain-domain binding, no padding) — and checks it against `toSigningPolicyHashPrivate[rewardEpochId]`. Wrong policy → revert.
+- **Signing-policy relay (`protocolId = 0`)** — active signing policy + `0` (1 byte) + new signing policy + signature count (2 bytes) + indexed ECDSA signatures (67 bytes each). The signatures authenticate the source-bound hash of the new policy.
+- **Protocol-message relay (`protocolId > 0`)** — the layout below. For the configured random-number protocol, a random number (32 bytes) and zero or more Merkle-proof nodes (32 bytes each) follow the signatures.
+
+1. **Signing policy bytes** — the canonical encoding of the signing policy (43 + 22 × `numberOfVoters` bytes). The contract recomputes its hash on the fly — a single `keccak256(sourceChainId ‖ signingPolicyBytes)` over the 32-byte configured source chain id followed by the raw encoded bytes, with no padding — and checks it against `toSigningPolicyHashPrivate[rewardEpochId]`. Wrong policy → revert.
 2. **Protocol message** (38 bytes) — `protocolId` (1) + `votingRoundId` (4) + `isSecureRandom` (1) + `merkleRoot` (32). The digest this message is signed under is the analogous single keccak, `keccak256(sourceChainId ‖ protocolMessage)` (before the EIP-191 `"\x19Ethereum Signed Message:\n32"` prefix applied at signature verification).
 3. **Signatures** — count (2 bytes) followed by 67 bytes per signature: `v` (1) + `r` (32) + `s` (32) + `index` (2). The index points into the signing-policy voter list. The contract recovers each signature, checks the recovered address equals `signingPolicy.voters[index]`, accumulates `signingPolicy.weights[index]`, and short-circuits as soon as accumulated weight passes the threshold.
 
-If the protocol message is finalized using a signing policy whose reward epoch matches `lastInitializedRewardEpoch`, the threshold is **multiplied** by `stateData.thresholdIncreaseBIPS / THRESHOLD_BIPS` — `thresholdIncreaseBIPS` is governance-settable, must be ≥ `THRESHOLD_BIPS = 10000` (i.e. ≥ 1.0×), and defaults to `12000` (1.2×). The exact code (in the `relay()` assembly) is `threshold := div(mul(threshold, thresholdIncreaseBIPS), THRESHOLD_BIPS)`. Providers signing a round that straddles a reward-epoch boundary face a slightly higher bar to compensate for the reduced participation a fresh policy might see.
+The threshold multiplier applies only when the message belongs to a later reward epoch than the supplied signing policy **and** that policy's reward epoch is still `lastInitializedRewardEpoch`. In that state the policy for the message's reward epoch has not been initialized, so the effective threshold is `floor(policyThreshold × thresholdIncreaseBIPS / 10000)`. If a later policy has been initialized but its start round has not yet been reached, the earlier policy may still sign the round at its unscaled threshold.
 
-If the threshold is reached, `merkleRootsPrivate[protocolId][votingRoundId]` is written and `ProtocolMessageRelayed(protocolId, votingRoundId, isSecureRandom, merkleRoot)` is emitted. If not, the call reverts with `NotEnoughWeight()`.
+`thresholdIncreaseBIPS` is deployment configuration, not a mutable governance setting. `Relay.initialize` copies `RelayInitialConfig.thresholdIncreaseBIPS` into `stateData` and requires it to be at least `10000`; Relay has no setter and supplies no contract-level default. The TypeScript deploy and redeploy scripts obtain it from `parameters.relayThresholdIncreaseBIPS`. The Foundry home redeployment reads it from the configured old Relay, while the mirror deployment reads it from the source snapshot.
 
-For the FTSO random-number protocol (`stateData.randomNumberProtocolId`), `relay()` additionally updates `stateData.randomVotingRoundId`, `stateData.isSecureRandom`, and the bit in `isSecureRandomMap`. See [Random Number](./RandomNumber.md).
+If accumulated signature weight strictly exceeds the effective threshold, `merkleRootsPrivate[protocolId][votingRoundId]` is written and `ProtocolMessageRelayed(protocolId, votingRoundId, isSecureRandom, merkleRoot)` is emitted. If all declared signatures are processed without enough weight, the call reverts with `NotEnoughWeight()`. `NotEnoughSignatures()` instead reports calldata that is too short for the declared signature count.
+
+For the FTSO random-number protocol (`stateData.randomNumberProtocolId`), every accepted message stores its Merkle-proven random number and records its secure flag for historical lookup. The live `stateData.randomVotingRoundId` pointer and `stateData.isSecureRandom` flag advance only when `votingRoundId` is strictly greater than the current pointer, so a later finalization of an older round cannot regress the live random. Because the pointer is initialized to round `0`, finalizing round `0` does not advance the live fields; its value remains available through `getRandomNumberHistorical(0)`. See [Random Number](./RandomNumber.md).
 
 ### Cross-epoch boundary
 
-A round whose `votingRoundId < startingVotingRoundIds[nextEpoch]` is signed by the *previous* signing policy. Within the finalization window (`stateData.messageFinalizationWindowInRewardEpochs`), the contract still accepts these. Outside the window, they are rejected. This is a soft-finality boundary: a few epochs of grace, then the historical round is closed for new finalizations.
+A round whose `votingRoundId < startingVotingRoundIds[nextEpoch]` is signed by the *previous* signing policy. Within the finalization window (`stateData.messageFinalizationWindowInRewardEpochs`), the contract still accepts these. Outside the window, they are rejected. This is a soft-finality boundary: a few epochs of grace, then the round is closed for new finalizations.
 
 ## Finalizer selection (the grace period)
 
@@ -72,23 +77,27 @@ function verify(
 ) external payable returns (bool);
 ```
 
-`verify` requires `msg.value >= protocolFeeInWei[_protocolId]` and forwards the fee to `feeCollectionAddress`. It uses OpenZeppelin's `MerkleProof.verifyCalldata`. `protocolId > 1` is enforced — protocol IDs `0` and `1` are reserved.
+For a locally stored root, `verify` enforces `protocolId > 1` and uses OpenZeppelin's `MerkleProof.verifyCalldata`. A caller in `feeExemptAddress` pays no fee; every other caller must provide at least `protocolFeeInWei[protocolId]`. Relay forwards exactly the required fee to `feeCollectionAddress` and refunds any excess to the caller. Fee configuration and exemptions exist only in relay mode; setter-mode initialization rejects them and local verification there is fee-free.
 
 Other read-only views:
 
 - `isFinalized(protocolId, votingRoundId)` — true if the root is set.
-- `merkleRoots(protocolId, votingRoundId)` — read the root directly (only when `signingPolicySetter` is set, i.e. on the live deployments).
+- `merkleRoots(protocolId, votingRoundId)` — read the root directly on a setter-mode (home) deployment.
 - `toSigningPolicyHash(rewardEpochId)` — the signing-policy hash, used by `FlareSystemsManager.signNewSigningPolicy` and by off-chain consumers verifying the policy.
 - `getVotingRoundId(timestamp)` — convert a timestamp to a voting round.
 
 ## What `Relay` does **not** do
 
-- It does not enforce one-relay-per-round. Anyone can call `relay()` with a valid threshold of signatures and finalize a round; subsequent `relay()` calls for the same `(protocolId, votingRoundId)` succeed but are no-ops with respect to the stored root (it is unchanged once non-zero).
+- It does not restrict who may submit a valid finalization. Anyone can call `relay()` with a valid threshold of signatures; a subsequent call for the same `(protocolId, votingRoundId)` reverts with `AlreadyRelayed()`.
 - It does not enforce the grace-period reward selection (see above).
 - It does not pay anything to finalizers. Finalizer rewards are part of the off-chain reward calculation, paid via `RewardManager` like all other reward types.
 
-## Migrating from v1
+## Read delegation and cutover
 
-`Relay` supports an optional `oldRelay` chain — if set, `verify`, `merkleRoots`, `getRandomNumberHistorical`, and `toSigningPolicyHash` transparently delegate to the previous `Relay` for any voting round / reward epoch ID strictly less than `startingVotingRoundIdForInitialRewardEpochId` / `initialRewardEpochId`. This lets the contract be redeployed without breaking historical proofs.
+`Relay` supports an optional `oldRelay` read source. If set, `verify`, `isFinalized`, `merkleRoots`, and `getRandomNumberHistorical` delegate voting-round queries strictly below `startingVotingRoundIdForInitialRewardEpochId`; `toSigningPolicyHash` delegates reward-epoch queries strictly below `initialRewardEpochId`. Queries at or above the applicable boundary use local state.
 
-The `oldRelay` chain is **home-only**: `initialize` rejects it on a relay-mode (mirror) deployment (`OldRelayNotAllowedInRelayMode`) and requires the old relay itself to be a setter-mode deployment (`OldRelayIncompatible`). Mirrors charge `verify()` fees, and delegating pre-boundary calls to an old relay would entangle its fee schedule with the new contract's fee and fee-exemption logic; on a home (setter-mode) deployment every fee is structurally zero, so delegation is fee-neutral. Mirrors seed a fresh source snapshot instead of chaining.
+The `oldRelay` path is **setter-mode only**: `initialize` rejects it on a relay-mode mirror (`OldRelayNotAllowedInRelayMode`), requires the configured source to be a setter-mode deployment (`OldRelayIncompatible`), and checks that the voting and reward-epoch timing parameters match. Relay-mode mirrors seed a source snapshot instead of delegating.
+
+Delegated `verify` uses the configured old Relay's fee path, not the new Relay's local fee or exemption settings. It reads `oldRelay.protocolFeeInWei(protocolId)`, requires that amount, forwards exactly that amount to `oldRelay.verify`, requires the old Relay to return `true`, and refunds only the caller's excess over the reported old fee. A local exemption on the new Relay therefore does not waive the old Relay's reported fee.
+
+The initial local policy's encoded start round must equal the read-delegation boundary. The contract stores the policy hash and boundary independently, so deployment validation must establish that equality. The live `getRandomNumber()` getter does not delegate; consumers must wait for a verified local current random or implement an explicit trusted fallback before cutover.

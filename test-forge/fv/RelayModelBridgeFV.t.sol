@@ -9,26 +9,20 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 Step 3 (T1, bounded bridge): model<->bytecode equivalence for the signature-loop weight invariant.
+// Bounded model-to-bytecode equivalence for the signature-loop weight invariant.
 //
-// The Kontrol unbounded proof (test-forge/fv/kontrol/RelaySigLoopFV.t.sol) proves, for ALL K, the invariant
-//   weight <= psAt(nextUnusedIndex)   with   psAt(k) = w_0 + ... + w_{k-1}
-// over a faithful SOLIDITY MODEL of the loop body. This harness ties that exact model function `_psAt` to
-// the REAL relay() BYTECODE at bounded K: it runs the deployed contract and asserts the bytecode obeys the
-// SAME psAt invariant the model proves. Composition:
-//   (a) here: real relay() bytecode  =>  psAt invariant  (K = 1,2,3), and
-//   (b) Kontrol: model               =>  psAt invariant  (all K)
-// establish that the model is a faithful abstraction of the bytecode where checkable (K<=3), and the
-// invariant it proves for all K is the same property the bytecode satisfies.
+// This harness ties the prefix-sum model `psAt(k) = w_0 + ... + w_{k-1}` to the deployed Relay at
+// K = 1, 2, and 3: whenever real `relay()` accepts, the corresponding modeled prefix sum is strictly
+// greater than the threshold. `lean/RelaySigLoop.lean` proves the same accounting property for all K,
+// while the Lean bytecode-refinement layer states the boundary between the compiled loop and that model.
 //
 // WHY NOT the fully-symbolic single-iteration form: relay() is monolithic — the loop's intermediate
 // (weight, nextUnusedIndex) is not externally observable, and instrumenting the contract would change the
-// bytecode under verification. A full real-relay() Kontrol proof is intractable (KEVM over ~1747 lines of
-// assembly + keccak/ecrecover/loops). So the bridge is established by this bounded composition; see
-// docs/relay-t1-bridge.md.
+// bytecode under verification. The bounded Relay call and unbounded Lean theorem are therefore reported
+// separately; neither is presented as an unbounded end-to-end bytecode proof.
 //
-// `_psAt` below is byte-identical in meaning to the Kontrol model's `_psAt` (conditional prefix sum of the
-// 16-bit voter weights). Concrete N=3 policy, SYMBOLIC weights + threshold, symbolic signatures, ecrecover
+// `_psAt` below is the conditional prefix sum of the 16-bit voter weights. Concrete N=3 policy,
+// SYMBOLIC weights + threshold, symbolic signatures, ecrecover
 // uninterpreted; same-epoch so no threshold-increase. halmos.toml loop=6 covers the 3-signature loop.
 //
 // New to Halmos? See test-forge/fv/README.md §2 — a `check_` function is a ∀-proof over its symbolic
@@ -42,7 +36,7 @@ contract RelayModelBridgeFV is RelayTestBase {
 
     function setUp() public override {}
 
-    // The Kontrol model's prefix-sum function (RelaySigLoopFV._psAt), reproduced here verbatim in meaning.
+    // Prefix-sum model used by the bounded bridge checks.
     function _psAt(uint256 k, uint16 w0, uint16 w1, uint16 w2) internal pure returns (uint256) {
         if (k == 0) return 0;
         if (k == 1) return uint256(w0);

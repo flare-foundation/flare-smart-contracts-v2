@@ -10,11 +10,11 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase 3 Step 1/4 (AC-1): ACCESS CONTROL on setSigningPolicy.
-// setSigningPolicy is `onlySigningPolicySetter` (Relay.sol:219-220,325): require(msg.sender ==
-// signingPolicySetter, "only sign policy setter"). So ONLY the registered setter (on Flare:
-// FlareSystemsManager) can ever rotate the signing policy — no other caller can, for ANY setter address.
-// Proven with a SYMBOLIC signingPolicySetter s != msg.sender on an otherwise-fully-valid policy, so the
+// Access control on setSigningPolicy.
+// setSigningPolicy is guarded by `onlySigningPolicySetter` and reverts with
+// `OnlySigningPolicySetterRole()` for every other caller. Only the registered setter can rotate the
+// signing policy. Proven with a symbolic nonzero signingPolicySetter s != msg.sender on an
+// otherwise-fully-valid policy, so the
 // guard is the only admissible revert reason. (msg.sender into Relay is this test contract.)
 contract RelayAccessControlFV is RelayTestBase {
     function setUp() public override {}
@@ -35,9 +35,10 @@ contract RelayAccessControlFV is RelayTestBase {
         sp.weights[0] = 100;
     }
 
-    // AC-1 — for ANY setter address that is not the caller, setSigningPolicy reverts (caller is not authorised).
+    // For any nonzero setter address that is not the caller, setSigningPolicy reverts as unauthorized.
     // EXPECT: PASS (proof).
     function check_setSigningPolicy_onlySetter(address s) external {
+        vm.assume(s != address(0)); // preserve setter mode; relay mode has different constructor requirements
         vm.assume(s != address(this)); // the caller (this test) is NOT the registered setter
         Relay r = deployRelay(_setterConfig(), s, IRelay(address(0)));
         IIRelay.SigningPolicy memory sp = _validPolicy(uint24(REWARD_EPOCH_ID) + 1); // valid & correct epoch
