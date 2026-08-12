@@ -184,6 +184,10 @@ interface IRelay is RandomNumberV2Interface {
     error NotWithLastInitialized();
     /// Legacy reason: "old relay incompatible".
     error OldRelayIncompatible();
+    /// Old-relay migration is home-only: a relay-mode (mirror) deployment charges verify() fees,
+    /// and delegating pre-boundary calls to an old relay would entangle its fee schedule with
+    /// this contract's fee and fee-exemption logic. Mirrors seed a fresh source snapshot instead.
+    error OldRelayNotAllowedInRelayMode();
     /// Legacy reason: "old relay verification failed".
     error OldRelayVerificationFailed();
     /// Legacy reason: "wrong first reward epoch start".

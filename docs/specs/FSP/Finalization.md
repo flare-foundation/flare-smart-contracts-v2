@@ -90,3 +90,5 @@ Other read-only views:
 ## Migrating from v1
 
 `Relay` supports an optional `oldRelay` chain — if set, `verify`, `merkleRoots`, `getRandomNumberHistorical`, and `toSigningPolicyHash` transparently delegate to the previous `Relay` for any voting round / reward epoch ID strictly less than `startingVotingRoundIdForInitialRewardEpochId` / `initialRewardEpochId`. This lets the contract be redeployed without breaking historical proofs.
+
+The `oldRelay` chain is **home-only**: `initialize` rejects it on a relay-mode (mirror) deployment (`OldRelayNotAllowedInRelayMode`) and requires the old relay itself to be a setter-mode deployment (`OldRelayIncompatible`). Mirrors charge `verify()` fees, and delegating pre-boundary calls to an old relay would entangle its fee schedule with the new contract's fee and fee-exemption logic; on a home (setter-mode) deployment every fee is structurally zero, so delegation is fee-neutral. Mirrors seed a fresh source snapshot instead of chaining.

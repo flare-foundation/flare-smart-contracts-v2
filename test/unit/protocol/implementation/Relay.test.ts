@@ -2025,8 +2025,17 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
       const relay1 = await deployRelayProxy(relayInitialConfig1, signers[0].address, constants.ZERO_ADDRESS);
 
+      // Old-relay migration is home-only: a relay-mode (mirror) deployment must not carry an old
+      // relay — its verify() fees would entangle with the old relay's fee schedule.
       await expectCustomError(
         deployRelayProxy(relayInitialConfig1, constants.ZERO_ADDRESS, relay1.address),
+        "OldRelayNotAllowedInRelayMode"
+      );
+
+      // A setter-mode new deployment against a relay-mode old relay is incompatible.
+      const relayModeOld = await deployRelayProxy(relayInitialConfig1, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
+      await expectCustomError(
+        deployRelayProxy(relayInitialConfig1, signers[1].address, relayModeOld.address),
         "OldRelayIncompatible"
       );
 
@@ -2265,34 +2274,31 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         relayOldFlare.address
       );
 
-      const relayInitialConfigNewRelay: RelayInitialConfig = {
-        ...relayInitialConfigNewFlare,
-      };
-
-      const relayNewRelay = await deployRelayProxy(
-        relayInitialConfigNewRelay,
-        constants.ZERO_ADDRESS,
-        relayOldRelay.address
+      // Old-relay migration is home-only: a relay-mode deployment with an old relay is rejected,
+      // so there is no relay-mode old->new migration pair to test — only the Flare (setter-mode)
+      // pair delegates below the boundary.
+      await expectCustomError(
+        deployRelayProxy({ ...relayInitialConfigNewFlare }, constants.ZERO_ADDRESS, relayOldRelay.address),
+        "OldRelayNotAllowedInRelayMode"
       );
 
       // Relay two merkle roots for random generating protocol and another protocol at
-      // firstVotingRoundInRewardEpoch and firstVotingRoundInRewardEpoch + 1
-      // Relay this on both contracts in Flare and Relay mode.
-      // The new relay contracts are set to start with firstRewardEpochVotingRoundId + 2
+      // firstVotingRoundInRewardEpoch and firstVotingRoundInRewardEpoch + 1.
+      // Relay this on the Flare (setter-mode) old/new pair and the standalone relay-mode contract
+      // (relay-mode migration pairs are rejected — old relay is home-only).
+      // The new relay contract is set to start with firstRewardEpochVotingRoundId + 2.
       // Relay merkle roots also for firstVotingRoundInRewardEpoch + 2 and +3.
 
       const isFlare = new Map<RelayInstance, boolean>();
       isFlare.set(relayOldFlare, true);
       isFlare.set(relayOldRelay, false);
       isFlare.set(relayNewFlare, true);
-      isFlare.set(relayNewRelay, false);
       const isNew = new Map<RelayInstance, boolean>();
       isNew.set(relayOldFlare, false);
       isNew.set(relayOldRelay, false);
       isNew.set(relayNewFlare, true);
-      isNew.set(relayNewRelay, true);
 
-      const allRelays = [relayOldFlare, relayOldRelay, relayNewFlare, relayNewRelay];
+      const allRelays = [relayOldFlare, relayOldRelay, relayNewFlare];
 
       const votingRoundIdAndProtocolIdToMerkleRoot = new Map<string, string>();
       const votingRoundIdAndProtocolIdExampleLeaf = new Map<string, string>();

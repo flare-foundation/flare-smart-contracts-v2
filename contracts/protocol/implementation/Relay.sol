@@ -294,7 +294,8 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
      * deterministic proxy address never exists uninitialized.
      * @param _initialConfig The initial configuration of the relay.
      * @param _signingPolicySetter The address of the signing policy setter.
-     * @param _oldRelay The old relay contract (can be address(0)).
+     * @param _oldRelay The old relay contract (can be address(0)); home/setter-mode deployments
+     * only — must be zero in relay mode (mirrors), see OldRelayNotAllowedInRelayMode.
      * @param _initialOwner The per-chain owner (multisig): authorizes the fee setters and
      * upgrades through the OwnableWithTimelock queue (see IOwnableWithTimelock).
      */
@@ -390,12 +391,16 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         );
         getState().timelockDurationSeconds = _initialConfig.timelockDurationSeconds;
         emit TimelockDurationSet(_initialConfig.timelockDurationSeconds);
-        // new relay must be deployed in a compatible way (policy setter or not)
         if (address(_oldRelay) != address(0)) {
-            require((_signingPolicySetter != address(0) && _oldRelay.signingPolicySetter() != address(0)) ||
-                (_signingPolicySetter == address(0) && _oldRelay.signingPolicySetter() == address(0)),
-                OldRelayIncompatible()
-            );
+            // Old-relay migration is HOME-ONLY (setter mode). In relay mode (mirrors) verify()
+            // charges fees, and serving pre-boundary rounds through an old relay would force the
+            // fee and fee-exemption logic to consult that contract's schedule too — fragile fee
+            // accounting with no mirror use case (a mirror seeds a fresh source snapshot instead).
+            // On a home deploy every fee is structurally zero (the setter-mode branch above plus
+            // the relay-mode-only fee setters), so read delegation is fee-neutral.
+            require(_signingPolicySetter != address(0), OldRelayNotAllowedInRelayMode());
+            // The old relay must itself be a home (setter-mode) deployment.
+            require(_oldRelay.signingPolicySetter() != address(0), OldRelayIncompatible());
             (
                 ,
                 uint32 firstVotingRoundStartTs,

@@ -440,12 +440,15 @@ contract RelayVerifyTest is RelayTestBase {
     }
 
     // RLY-13: oldRelay fallback must fail closed if oldRelay.verify returns false (fee already forwarded).
+    // Old-relay migration is home-only, so the new relay deploys in setter mode (no fees).
     function _deployWithOldRelay(bool oldReturns) internal returns (Relay r) {
         MockOldRelay mock = new MockOldRelay(
             oldReturns, FIRST_VOTING_ROUND_TS, VOTING_EPOCH_DURATION,
             FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID, REWARD_EPOCH_DURATION, 0
         );
-        r = deployRelay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(mock)));
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeCollectionAddress = payable(address(0)); // setter mode collects no fees
+        r = deployRelay(cfg, address(this), IRelay(address(mock)));
     }
 
     function test_verify_oldRelayFallback_revertsOnFalse() public {
@@ -686,12 +689,16 @@ contract RelayVerifyTest is RelayTestBase {
     }
 
     // M-1: oldRelay fallback forwards only the old relay's fee and refunds the overpayment.
+    // (The NEW relay is fee-less setter mode — old-relay migration is home-only — but the OLD
+    // relay's own fee schedule is still honoured by the delegation path.)
     function test_verify_oldRelayFallback_refundsOverpayment() public {
         MockOldRelay mock = new MockOldRelay(
             true, FIRST_VOTING_ROUND_TS, VOTING_EPOCH_DURATION,
             FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID, REWARD_EPOCH_DURATION, 700
         );
-        Relay r = deployRelay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(mock)));
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeCollectionAddress = payable(address(0)); // setter mode collects no fees
+        Relay r = deployRelay(cfg, address(this), IRelay(address(mock)));
         vm.deal(address(this), 1 ether);
         uint256 mockBefore = address(mock).balance;
         uint256 selfBefore = address(this).balance;
@@ -812,12 +819,16 @@ contract RelayVerifyTest is RelayTestBase {
 
     // ---- M-1 oldRelay fallback fee edges ----
 
+    // Old-relay migration is home-only, so the new relay deploys in setter mode (no own fees);
+    // the delegation path still honours the OLD relay's fee schedule.
     function _oldRelayWithFee(uint256 feeWei) internal returns (MockOldRelay mock, Relay r) {
         mock = new MockOldRelay(
             true, FIRST_VOTING_ROUND_TS, VOTING_EPOCH_DURATION,
             FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID, REWARD_EPOCH_DURATION, feeWei
         );
-        r = deployRelay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(mock)));
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeCollectionAddress = payable(address(0)); // setter mode collects no fees
+        r = deployRelay(cfg, address(this), IRelay(address(mock)));
     }
 
     // M-1: msg.value below the old relay's fee reverts "too low fee".
@@ -983,13 +994,34 @@ contract RelayConstructorTest is RelayTestBase {
         new RelayProxy(address(implementation), c, address(0), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
     }
 
-    // Coverage (Med): a relay-mode new deployment against a SETTER-mode old relay is incompatible.
-    function test_ctor_oldRelay_incompatibleSetterMode_reverts() public {
-        MockOldRelaySetterMode mock = new MockOldRelaySetterMode();
+    // Setter-mode config (home deploy): fee collection/configs must be empty.
+    function _setterCfg() internal view returns (IRelay.RelayInitialConfig memory cfg) {
+        cfg = _cfg();
+        cfg.feeCollectionAddress = payable(address(0));
+    }
+
+    // Old-relay migration is HOME-ONLY: a relay-mode (mirror) deployment must not carry an old
+    // relay — its verify() fees would entangle with the old relay's schedule.
+    function test_ctor_oldRelay_notAllowedInRelayMode_reverts() public {
+        MockOldRelay mock = new MockOldRelay(
+            true, FIRST_VOTING_ROUND_TS, VOTING_EPOCH_DURATION,
+            FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID, REWARD_EPOCH_DURATION, 0
+        );
+        Relay implementation = new Relay();
+        vm.expectRevert(IRelay.OldRelayNotAllowedInRelayMode.selector);
+        // new relay = relay mode (no setter), old relay set
+        new RelayProxy(address(implementation), _cfg(), address(0), IRelay(address(mock)), RELAY_TEST_GOVERNANCE);
+    }
+
+    // Coverage (Med): a setter-mode new deployment against a RELAY-mode old relay is incompatible.
+    function test_ctor_oldRelay_incompatibleRelayMode_reverts() public {
+        MockOldRelayRelayMode mock = new MockOldRelayRelayMode();
         Relay implementation = new Relay();
         vm.expectRevert(IRelay.OldRelayIncompatible.selector);
-        // new relay = relay mode, old = setter mode
-        new RelayProxy(address(implementation), _cfg(), address(0), IRelay(address(mock)), RELAY_TEST_GOVERNANCE);
+        // new relay = setter mode, old = relay mode
+        new RelayProxy(
+            address(implementation), _setterCfg(), address(this), IRelay(address(mock)), RELAY_TEST_GOVERNANCE
+        );
     }
 
     // Coverage (Med): a timing-field mismatch with the old relay is rejected ("wrong start ts").
@@ -1000,7 +1032,9 @@ contract RelayConstructorTest is RelayTestBase {
         );
         Relay implementation = new Relay();
         vm.expectRevert(IRelay.OldRelayWrongStartTs.selector);
-        new RelayProxy(address(implementation), _cfg(), address(0), IRelay(address(mock)), RELAY_TEST_GOVERNANCE);
+        new RelayProxy(
+            address(implementation), _setterCfg(), address(this), IRelay(address(mock)), RELAY_TEST_GOVERNANCE
+        );
     }
 
 }
@@ -1286,8 +1320,10 @@ contract MockOldRelay {
         ts = _ts; vd = _vd; fre = _fre; red = _red; feeWei = _feeWei;
     }
 
+    // Old-relay migration is home-only, so the mock reports SETTER mode (like the deployed
+    // production Relay it stands in for).
     function signingPolicySetter() external pure returns (address) {
-        return address(0);
+        return address(0x5E77E5);
     }
 
     function protocolFeeInWei(uint256) external view returns (uint256) {
@@ -1322,11 +1358,11 @@ contract MockOldRelay {
     }
 }
 
-// Old relay reporting SETTER mode (non-zero signingPolicySetter) -> triggers "old relay incompatible"
-// against a relay-mode new deployment (the incompat check runs before any stateData read).
-contract MockOldRelaySetterMode {
+// Old relay reporting RELAY mode (zero signingPolicySetter) -> triggers "old relay incompatible"
+// against a setter-mode new deployment (the incompat check runs before any stateData read).
+contract MockOldRelayRelayMode {
     function signingPolicySetter() external pure returns (address) {
-        return address(0x5E77E5);
+        return address(0);
     }
 }
 
