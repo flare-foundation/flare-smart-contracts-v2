@@ -238,7 +238,11 @@ contract RelayThresholdOverrideFV is RelayTestBase {
 
     // Mode-1 is not globally disabled in this fixture; three old-policy voters can install the valid policy.
     // EXPECT: COUNTEREXAMPLE (reachability control).
-    function check_reach_protocolIdZero_policyQuorumCanAccept(Sig calldata a, Sig calldata b, Sig calldata c) external {
+    function check_reach_protocolIdZero_policyQuorumCanAccept(
+        Sig calldata a,
+        Sig calldata b,
+        Sig calldata c
+    ) external {
         thresholdRelay.fvStoreThresholdOverride(1);
         assert(!_callRelay(_modeOneRelayMessage(_threeSigs(a, b, c))));
     }

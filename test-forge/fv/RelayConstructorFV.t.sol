@@ -23,6 +23,7 @@ import {RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 contract RelayConstructorFV is Relay {
     uint256 internal constant THRESHOLD_BIPS = 10000;
     uint256 internal constant TIMELOCK = 1 days;
+    // solhint-disable-next-line const-name-snakecase
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     // OpenZeppelin Contracts 5.7 Initializable's ERC-7201 namespace:
