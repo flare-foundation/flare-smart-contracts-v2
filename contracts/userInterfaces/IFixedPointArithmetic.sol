@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.6 <0.9;
+// User-defined value types require Solidity 0.8.8 or newer.
+pragma solidity >=0.8.8 <0.9;
 
 /*
  * Opaque type synonyms to enforce arithemtic correctness.
