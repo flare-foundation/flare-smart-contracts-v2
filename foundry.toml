@@ -57,11 +57,47 @@ via_ir = false
 paths = "contracts/mock/*.sol"
 via_ir = false
 
+# Foundry minimizes the compiler count by reusing a previously selected compatible version. The
+# legacy roots below seed solc 0.7.6, so broad modern pragmas must be pinned explicitly or a clean
+# machine can incorrectly fold them into the legacy compilation unit.
+[[profile.default.compilation_restrictions]]
+paths = "contracts/{adapters,customFeeds,diamond,fastUpdates,fdc,fdc2,fscV1,ftso,governance,incentivePool,inflation,protocol,rNat,staking,tee,utils}/**/*.sol"
+version = "=0.8.35"
+
+[[profile.default.compilation_restrictions]]
+paths = "contracts/userInterfaces/{fdc,fdc2,LTS,tee}/**/*.sol"
+version = "=0.8.35"
+
+[[profile.default.compilation_restrictions]]
+paths = "contracts/userInterfaces/I{AddressUpdatable,Bn256,EntityManager,FastUpdateIncentiveManager,FastUpdater,FastUpdatesConfiguration,FdcHub,FdcInflationConfigurations,FdcRequestFeeConfigurations,FdcVerification,FeeCalculator,FlareSystemsManager,FtsoFeedDecimals,FtsoFeedIdConverter,FtsoFeedPublisher,FtsoInflationConfigurations,FtsoRewardOffersManager,Governor,IncreaseManager,PollingManagementGroup,PublicKey,RandomProvider,Relay,RewardManager,RNat,RNatAccount,Signature,Sortition,Submission,ValidatorRewardOffersManager,VoterPreRegistry,VoterRegistry,WNat}.sol"
+version = "=0.8.35"
+
+[[profile.default.compilation_restrictions]]
+paths = "contracts/userInterfaces/{IFixedPointArithmetic,IFlareGovernance,IFlareSystemsCalculator,IOwnableWithTimelock,IWNatDelegationFee}.sol"
+version = "=0.8.35"
+
+[[profile.default.compilation_restrictions]]
+paths = "contracts/mock/{ERC20Mock.sol,IIFlareSmartContracts.sol,IIIFtsoRegistry.sol,IIIPriceSubmitter.sol,MockTeeGovernanceHashSetter.sol,PChainStakeMirrorVerifier.sol,RelayMainDeployed.sol,SuicidalMock.sol}"
+version = "=0.8.35"
+
+[[profile.default.compilation_restrictions]]
+paths = "test-forge/**/*.sol"
+version = "=0.8.35"
+
+[[profile.default.compilation_restrictions]]
+paths = "contracts/mock/{CChainStake,CChainStakeBase,CChainStakeHistory,GovernanceVotePower,ImportContractMock}.sol"
+version = "=0.7.6"
+
+[[profile.default.compilation_restrictions]]
+paths = "contracts/mock/Imports.sol"
+version = "=0.6.12"
+
 # The flattened v1 bundle is pinned to solc 0.7.6, whose viaIR pipeline was experimental and
-# cannot compile it ("Unimplemented feature"). It is only reached through the 0.7.x mocks in
-# contracts/mock/ (already viaIR-off above), so pin it off too.
+# cannot compile it ("Unimplemented feature"). It is only reached through the 0.7.x mocks above,
+# so pin both its compiler version and pipeline explicitly.
 [[profile.default.compilation_restrictions]]
 paths = "flattened/*.sol"
+version = "=0.7.6"
 via_ir = false
 
 # Create3Factory is deployed via the keyless CREATE2 deployer, so its address is
@@ -124,6 +160,52 @@ via_ir = true
 optimizer = true
 optimizer_runs = 200
 bytecode_hash = "None"
+
+[[profile.coverage.additional_compiler_profiles]]
+name = "no-via-ir"
+via_ir = false
+
+# Profile restriction arrays replace (rather than extend) the default profile's array. Repeat the
+# version partition so coverage is deterministic on a clean runner too.
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/{adapters,customFeeds,diamond,fastUpdates,fdc,fdc2,fscV1,ftso,governance,incentivePool,inflation,protocol,rNat,staking,tee,utils}/**/*.sol"
+version = "=0.8.35"
+
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/userInterfaces/{fdc,fdc2,LTS,tee}/**/*.sol"
+version = "=0.8.35"
+
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/userInterfaces/I{AddressUpdatable,Bn256,EntityManager,FastUpdateIncentiveManager,FastUpdater,FastUpdatesConfiguration,FdcHub,FdcInflationConfigurations,FdcRequestFeeConfigurations,FdcVerification,FeeCalculator,FlareSystemsManager,FtsoFeedDecimals,FtsoFeedIdConverter,FtsoFeedPublisher,FtsoInflationConfigurations,FtsoRewardOffersManager,Governor,IncreaseManager,PollingManagementGroup,PublicKey,RandomProvider,Relay,RewardManager,RNat,RNatAccount,Signature,Sortition,Submission,ValidatorRewardOffersManager,VoterPreRegistry,VoterRegistry,WNat}.sol"
+version = "=0.8.35"
+
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/userInterfaces/{IFixedPointArithmetic,IFlareGovernance,IFlareSystemsCalculator,IOwnableWithTimelock,IWNatDelegationFee}.sol"
+version = "=0.8.35"
+
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/mock/{ERC20Mock.sol,IIFlareSmartContracts.sol,IIIFtsoRegistry.sol,IIIPriceSubmitter.sol,MockTeeGovernanceHashSetter.sol,PChainStakeMirrorVerifier.sol,RelayMainDeployed.sol,SuicidalMock.sol}"
+version = "=0.8.35"
+via_ir = false
+
+[[profile.coverage.compilation_restrictions]]
+paths = "test-forge/**/*.sol"
+version = "=0.8.35"
+
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/mock/{CChainStake,CChainStakeBase,CChainStakeHistory,GovernanceVotePower,ImportContractMock}.sol"
+version = "=0.7.6"
+via_ir = false
+
+[[profile.coverage.compilation_restrictions]]
+paths = "contracts/mock/Imports.sol"
+version = "=0.6.12"
+via_ir = false
+
+[[profile.coverage.compilation_restrictions]]
+paths = "flattened/*.sol"
+version = "=0.7.6"
+via_ir = false
 
 [[profile.coverage.compilation_restrictions]]
 paths = "contracts/tee/implementation/TeePayments.sol"
