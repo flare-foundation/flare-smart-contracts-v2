@@ -31,11 +31,10 @@ function captureGitState() {
     cwd: repoRoot,
     encoding: null,
   });
-  const statusResult = childProcess.spawnSync(
-    "git",
-    ["status", "--porcelain=v1", "--untracked-files=all"],
-    { cwd: repoRoot, encoding: null }
-  );
+  const statusResult = childProcess.spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
+    cwd: repoRoot,
+    encoding: null,
+  });
   const headBytes = Buffer.isBuffer(headResult.stdout) ? headResult.stdout : Buffer.alloc(0);
   const statusBytes = Buffer.isBuffer(statusResult.stdout) ? statusResult.stdout : Buffer.alloc(0);
   const head = headBytes.toString("ascii").trim();
@@ -204,13 +203,11 @@ function runNodePreparation() {
     maxBuffer: 50 * 1024 * 1024,
   });
   if (version.error || version.status !== 0 || version.stdout.trim() !== expectedPnpm) {
-    fail(`pnpm is ${JSON.stringify((version.stdout || version.stderr || "unavailable").trim())}; expected ${expectedPnpm}`);
+    fail(
+      `pnpm is ${JSON.stringify((version.stdout || version.stderr || "unavailable").trim())}; expected ${expectedPnpm}`
+    );
   }
-  const commands = [
-    ["install", "--frozen-lockfile", "--force"],
-    ["hardhat", "clean"],
-    ["compile"],
-  ];
+  const commands = [["install", "--frozen-lockfile", "--force"], ["hardhat", "clean"], ["compile"]];
   const records = [];
   for (const args of commands) {
     const completed = childProcess.spawnSync(pnpm, args, {
@@ -219,7 +216,9 @@ function runNodePreparation() {
       maxBuffer: 50 * 1024 * 1024,
     });
     if (completed.error || completed.status !== 0) {
-      fail(`${pnpm} ${args.join(" ")} failed: ${(completed.stderr || completed.stdout || completed.error || "").toString().slice(-1000)}`);
+      fail(
+        `${pnpm} ${args.join(" ")} failed: ${(completed.stderr || completed.stdout || completed.error || "").toString().slice(-1000)}`
+      );
     }
     records.push({
       command: [pnpm, ...args],

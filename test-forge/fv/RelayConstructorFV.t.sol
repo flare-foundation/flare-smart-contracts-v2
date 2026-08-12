@@ -23,7 +23,7 @@ import {RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 contract RelayConstructorFV is Relay {
     uint256 internal constant THRESHOLD_BIPS = 10000;
     uint256 internal constant TIMELOCK = 1 days;
-    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    Vm internal constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     // OpenZeppelin Contracts 5.7 Initializable's ERC-7201 namespace:
     // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Initializable")) - 1)) & ~bytes32(uint256(0xff)).
@@ -81,7 +81,7 @@ contract RelayConstructorFV is Relay {
     // thresholdIncreaseBIPS below 1.0x (THRESHOLD_BIPS) is rejected.
     // EXPECT: PASS (proof).
     function check_ctor_rejectsLowThresholdIncrease(uint16 tib) external {
-        vm.assume(uint256(tib) < THRESHOLD_BIPS);
+        VM.assume(uint256(tib) < THRESHOLD_BIPS);
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.thresholdIncreaseBIPS = tib;
         (bool ok,) = _tryInitialize(cfg);
@@ -118,7 +118,7 @@ contract RelayConstructorFV is Relay {
     // source chain id that is nonzero and != block.chainid is rejected — a live setter cannot bind a
     // foreign domain. EXPECT: PASS (proof).
     function check_ctor_homeForce_rejectsForeignSource(uint256 src) external {
-        vm.assume(src != 0 && src != block.chainid);
+        VM.assume(src != 0 && src != block.chainid);
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.sourceChainId = src;
         (bool ok,) = _tryInitialize(cfg);
@@ -129,7 +129,7 @@ contract RelayConstructorFV is Relay {
     // pass merely because an otherwise-valid fixture regressed at an unrelated initializer guard.
     // EXPECT: PASS (proof).
     function check_ctor_setterMode_rejectsFeeCollectorExactly(address collector) external {
-        vm.assume(collector != address(0));
+        VM.assume(collector != address(0));
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.feeCollectionAddress = payable(collector);
         (bool ok, bytes memory returnData) = _tryInitialize(cfg);

@@ -151,6 +151,7 @@ class CollectEvidenceTest(unittest.TestCase):
         self.data["relay-halmos"].update(
             {
                 "release_eligible": True,
+                "toolchain": {"halmos_forge": "/pinned/bin/forge"},
                 "inputs": {
                     "release_eligible": True,
                     "problems": [],
@@ -161,6 +162,34 @@ class CollectEvidenceTest(unittest.TestCase):
                             "solver": "z3",
                             "solver_timeout_assertion": 0,
                         }
+                    },
+                    "halmos_foundry_build": {
+                        "command": ["/pinned/bin/forge", "config", "--json"],
+                        "environment": {
+                            "FOUNDRY_PROFILE": "default",
+                            "FOUNDRY_SRC": "test-forge/fv",
+                            "FOUNDRY_TEST": "test-forge/fv",
+                            "FOUNDRY_OUT": "artifacts-forge",
+                            "FOUNDRY_CACHE_PATH": "cache-forge",
+                            "FOUNDRY_SOLC_VERSION": "0.8.35",
+                            "FOUNDRY_AUTO_DETECT_SOLC": "false",
+                            "FOUNDRY_EVM_VERSION": "cancun",
+                            "FOUNDRY_OPTIMIZER": "true",
+                            "FOUNDRY_OPTIMIZER_RUNS": "200",
+                            "FOUNDRY_VIA_IR": "true",
+                        },
+                        "effective": {
+                            "src": "test-forge/fv",
+                            "test": "test-forge/fv",
+                            "out": "artifacts-forge",
+                            "cache_path": "cache-forge",
+                            "solc": "0.8.35",
+                            "auto_detect_solc": False,
+                            "evm_version": "cancun",
+                            "optimizer": True,
+                            "optimizer_runs": 200,
+                            "via_ir": True,
+                        },
                     },
                     "soldeer": soldeer,
                     "artifacts_before_halmos": {
@@ -277,6 +306,24 @@ class CollectEvidenceTest(unittest.TestCase):
         )
         self._write()
         with self.assertRaisesRegex(ValueError, "overrides or unexpected"):
+            self.collect()
+
+    def test_rejects_release_halmos_foundry_scope_drift(self) -> None:
+        self.data["relay-halmos"]["inputs"]["halmos_foundry_build"]["effective"][
+            "src"
+        ] = "contracts"
+        self._write()
+        with self.assertRaisesRegex(ValueError, "exact audited Foundry build scope"):
+            self.collect()
+
+    def test_rejects_release_halmos_foundry_audit_command_drift(self) -> None:
+        self.data["relay-halmos"]["inputs"]["halmos_foundry_build"]["command"] = [
+            "other-forge",
+            "config",
+            "--json",
+        ]
+        self._write()
+        with self.assertRaisesRegex(ValueError, "exact audited Foundry build scope"):
             self.collect()
 
     def test_rejects_boolean_schema_version(self) -> None:

@@ -122,6 +122,8 @@ def load_manifest(path: Path) -> tuple[dict[str, Any], str]:
         if not valid:
             raise ValueError(f"halmos.configuration.{field} has an invalid value")
 
+    _halmos_foundry_build(manifest)
+
     return manifest, hashlib.sha256(raw).hexdigest()
 
 
@@ -530,7 +532,9 @@ def _audit_halmos_config(manifest: dict[str, Any]) -> tuple[dict[str, Any], list
 
 
 def _prepare_halmos_artifacts(
-    manifest: dict[str, Any], forge_binary: str | None = None
+    manifest: dict[str, Any],
+    forge_binary: str | None = None,
+    environment: dict[str, str] | None = None,
 ) -> tuple[int, list[str]]:
     """Force exact production artifacts so Halmos cannot reuse an alternate build."""
     compiler = manifest["target"]["production_compiler"]
@@ -538,7 +542,6 @@ def _prepare_halmos_artifacts(
     command = [
         forge_binary or os.environ.get("FORGE", "forge"),
         "build",
-        "test-forge/fv",
         "--use",
         compiler["short_version"],
         "--no-auto-detect",
@@ -564,6 +567,7 @@ def _prepare_halmos_artifacts(
             capture_output=True,
             text=True,
             check=False,
+            env=environment,
         )
     except OSError as error:
         print(f"[fv] FAIL: could not execute Forge ({error}).")
@@ -574,8 +578,53 @@ def _prepare_halmos_artifacts(
     return completed.returncode, command
 
 
-def _halmos_subprocess_environment(forge_binary: str) -> tuple[dict[str, str], str]:
-    """Make Halmos's internal `forge` invocation use the audited binary."""
+def _halmos_foundry_build(manifest: dict[str, Any]) -> dict[str, str]:
+    """Derive the internal Forge scope from the exact manifest check inventory."""
+    checks = manifest["halmos"]["proofs"] + manifest["halmos"]["reachability"]
+    source_parents: list[str] = []
+    for check_id in checks:
+        source, separator, _ = check_id.partition(":")
+        path = Path(source)
+        if not separator or path.is_absolute() or ".." in path.parts:
+            raise ValueError(f"invalid Halmos source path in manifest: {check_id!r}")
+        source_parents.append(path.parent.as_posix())
+    if not source_parents:
+        raise ValueError("Halmos manifest has no source inventory")
+    common_parent = Path(os.path.commonpath(source_parents))
+    if (REPO_ROOT / common_parent).resolve() != FV_DIR.resolve():
+        raise ValueError("Halmos manifest sources do not share the audited FV suite root")
+    return {
+        "profile": "default",
+        "src": common_parent.as_posix(),
+        "test": common_parent.as_posix(),
+        "cache_path": "cache-forge",
+    }
+
+
+def _halmos_foundry_environment(manifest: dict[str, Any]) -> dict[str, str]:
+    """Return the exact Foundry environment shared by artifact prep and Halmos."""
+    foundry = _halmos_foundry_build(manifest)
+    compiler = manifest["target"]["production_compiler"]
+    configuration = manifest["halmos"]["configuration"]
+    return {
+        "FOUNDRY_PROFILE": foundry["profile"],
+        "FOUNDRY_SRC": foundry["src"],
+        "FOUNDRY_TEST": foundry["test"],
+        "FOUNDRY_OUT": configuration["forge_build_out"],
+        "FOUNDRY_CACHE_PATH": foundry["cache_path"],
+        "FOUNDRY_SOLC_VERSION": compiler["short_version"],
+        "FOUNDRY_AUTO_DETECT_SOLC": "false",
+        "FOUNDRY_EVM_VERSION": compiler["evm_version"],
+        "FOUNDRY_OPTIMIZER": "true" if compiler["optimizer_enabled"] else "false",
+        "FOUNDRY_OPTIMIZER_RUNS": str(compiler["optimizer_runs"]),
+        "FOUNDRY_VIA_IR": "true" if compiler["via_ir"] else "false",
+    }
+
+
+def _halmos_subprocess_environment(
+    forge_binary: str, manifest: dict[str, Any]
+) -> tuple[dict[str, str], str, dict[str, str]]:
+    """Make both Halmos Forge phases use one audited binary and build scope."""
     resolved = shutil.which(forge_binary)
     if resolved is None:
         candidate = Path(forge_binary).expanduser()
@@ -584,14 +633,68 @@ def _halmos_subprocess_environment(forge_binary: str) -> tuple[dict[str, str], s
     if resolved is None:
         raise RuntimeError(f"could not resolve executable Forge binary {forge_binary!r}")
     resolved_path = Path(resolved).resolve()
-    environment = os.environ.copy()
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(("FOUNDRY_", "DAPP_"))
+    }
     environment["PATH"] = str(resolved_path.parent) + os.pathsep + environment.get("PATH", "")
+    pinned = _halmos_foundry_environment(manifest)
+    environment.update(pinned)
     internal = shutil.which("forge", path=environment["PATH"])
     if internal is None or Path(internal).resolve() != resolved_path:
         raise RuntimeError(
             "Halmos invokes `forge` by name, but the audited Forge binary is not named `forge`"
         )
-    return environment, str(resolved_path)
+    return environment, str(resolved_path), pinned
+
+
+def _audit_halmos_foundry_environment(
+    forge_binary: str, environment: dict[str, str], pinned: dict[str, str]
+) -> tuple[dict[str, Any], list[str]]:
+    """Fail closed if Foundry does not honor the pinned internal-build environment."""
+    command = [forge_binary, "config", "--json"]
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=environment,
+        )
+        parsed = json.loads(completed.stdout) if completed.returncode == 0 else {}
+    except (OSError, json.JSONDecodeError) as error:
+        return {"environment": pinned, "effective": None}, [
+            f"could not audit Halmos Foundry environment ({error})"
+        ]
+
+    expected = {
+        "src": pinned["FOUNDRY_SRC"],
+        "test": pinned["FOUNDRY_TEST"],
+        "out": pinned["FOUNDRY_OUT"],
+        "cache_path": pinned["FOUNDRY_CACHE_PATH"],
+        "solc": pinned["FOUNDRY_SOLC_VERSION"],
+        "auto_detect_solc": False,
+        "evm_version": pinned["FOUNDRY_EVM_VERSION"],
+        "optimizer": pinned["FOUNDRY_OPTIMIZER"] == "true",
+        "optimizer_runs": int(pinned["FOUNDRY_OPTIMIZER_RUNS"]),
+        "via_ir": pinned["FOUNDRY_VIA_IR"] == "true",
+    }
+    actual = {field: parsed.get(field) for field in expected}
+    problems: list[str] = []
+    if completed.returncode != 0:
+        problems.append(f"Halmos Foundry config audit exited {completed.returncode}")
+    for field, wanted in expected.items():
+        if type(actual[field]) is not type(wanted) or actual[field] != wanted:
+            problems.append(
+                f"Halmos Foundry {field} is {actual[field]!r}; expected {wanted!r}"
+            )
+    return {
+        "command": command,
+        "environment": pinned,
+        "effective": actual,
+    }, problems
 
 
 def _halmos_artifact_record(
@@ -804,6 +907,19 @@ def main() -> int:
     input_problems = list(config_problems)
 
     try:
+        halmos_environment, halmos_forge, pinned_foundry_environment = (
+            _halmos_subprocess_environment(forge_binary, manifest)
+        )
+        toolchain["halmos_forge"] = halmos_forge
+        foundry_record, foundry_problems = _audit_halmos_foundry_environment(
+            halmos_forge, halmos_environment, pinned_foundry_environment
+        )
+        input_problems.extend(foundry_problems)
+    except RuntimeError as error:
+        print(f"[fv] FAIL: could not prepare Halmos Foundry environment ({error}).")
+        return 1
+
+    try:
         if args.results_input:
             output_path = args.results_input
             print(f"[fv] validating existing results: {output_path}")
@@ -814,7 +930,9 @@ def main() -> int:
             input_problems.extend(dependency_problems)
             if dependency_problems:
                 raise RuntimeError("clean Soldeer preparation failed: " + "; ".join(dependency_problems))
-            build_exitcode, build_command = _prepare_halmos_artifacts(manifest, forge_binary)
+            build_exitcode, build_command = _prepare_halmos_artifacts(
+                manifest, forge_binary, halmos_environment
+            )
             if build_exitcode:
                 raise RuntimeError("could not produce exact AST-complete Foundry artifacts")
             artifact_records, artifact_problems = _audit_halmos_artifacts(manifest)
@@ -848,8 +966,6 @@ def main() -> int:
             ]
             print("[fv] running:", " ".join(halmos_command), flush=True)
             try:
-                halmos_environment, halmos_forge = _halmos_subprocess_environment(forge_binary)
-                toolchain["halmos_forge"] = halmos_forge
                 completed = subprocess.run(
                     halmos_command,
                     check=False,
@@ -894,6 +1010,7 @@ def main() -> int:
         report["toolchain"] = toolchain
         report["inputs"] = {
             "halmos_config": config_record,
+            "halmos_foundry_build": foundry_record,
             "soldeer": dependency_record,
             "artifacts_before_halmos": artifact_records,
             "artifacts_after_halmos": artifact_records_end,
