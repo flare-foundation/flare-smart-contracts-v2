@@ -1088,17 +1088,16 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 let overrideBIPS := tload(TSLOT_THRESHOLD_OVERRIDE)
                 if gt(overrideBIPS, 0) {
                     // The policy metadata carries only the threshold, so sum the total weight
-                    // from calldata (shared with checkThresholdConsistency; the policy content
-                    // is hash-verified above, and registration bounds totalWeight <= 2^16 - 1).
-                    // mulDivRoundUp(totalWeight, overrideBIPS, THRESHOLD_BIPS) — the same
-                    // ceiling FlareSystemsManager._initializeNextSigningPolicy uses to derive a
-                    // policy threshold from a BIPS-like fraction; acceptance below stays strict
-                    // (weight > threshold), matching the Fdc2RequestHeader.thresholdBIPS spec.
+                    // from calldata (shared with checkThresholdConsistency). Setter/Mode-1 policies
+                    // additionally bound totalWeight to 16 bits; even an opaque initial policy is
+                    // bounded by MAX_VOTERS and the uint16 weight encoding, so this product is safe.
+                    // Use floor division with the strict weight > threshold comparison. This is
+                    // exactly equivalent to:
+                    // weight * THRESHOLD_BIPS > totalWeight * overrideBIPS.
+                    // Rounding up here would apply two conservative steps and make valid
+                    // fractional BIPS thresholds (including 9999 BIPS with all weight) impossible.
                     threshold := div(
-                        add(
-                            mul(calculateTotalWeight(metadata, SELECTOR_BYTES), overrideBIPS),
-                            sub(THRESHOLD_BIPS, 1)
-                        ),
+                        mul(calculateTotalWeight(metadata, SELECTOR_BYTES), overrideBIPS),
                         THRESHOLD_BIPS
                     )
                 }
@@ -1518,10 +1517,11 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 // Index sanity checks in regard to signing policy.
                 // RLY-06 linkage: signing policies are NOT re-checked for zero-address/duplicate voters
                 // (the trusted setter, or for relayed policies the signed policy hash, owns that). The
-                // strictly-increasing index below is what carries no-double-count security regardless of
-                // policy origin: a duplicate voter can be counted at most once (index must strictly
-                // increase), and a zero-address "voter" cannot be matched because ecrecover never yields
-                // address(0) (enforced by the returndatasize / zero-signer checks above).
+                // strictly-increasing index below prevents the same policy SLOT from being counted twice.
+                // It does not prevent one ADDRESS from occupying multiple indices; threshold soundness is
+                // therefore conditional on the trusted policy-ingestion path supplying unique voters.
+                // A zero-address "voter" cannot be matched because ecrecover never yields address(0)
+                // (enforced by the returndatasize / zero-signer checks below).
                 if gt(add(index, 1), numberOfVoters) {
                     revertWithError(memPtrFor, ERR_INDEX_OUT_OF_RANGE)
                 }

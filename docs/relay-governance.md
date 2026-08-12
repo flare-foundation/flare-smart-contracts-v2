@@ -211,8 +211,19 @@ source Relay whose deployment provenance confirms it already stores the wrapped 
 
 ## 8. Formal-verification status
 
-The owner-timelock refactor deliberately leaves the Relay FV gates (Halmos manifest pins,
-Lean Yul snapshot, artifact parity, revert-ABI inventory, Certora munge, Kontrol) red
-pending a dedicated re-baseline: compiler re-pins to solc 0.8.35, proxy-aware harness
-setup, and the removal of the retired Safe-governance check inventory from the
-verification manifest.
+The owner/timelock/UUPS re-baseline uses solc 0.8.35 for the deployment and FV
+profiles and removes the retired Safe/GSS inventory. The Halmos manifest now
+expects **103 checks: 72 proofs and 31 reachability controls**. Sixteen of those
+checks (13 proofs and 3 controls) exercise owner-only queue/cancel behavior,
+exact-calldata/ETA/one-shot execution, mode separation, proxy initialization,
+queued UUPS upgrades, rollback, and storage-namespace separation.
+
+Certora has two current owner/timelock-aware configs and 13 rules. Their munge,
+Solidity compilation, and CVL typecheck pass locally; a local front-end result is
+not a cloud proof verdict. UUPS properties treat arbitrary replacement bytecode
+as a trusted-upgrade boundary.
+
+See [`relay-verification/CURRENT-STATUS.md`](relay-verification/CURRENT-STATUS.md)
+for the actual gate observations and pending reports. Historical Safe/GSS,
+compiler, proof-count, and pipeline claims elsewhere are not evidence for this
+architecture.

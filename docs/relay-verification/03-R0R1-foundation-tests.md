@@ -1,7 +1,11 @@
 # L3 — R0/R1: foundation tests (Foundry)
 
+> **Evidence note.** Test inventories and totals change with the code. Use
+> [`CURRENT-STATUS.md`](CURRENT-STATUS.md) for the run made against this revision; totals below are historical
+> unless explicitly dated current.
+
 > **What you get from this level.** The base of the stack: concrete and fuzz tests that exercise the
-> *actual compiled contract*. What they establish, what they deliberately do not, and how to run them.
+> _actual compiled contract_. What they establish, what they deliberately do not, and how to run them.
 > Highest object-fidelity (the real bytecode), weakest input-coverage (a few / random).
 
 ---
@@ -10,10 +14,10 @@
 
 R0/R1 are the foundation everything else builds on. They run the **deployed contract** end-to-end through
 Foundry, with no abstraction: real storage, real assembly, real calldata decoding. Their job is to pin
-*functional* correctness on representative and random inputs — the cases a human would think to check, plus
+_functional_ correctness on representative and random inputs — the cases a human would think to check, plus
 a fuzzed cloud around them — and to catch regressions cheaply on every CI run.
 
-They do **not** give a guarantee over *all* inputs (that is R2 upward). Their value is fidelity and speed:
+They do **not** give a guarantee over _all_ inputs (that is R2 upward). Their value is fidelity and speed:
 if a change breaks a mode in an obvious way, these fail in seconds, on the real code, before any symbolic
 or inductive tool is invoked.
 
@@ -38,7 +42,7 @@ owner-governance surface:
 
 - **Signing-policy / event ABI:** [`test_event_signatures_match_canonical`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L282)
   pins the assembly event topics to the canonical ABI.
-- **Signing-policy rotation (Mode 1, protocolId == 0):** `RelayPolicyRotationTest` — relaying a *new*
+- **Signing-policy rotation (Mode 1, protocolId == 0):** `RelayPolicyRotationTest` — relaying a _new_
   signing policy advances `lastInitializedRewardEpoch` ([`test_relayNewSigningPolicy_happyPath`](../../test-forge/unit/protocol/implementation/Relay.t.sol#L1058)); the new
   policy must be `lastInitialized + 1` (`_wrongRewardEpoch_reverts`) with enough weight
   (`_lowWeight_reverts`) and present metadata (`_noNewPolicySize_reverts`); post-rotation a message is
@@ -66,7 +70,8 @@ concrete cases at no extra authoring cost.
 
 ## 3.3 How CI runs it
 
-Two jobs in `.gitlab-ci.yml`, both green in the current pipeline:
+Two jobs in `.gitlab-ci.yml` define the current automated test paths; consult
+the pipeline for the target commit rather than inferring a verdict from this page:
 
 - **`test-unit-forge`** — `forge test -vvv` (runs all Foundry tests incl. fuzz).
 - **`coverage-forge`** (+ `coverage-forge-reports`) — `forge build` then the coverage pass over the suite.
@@ -85,7 +90,7 @@ forge coverage --match-path 'test-forge/unit/protocol/implementation/Relay.t.sol
 - **Do:** functional correctness of all modes on concrete + randomized inputs, on the **real deployed
   bytecode**; fast regression protection; concrete witnesses that the accept/revert paths behave as
   intended (the human-legible counterpart to the symbolic reachability controls at R2).
-- **Do not:** cover *all* inputs. A fuzzer can miss the one adversarial input; concrete tests only speak to
+- **Do not:** cover _all_ inputs. A fuzzer can miss the one adversarial input; concrete tests only speak to
   the cases written. The unbounded and bounded-exhaustive guarantees come from R2 (Halmos, all inputs in
   range) and R3/R4 (all sizes). R0/R1 are necessary and cheap, not sufficient.
 

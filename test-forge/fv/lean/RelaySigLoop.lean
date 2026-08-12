@@ -7,7 +7,11 @@
   (so N = w.length is arbitrary, up to any bound) and `idxs` is an arbitrary signature stream (K
   arbitrary). The loop maintains  weight ≤ prefixSum(nextUnusedIndex)  and hence
       accept (weight > threshold)  ⟹  total registered weight > threshold,
-  with no voter double-counted (the strictly-increasing-index discipline is encoded in `ValidRun`).
+  with no policy INDEX counted twice (the strictly-increasing-index discipline is encoded in `ValidRun`).
+
+  Identity boundary: this model contains weights and indices, not voter addresses. Interpreting its total
+  as weight from distinct signing identities additionally requires the admitted policy to have unique
+  addresses. Relay currently delegates that invariant to its trusted policy-ingestion path.
 
   Models the on-chain ACCOUNTING; assumes the cryptography (ecrecover/keccak), as in the whole engagement:
   here a "signature" is just the index it carries, and we reason about the weight it contributes.
@@ -64,7 +68,7 @@ def loop : List Nat → Nat → Nat → List Nat → (Nat × Nat)
   | _, weight, nui, []          => (weight, nui)
   | w, weight, nui, idx :: rest => loop w (weight + w.getD idx 0) (idx + 1) rest
 
-/-- A valid signature stream: indices strictly increasing and in range (G1+G2; no double-count). -/
+/-- A valid signature stream: indices strictly increasing and in range (G1+G2; no repeated slot). -/
 inductive ValidRun (w : List Nat) : Nat → List Nat → Prop
   | nil  {nui} : ValidRun w nui []
   | cons {nui idx rest} :
@@ -97,8 +101,8 @@ theorem loop_inv (w : List Nat) :
       · exact hrest
 
 /-- THRESHOLD SOUNDNESS (∀N ∀K): if the loop accepts (final weight > threshold), then the TOTAL
-    registered weight exceeds the threshold — so acceptance genuinely required enough distinct voter
-    weight, with no voter counted twice. -/
+    indexed policy weight exceeds the threshold, with no policy slot counted twice. A distinct-signer
+    interpretation is conditional on voter-address uniqueness at policy admission. -/
 theorem threshold_sound (w : List Nat) (idxs : List Nat) (thr : Nat)
     (hv : ValidRun w 0 idxs) (hacc : thr < (loop w 0 0 idxs).1) :
     thr < sumTake w w.length := by
@@ -115,7 +119,118 @@ theorem insufficient_weight_cannot_accept (w : List Nat) (idxs : List Nat) (thr 
     (loop w 0 0 idxs).1 ≤ thr :=
   Nat.not_lt.mp (fun hlt => absurd (threshold_sound w idxs thr hv hlt) (Nat.not_lt.mpr htot))
 
+/-! ## Protocol-1 BIPS override seam
+
+The optimized Yul first selects an effective threshold and then enters the
+already-proved strict signature loop.  This section models that selection seam:
+
+* protocol ID 1 with a nonzero transient override selects
+  `floor(totalWeight * overrideBIPS / 10000)`;
+* a zero override or any other protocol ID preserves the policy threshold; and
+* strict comparison against the floor is exactly the advertised cross-product
+  predicate, with no `UInt256` multiplication wrap under the parser field bounds.
+
+The separate EVMYulLean storage layer proves the supported `TSTORE`/`TLOAD`
+round-trip, clear, and account-isolation facts.  Call-frame rollback is not a
+claim of this arithmetic/dispatch model. -/
+
+/-- BIPS denominator used literally by the optimized Relay Yul. -/
+def thresholdBIPS : Nat := 10000
+
+/-- Parser-wide total-weight bound: at most `2^16-1` voters, each carrying a
+`2^16-1` weight. Valid registered policies use the tighter `totalWeight < 2^16`
+bound, but the wider parser bound also suffices for overflow freedom. -/
+def parserTotalWeightMax : Nat := 65535 * 65535
+
+/-- Modulus of the EVM's `UInt256` arithmetic. -/
+def uint256Modulus : Nat := 2 ^ 256
+
+/-- Floor plus strict comparison is exactly the cross-product BIPS predicate. -/
+theorem bips_floor_strict_iff_cross (signedWeight totalWeight bips : Nat) :
+    totalWeight * bips / thresholdBIPS < signedWeight ↔
+      totalWeight * bips < signedWeight * thresholdBIPS := by
+  exact Nat.div_lt_iff_lt_mul (by decide)
+
+/-- The Yul product used to derive the override threshold cannot wrap a
+`UInt256`, even under the wider parser field bounds. -/
+theorem override_product_noOverflow (totalWeight bips : Nat)
+    (htotal : totalWeight ≤ parserTotalWeightMax) (hbips : bips < thresholdBIPS) :
+    totalWeight * bips < uint256Modulus := by
+  have hbipsValue : bips < 10000 := by simpa [thresholdBIPS] using hbips
+  have hbips' : bips ≤ 9999 := by omega
+  have hproduct : totalWeight * bips ≤ parserTotalWeightMax * 9999 :=
+    Nat.mul_le_mul htotal hbips'
+  have hconstant : parserTotalWeightMax * 9999 < uint256Modulus := by decide
+  exact Nat.lt_of_le_of_lt hproduct hconstant
+
+/-- Faithful threshold-selection seam from optimized Yul lines 1363-1370. -/
+def selectThreshold
+    (protocolId overrideBIPS totalWeight policyThreshold : Nat) : Nat :=
+  if protocolId = 1 then
+    if overrideBIPS = 0 then policyThreshold
+    else totalWeight * overrideBIPS / thresholdBIPS
+  else
+    policyThreshold
+
+/-- Zero is the transient-slot sentinel and therefore preserves the policy
+threshold for every protocol ID. -/
+theorem selectThreshold_zero
+    (protocolId totalWeight policyThreshold : Nat) :
+    selectThreshold protocolId 0 totalWeight policyThreshold = policyThreshold := by
+  simp [selectThreshold]
+
+/-- A transient value cannot override any protocol other than protocol ID 1. -/
+theorem selectThreshold_nonProtocolOne
+    (protocolId overrideBIPS totalWeight policyThreshold : Nat)
+    (hpid : protocolId ≠ 1) :
+    selectThreshold protocolId overrideBIPS totalWeight policyThreshold = policyThreshold := by
+  simp [selectThreshold, hpid]
+
+/-- Protocol ID 1 with a nonzero override selects the BIPS-derived floor. -/
+theorem selectThreshold_protocolOne
+    (overrideBIPS totalWeight policyThreshold : Nat)
+    (hoverride : overrideBIPS ≠ 0) :
+    selectThreshold 1 overrideBIPS totalWeight policyThreshold =
+      totalWeight * overrideBIPS / thresholdBIPS := by
+  simp [selectThreshold, hoverride]
+
+/-- Every nonzero total clears every admitted override below 10000 BIPS when
+all of its weight signs. This rules out the former 9999-BIPS dead zone. -/
+theorem fullWeight_accepts_sub10000 (totalWeight bips : Nat)
+    (htotal : 0 < totalWeight) (hbips : bips < thresholdBIPS) :
+    totalWeight * bips / thresholdBIPS < totalWeight := by
+  apply (bips_floor_strict_iff_cross totalWeight totalWeight bips).2
+  exact Nat.mul_lt_mul_of_pos_left hbips htotal
+
+/-- Composition capstone: on protocol ID 1, a strict-loop acceptance under a
+nonzero override both satisfies the exact cross-product predicate for the
+actually accumulated signature weight and retains the existing indexed-policy
+threshold-soundness conclusion. -/
+theorem protocolOne_override_loop_sound
+    (w : List Nat) (idxs : List Nat) (policyThreshold overrideBIPS : Nat)
+    (hv : ValidRun w 0 idxs) (hoverride : overrideBIPS ≠ 0)
+    (haccept :
+      selectThreshold 1 overrideBIPS (sumTake w w.length) policyThreshold <
+        (loop w 0 0 idxs).1) :
+    sumTake w w.length * overrideBIPS <
+        (loop w 0 0 idxs).1 * thresholdBIPS ∧
+      selectThreshold 1 overrideBIPS (sumTake w w.length) policyThreshold <
+        sumTake w w.length := by
+  constructor
+  · rw [selectThreshold_protocolOne overrideBIPS (sumTake w w.length)
+      policyThreshold hoverride] at haccept
+    exact (bips_floor_strict_iff_cross
+      (loop w 0 0 idxs).1 (sumTake w w.length) overrideBIPS).1 haccept
+  · exact threshold_sound w idxs
+      (selectThreshold 1 overrideBIPS (sumTake w w.length) policyThreshold) hv haccept
+
 end RelaySigLoop
 
 #print axioms RelaySigLoop.threshold_sound
 #print axioms RelaySigLoop.insufficient_weight_cannot_accept
+#print axioms RelaySigLoop.bips_floor_strict_iff_cross
+#print axioms RelaySigLoop.override_product_noOverflow
+#print axioms RelaySigLoop.selectThreshold_zero
+#print axioms RelaySigLoop.selectThreshold_nonProtocolOne
+#print axioms RelaySigLoop.fullWeight_accepts_sub10000
+#print axioms RelaySigLoop.protocolOne_override_loop_sound

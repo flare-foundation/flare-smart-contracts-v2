@@ -22,19 +22,21 @@ contract RelayEpochAdvanceFV is RelayTestBase {
     function setUp() public override {}
 
     function _deploySetter() internal returns (Relay r) {
-        r = deployRelay(_initialConfig(bytes32(uint256(1))), address(this), IRelay(address(0)));
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
+        cfg.feeCollectionAddress = payable(address(0));
+        r = deployRelay(cfg, address(this), IRelay(address(0)));
     }
 
     // a fully-valid single-voter policy at the given epoch (passes every non-epoch require).
     function _validPolicy(uint24 epoch) internal pure returns (IIRelay.SigningPolicy memory sp) {
         sp.rewardEpochId = epoch;
         sp.startVotingRoundId = START_VOTING_ROUND_ID;
-        sp.threshold = 60;          // 60*10000 ∈ [100*5000, 100*6600]
+        sp.threshold = 60; // 60*10000 ∈ [100*5000, 100*6600]
         sp.seed = SEED;
         sp.voters = new address[](1);
         sp.voters[0] = address(uint160(0x1001));
         sp.weights = new uint16[](1);
-        sp.weights[0] = 100;        // totalWeight = 100 < 2**16
+        sp.weights[0] = 100; // totalWeight = 100 < 2**16
     }
 
     // L1 — any epoch other than lastInitialized+1 (==2) is REJECTED (no skip/replay/regress).
@@ -43,7 +45,7 @@ contract RelayEpochAdvanceFV is RelayTestBase {
         vm.assume(epoch != uint24(REWARD_EPOCH_ID) + 1); // != 2
         Relay r = _deploySetter();
         IIRelay.SigningPolicy memory sp = _validPolicy(epoch);
-        (bool ok, ) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
+        (bool ok,) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
         assert(!ok); // wrong epoch => revert at Relay.sol:331
     }
 
@@ -52,7 +54,7 @@ contract RelayEpochAdvanceFV is RelayTestBase {
     function check_reach_epochAdvance_correctSucceeds() external {
         Relay r = _deploySetter();
         IIRelay.SigningPolicy memory sp = _validPolicy(uint24(REWARD_EPOCH_ID) + 1); // == 2
-        (bool ok, ) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
+        (bool ok,) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
         assert(!ok); // EXPECT counterexample: the sequential epoch succeeds
     }
 
@@ -64,11 +66,12 @@ contract RelayEpochAdvanceFV is RelayTestBase {
     // EXPECT: PASS (proof).
     function check_epochAdvance_incrementsByOne() external {
         Relay r = _deploySetter();
-        (uint32 before, ) = r.lastInitializedRewardEpochData(); // == REWARD_EPOCH_ID (1)
+        (uint32 before,) = r.lastInitializedRewardEpochData(); // == REWARD_EPOCH_ID (1)
+        // forge-lint: disable-next-line(unsafe-typecast)
         IIRelay.SigningPolicy memory sp = _validPolicy(uint24(uint256(before) + 1));
-        (bool ok, ) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
+        (bool ok,) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
         if (ok) {
-            (uint32 afterE, ) = r.lastInitializedRewardEpochData();
+            (uint32 afterE,) = r.lastInitializedRewardEpochData();
             assert(afterE == before + 1); // strictly +1: monotone, no stall, no skip
         }
     }

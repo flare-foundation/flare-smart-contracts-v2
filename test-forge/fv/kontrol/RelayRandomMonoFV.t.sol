@@ -20,6 +20,10 @@ pragma solidity ^0.8.13;
 //  position in any relay sequence => live is monotone for all K. (Same honest caveats as the
 //  signature-loop harness: meta-level induction composition; faithful Solidity model of the rule;
 //  bytecode side at small K covered by the Halmos suite.)
+//
+//  LIVENESS BOUNDARY: this model uses uint256 and proves only monotonicity. Production stores a uint32
+//  pointer; accepting type(uint32).max makes the pointer terminal and the current getter's pre-cast +1
+//  overflow. Monotonicity is therefore not a proof of current-random readability or future progress.
 // ============================================================================================
 
 interface IVm { function assume(bool) external; }

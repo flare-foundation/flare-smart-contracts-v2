@@ -9,7 +9,7 @@ pragma solidity ^0.8.13;
 //     threshold := div(mul(threshold, thresholdIncreaseBIPS), THRESHOLD_BIPS)
 // with thresholdIncreaseBIPS a 16-bit field required >= THRESHOLD_BIPS (Relay.sol:235).
 // SAFETY: this rescale (which uses truncating EVM division) must NEVER weaken the threshold and must not
-// overflow — otherwise the cross-epoch path could accept on LESS genuine weight than the same-epoch path.
+// overflow — otherwise the cross-epoch path could accept on LESS indexed policy weight than the same-epoch path.
 // Self-contained (pure arithmetic with the real constants); models EVM truncating div faithfully.
 // RUN: halmos --contract RelayThresholdScalingFV --solver-timeout-assertion 0
 //      (the symbolic 16-bit product in check_scaling_neverWeakens needs ~73s — above the 60s default.)

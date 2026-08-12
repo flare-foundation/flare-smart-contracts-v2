@@ -16,6 +16,8 @@ pragma solidity ^0.8.13;
 //  is the Lean proof (test-forge/fv/lean/RelaySigLoop.lean:threshold_sound).
 //
 //  INVARIANT:  INV(weight, nextUnusedIndex) := weight <= psAt(nextUnusedIndex) && nextUnusedIndex <= N
+//  IDENTITY BOUNDARY: addresses are not modeled. Strict indices prevent a repeated policy SLOT, not the
+//  same signing address appearing at two slots; distinct-voter claims require unique policy addresses.
 // ============================================================================================
 
 interface IVm { function assume(bool) external; }
@@ -65,7 +67,7 @@ contract RelaySigLoopFV_N5 {
         vm.assume(nextUnusedIndex <= N);
         vm.assume(weight <= _psAt(nextUnusedIndex, w0, w1, w2, w3, w4));
         vm.assume(idx < N);                 // G1
-        vm.assume(idx >= nextUnusedIndex);  // G2 strict order => no double count
+        vm.assume(idx >= nextUnusedIndex);  // G2 strict order => no repeated policy slot
         uint256 added = _psAt(idx + 1, w0, w1, w2, w3, w4) - _psAt(idx, w0, w1, w2, w3, w4); // = w_idx
         uint256 newWeight = weight + added;
         uint256 newNext = idx + 1;
@@ -73,7 +75,7 @@ contract RelaySigLoopFV_N5 {
         assert(newWeight <= _psAt(newNext, w0, w1, w2, w3, w4));
     }
 
-    // ---- CONCLUSION: accept => total genuine weight exceeded threshold ----
+    // ---- CONCLUSION: accept => total indexed policy weight exceeded threshold ----
     function prove_accept_implies_threshold_exceeded(
         uint16 w0, uint16 w1, uint16 w2, uint16 w3, uint16 w4,
         uint256 weight, uint256 nextUnusedIndex, uint256 threshold
@@ -97,7 +99,7 @@ contract RelaySigLoopFV_N5 {
 
     // ================= ANTI-VACUITY CONTROLS (each MUST produce a counterexample) =================
 
-    // Step WITHOUT G2 must FAIL: re-counting a passed voter breaks the bound => G2 is load-bearing.
+    // Step WITHOUT G2 must FAIL: re-counting a passed index breaks the bound => G2 is load-bearing.
     function prove_reach_stepNeedsGuard(
         uint16 w0, uint16 w1, uint16 w2, uint16 w3, uint16 w4,
         uint256 weight, uint256 nextUnusedIndex, uint256 idx

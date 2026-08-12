@@ -53,9 +53,11 @@ interface IFdc2Verification {
      * @param _messageHash The message hash to verify.
      * @param _thresholdBIPS The threshold in BIPS of the signing policy's total normalized weight,
      * as in `Fdc2RequestHeader.thresholdBIPS`; 0 uses the signing policy's own threshold.
-     * Rounded up and compared with strict inequality, so e.g. 5000 (50%) requires strictly more
-     * than 50% of the weight. Values of 10000 and above are unsatisfiable and revert with
-     * `IRelay.ThresholdTooHigh`.
+     * A nonzero value requires
+     * `signedWeight * 10000 > totalWeight * _thresholdBIPS`; equivalently, the fractional
+     * threshold is rounded down and compared with strict inequality. Thus 5000 (50%) requires
+     * strictly more than 50% of the weight. Values of 10000 and above are unsatisfiable and
+     * revert with `IRelay.ThresholdTooHigh`.
      * @return _rewardEpochId The reward epoch id of the signing policy.
      */
     function verifySigningPolicySignaturesWithThreshold(

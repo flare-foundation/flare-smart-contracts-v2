@@ -32,7 +32,9 @@ contract RelayThresholdConsistencyFV is RelayTestBase {
     function setUp() public override {}
 
     function _deploy() internal returns (Relay r) {
-        r = deployRelay(_initialConfig(bytes32(uint256(1))), address(this), IRelay(address(0)));
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
+        cfg.feeCollectionAddress = payable(address(0));
+        r = deployRelay(cfg, address(this), IRelay(address(0)));
     }
 
     function _policy(uint16 w, uint16 t) internal pure returns (IIRelay.SigningPolicy memory sp) {
@@ -48,7 +50,11 @@ contract RelayThresholdConsistencyFV is RelayTestBase {
 
     function _try(uint16 w, uint16 t) internal returns (bool ok) {
         Relay r = _deploy();
-        try r.setSigningPolicy(_policy(w, t)) returns (bytes32) { ok = true; } catch { ok = false; }
+        try r.setSigningPolicy(_policy(w, t)) returns (bytes32) {
+            ok = true;
+        } catch {
+            ok = false;
+        }
     }
 
     // AC-6a — a threshold below the MIN band (threshold*BIPS < totalWeight*MIN_BIPS) is rejected.
@@ -69,7 +75,7 @@ contract RelayThresholdConsistencyFV is RelayTestBase {
     // Anti-vacuity: an in-band threshold is accepted (the validation is not trivially always-revert).
     // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_inBand_accepted(uint16 w, uint16 t) external {
-        vm.assume(w > 0 && w < 2**15); // keep totalWeight < 2**16
+        vm.assume(w > 0 && w < 2 ** 15); // keep totalWeight < 2**16
         vm.assume(uint256(t) * THRESHOLD_BIPS >= uint256(w) * MIN_THRESHOLD_BIPS);
         vm.assume(uint256(t) * THRESHOLD_BIPS <= uint256(w) * MAX_THRESHOLD_BIPS);
         assert(!_try(w, t)); // EXPECT counterexample: an in-band policy is accepted

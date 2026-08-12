@@ -18,6 +18,15 @@ from typing import Any
 LEAN_DIR = Path(__file__).resolve().parent
 FV_DIR = LEAN_DIR.parent
 MANIFEST_PATH = FV_DIR / "verification-manifest.json"
+if str(FV_DIR) not in sys.path:
+    sys.path.insert(0, str(FV_DIR))
+from report_provenance import (  # noqa: E402
+    capture_git_state,
+    dependency_tree_state,
+    finalize_generation_provenance,
+    report_commit,
+)
+
 REFINEMENT_DIR = LEAN_DIR / "bytecode-refinement"
 ABSTRACT = "RelaySigLoop.lean"
 STANDALONE = [
@@ -30,17 +39,12 @@ STANDALONE = [
     "RelayFeeLayer.lean",
 ]
 INTEGRATION = "RelayBodyEff.lean"
-INTEGRATION_DEPS = ["DataLayer", "RelayLoopWindows", "RelayLoopLiteral"]
+INTEGRATION_DEPS = ["DataLayer", "RelayLoopWindows", "RelayLoopLiteral", "RelayStorageLayer"]
 FORBIDDEN_SOURCE_TOKENS = ("sorry", "admit", "native_decide")
 
 
 def run(command: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False)
-
-
-def git_commit() -> str:
-    result = run(["git", "rev-parse", "HEAD"], cwd=FV_DIR.parents[1])
-    return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
 def strip_lean_comments(source: str) -> str:
@@ -97,7 +101,7 @@ def source_audit(path: Path, lean_manifest: dict[str, Any]) -> tuple[dict[str, A
 
     directives = re.findall(r"^#print axioms\s+([^\s]+)\s*$", code, re.MULTILINE)
     expected_count = lean_manifest["axiom_audit_counts"].get(path.name)
-    if expected_count != len(directives):
+    if type(expected_count) is not int or expected_count != len(directives):
         problems.append(
             f"{path.name}: has {len(directives)} #print axioms directives; manifest requires {expected_count}"
         )
@@ -113,9 +117,10 @@ def source_audit(path: Path, lean_manifest: dict[str, Any]) -> tuple[dict[str, A
 
 
 def parsed_axiom_output(output: str) -> list[tuple[str, list[str]]]:
-    joined = re.sub(r"\s+", " ", output)
     matches = re.findall(
-        r"'(.*?)' (?:depends on axioms: \[([^\]]*)\]|does not depend on any axioms)", joined
+        r"^[ \t]*'(.*?)'[ \t]+(?:depends on axioms:[ \t]*\[([^\]]*)\]|does not depend on any axioms)",
+        output,
+        re.MULTILINE,
     )
     return [
         (name, [axiom.strip() for axiom in axioms.split(",") if axiom.strip()])
@@ -168,10 +173,57 @@ def audit_lean_output(
     }, problems
 
 
-def verify_evmyul_checkout(evmyul: Path, manifest: dict[str, Any]) -> tuple[dict[str, str], list[str]]:
+def _lake_package_provenance(evmyul: Path) -> tuple[list[dict[str, Any]], list[str]]:
+    records: list[dict[str, Any]] = []
+    problems: list[str] = []
+    try:
+        lake_manifest = json.loads((evmyul / "lake-manifest.json").read_text())
+        packages = lake_manifest["packages"]
+        if not isinstance(packages, list):
+            raise ValueError("packages is not a list")
+    except (OSError, KeyError, ValueError, json.JSONDecodeError) as error:
+        return records, [f"could not audit lake-manifest.json ({error})"]
+    for package in packages:
+        if not isinstance(package, dict) or not isinstance(package.get("name"), str):
+            problems.append("lake manifest has a malformed package entry")
+            continue
+        name = package["name"]
+        package_path = evmyul / ".lake" / "packages" / name
+        state = capture_git_state(package_path)
+        expected_revision = package.get("rev")
+        package_problems: list[str] = []
+        if not isinstance(expected_revision, str) or re.fullmatch(r"[0-9a-f]{40}", expected_revision) is None:
+            package_problems.append("manifest revision is not a full Git commit")
+        if state.get("available") is not True:
+            package_problems.append("package checkout Git state is unavailable")
+        elif state.get("head") != expected_revision:
+            package_problems.append(
+                f"package HEAD {state.get('head')} differs from manifest revision {expected_revision}"
+            )
+        if state.get("clean") is not True:
+            package_problems.append("package checkout has modified or untracked source inputs")
+        records.append(
+            {
+                "name": name,
+                "expected_revision": expected_revision,
+                "git": state,
+                "release_eligible": not package_problems,
+                "problems": package_problems,
+            }
+        )
+        problems.extend(f"Lake package {name}: {problem}" for problem in package_problems)
+    return records, problems
+
+
+def verify_evmyul_checkout(evmyul: Path, manifest: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     problems: list[str] = []
     if not (evmyul / "lakefile.lean").exists() and not (evmyul / "lakefile.toml").exists():
         return {}, [f"EVMYUL_DIR={evmyul} is not a Lake project"]
+
+    source_state = capture_git_state(evmyul)
+    release_problems: list[str] = []
+    if source_state.get("clean") is not True:
+        release_problems.append("EVMYulLean checkout is not a clean source tree at gate start")
 
     commit_result = run(["git", "rev-parse", "HEAD"], cwd=evmyul)
     commit = commit_result.stdout.strip()
@@ -188,11 +240,65 @@ def verify_evmyul_checkout(evmyul: Path, manifest: dict[str, Any]) -> tuple[dict
     lake_version = run(["lake", "--version"], cwd=evmyul)
     if lake_version.returncode != 0:
         problems.append(f"could not run lake --version: {lake_version.stderr.strip()}")
+    packages, package_problems = _lake_package_provenance(evmyul)
+    release_problems.extend(package_problems)
     return {
         "evmyullean_commit": commit,
         "lean_toolchain": toolchain,
         "lake": (lake_version.stdout or lake_version.stderr).strip(),
+        "source_start": source_state,
+        "packages": packages,
+        "build": None,
+        "release_eligible": not release_problems,
+        "problems": release_problems,
     }, problems
+
+
+def prepare_evmyul_build(evmyul: Path, provenance: dict[str, Any]) -> list[str]:
+    """Refresh checked caches and rebuild EVMYul itself before importing any proof."""
+    commands = [
+        ["lake", "exe", "cache", "get"],
+        ["lake", "clean"],
+        ["lake", "build", "EvmYul"],
+    ]
+    command_records: list[dict[str, Any]] = []
+    build_problems: list[str] = []
+    for command in commands:
+        completed = run(command, cwd=evmyul)
+        command_records.append(
+            {
+                "command": command,
+                "exitcode": completed.returncode,
+                "stdout_sha256": hashlib.sha256(completed.stdout.encode()).hexdigest(),
+                "stderr_sha256": hashlib.sha256(completed.stderr.encode()).hexdigest(),
+            }
+        )
+        if completed.returncode != 0:
+            build_problems.append(
+                f"EVMYulLean preparation {' '.join(command)} failed with exit code {completed.returncode}"
+            )
+            break
+    source_end = capture_git_state(evmyul)
+    packages_end, package_end_problems = _lake_package_provenance(evmyul)
+    output_tree = dependency_tree_state(evmyul / ".lake" / "build")
+    if source_end.get("clean") is not True:
+        build_problems.append("EVMYulLean source tree changed or became dirty during clean build")
+    if package_end_problems:
+        build_problems.extend(package_end_problems)
+    if packages_end != provenance.get("packages"):
+        build_problems.append("Lake package source provenance changed during preparation")
+    if output_tree.get("available") is not True:
+        build_problems.append("EVMYulLean build output tree could not be hashed")
+    provenance["source_after_build"] = source_end
+    provenance["packages_after_build"] = packages_end
+    provenance["build"] = {
+        "mode": "cache-refresh-clean-build-in-process",
+        "commands": command_records,
+        "output_tree": output_tree,
+    }
+    provenance["problems"].extend(build_problems)
+    provenance["release_eligible"] = not provenance["problems"]
+    return build_problems
 
 
 def write_report(path: Path, report: dict[str, Any]) -> None:
@@ -209,9 +315,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    repo = FV_DIR.parents[1]
+    generation_start = capture_git_state(repo)
     try:
         manifest_bytes = args.manifest.read_bytes()
         manifest = json.loads(manifest_bytes)
+        if type(manifest.get("schema_version")) is not int or manifest.get("schema_version") != 1:
+            raise ValueError("unsupported verification manifest schema")
         lean_manifest = manifest["lean"]
         allowed_axioms = set(lean_manifest["allowed_axioms"])
     except (OSError, KeyError, json.JSONDecodeError) as error:
@@ -240,6 +350,10 @@ def main() -> int:
         all_problems.extend(problems)
 
     report_files: dict[str, Any] = {}
+    if not all_problems:
+        build_problems = prepare_evmyul_build(evmyul, toolchain)
+        all_problems.extend(build_problems)
+
     if not all_problems:
         for name, (source_path, _) in sources.items():
             shutil.copy(source_path, evmyul / name)
@@ -272,12 +386,24 @@ def main() -> int:
         report_files[INTEGRATION] = record
         all_problems.extend(problems)
 
+    generation = finalize_generation_provenance(repo, generation_start)
     report = {
         "schema_version": 1,
         "gate": "relay-lean",
         "status": "pass" if not all_problems else "fail",
-        "git_commit": git_commit(),
+        "release_eligible": (
+            not all_problems
+            and generation["release_eligible"] is True
+            and toolchain.get("release_eligible") is True
+        ),
+        "git_commit": report_commit(generation),
         "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "generation_provenance": generation,
+        "inputs": {
+            "evmyullean": toolchain,
+            "release_eligible": toolchain.get("release_eligible") is True,
+            "problems": toolchain.get("problems", []),
+        },
         "toolchain": toolchain,
         "allowed_axioms": sorted(allowed_axioms),
         "files": report_files,

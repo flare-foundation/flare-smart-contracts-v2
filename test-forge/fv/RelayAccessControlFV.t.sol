@@ -19,6 +19,11 @@ import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 contract RelayAccessControlFV is RelayTestBase {
     function setUp() public override {}
 
+    function _setterConfig() internal view returns (IRelay.RelayInitialConfig memory cfg) {
+        cfg = _initialConfig(bytes32(uint256(1)));
+        cfg.feeCollectionAddress = payable(address(0));
+    }
+
     function _validPolicy(uint24 epoch) internal pure returns (IIRelay.SigningPolicy memory sp) {
         sp.rewardEpochId = epoch;
         sp.startVotingRoundId = START_VOTING_ROUND_ID;
@@ -33,19 +38,19 @@ contract RelayAccessControlFV is RelayTestBase {
     // AC-1 — for ANY setter address that is not the caller, setSigningPolicy reverts (caller is not authorised).
     // EXPECT: PASS (proof).
     function check_setSigningPolicy_onlySetter(address s) external {
-        vm.assume(s != address(this));     // the caller (this test) is NOT the registered setter
-        Relay r = deployRelay(_initialConfig(bytes32(uint256(1))), s, IRelay(address(0)));
+        vm.assume(s != address(this)); // the caller (this test) is NOT the registered setter
+        Relay r = deployRelay(_setterConfig(), s, IRelay(address(0)));
         IIRelay.SigningPolicy memory sp = _validPolicy(uint24(REWARD_EPOCH_ID) + 1); // valid & correct epoch
-        (bool ok, ) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
+        (bool ok,) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
         assert(!ok); // non-setter caller => revert at the onlySigningPolicySetter guard
     }
 
     // Anti-vacuity: when the caller IS the setter, the guard passes and the (valid) policy is accepted.
     // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_setter_canCall() external {
-        Relay r = deployRelay(_initialConfig(bytes32(uint256(1))), address(this), IRelay(address(0)));
+        Relay r = deployRelay(_setterConfig(), address(this), IRelay(address(0)));
         IIRelay.SigningPolicy memory sp = _validPolicy(uint24(REWARD_EPOCH_ID) + 1);
-        (bool ok, ) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
+        (bool ok,) = address(r).call(abi.encodeCall(Relay.setSigningPolicy, (sp)));
         assert(!ok); // EXPECT counterexample: the setter can call successfully
     }
 }

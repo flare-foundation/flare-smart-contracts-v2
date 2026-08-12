@@ -1,8 +1,11 @@
 # L9 — The formal detail
 
+> **Evidence note.** This is the detailed historical proof walkthrough. Treat theorem/result counts as
+> current only when re-attested by [`CURRENT-STATUS.md`](CURRENT-STATUS.md).
+
 > **What you get from this level.** The verbatim Lean 4 development, walked end to end, at the precision
 > a referee needs to reconstruct or attack it. **§A** the abstract proof; **§B** the EVMYulLean API as we actually
-> use it; **§C** the bytecode-refinement bricks and capstone; **§D** *fuel-genericity* in full; **§E** the non-obvious
+> use it; **§C** the bytecode-refinement bricks and capstone; **§D** _fuel-genericity_ in full; **§E** the non-obvious
 > pitfalls and their fixes; **§F** the data layer, the memory-reading loop, the literal loop-body model, and the
 > `relay()` breadth model (§F.5: storage, mode dispatch, accept-write, composition, fees);
 > **§G** the axiom audit. File paths are relative to the repo root.
@@ -13,6 +16,11 @@
 > [`…/RelayLoopLiteral.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopLiteral.lean), [`…/RelayLoopWindows.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopWindows.lean), [`…/RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean),
 > [`…/RelayStorageLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean), [`…/RelayFeeLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayFeeLayer.lean));
 > cited line numbers are relative to those files.
+
+> **Threshold terminology.** Every `sumTake`/`total registered weight` statement
+> below sums policy slots. `ValidRun` prevents a slot index from being reused; it
+> does not prove voter-address uniqueness across slots. Any distinct-voter
+> interpretation depends on the external MC-3 policy-admission premise.
 
 ---
 
@@ -55,7 +63,7 @@ theorem sumTake_mono (w : List Nat) {i j : Nat} (h : i ≤ j) : sumTake w i ≤ 
   | step _ ih => exact Nat.le_trans ih (sumTake_le_succ w _)
 ```
 
-`sumTake_mono` inducts on the *proof* `h : i ≤ j` (Lean's `Nat.le` is inductively `refl`/`step`), the
+`sumTake_mono` inducts on the _proof_ `h : i ≤ j` (Lean's `Nat.le` is inductively `refl`/`step`), the
 cleanest way to get monotonicity.
 
 ### A.2 The loop, the validity predicate, the invariant
@@ -71,7 +79,7 @@ inductive ValidRun (w : List Nat) : Nat → List Nat → Prop
       nui ≤ idx → idx < w.length → ValidRun w (idx + 1) rest → ValidRun w nui (idx :: rest)
 ```
 
-The invariant is stated with the quantifiers *after* the list argument so the induction generalizes over
+The invariant is stated with the quantifiers _after_ the list argument so the induction generalizes over
 `nui` and `weight` automatically:
 
 ```lean
@@ -133,17 +141,17 @@ relies on:
   returns `⟨1⟩`/`⟨0⟩` via `fromBool (a < b)`.
 - **AST.** `Expr := Call (PrimOp ⊕ FnName) (List Expr) | Var Identifier | Lit Literal`;
   `Stmt := Block (List Stmt) | Let (List Identifier) (Option Expr) | For Expr (List Stmt) (List Stmt)
-  | If | Switch | Continue | Break | Leave | ExprStmtCall`. **`For cond post body` has no init**
+| If | Switch | Continue | Break | Leave | ExprStmtCall`. **`For cond post body` has no init**
   (the optimizer's `ForLoopInitRewriter` hoists it out) — this is why our encoding has none.
 - **State.** `State := Ok (SharedState .Yul) VarStore | OutOfFuel | Checkpoint Jump`;
   `VarStore := Finmap (Identifier ⇀ Literal)`; `Identifier := String` (but see Gotcha E.1 — it is a
   `def`, not an `abbrev`).
 - **Interpreter.** `exec (fuel) (stmt) (codeOverride) (s) : Except Exception State`;
   `loop (fuel) (cond) (post body) (codeOverride) (s)`; `eval (fuel) (expr) ... : Except Exception
-  (State × Literal)`. Expression calls go `eval → evalArgs/evalTail → evalPrimCall → execPrimCall →
-  primCall → step` (the per-opcode `Semantics` dispatch).
+(State × Literal)`. Expression calls go `eval → evalArgs/evalTail → evalPrimCall → execPrimCall →
+primCall → step` (the per-opcode `Semantics` dispatch).
 - **Validation.** EVMYulLean is exercised against the Ethereum execution-spec tests; that is the basis
-  for treating it as *the* EVM (L2 §2.5).
+  for treating it as _the_ EVM (L2 §2.5).
 
 The version/build pin (Lean 4.22.0, mathlib 4.22.0, FFI keccak/sha2) is in
 [L11](11-reproducibility.md).
@@ -163,7 +171,7 @@ theorem exec_For (fuel : Nat) (c : Expr) (po bo : List Stmt) (s : EvmYul.Yul.Sta
 ```
 
 `exec` of a `For` at fuel `fuel+1` unfolds definitionally to `loop` at fuel `fuel` — pure `rfl` after one
-`unfold`. (This is our first use of *symbolic-fuel + concrete-offset*: `fuel+1`, not a literal.)
+`unfold`. (This is our first use of _symbolic-fuel + concrete-offset_: `fuel+1`, not a literal.)
 
 ```lean
 theorem loop_base (fuel : Nat) (c : Expr) (po bo : List Stmt) (s s₁ : EvmYul.Yul.State)
@@ -191,7 +199,7 @@ theorem loop_step (fuel : Nat) (c : Expr) (po bo : List Stmt)
   cases EvmYul.Yul.exec fuel (Stmt.For c po bo) none s₃ <;> rfl
 ```
 
-`loop_step` is the engine of the induction: *one* iteration (condition non-zero, run `body` then `post`)
+`loop_step` is the engine of the induction: _one_ iteration (condition non-zero, run `body` then `post`)
 equals continuing as `exec (For ...)` on the post-state `s₃`. The final `cases ... <;> rfl` discharges
 the `Except` match identity (both branches reduce to the same thing). See Gotcha E.2 for why `hc` is
 stated over `Ok sa va` and not `mkOk (Ok sa va)`.
@@ -253,7 +261,7 @@ def post : List Stmt := [Stmt.Let [II] (some (Expr.Call (Sum.inl Operation.ADD) 
 def body : List Stmt := [Stmt.Let [WW] (some (Expr.Call (Sum.inl Operation.ADD) [Expr.Var WW, Expr.Var II]))]
 ```
 
-`II`/`WW` are *named definitions* of type `EvmYul.Identifier` (not raw string literals — Gotcha E.1).
+`II`/`WW` are _named definitions_ of type `EvmYul.Identifier` (not raw string literals — Gotcha E.1).
 `IW : II ≠ WW` is `by decide`. `cond/post/body` are the real Yul AST nodes for `lt(i,N)`, `i := add(i,1)`,
 `w := add(w,i)`.
 
@@ -274,7 +282,7 @@ theorem body_eff (fuel : Nat) (ss) (vs) :
 
 `post_eff` (inserts `II ↦ i+1`) and `cond_eff` (`eval (fuel+6) (cond n) = (state, lt(i,n))`) are the
 same shape with `step_ADD`/`step_LT`. The big `simp` set is the entire expression-evaluation pipeline;
-`step_ADD`/`step_LT` close the opcode leaves. The RHS deliberately uses the interpreter's *own* accessor
+`step_ADD`/`step_LT` close the opcode leaves. The RHS deliberately uses the interpreter's _own_ accessor
 `(State.Ok ss vs)[WW]!` rather than a literal (Gotcha E.1).
 
 ### C.6 Arithmetic helpers
@@ -388,7 +396,7 @@ theorem bytecode_threshold_sound (N : Nat) (hN : N < UInt256.size) (ss) (vs vs')
 
 The transfer: `bytecode_loop_correct` produces a final store `vs''` with `vs''[w] = absAcc 0 N ⟨0⟩`;
 since `exec` is a function and `hexec` already gives `vs'`, the injectivity simp (`Except.ok.injEq`,
-`State.Ok.injEq`) forces `vs' = vs''`; substitute and the acceptance hypothesis *is* the goal.
+`State.Ok.injEq`) forces `vs' = vs''`; substitute and the acceptance hypothesis _is_ the goal.
 
 ---
 
@@ -400,12 +408,12 @@ recursion on a `fuel : ℕ`, decrementing it. EVMYulLean provides **no** monoton
 about how every constructor consumes fuel.) Naively, then, in an induction where the available fuel is a
 symbolic `3m+10`, you cannot reduce `exec`.
 
-**Resolution.** You never reduce at *arbitrary* fuel; you reduce at fuel `fuel + K` with `fuel` a free
-variable and `K` the *exact* number of unfoldings the statement needs. Concretely, `simp [exec, eval,
+**Resolution.** You never reduce at _arbitrary_ fuel; you reduce at fuel `fuel + K` with `fuel` a free
+variable and `K` the _exact_ number of unfoldings the statement needs. Concretely, `simp [exec, eval,
 ...]` unfolds the recursion; each unfolding pattern-matches `fuel + K` as `Nat.succ (... (fuel) ...)` and
 peels one `succ`. After exactly `K` peels the statement is fully evaluated and the leftover `fuel` sits
 inertly in the (already-computed) result. Because `fuel` is universally quantified, the lemma you get —
-e.g. `body_eff : ∀ fuel, exec (fuel+7) (Block body) s = .ok (...)` — applies at *any* fuel you later need,
+e.g. `body_eff : ∀ fuel, exec (fuel+7) (Block body) s = .ok (...)` — applies at _any_ fuel you later need,
 in particular the symbolic `3m+3` arising in the induction (`(3m+3)+7 = 3m+10`).
 
 The constants are determined empirically per statement (here `7` for a one-assignment block, `6` for the
@@ -414,7 +422,7 @@ condition) and verified by the proof going through: if `K` were wrong, the `simp
 the `rw [show (3*m+3)+7 = 3*m+10 from by ring]` lines are exactly this alignment.
 
 **Why this is the crux.** It converts "I need a monotonicity meta-theorem about someone else's
-interpreter" into "I need to know each statement's exact fuel cost" — a *local, decidable* fact the
+interpreter" into "I need to know each statement's exact fuel cost" — a _local, decidable_ fact the
 simplifier establishes for free. The whole induction reduces to gluing these generic per-statement
 effects with `loop_step`. The technique is not specific to EVMYulLean; it works for **any** fuel-indexed
 definitional interpreter.
@@ -425,9 +433,9 @@ definitional interpreter.
 
 - **E.1 `Identifier` is a `def`, not an `abbrev`.** `Identifier := String` is opaque to typeclass
   synthesis. Writing a raw string literal `"w"` where an `Identifier` key is expected collapses it to
-  `String` and `GetElem?` instance search fails. Fix: introduce keys as *named definitions*
+  `String` and `GetElem?` instance search fails. Fix: introduce keys as _named definitions_
   (`def WW : EvmYul.Identifier := "w"`) and state RHS accessors with the interpreter's own `s[a]!` over
-  `Identifier` *variables*, never string literals.
+  `Identifier` _variables_, never string literals.
 
 - **E.2 `mkOk` desync in `loop_step`.** `loop` feeds `eval` a `mkOk s`, and `simp` reduces `mkOk` early.
   If `hc` is phrased over `mkOk (Ok sa va)` the rewrite desyncs (the term is already reduced). Fix: state
@@ -455,13 +463,13 @@ definitional interpreter.
 
 ## §F. The data layer, the memory-reading loop, and the literal loop-body model — [`DataLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/DataLayer.lean), [`RelayLoopMemRead.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayLoopMemRead.lean), [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)
 
-§C proved the loop *mechanism* with a memory-free body. Further files discharge the data layer
+§C proved the loop _mechanism_ with a memory-free body. Further files discharge the data layer
 (Caveat C2 / BR-1), lift the result onto the deployed contract's real masked memory read (§F.2–F.3), and
-finally execute the deployed contract's *actual* 17-statement body statement-for-statement (§F.4), ∀N.
+finally execute the deployed contract's _actual_ 17-statement body statement-for-statement (§F.4), ∀N.
 
 ### F.1 The data layer — `bytecode-refinement/DataLayer.lean`
 
-Proven against EVMYulLean's *actual* `ByteArray` / `MachineState` / `UInt256` operations. Lean 4.22 has no
+Proven against EVMYulLean's _actual_ `ByteArray` / `MachineState` / `UInt256` operations. Lean 4.22 has no
 `ByteArray` lemma layer, so every proof descends to `Array.data` via `ByteArray.ext`. The capstones:
 
 ```lean
@@ -481,8 +489,9 @@ theorem weight_read (ms : MachineState) (slot w : UInt256) (hw : w.toNat < 65536
 
 `weight_read` is BR-1 for one slot: a 16-bit weight written to a 32-byte slot is recovered by the deployed
 read pattern `and(mload(slot), 0xffff)`. These add **two** documented axioms beyond the standard three — both
-*access-modifier* limitations (true upstream, blocked by `opaque`/`private`), each a theorem after a one-line
+_access-modifier_ limitations (true upstream, blocked by `opaque`/`private`), each a theorem after a one-line
 upstream edit:
+
 - `zeroes_data` — the spec of the `opaque` `ffi.ByteArray.zeroes` (`@[extern "memset_zero"]`);
 - `toByteArray_size` — `(v.toByteArray).size = 32`, blocked only because the upstream bound
   `toBytes'_UInt256_le` is `private` (verified provable against a locally-patched EVMYulLean, patch reverted).
@@ -500,7 +509,7 @@ theorem body_effM (fuel a : Nat) (ss : SharedState .Yul) (vs : VarStore) (v : UI
       = .ok (State.Ok ss (vs.insert WW (UInt256.add (State.Ok ss vs)[WW]! (UInt256.land v ⟨0xffff⟩))))
 ```
 
-The novelty over §C.5's `body_eff`: `mload` returns a *pair* and bumps `activeWords`. But `hmload` (the slot
+The novelty over §C.5's `body_eff`: `mload` returns a _pair_ and bumps `activeWords`. But `hmload` (the slot
 read is state-preserving) holds exactly when the slot is already active (`M(aw, slot, 32) = aw`), so the body
 keeps `ss` fixed and the §C induction template applies verbatim — `loop_accM` (fuel `3N+15`) and
 `bytecode_threshold_sound_mem` / `_int`. Pitfalls (for a reimplementer): the `.1`-of-`mload` defeq times out
@@ -535,8 +544,8 @@ theorem relay_loop_sound (w idxs : List Nat) (rdv : Nat → UInt256)
     thr.val < sumTake w w.length
 ```
 
-∀N: the deployed loop accepts ⟹ the total registered voting weight exceeds the threshold, no voter
-double-counted. The external call is the assumption boundary: `ecrecover` is not modeled (MC-2), so the
+∀N: the modeled deployed loop accepts ⟹ total registered policy-slot weight exceeds the threshold, with no
+slot index reused; unique voter addresses remain MC-3. The external call is the assumption boundary: `ecrecover` is not modeled (MC-2), so the
 per-iteration selection (`hcorr`) and validity (`hvalid`) — and the memory invariant `hcov`, discharged
 per-slot by `weight_read` — are the stated hypotheses.
 
@@ -553,7 +562,7 @@ from the deployed text.
 
 The engine is `body_effL`: the full 17-statement body run through the validated interpreter, threading genuine
 `mstore`/`calldatacopy`/`mload` state changes to the accumulator-advanced state `s16` (contrast §F.2's `body_effM`,
-which *assumed* the read was state-preserving). Its nine guard-pass hypotheses (one per `if` that must not revert
+which _assumed_ the read was state-preserving). Its nine guard-pass hypotheses (one per `if` that must not revert
 on the advance path) and two ecrecover-output states are the boundary; everything else — the memory writes/reads,
 the mask, the tally — is derived. `mload_masked_voter` derives the masked-read correspondence directly from the
 clear→`calldatacopy`→`mload`→mask pattern, so `hcorr`'s mechanical half is a theorem and there is no `hcov` to
@@ -594,29 +603,37 @@ Faithful early return closes the last idealization: `relay_loop_sound_literal_ea
 
 ### F.5 The `relay()` breadth model (R5) — [`RelayStorageLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean), [`RelayFeeLayer.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayFeeLayer.lean), [`RelayBodyEff.lean`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean)
 
-§F.4 proves the security-critical signature loop. R5 extends the same literal, hole-free method to the *rest* of
+§F.4 proves the security-critical signature loop. R5 extends the same literal, hole-free method to the _rest_ of
 `relay()` — the mode dispatch, the per-mode state writes, the fee forwarding, and the composition that stitches
 them together. R5 adds **breadth** (the mode-specific effects), not a new soundness fact: the accounting soundness
 is already the loop's.
 
-- **Storage round-trip** ([`RelayStorageLayer.sstore_sload`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean#L181)): `((State.sstore self k v).sload k).2 = v` on
+- **Storage round-trip** ([`RelayStorageLayer.sstore_sload`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean#L182)): `((State.sstore self k v).sload k).2 = v` on
   EVMYulLean's real `State`, the storage analog of `DataLayer.mem_roundtrip`. The obstacle was RBMap key ordering:
   `TransCmp` for the derived `Ord` does not synthesize, so it is transferred from `Fin`/`Nat` (the derived
   `compare a b` collapses to `(compare a.val b.val).then .eq = compare a.val b.val`), and `find?_erase` (absent in
   Batteries) is derived bottom-up on `RBNode`.
-- **Mode dispatch** ([`RelayBodyEff.dispatch_routes_verify`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean#L1880)): `relay()`'s protocolId branching
+- **Mode dispatch** ([`RelayBodyEff.dispatch_routes_verify`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean#L1966)): `relay()`'s protocolId branching
   (`if eq(protocolId,1) {custom}; if iszero(eq(protocolId,1)) {verify}`, Relay.sol:894/916) routes faithfully —
   when `protocolId ≠ 1` the custom guard is skipped and the verify guard fires, so the modes do not
   cross-contaminate.
-- **Accept-branch write** ([`RelayStorageLayer.sstore_eff`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean#L242) + `sstore_reads_back`): the exec-level `SSTORE` (with the
+- **Accept-branch write** ([`RelayStorageLayer.sstore_eff`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean#L243) + `sstore_reads_back`): the exec-level `SSTORE` (with the
   `perm = true` static-mode guard discharged) for the deployed
   `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)` (Relay.sol:1394) stores a value that reads
   back, via `sstore_sload`.
+- **Protocol-1 transient threshold seam** ([`RelayStorageLayer.tstore_tload`](../../test-forge/fv/lean/bytecode-refinement/RelayStorageLayer.lean#L337), `tstore_zero_tload`,
+  `tstore_otherAccount`, and [`RelayBodyEff.protocolOne_tload_override_loop_sound`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean#L1717)): EVMYulLean's modeled
+  `TSTORE`/`TLOAD` round-trip, zero clear, opcode dispatch, and account isolation are proved directly. The
+  capstone supplies the production `0 < overrideBIPS < 10000` and parser-wide no-wrap premises, derives the
+  exact floor/cross-product predicate, and invokes the existing literal strict-loop theorem. Its
+  `hsetupThreshold` premise explicitly marks the unextracted
+  `TSTORE -> self-call -> TLOAD -> threshold-local` call-frame setup; the theorem does not claim call-frame
+  propagation, revert rollback, or transaction-end clearing.
 - **End-to-end composition** (`RelayBodyEff.CompositionLayer`): `relay_dispatch_loop_accept` composes
-  `dispatch_routes_verify` with `relay_loop_sound_literal_early` into one top-level statement — *from the mode
+  `dispatch_routes_verify` with `relay_loop_sound_literal_early` into one top-level statement — _from the mode
   dispatch, `protocolId ≠ 1` routes into the verify branch, and under the loop's ecrecover premises plus a valid
   signer prefix crossing the threshold at step `t`, `relay()` halts with the accept `return(0,0)` and total
-  registered weight strictly exceeds the threshold.* Two combinators expose the modeling boundary honestly:
+  registered weight strictly exceeds the threshold._ Two combinators expose the modeling boundary honestly:
   `dispatch_then_loop_accept` (verify body = the loop) and `dispatch_setup_loop_accept` (verify body =
   `[setupStmt, loopStmt]`, with the setup's aggregate state transition `Ok ss vs → Ok ss' vs'` carried as an
   explicit hypothesis — faithful because `setupStmt := Stmt.Block realSetup` is itself one `Stmt`, so the only
@@ -632,7 +649,7 @@ Two boundaries are documented rather than papered over, and neither touches the 
 (a) the **exec-level `.CALL` wiring** through `primCall`/`callDispatcher` (the fuel-carrying analog of `sstore_eff`,
 but for `.CALL`; the `transferBalance`-level facts are the core it would reduce to — value conservation is also
 Halmos-covered at bounded scope by `RelayVerifyFeeFV`); and (b) reconciling the loop model's **D3 deviation**
-(accept → `return` vs. the deployed break→write→return) so the accept-*write* folds into the composition rather
+(accept → `return` vs. the deployed break→write→return) so the accept-_write_ folds into the composition rather
 than standing as a separately-verified piece.
 
 ---
@@ -671,25 +688,25 @@ memory/`mstore`/`mload`/value-decode results additionally list the two documente
 
 `relay_loop_sound` itself rests only on the standard three (it does not invoke the `mstore`/`toByteArray`
 path — `hcov`/`hcorr` are hypotheses); `zeroes_data` and `toByteArray_size` enter only where the memory
-*write* round-trip is used to *discharge* those hypotheses (e.g. `weight_read`).
+_write_ round-trip is used to _discharge_ those hypotheses (e.g. `weight_read`).
 
 What this means, and why it is the right bar:
 
 - **`propext`, `Classical.choice`, `Quot.sound`** are Lean 4's three standard foundational axioms,
   the same ones mathlib is built on. They are known consistent (they hold in the standard model) and are
-  *not* statements about our problem — accepting them is accepting classical mathematics, nothing
+  _not_ statements about our problem — accepting them is accepting classical mathematics, nothing
   domain-specific.
-- **No `sorryAx`.** This is the decisive one: `sorryAx` is what appears if *any* proof in the dependency
+- **No `sorryAx`.** This is the decisive one: `sorryAx` is what appears if _any_ proof in the dependency
   tree contains a `sorry` (a hole) or fails. Its absence certifies the proof is **complete** — no gaps,
   no admitted lemmas.
 - **No `Lean.ofReduceBool`.** This would appear if we had used `native_decide` (trusting the compiler to
   evaluate a decision procedure). We deliberately avoided it: it both enlarges the trusted base (the
   Lean compiler + our FFI) and, for memory programs, cannot even link the FFI in a plain file. Our proofs
   reduce inside the kernel.
-- **The two extra spec shapes `zeroes_data`, `toByteArray_size` (three qualified declarations — `zeroes_data` is declared in both the data- and window-layer namespaces) are *not* semantic assumptions.** They are
+- **The two extra spec shapes `zeroes_data`, `toByteArray_size` (three qualified declarations — `zeroes_data` is declared in both the data- and window-layer namespaces) are _not_ semantic assumptions.** They are
   minimal specs for an `opaque` FFI symbol (`memset_zero`) and a `private` upstream bound respectively —
   both true, both verified, both reducible to theorems by a one-line change in EVMYulLean. They are flagged
-  explicitly (and only) on the results that use the memory *write* round-trip; the accounting capstone
+  explicitly (and only) on the results that use the memory _write_ round-trip; the accounting capstone
   `relay_loop_sound` does not carry them. They are documented as such in the claims ledger ([L10](10-claims-ledger-trust-and-residual.md)),
   and the exact upstream patches + the verified discharge proofs are archived, reproducibly, in
   [`test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md`](../../test-forge/fv/lean/bytecode-refinement/AXIOM_DISCHARGE.md).
@@ -710,6 +727,7 @@ accounting-extraction lemmas the tighter list:
 'RelayBodyEff.relay_loop_sound_literal_early'         depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayBodyEff.loop_accL_early'                        depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayBodyEff.relay_dispatch_loop_accept'            depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayBodyEff.protocolOne_tload_override_loop_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayBodyEff.dispatch_then_loop_accept'             depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayBodyEff.dispatch_setup_loop_accept'            depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayBodyEff.dispatch_routes_verify'                depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -723,14 +741,18 @@ and the R5 storage- and fee-layer files (§F.5) print, likewise, only the standa
 'RelayStorageLayer.sstore_sload'        depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayStorageLayer.sstore_eff'          depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayStorageLayer.sstore_reads_back'   depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayStorageLayer.tstore_tload'        depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayStorageLayer.tstore_zero_tload'   depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayStorageLayer.tstore_otherAccount' depends on axioms: [propext, Classical.choice, Quot.sound]
+'RelayStorageLayer.tstore_reads_back'   depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayFeeLayer.fee_conservation'        depends on axioms: [propext, Quot.sound]
 'RelayFeeLayer.transfer_conservation'   depends on axioms: [propext, Classical.choice, Quot.sound]
 'RelayFeeLayer.two_transfer_caller_net_zero' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 
 Exactly as with `relay_loop_sound`, the capstone `relay_loop_sound_literal_derived_tight` rests only on the
-standard three — it takes the ecrecover facts as `IterPremiseT` rather than discharging the memory *write*
-round-trip — while the byte-window decode lemmas that *do* use that round-trip (`mload_masked_voter`,
+standard three — it takes the ecrecover facts as `IterPremiseT` rather than discharging the memory _write_
+round-trip — while the byte-window decode lemmas that _do_ use that round-trip (`mload_masked_voter`,
 `voter_weight_pure`, …) additionally list the two documented specs `zeroes_data`/`toByteArray_size`, as
 `weight_read` does in §F.2. The R5 extension (early return, dispatch, storage/accept-write, composition, fees)
 introduces **no new axiom** — every result is one of the standard three (`fee_conservation` even drops

@@ -10,7 +10,7 @@ FDC2 was designed to address three limitations of the voting-based FDC:
 
 - **Latency.** A legacy FDC request takes at least one full voting round (~3 minutes including all phases) to get on chain. An FDC2 attestation can complete as soon as the request reaches a sufficient set of TEE machines and they sign a response — typically a fraction of that.
 - **Cross-chain consumption.** FDC2's response is signed by the FSP signing policy (or directly by TEE machines). Since the signing policy hash is a known constant on any chain that monitors Flare, an FDC2 attestation can be verified on chains that don't run FDC at all — useful for bridging.
-- **Per-request control.** A consumer can specify *which* TEE machines must respond, *which* cosigners must approve, and *what threshold* of signatures must agree. Legacy FDC's threshold is the FSP signing policy threshold (currently ~50%), with no per-request adjustment.
+- **Per-request control.** A consumer can specify _which_ TEE machines must respond, _which_ cosigners must approve, and _what threshold_ of signatures must agree. Legacy FDC's threshold is the FSP signing policy threshold (currently ~50%), with no per-request adjustment.
 
 The trade-off: FDC2's trust model leans on the integrity of the TEE machines and the FCC system extension. Legacy FDC's trust model is the FSP signing policy itself. They are complementary — both are deployed.
 
@@ -18,12 +18,12 @@ The trade-off: FDC2's trust model leans on the integrity of the TEE machines and
 
 ```solidity
 function requestAttestation(
-    Fdc2AttestationRequest calldata _attestationRequest,
-    uint256 _numberOfTees,
-    address[] memory _teeIds,
-    address[] memory _cosigners,
-    uint64 _cosignersThreshold,
-    address _claimBackAddress
+  Fdc2AttestationRequest calldata _attestationRequest,
+  uint256 _numberOfTees,
+  address[] memory _teeIds,
+  address[] memory _cosigners,
+  uint64 _cosignersThreshold,
+  address _claimBackAddress
 ) external payable;
 ```
 
@@ -78,12 +78,12 @@ The hub emits:
 
 ```solidity
 event AttestationRequested(
-    bytes32 instructionId,
-    bytes32 attestationType,
-    bytes32 sourceId,
-    address proofOwner,
-    address claimBackAddress,
-    uint256 fee
+  bytes32 instructionId,
+  bytes32 attestationType,
+  bytes32 sourceId,
+  address proofOwner,
+  address claimBackAddress,
+  uint256 fee
 );
 ```
 
@@ -97,8 +97,8 @@ event AttestationRequested(
 
 ```solidity
 function verifySigningPolicySignatures(
-    bytes calldata _signingPolicySignatures,
-    bytes32 _messageHash
+  bytes calldata _signingPolicySignatures,
+  bytes32 _messageHash
 ) external returns (uint256 _rewardEpochId);
 ```
 
@@ -108,13 +108,13 @@ Delegates to [`Relay.verifyCustomSignature`](../../../contracts/protocol/impleme
 
 ```solidity
 function verifySigningPolicySignaturesWithThreshold(
-    bytes calldata _signingPolicySignatures,
-    bytes32 _messageHash,
-    uint16 _thresholdBIPS
+  bytes calldata _signingPolicySignatures,
+  bytes32 _messageHash,
+  uint16 _thresholdBIPS
 ) external returns (uint256 _rewardEpochId);
 ```
 
-Same verification, but against a caller-chosen signature-weight threshold instead of the signing policy's own — it delegates to `Relay.verifyCustomSignatureWithThreshold`, which carries the override into `relay()` through a transient (EIP-1153) slot. The override applies **only** to the pure verification path (`protocolId == 1`, which stores nothing); protocol finalization and signing-policy relay always keep the policy threshold. The threshold is expressed in **BIPS of the signing policy's total normalized weight**, matching `Fdc2RequestHeader.thresholdBIPS`: 0 uses the signing policy's own threshold, the effective weight bar is rounded up (`mulDivRoundUp`, as in [`FlareSystemsManager._initializeNextSigningPolicy`](../../../contracts/protocol/implementation/FlareSystemsManager.sol)), and the comparison is strict — 5000 requires strictly more than 50% of the weight. Values of 10000 (100%) and above can never be satisfied under the strict comparison and revert with `ThresholdTooHigh`. A threshold *below* the policy's only weakens the caller's own acceptance rule — success then means "more than the requested fraction of the weight signed", not that the protocol quorum was reached.
+Same verification, but against a caller-chosen signature-weight threshold instead of the signing policy's own — it delegates to `Relay.verifyCustomSignatureWithThreshold`, which carries the override into `relay()` through a transient (EIP-1153) slot. The override applies **only** to the pure verification path (`protocolId == 1`, which stores nothing); protocol finalization and signing-policy relay always keep the policy threshold. The threshold is expressed in **BIPS of the signing policy's total normalized weight**, matching `Fdc2RequestHeader.thresholdBIPS`: 0 uses the signing policy's own threshold, and a nonzero value requires `signedWeight * 10000 > totalWeight * thresholdBIPS`. Equivalently, Relay computes `floor(totalWeight * thresholdBIPS / 10000)` and uses a strict comparison, so 5000 requires strictly more than 50% of the weight. Values of 10000 (100%) and above can never be satisfied and revert with `ThresholdTooHigh`. A threshold _below_ the policy's only weakens the caller's own acceptance rule — success then means "more than the requested fraction of the weight signed", not that the protocol quorum was reached.
 
 ### `verifyTeeSignature` / `verifyTeeSignatures`
 
@@ -162,11 +162,11 @@ A governance-managed array of `Fdc2Configuration` entries — one per `(attestat
 
 ```solidity
 struct Fdc2Configuration {
-    bytes32 attestationType;
-    bytes32 sourceId;
-    uint24 inflationShare;
-    uint8 minRequestsThreshold;
-    uint224 mode;
+  bytes32 attestationType;
+  bytes32 sourceId;
+  uint24 inflationShare;
+  uint8 minRequestsThreshold;
+  uint224 mode;
 }
 
 function addFdc2Configurations(Fdc2Configuration[] calldata) external onlyGovernance;
@@ -187,9 +187,9 @@ A standalone inflation receiver and reward-offers emitter. It extends [`RewardOf
 
    ```solidity
    event InflationRewardsOffered(
-       uint24 indexed rewardEpochId,
-       IFdc2InflationConfigurations.Fdc2Configuration[] fdc2Configurations,
-       uint256 amount
+     uint24 indexed rewardEpochId,
+     IFdc2InflationConfigurations.Fdc2Configuration[] fdc2Configurations,
+     uint256 amount
    );
    ```
 
@@ -222,15 +222,15 @@ The FCC fee paid up-front by the requester gets settled at the TEE machine layer
 
 ## Differences from legacy FDC at a glance
 
-| Aspect | FDC | FDC2 |
-|--------|-----|------|
-| Confirmation by | Threshold of FSP signing policy over a Merkle root | Set of TEE machines signing the response (+ optional cosigners) |
-| Latency | One full voting round (~minutes) | Fraction of a round (TEE response time) |
-| Threshold | Fixed by signing policy (>50%) | Per-request `thresholdBIPS`, defaults to signing-policy threshold |
-| Per-request TEE selection | N/A | Random or explicit |
-| Cosigner approval | N/A | Up to `_cosignersThreshold` of `_cosigners[]` |
-| Cross-chain verification | Difficult (proves Merkle root which references signing policy) | Direct (signing-policy signatures verifiable anywhere policy hash is known) |
-| Inflation pool | Yes ([`FdcInflationConfigurations`](../../../contracts/fdc/implementation/FdcInflationConfigurations.sol)) | Yes ([`Fdc2InflationConfigurations`](../../../contracts/fdc2/implementation/Fdc2InflationConfigurations.sol) + standalone [`Fdc2RewardOffersManager`](../../../contracts/fdc2/implementation/Fdc2RewardOffersManager.sol)) |
-| Verification primitive | Merkle proof against `Relay` root | ECDSA signature verification |
+| Aspect                    | FDC                                                                                                        | FDC2                                                                                                                                                                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Confirmation by           | Threshold of FSP signing policy over a Merkle root                                                         | Set of TEE machines signing the response (+ optional cosigners)                                                                                                                                                            |
+| Latency                   | One full voting round (~minutes)                                                                           | Fraction of a round (TEE response time)                                                                                                                                                                                    |
+| Threshold                 | Fixed by signing policy (>50%)                                                                             | Per-request `thresholdBIPS`, defaults to signing-policy threshold                                                                                                                                                          |
+| Per-request TEE selection | N/A                                                                                                        | Random or explicit                                                                                                                                                                                                         |
+| Cosigner approval         | N/A                                                                                                        | Up to `_cosignersThreshold` of `_cosigners[]`                                                                                                                                                                              |
+| Cross-chain verification  | Difficult (proves Merkle root which references signing policy)                                             | Direct (signing-policy signatures verifiable anywhere policy hash is known)                                                                                                                                                |
+| Inflation pool            | Yes ([`FdcInflationConfigurations`](../../../contracts/fdc/implementation/FdcInflationConfigurations.sol)) | Yes ([`Fdc2InflationConfigurations`](../../../contracts/fdc2/implementation/Fdc2InflationConfigurations.sol) + standalone [`Fdc2RewardOffersManager`](../../../contracts/fdc2/implementation/Fdc2RewardOffersManager.sol)) |
+| Verification primitive    | Merkle proof against `Relay` root                                                                          | ECDSA signature verification                                                                                                                                                                                               |
 
 Both modules are simultaneously active. Applications choose based on latency / cross-chain / threshold needs.

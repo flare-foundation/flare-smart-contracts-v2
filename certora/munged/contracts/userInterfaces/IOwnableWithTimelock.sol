@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.4 <0.9;
+
+/**
+ * @title IOwnableWithTimelock
+ * @notice Generic interface for ownable timelocked call execution.
+ * @dev Two properties callers must plan around, neither visible in the ABI.
+ *
+ *      A guarded call **either applies or queues**, and both return success.
+ *      A void guarded call returns empty ABI data in each case, so the return
+ *      value cannot distinguish them either. Read back
+ *      `getExecuteTimelockedCallTimestamp` or the target's own getter to tell
+ *      which happened.
+ *
+ *      **A queued call whose migration data invokes another guarded function is
+ *      not executable**: execution self-calls the proxy and consumes the
+ *      `executing` flag, so the nested call tries to queue and reverts on the
+ *      owner check. A zero duration takes the immediate branch instead, so the
+ *      same data rehearses green on testnet and fails on a timelocked mainnet.
+ *      Guard migration entry points on owner-or-self, not on the timelock.
+ */
+interface IOwnableWithTimelock {
+
+    /**
+     * @notice Emitted when a call is timelocked and can be executed later.
+     * @param encodedCall ABI encoded call data.
+     * @param encodedCallHash Hash of encoded call.
+     * @param allowedAfterTimestamp Earliest timestamp when call is executable.
+     */
+    event CallTimelocked(
+        bytes encodedCall,
+        bytes32 encodedCallHash,
+        uint256 allowedAfterTimestamp
+    );
+
+    /**
+     * @notice Emitted when a timelocked call is executed.
+     * @param encodedCallHash Hash of encoded call.
+     */
+    event TimelockedCallExecuted(
+        bytes32 encodedCallHash
+    );
+
+    /**
+     * @notice Emitted when a timelocked call is canceled.
+     * @param encodedCallHash Hash of encoded call.
+     */
+    event TimelockedCallCanceled(
+        bytes32 encodedCallHash
+    );
+
+    /**
+     * @notice Emitted when timelock duration is updated.
+     * @param timelockDurationSeconds New timelock duration in seconds.
+     */
+    event TimelockDurationSet(
+        uint256 timelockDurationSeconds
+    );
+
+    /**
+     * @notice Reverts when the encoded call has no queued timelock entry.
+     */
+    error TimelockInvalidSelector();
+
+    /**
+     * @notice Reverts when timelocked call execution is attempted too early.
+     */
+    error TimelockNotAllowedYet();
+
+    /**
+     * @notice Reverts when requested timelock duration exceeds maximum.
+     */
+    error TimelockDurationTooLong();
+
+    /**
+     * @notice Reverts when a call is queued with a nonzero value. Execution
+     *         replays only the recorded calldata (never value), so queued
+     *         value would be trapped in the contract.
+     */
+    error TimelockValueNotAllowed();
+
+    /**
+     * @notice Reverts on any `renounceOwnership` call. The role cannot be
+     *         given up; it can still be transferred, in one atomic step.
+     */
+    error RenounceDisabled();
+
+    /**
+     * @notice Executes a queued call once its recorded ETA has passed.
+     * @param _encodedCall ABI encoded call data.
+     * @dev Permissionless after the ETA recorded when the call was queued (not
+     *      the current timelock duration).
+     */
+    function executeTimelockedCall(
+        bytes calldata _encodedCall
+    )
+        external;
+
+    /**
+     * @notice Cancels a queued timelocked call.
+     * @param _encodedCall ABI encoded call data.
+     */
+    function cancelTimelockedCall(
+        bytes calldata _encodedCall
+    )
+        external;
+
+    /**
+     * @notice Sets the timelock duration for owner-controlled calls, through the
+     *         current owner-timelock path (this call is itself protected).
+     * @param _timelockDurationSeconds Timelock duration in seconds.
+     */
+    function setTimelockDuration(
+        uint256 _timelockDurationSeconds
+    )
+        external;
+
+    /**
+     * @notice Returns timestamp when a timelocked call may be executed.
+     * @param _encodedCall ABI encoded call data.
+     * @return _allowedAfterTimestamp Earliest execution timestamp.
+     */
+    function getExecuteTimelockedCallTimestamp(
+        bytes calldata _encodedCall
+    )
+        external view
+        returns (uint256 _allowedAfterTimestamp);
+
+    /**
+     * @notice Returns the configured timelock duration in seconds.
+     * @return Timelock duration in seconds.
+     */
+    function getTimelockDurationSeconds() external view returns (uint256);
+}

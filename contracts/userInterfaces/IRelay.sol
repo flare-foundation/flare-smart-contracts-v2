@@ -290,11 +290,12 @@ interface IRelay is RandomNumberV2Interface {
      * @param _messageHash The hash of the message.
      * @param _thresholdBIPS The threshold in BIPS of the signing policy's total normalized
      * weight (e.g. 5000 = 50%); 0 uses the signing policy's own threshold (the
-     * `Fdc2RequestHeader.thresholdBIPS` convention). The effective threshold is rounded up
-     * (`mulDivRoundUp(totalWeight, _thresholdBIPS, 10000)`, as in
-     * FlareSystemsManager's signing-policy derivation) and compared with strict
-     * inequality, so 5000 requires strictly more than 50% of the weight. Values of
-     * 10000 and above are unsatisfiable and revert with `ThresholdTooHigh`.
+     * `Fdc2RequestHeader.thresholdBIPS` convention). The effective threshold is
+     * `floor(totalWeight * _thresholdBIPS / 10000)` and is compared with strict
+     * inequality. This is equivalent to requiring
+     * `signedWeight * 10000 > totalWeight * _thresholdBIPS`, so 5000 requires strictly
+     * more than 50% of the weight. Values of 10000 and above are unsatisfiable and
+     * revert with `ThresholdTooHigh`.
      * @return _rewardEpochId The reward epoch id of the signing policy.
      */
     function verifyCustomSignatureWithThreshold(

@@ -8,20 +8,22 @@ pragma solidity ^0.8.13;
 //  for Kontrol, via k-induction (base + single fully-symbolic preservation step) over a
 //  GROUNDED prefix-sum invariant.
 //
-//  Faithful to Relay.relay()'s inline-assembly loop (contracts/.../Relay.sol:1217-1330):
-//    loop state = (weight, nextUnusedIndex)            (:1225 weight:=0, :1227 nextUnusedIndex:=0)
+//  Faithful to Relay.relay()'s inline-assembly loop (contracts/.../Relay.sol:1438-1547):
+//    loop state = (weight, nextUnusedIndex)            (:1439 weight:=0, :1441 nextUnusedIndex:=0)
 //    per matched signature, in order:
-//      G1  idx + 1 <= numberOfVoters      "Index out of range"     (:1257)
-//      G2  idx >= nextUnusedIndex ; nextUnusedIndex := idx+1       (:1261,:1264)  [strict advance]
-//      G3  weight := weight + (mload(..) & WEIGHT_MASK)            (:1325-1327, WEIGHT_MASK=0xffff)
-//      G4  ACCEPT iff weight > threshold                          (:1330)        [first crossing]
+//      G1  idx + 1 <= numberOfVoters      "Index out of range"     (:1474)
+//      G2  idx >= nextUnusedIndex ; nextUnusedIndex := idx+1       (:1477-1481) [strict slot advance]
+//      G3  weight := weight + (mload(..) & WEIGHT_MASK)            (:1542-1545, WEIGHT_MASK=0xffff)
+//      G4  ACCEPT iff weight > threshold                           (:1547)       [first crossing]
 //    ecrecover/keccak UNINTERPRETED (prove accounting, assume cryptography).
 //
 //  Voter weights are modeled as uint16 (= Relay's 16-bit WEIGHT_MASK at :1327): the type bounds each
 //  to [0,65535] BY CONSTRUCTION, so the uint256 prefix sums are nonneg and never overflow — no assume,
 //  no spurious overflow branch. psAt(k)=sum_{i<k} w_i is COMPUTED via conditional scalar logic (no
 //  array => no symbolic-memory indexing). Monotonicity/recurrence are THEOREMS; the order guard G2 is
-//  load-bearing (prove_reach_stepNeedsGuard removes it and genuinely counterexamples).
+//  load-bearing for preventing a repeated POLICY INDEX (prove_reach_stepNeedsGuard removes it and
+//  genuinely counterexamples). Voter addresses are not part of this model: interpreting an index as a
+//  distinct voter identity requires the separate policy-admission assumption that addresses are unique.
 //
 //  INVARIANT:  INV(weight, nextUnusedIndex) := weight <= psAt(nextUnusedIndex) && nextUnusedIndex <= N
 //
@@ -30,7 +32,9 @@ pragma solidity ^0.8.13;
 //  covers all iteration counts). (2) base+step => ∀K by the standard induction PRINCIPLE at the meta
 //  level; Kontrol 1.0.248 has no native loop-invariant, so the composition itself is not machine-checked
 //  (each piece is). (3) Checks a faithful Solidity MODEL of the loop body; the bytecode side at K<=3 is
-//  covered by the Halmos suite (RelaySigParamFV).
+//  covered by the Halmos suite (RelaySigParamFV). (4) This proves indexed-weight accounting, not
+//  recovered-signer identity uniqueness. Relay currently trusts policy ingestion for unique addresses;
+//  if one address occupies two indices, the same key may contribute both indexed weights.
 // ============================================================================================
 
 interface IVm { function assume(bool) external; }
@@ -72,7 +76,7 @@ contract RelaySigLoopFV {
         vm.assume(nextUnusedIndex <= N);
         vm.assume(weight <= _psAt(nextUnusedIndex, w0, w1, w2));
         vm.assume(idx < N);                 // G1
-        vm.assume(idx >= nextUnusedIndex);  // G2 strict order => no double count
+        vm.assume(idx >= nextUnusedIndex);  // G2 strict order => no repeated policy slot
         uint256 added = _psAt(idx + 1, w0, w1, w2) - _psAt(idx, w0, w1, w2); // = w_idx by construction
         uint256 newWeight = weight + added;
         uint256 newNext = idx + 1;
@@ -80,7 +84,7 @@ contract RelaySigLoopFV {
         assert(newWeight <= _psAt(newNext, w0, w1, w2));
     }
 
-    // ---- CONCLUSION: accept => total genuine weight exceeded threshold (threshold arbitrary uint256) ----
+    // ---- CONCLUSION: accept => total indexed policy weight exceeded threshold (threshold arbitrary) ----
     function prove_accept_implies_threshold_exceeded(
         uint16 w0, uint16 w1, uint16 w2,
         uint256 weight, uint256 nextUnusedIndex, uint256 threshold
@@ -104,7 +108,7 @@ contract RelaySigLoopFV {
 
     // ================= ANTI-VACUITY CONTROLS (each MUST produce a counterexample) =================
 
-    // Step WITHOUT G2 must FAIL: re-counting a passed voter breaks the bound => G2 is load-bearing.
+    // Step WITHOUT G2 must FAIL: re-counting a passed index breaks the bound => G2 is load-bearing.
     function prove_reach_stepNeedsGuard(
         uint16 w0, uint16 w1, uint16 w2,
         uint256 weight, uint256 nextUnusedIndex, uint256 idx

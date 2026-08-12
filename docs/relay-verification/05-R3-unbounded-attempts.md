@@ -1,73 +1,79 @@
 # L5 — R3: unbounded attempts (Kontrol & Certora) and the assembly wall
 
+> **Evidence note.** §5.2 documents the regenerated current Certora inputs. Kontrol results elsewhere in
+> this chapter are historical until a current manifest run is recorded in
+> [`CURRENT-STATUS.md`](CURRENT-STATUS.md).
+
 > **What you get from this level.** The two attempts to cross the **induction barrier** — Kontrol/KEVM and
-> Certora — told honestly: where they *succeeded*, where they hit the **assembly barrier**, and why the
+> Certora — told honestly: where they _succeeded_, where they hit the **assembly barrier**, and why the
 > walls are a genuine finding rather than a tooling failure. This is the rung that motivated theorem
 > proving (R4). It is deliberately candid: an audit deserves the negative results, not just the wins.
 
 ---
 
-## 5.1 Kontrol/KEVM — ∀K by k-induction (a real success, on a model)
+## 5.1 Kontrol/KEVM — historical ∀K model result
 
 **Tool:** Kontrol `v1.0.248` over KEVM (`K v7.1.334`), fully pinned (see §5.4). **Artifacts:**
 `test-forge/fv/kontrol/` — [`RelaySigLoopFV.t.sol`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol), [`RelayRandomMonoFV.t.sol`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol), `run.sh`, `Dockerfile`,
 `foundry.toml`, `README.md`.
 
 Kontrol proves properties by **[k-induction](CONCEPTS.md#5-what-is-k-induction)** — it discharges a base case and an inductive step whose
-pre-state is *fully symbolic*, so a single step covers every iteration count. This crosses the induction
+pre-state is _fully symbolic_, so a single step covers every iteration count. This crosses the induction
 barrier in the **K dimension** (the number of signatures / relays), which is the genuinely unbounded one.
 
-**What it proved (verdicts, Kontrol 1.0.248)** — the full inventory: **13 `prove_` functions** (7 in
+**What the recorded historical run established (Kontrol 1.0.248)** — the two
+primary harnesses below contain **13 `prove_` functions** (7 in
 `RelaySigLoopFV` + 6 in `RelayRandomMonoFV`), of which 9 are proofs and 4 are `reach` anti-vacuity
-controls that must *counterexample* (the same `reach` naming idea as the Halmos suite).
+controls that must _counterexample_ (the same `reach` naming idea as the Halmos suite).
 
 `RelaySigLoopFV` — the signature-loop **weight invariant** `weight ≤ prefixSum(nextUnusedIndex)`, via
 k-induction over a grounded prefix sum ([`psAt`](CONCEPTS.md#6-what-is-psat-the-prefix-sum-at-the-heart-of-the-proofs); N=3 voter model; re-validated at N=5 as the committed `RelaySigLoopFV_N5.t.sol` harness, ~2.25 h, identical verdicts):
 
-| `prove_` function | Kind · verdict | What it establishes |
-|---|---|---|
-| [`prove_base_invariant`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L60) | proof ✅ | base case: the invariant holds at loop entry (`weight = 0`, `nextUnusedIndex = 0`) |
-| [`prove_step_preserves_invariant`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L68) | proof ✅ | inductive step: one signature preserves the invariant from a *fully-symbolic* pre-state — the ∀K discharge |
-| [`prove_lemma_prefix_monotone`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L53) | proof ✅ | grounded lemma: prefix sums of non-negative weights are monotone (derived, not assumed) |
-| [`prove_accept_implies_threshold_exceeded`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L84) | proof ✅ | accept (`weight > threshold`) ⟹ the total registered weight exceeds the threshold |
-| [`prove_insufficientWeight_cannotAccept`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L95) | proof ✅ | contrapositive: insufficient total registered weight can never accept, for any K |
-| [`prove_reach_stepNeedsGuard`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L108) | reach control · CEX by design | the step *without* the order guard re-counts a voter and breaks the invariant — the no-double-count guard is load-bearing |
-| [`prove_reach_acceptIsPossible`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L122) | reach control · CEX by design | acceptance is genuinely reachable with enough weight — the proofs above are not vacuous |
+| `prove_` function                                                                                 | Kind · verdict                           | What it establishes                                                                                                              |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [`prove_base_invariant`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L64)                    | historical proof                         | base case: the invariant holds at loop entry (`weight = 0`, `nextUnusedIndex = 0`)                                               |
+| [`prove_step_preserves_invariant`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L72)          | historical proof                         | inductive step: one signature preserves the invariant from a _fully-symbolic_ pre-state — the ∀K discharge                       |
+| [`prove_lemma_prefix_monotone`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L57)             | historical proof                         | grounded lemma: prefix sums of non-negative weights are monotone (derived, not assumed)                                          |
+| [`prove_accept_implies_threshold_exceeded`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L88) | historical model proof                   | accept (`weight > threshold`) ⟹ total registered policy-slot weight exceeds the threshold, conditional on unique voter addresses |
+| [`prove_insufficientWeight_cannotAccept`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L99)   | historical model proof                   | contrapositive over policy slots: insufficient total slot weight can never accept, for any K                                     |
+| [`prove_reach_stepNeedsGuard`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L112)             | historical reach control · CEX by design | the step _without_ the order guard reuses a policy slot and breaks the invariant                                                 |
+| [`prove_reach_acceptIsPossible`](../../test-forge/fv/kontrol/RelaySigLoopFV.t.sol#L126)           | historical reach control · CEX by design | acceptance is reachable with enough modeled slot weight — the model proofs above were not vacuous                                |
 
 `RelayRandomMonoFV` — random-pointer **monotonicity** (a stale relay never regresses the live round; the
 modeled update rule is exactly `max(live, round)`):
 
-| `prove_` function | Kind · verdict | What it establishes |
-|---|---|---|
-| [`prove_base_monotone`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L38) | proof ✅ | base: at sequence start the pointer has not decreased |
-| [`prove_step_monotone`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L43) | proof ✅ | one relay never regresses the pointer, for a fully-symbolic (pointer, round) — monotone ∀K |
-| [`prove_step_staleDoesNotRegress`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L48) | proof ✅ | a stale (older-or-equal) round leaves the pointer unchanged |
-| [`prove_step_advancesToNewer`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L54) | proof ✅ | a strictly newer round moves the pointer exactly to it |
-| [`prove_reach_canAdvance`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L62) | reach control · CEX by design | the advance path is live: the pointer *can* strictly increase |
-| [`prove_reach_canStayStale`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L68) | reach control · CEX by design | the stale path is live: a stale relay *can* leave the pointer in place |
+| `prove_` function                                                                           | Kind · verdict                           | What it establishes                                                                        |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
+| [`prove_base_monotone`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L42)            | historical proof                         | base: at sequence start the pointer has not decreased                                      |
+| [`prove_step_monotone`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L47)            | historical proof                         | one relay never regresses the pointer, for a fully-symbolic (pointer, round) — monotone ∀K |
+| [`prove_step_staleDoesNotRegress`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L52) | historical proof                         | a stale (older-or-equal) round leaves the pointer unchanged                                |
+| [`prove_step_advancesToNewer`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L58)     | historical proof                         | a strictly newer round moves the pointer exactly to it                                     |
+| [`prove_reach_canAdvance`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L66)         | historical reach control · CEX by design | the advance path was live: the pointer could strictly increase                             |
+| [`prove_reach_canStayStale`](../../test-forge/fv/kontrol/RelayRandomMonoFV.t.sol#L72)       | historical reach control · CEX by design | the stale path was live: a stale relay could leave the pointer in place                    |
 
-Each negative proof is paired with a reachability control that *must* counterexample — the same
+Each negative proof is paired with a reachability control that _must_ counterexample — the same
 anti-vacuity discipline as the Halmos suite. Verdicts are judged from the per-test PASSED/FAILED list
-printed by `run.sh`'s `kontrol prove` step — the 14 proofs pass, the 6 `reach` controls fail (produce
-their counterexample) by design — never from the process exit code (§5.4).
+printed by `run.sh`'s `kontrol prove` step. The broader historical runner recorded
+14 proofs and 6 controls; those results were not rerun for the current
+architecture and are never inferred from the process exit code (§5.4).
 
 **Honest caveats (stated in each harness header and the README):**
 
-1. **N (voter count) is a concrete model bound**; the proof *structure* is parametric in N (hence the N=3
+1. **N (voter count) is a concrete model bound**; the proof _structure_ is parametric in N (hence the N=3
    and N=5 re-validation). **K is the unbounded dimension** and is genuinely covered: the inductive step's
    pre-state ranges over every invariant-state.
 2. **The base + step compose to ∀K by the standard induction principle, applied at the meta level.**
    Kontrol 1.0.248 exposes no native Solidity loop-invariant / cut-point rule, so that final composition is
-   not *itself* machine-checked — each piece is. (This is one motivation for the Lean proof at R4, where the
-   induction *is* internal and machine-checked.)
-3. **It checks a faithful Solidity *model* of the loop body, not Relay's inline-assembly bytecode.** The
+   not _itself_ machine-checked — each piece is. (This is one motivation for the Lean proof at R4, where the
+   induction _is_ internal and machine-checked.)
+3. **It checks a faithful Solidity _model_ of the loop body, not Relay's inline-assembly bytecode.** The
    bytecode side at K≤3 is covered by Halmos ([`RelaySigParamFV`](../../test-forge/fv/RelaySigParamFV.t.sol#L29)), and [`RelayModelBridgeFV`](../../test-forge/fv/RelayModelBridgeFV.t.sol#L37) ties the model's
    `psAt` invariant to the real bytecode. A bmc-depth-1 model↔bytecode equivalence obligation would fully
    bridge the gap (future work; see [L10](10-claims-ledger-trust-and-residual.md) and [`docs/relay-t1-bridge.md`](../../docs/relay-t1-bridge.md)).
 
 **The wall — full symbolic-N.** Making N itself symbolic (rather than the {3,5} concrete models) is
 empirically **state-explosive**: the N=10 attempt ran **~12 hours and produced 0 proofs**. This is the
-assembly/scale barrier, and it is why the *truly* unbounded-N guarantee is carried by Lean (R4a), not
+assembly/scale barrier, and it is why the _truly_ unbounded-N guarantee is carried by Lean (R4a), not
 Kontrol.
 
 So Kontrol is a **partial success, honestly bounded**: ∀K at N∈{3,5} on a faithful model — not a failure,
@@ -75,107 +81,113 @@ but not the whole ∀N∀K story either.
 
 ---
 
-## 5.2 Certora — all-functions storage invariants (locally checked, cloud pending)
+## 5.2 Certora — current owner-timelock specifications
 
-**Tool:** `certora-cli 8.16.1`. **Artifacts:** [`certora/Relay.conf`](../../certora/Relay.conf), [`certora/specs/RelayInvariants.spec`](../../certora/specs/RelayInvariants.spec),
+**Tool:** `certora-cli 8.16.1`. **Artifacts:** [`certora/Relay.conf`](../../certora/Relay.conf),
+[`Relay-threshold.conf`](../../certora/Relay-threshold.conf),
+[`Relay-writeonce.conf`](../../certora/Relay-writeonce.conf),
+[`RelayInvariants.spec`](../../certora/specs/RelayInvariants.spec),
+[`RelayThreshold.spec`](../../certora/specs/RelayThreshold.spec),
+[`RelayWriteOnce.spec`](../../certora/specs/RelayWriteOnce.spec), and
 [`certora/README.md`](../../certora/README.md).
 
-Certora's distinctive strength is **parametric** invariants: a `rule … (method f)` is checked for **every**
-external/public method and arbitrary arguments — i.e., over all callers and all call sequences, not just
-the specific sequences Halmos/Kontrol enumerate. The spec targets exactly the cross-transaction **storage**
-properties where that would beat the other tools. The checked-in source contains
-**eight current invariants**. Four retain the pre-GSS properties; four cover
-the GSS global nonce high-water mark, owner-generation monotonicity,
-hash/generation coupling, and consumed-nonce permanence. The 2026-07 cloud
-runs predate GSS and must not be cited for the current rule set:
+The retired Safe/GSS source and rules have been removed. The current suite has
+15 rules: six scalar current-implementation invariants, two dedicated threshold
+rules, two raw mapping write-once rules, and five owner/timelock transition
+rules. They cover source
+domain immutability, signing-policy mode stability, epoch monotonicity,
+nonzero owner/fee recipient, the seven-day delay cap, policy/root write-once,
+guarded-surface authorization, queue-not-apply behavior, queue consumption,
+execution-flag cleanup, disabled renunciation, fail-fast rejection of thresholds
+at or above 100% before any Relay `SSTORE`, `TSTORE`, or `CALL`, and the exact
+floor/cross-product arithmetic lemma.
 
-| Rule | Property | Current GSS status |
-|------|----------|--------|
-| `governanceSafeNonceMonotonic` | `lastGovernanceSafeNonce` never decreases, ∀ function | local typecheck pass; cloud proof pending |
-| `governanceOwnerConfigSafeNonceMonotonic` | owner-configuration generations never regress, ∀ function | local typecheck pass; cloud proof pending |
-| `governanceOwnerHashChangeAdvancesGeneration` | a changed owner hash strictly advances its generation | local typecheck pass; cloud proof pending |
-| `governanceConsumedNonceWriteOnce` | a consumed Safe nonce can never become reusable | local typecheck pass; cloud proof pending |
-| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function (globalizes the +1 step of [`RelayEpochAdvanceFV`](../../test-forge/fv/RelayEpochAdvanceFV.t.sol#L21)) | historical cloud baseline; current local typecheck pass; cloud proof pending |
-| `signingPolicySetterImmutable` | the setter authority is immutable after construction | historical cloud baseline; current local typecheck pass; cloud proof pending |
-| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the in-spec reachable-state link) | historical cloud baseline; current local typecheck pass; cloud proof pending |
-| `merkleRootWriteOnce` | a finalized Merkle root is write-once per `(protocolId, votingRoundId)` | historical cloud baseline; current local typecheck pass; cloud proof pending |
+All three configurations set `loop_iter=3` and `optimistic_loop=true`. Certora may
+therefore abstract paths that continue beyond the configured loop bound. A
+cloud `SUCCESS` is conditional on that under-approximating loop model; it does
+not prove unrestricted voter, signature, or array-loop behavior. All configs
+also use optimistic hashing with a 512-byte bound. Per-method sanity and
+reachability results remain mandatory, and the unbounded loop obligations belong
+to the higher-rung abstract proofs.
 
-`ecrecover` is left NONDET (modeling-contract A2): the storage invariants must hold regardless of which
-signatures the prover admits.
+The production contract is upgradeable, so the scalar and write-once rules
+explicitly exclude `initialize`, `upgradeToAndCall`, and
+`executeTimelockedCall` (which can dispatch an upgrade). This is a necessary
+trust boundary: an authorized UUPS replacement may deliberately change any
+old-implementation invariant. The suite checks the current owner/timelock
+mechanics but does not claim storage compatibility or semantic equivalence for
+an arbitrary future implementation.
 
-**Historical baseline status:** cloud-proven non-vacuously (`rule_sanity
-basic`) for every then-present function except `relay()` — and except
-`setSigningPolicy` under via-ir (the legacy-codegen runs covered it). The
-current local gate passes both configured compilation/typecheck runs; the cloud
-proof must still be rerun. The historical wall, for
-the record:
+The two private mappings are observed through a verification-only harness.
+[`munge.sh`](../../certora/munge.sh) rebuilds its source tree from scratch,
+copies every current owner-timelock dependency byte-for-byte, changes exactly
+two `private` declarations to `internal`, and fails on any other Relay diff.
+Deleting the generated tree first also prevents retired architecture files from
+surviving regeneration.
 
-- The specs pass the pinned Certora **local** gate — `verify_certora_local.py` —
-  which compiles [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol) under Certora and **typechecks the spec against the real contract** (exit 0,
-  for both `Relay.conf` and `Relay-writeonce.conf`, after exact munge validation). So the rules are confirmed
-  **well-formed against the actual contract**, not just syntactically. This is not a proof verdict.
-- The actual proof runs on Certora's **cloud** (needs `CERTORAKEY`). **Two cloud runs were executed**
-  (run 2 added `HAVOC_ECF` + a uint32-wrap guard):
-  - run 1: `https://prover.certora.com/output/3798318/a9a6c094009f4711852a166db63ac06f`
-  - run 2: `https://prover.certora.com/output/3798318/93ef4cf514274eac9f089c3ac3533be9`
+**Evidence status (2026-08-12):** for reviewed source revision
+`d5af7136c03d6bab83307b0f4bd49101b8792e40`, manifest SHA-256
+`7ae2208f96a520f477b528ee808909f87e9402247bacab00e04052fa02ec2cb1`
+binds all three configurations and 15 rules. They compile and CVL-typecheck
+locally with Certora CLI 8.16.1, Java 26, solc
+`0.8.35+commit.47b9dedd`, Cancun, optimizer 200, and `viaIR=true`. Normalized
+local report SHA-256
+`9d3ce0394ebcfadb2b415021a077a0a29761814a11a510d90d23364f97185067`
+is **PASS** (3/3 configs, 15 rules, 0 local violations). This is a front-end
+result, not a prover verdict. Aggregate local bundle SHA-256
+`be386d63acdd336b99ab84c64cb0f32ba9c3bafbba02b17164ebd176b7e4f64a`
+is also **PASS**. Both local artifacts are development-only solely because the
+worktree was dirty; a clean committed rerun is required for release eligibility.
 
-**Outcome (both identical):** `nonceMonotonic`, `lastInitializedMonotonic`, `signingPolicySetterImmutable`
-reported "violations" on `relay()`, `governanceFeeSetup`, `setSigningPolicy`; `policyHashWriteOnce` and
-`merkleRootWriteOnce` returned `UNKNOWN`.
+Normalized supplemental cloud report SHA-256
+`93d09d86d1acbf3b3ffdb0f6d9f8145b094722b9b7de94e131ef8e8e97ca4821`
+is **PARTIAL**. The
+[threshold job](https://prover.certora.com/output/3798318/a133698c16d54e7cb4a518a3251dd73a)
+is **PASS** with two `SUCCESS` results. The
+[scalar job](https://prover.certora.com/output/3798318/96136f4b1ce349889963c722745f6d8a)
+and
+[write-once/timelock job](https://prover.certora.com/output/3798318/5f29c9d404134b7aa3578484455bf424)
+are **PARTIAL**. Across all three, the normalized semantic totals are 308
+`SUCCESS`, 2 `SATISFIED`, and 24 `SANITY_FAIL`, with no semantic assertion
+counterexample, `UNKNOWN`, or `TIMEOUT`.
 
-**These "violations" are spurious — a tool limitation, not contract bugs. The decisive tell:**
-`setSigningPolicy` "violates" `signingPolicySetterImmutable`, yet `setSigningPolicy` **makes no external
-call** and **never writes the `signingPolicySetter` slot** — so it cannot logically change it. And
-`HAVOC_ECF` (removing external-call havoc; sound here as Relay has no `delegatecall`) changed **nothing**
-between runs. The cause is therefore **storage-slot havoc from inline assembly**: Relay builds mapping slots
-in scratch memory (`keccak256(mload(0x40), 64)`) and writes the bit-packed `StateData` as a whole slot via
-assembly `assignStruct`/`sstore`. When Certora's storage analysis cannot resolve an `sstore` target, it
-conservatively **havocs all storage**, so every storage invariant breaks on every assembly-writing function
-— including slots that function never touches.
+The 24 sanity exclusions are the exact cross-product of the six scalar rules
+with `relay`, `setSigningPolicy`, and `renounceOwnership` (18), plus the two
+mapping rules with those same methods (6). The loop-heavy methods are not shown
+nonvacuous under the bounded optimistic-loop scene. Renunciation always reverts,
+so its generic normal-call sanity check is expected to fail; the dedicated
+`ownershipRenounceAlwaysReverts` rule passes. The two `satisfy` witnesses exhibit
+(1) queued duration execution consuming the ETA, clearing the flag, and mutating
+duration, and (2) a zero-delay owner duration mutation. Certora CLI 8.16.1 calls
+those SAT subnodes `FAIL` because of assertion polarity; the normalizer validates
+the detailed witness tables and records them as `SATISFIED` reachability results.
 
-**How they were discharged (2026-07-15).** Not by the ghost/hook re-modeling once contemplated (which
-would have re-introduced hand-decoded bit-offsets), but by removing the failing analysis from the loop:
-`-enableStorageSplitting false` makes storage one SMT array whose aliasing is decided by the prover's
-**injective hashing model** (keccak-derived locations are guaranteed distinct from scalar slots and from
-other keys' locations) — the three getter-based rules then verify with zero spec changes. The two
-write-once rules (whose direct-storage-access formulation depends on the same analysis) are restated over
-plain-Solidity view getters via a **faithfulness-machine-checked munged copy**
-([`certora/munge.sh`](../../certora/munge.sh) regenerates it and fails unless the diff is exactly two
-`private → internal` keywords) and a harness ([`certora/harness/RelayHarness.sol`](../../certora/harness/RelayHarness.sol)).
-A legacy-codegen run also surfaced a genuine **unreachable-state counterexample** — parametric rules start
-from arbitrary storage, including "hash set while the epoch pointer is below it", from which
-`setSigningPolicy` may legitimately rewrite — now excluded by a documented in-spec reachable-state link
-(`require epoch <= lastInitializedRewardEpoch`). Full run matrix, report links, and mechanics:
-[`certora/README.md`](../../certora/README.md).
+The threshold Certora result has a narrower, explicit scope. It proves that
+`thresholdBIPS >= 10000` fails before any Relay `SSTORE`, `TSTORE`, or `CALL`,
+and separately proves the exact floor/cross-product arithmetic identity. It does
+not prove successful override forwarding, transient setup and cleanup, rollback
+after a caught revert, address scope, or protocol-mode isolation. Those obligations
+are covered by the bounded Halmos checks and the Lean refinement; Lean keeps the
+implementation connection explicit as the `hsetupThreshold` hypothesis.
 
-**The narrowed residual:** under the no-splitting model, `relay()` itself (and `setSigningPolicy` under
-via-ir codegen) has no non-reverting path — the rules hold for it only vacuously (`SANITY_FAIL`, flagged by
-`rule_sanity`). This is intrinsic path-modeling, not a spec gap: the ghost/hook route inherits it (raw
-hooks *require* splitting-off). The failure mode is now visible no-coverage rather than false alarms, and
-`relay()`'s storage behavior stays covered by the per-sequence Halmos proofs on the real bytecode, the
-Kontrol ∀K invariant, and the Lean literal model.
+The `viaIR` internal-resolution diagnostics, direct-implementation/UUPS boundary,
+three-iteration optimistic loop, and 512-byte optimistic hashing bound remain
+explicit limitations. The supplemental cloud report is not a constituent of the
+local aggregate bundle, and its PARTIAL result must not be promoted to a blanket
+rule, proxy-level, or release claim.
 
 ---
 
-## 5.3 The convergent finding
+## 5.3 What the R3 evidence means now
 
-Two independent, state-of-the-art unbounded provers fail on the **same** obstacle:
-
-- **Kontrol** at full symbolic-N — state-explosive (12 h / 0 proofs).
-- **Certora** at all-functions storage invariants — storage-slot havoc from inline assembly (since
-  narrowed to the `relay()`-only residual — §5.2).
-
-The root cause is identical: Relay is **~90% hand-rolled inline assembly with bit-packed storage written to
-scratch-memory-computed slots**, which defeats automated provers' storage models. That two different tools
-fail the *same way* is the signal, not a coincidence — it is the **assembly barrier (R3→R4)** appearing
-twice, a real property of the contract.
-
-This is exactly why the stack escalates to **R4 (Lean + validated EVM semantics)**, which does not
-reconstruct a storage model at all: the abstract proof reasons at the algorithm level (no EVM), and the bytecode refinement reasons
-against a *validated* operational semantics of the bytecode. The convergent wall both justifies the
-strategy and bounds the residual: after the stack (and the 2026-07 discharge) what remains unverified is
-the all-functions storage invariants **on `relay()` alone**, whose per-sequence forms are proven on the
-real bytecode and whose accept-path write is proven in the Lean literal model.
+Kontrol remains historical evidence about a fixed Solidity model and pinned
+toolchain. Certora has a current local source/typecheck pass and a current
+supplemental cloud result: the threshold configuration passes, while scalar and
+write-once remain partial because of 24 disclosed sanity exclusions. The local
+front end and bounded/direct-implementation cloud model may not be used as a
+blanket claim over the proxy or a future implementation. Relay's assembly-heavy
+`relay()` remains the reason this stack also uses bounded execution and explicit
+mathematical models.
 
 ---
 
@@ -198,21 +210,25 @@ Pinned: Kontrol `v1.0.248`, K `v7.1.334`, toolchain `nixpkgs @ 9eac87a…`, base
 
 ```bash
 pip install certora-cli==8.16.1
-# no key/cloud; JDK 21+ and exact solc 0.8.27 required:
-python3 test-forge/fv/verify_certora_local.py --solc /path/to/solc-0.8.27
+# no key/cloud; JDK 21+ and exact solc 0.8.35 required:
+python3 test-forge/fv/verify_certora_local.py --solc /path/to/solc-0.8.35
 export CERTORAKEY=<your key>
-# the discharged runs (see certora/README.md for the full matrix + report links):
-certoraRun certora/Relay-rawstorage.conf --solc /path/to/solc-0.8.27      # 3 scalar rules, via-ir: 19/21
-certoraRun certora/Relay-rawstorage-A3.conf --solc /path/to/solc-0.8.27   # 3 scalar rules, legacy: 20/21
-./certora/munge.sh                                                         # regenerate + verify munged tree
-certoraRun certora/Relay-writeonce.conf --solc /path/to/solc-0.8.27       # write-once, via-ir: 21/23
-certoraRun certora/Relay-writeonce-B2.conf --solc /path/to/solc-0.8.27    # write-once, legacy: 22/23
-# the historical wall, for comparison (spurious violations):
-certoraRun certora/Relay.conf --solc /path/to/solc-0.8.27
+./certora/munge.sh
+certoraRun certora/Relay.conf --solc /path/to/solc-0.8.35
+certoraRun certora/Relay-threshold.conf --solc /path/to/solc-0.8.35
+certoraRun certora/Relay-writeonce.conf --solc /path/to/solc-0.8.35
+python3 test-forge/fv/verify_certora_cloud.py \
+  --run certora/Relay.conf=/path/to/scalar.log=/path/to/scalar-submission.zip \
+  --run certora/Relay-threshold.conf=/path/to/threshold.log=/path/to/threshold-submission.zip \
+  --run certora/Relay-writeonce.conf=/path/to/writeonce.log=/path/to/writeonce-submission.zip \
+  --report verification-reports/relay-certora-cloud.json
 ```
 
-Judge from the per-rule statuses in the report (`SUCCESS` = proven non-vacuously; `SANITY_FAIL` = the
-`relay()` vacuity residual; the CLI's exit banner lumps the latter under "violations").
+Judge cloud evidence per rule and per method: `SUCCESS` is usable only with a
+non-vacuous sanity result. A concrete SAT `satisfy` witness is successful
+reachability evidence even though CLI 8.16.1 renders that subnode as `FAIL` in
+aggregate text. Preserve unknowns, timeouts, and sanity failures as failures or
+explicit coverage gaps.
 
 **Next:** [L6 — R4a: the abstract proof](06-R4a-abstract-proof.md), where the ∀N∀K soundness that Kontrol
 could only approach at fixed N is proven outright, hole-free, in Lean.

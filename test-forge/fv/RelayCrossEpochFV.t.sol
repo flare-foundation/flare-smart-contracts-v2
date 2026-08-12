@@ -9,7 +9,7 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Phase-2 (bounded, Halmos): no-double-count and threshold soundness on the CROSS-EPOCH path, where the
+// Phase-2 (bounded, Halmos): no-repeat-index and indexed-weight soundness on the CROSS-EPOCH path, where the
 // threshold-INCREASE applies. Relay.sol:960 enters when messageRewardEpochId > policy rewardEpochId, and
 // :976 multiplies the threshold by thresholdIncreaseBIPS/THRESHOLD_BIPS (here 12000/10000 = x1.2) when
 // lastInitializedRewardEpoch == policy rewardEpochId (no newer policy relayed yet). The same-epoch
@@ -56,7 +56,7 @@ contract RelayCrossEpochFV is RelayTestBase {
         return uint256(thr) * uint256(THRESHOLD_INCREASE_BIPS) / uint256(10000); // THRESHOLD_BIPS = 10000
     }
 
-    // Cross-epoch no-double-count: with single-counting voters 0,1 insufficient vs the INCREASED threshold,
+    // Cross-epoch no-repeat-index: with the distinct-address fixture's slots 0,1 insufficient vs the increased threshold,
     // a duplicate index [0,1,1] cannot finalize (the strict-increase guard rejects the repeat). EXPECT: PASS.
     function check_crossEpoch_noDoubleCount(
         uint16 w0, uint16 w1, uint16 w2, uint16 thr, Sig calldata a, Sig calldata b, Sig calldata c

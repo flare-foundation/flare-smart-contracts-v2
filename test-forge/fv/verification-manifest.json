@@ -4,69 +4,237 @@
     "source": "contracts/protocol/implementation/Relay.sol",
     "contract": "Relay",
     "optimized_ir_snapshot": "test-forge/fv/lean/relay_ir_optimized.yul",
-    "verification_compiler": {
-      "version": "0.8.27+commit.40a35a09",
-      "short_version": "0.8.27",
-      "evm_version": "cancun",
-      "optimizer_enabled": true,
-      "optimizer_runs": 200,
-      "via_ir": false
-    },
-    "deployment_compiler": {
+    "production_compiler": {
       "version": "0.8.35+commit.47b9dedd",
+      "short_version": "0.8.35",
       "evm_version": "cancun",
       "optimizer_enabled": true,
       "optimizer_runs": 200,
       "via_ir": true
     }
   },
-  "relay_revert_abi": {
+  "relay_custom_error_abi": {
     "source": "contracts/protocol/implementation/Relay.sol",
-    "helper": "revertWithMessage",
-    "encoding": "Error(string)",
-    "max_message_bytes": 32,
-    "messages": [
-      { "message": "Invalid voting round id", "length": 23 },
-      { "message": "total weight too big", "length": 20 },
-      { "message": "too small threshold", "length": 19 },
-      { "message": "too big threshold", "length": 17 },
-      { "message": "No random number", "length": 16 },
-      { "message": "Incorrect merkle proof", "length": 22 },
-      { "message": "Invalid random number proof", "length": 27 },
-      { "message": "Invalid sign policy metadata", "length": 28 },
-      { "message": "Invalid sign policy length", "length": 26 },
-      { "message": "Signing policy hash mismatch", "length": 28 },
-      { "message": "Too short message", "length": 17 },
-      { "message": "Already relayed", "length": 15 },
-      { "message": "Wrong message format", "length": 20 },
-      { "message": "Wrong message format2", "length": 21 },
-      { "message": "Wrong sign policy reward epoch", "length": 30 },
-      { "message": "Message too old", "length": 15 },
-      { "message": "Delayed sign policy", "length": 19 },
-      { "message": "Must use new sign policy", "length": 24 },
-      { "message": "Sign policy relay disabled", "length": 26 },
-      { "message": "No new sign policy size", "length": 23 },
-      { "message": "must be non-trivial", "length": 19 },
-      { "message": "too many voters", "length": 15 },
-      { "message": "Wrong size for new sign policy", "length": 30 },
-      { "message": "Not with last intialized", "length": 24 },
-      { "message": "Not next reward epoch", "length": 21 },
-      { "message": "No signature count", "length": 18 },
-      { "message": "Not enough signatures", "length": 21 },
-      { "message": "Index out of range", "length": 18 },
-      { "message": "Index out of order", "length": 18 },
-      { "message": "Bad v", "length": 5 },
-      { "message": "Bad s", "length": 5 },
-      { "message": "ecrecover error", "length": 15 },
-      { "message": "ecrecover returned bad data", "length": 27 },
-      { "message": "Zero signer", "length": 11 },
-      { "message": "Wrong signature", "length": 15 },
-      { "message": "zero merkle root", "length": 16 },
-      { "message": "This should never happen", "length": 24 }
+    "interface_source": "contracts/userInterfaces/IRelay.sol",
+    "helper": "revertWithError",
+    "encoding": "bytes4",
+    "expected_call_count": 37,
+    "errors": [
+      {
+        "constant": "ERR_ALREADY_RELAYED",
+        "signature": "AlreadyRelayed()",
+        "selector": "0xd0ebeb4b",
+        "expected_uses": 1
+      },
+      { "constant": "ERR_BAD_S", "signature": "BadS()", "selector": "0xf54d11f5", "expected_uses": 1 },
+      { "constant": "ERR_BAD_V", "signature": "BadV()", "selector": "0x8320c358", "expected_uses": 1 },
+      {
+        "constant": "ERR_DELAYED_SIGN_POLICY",
+        "signature": "DelayedSignPolicy()",
+        "selector": "0x0c01bf37",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_ECRECOVER_ERROR",
+        "signature": "EcrecoverError()",
+        "selector": "0xc859b3f5",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_ECRECOVER_RETURNED_BAD_DATA",
+        "signature": "EcrecoverReturnedBadData()",
+        "selector": "0x62bd175a",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_INCORRECT_MERKLE_PROOF",
+        "signature": "IncorrectMerkleProof()",
+        "selector": "0x5d2f8a05",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_INDEX_OUT_OF_ORDER",
+        "signature": "IndexOutOfOrder()",
+        "selector": "0x297f31e1",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_INDEX_OUT_OF_RANGE",
+        "signature": "IndexOutOfRange()",
+        "selector": "0x1390f2a1",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_INVALID_RANDOM_NUMBER_PROOF",
+        "signature": "InvalidRandomNumberProof()",
+        "selector": "0x987d1299",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_INVALID_SIGN_POLICY_LENGTH",
+        "signature": "InvalidSignPolicyLength()",
+        "selector": "0x5509ecdf",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_INVALID_SIGN_POLICY_METADATA",
+        "signature": "InvalidSignPolicyMetadata()",
+        "selector": "0x3fcc839e",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_INVALID_VOTING_ROUND_ID",
+        "signature": "InvalidVotingRoundId()",
+        "selector": "0x01ed5f84",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_MESSAGE_TOO_OLD",
+        "signature": "MessageTooOld()",
+        "selector": "0x4ed02d0d",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_MUST_USE_NEW_SIGN_POLICY",
+        "signature": "MustUseNewSignPolicy()",
+        "selector": "0xf64fd99c",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_NO_NEW_SIGN_POLICY_SIZE",
+        "signature": "NoNewSignPolicySize()",
+        "selector": "0xf63c072c",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_NO_RANDOM_NUMBER",
+        "signature": "NoRandomNumber()",
+        "selector": "0xd76adcd1",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_NO_SIGNATURE_COUNT",
+        "signature": "NoSignatureCount()",
+        "selector": "0xf8139caf",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_NOT_ENOUGH_SIGNATURES",
+        "signature": "NotEnoughSignatures()",
+        "selector": "0xe246dc63",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_NOT_NEXT_REWARD_EPOCH",
+        "signature": "NotNextRewardEpoch()",
+        "selector": "0x124f824d",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_NOT_WITH_LAST_INITIALIZED",
+        "signature": "NotWithLastInitialized()",
+        "selector": "0xbe8b3520",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_SIGN_POLICY_RELAY_DISABLED",
+        "signature": "SignPolicyRelayDisabled()",
+        "selector": "0xf0059553",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_SIGNING_POLICY_EMPTY",
+        "signature": "SigningPolicyEmpty()",
+        "selector": "0x53c236da",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_SIGNING_POLICY_HASH_MISMATCH",
+        "signature": "SigningPolicyHashMismatch()",
+        "selector": "0x143fc35c",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_THRESHOLD_TOO_HIGH",
+        "signature": "ThresholdTooHigh()",
+        "selector": "0xe56d58cf",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_THRESHOLD_TOO_LOW",
+        "signature": "ThresholdTooLow()",
+        "selector": "0x398ecf8a",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_TOO_MANY_VOTERS",
+        "signature": "TooManyVoters()",
+        "selector": "0x4647aac9",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_TOO_SHORT_MESSAGE",
+        "signature": "TooShortMessage()",
+        "selector": "0x43a69646",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_TOTAL_WEIGHT_TOO_BIG",
+        "signature": "TotalWeightTooBig()",
+        "selector": "0x8dd23571",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_UNREACHABLE_CODE",
+        "signature": "UnreachableCode()",
+        "selector": "0xe0c9078c",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_WRONG_MESSAGE_FORMAT",
+        "signature": "WrongMessageFormat()",
+        "selector": "0xe3427225",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_WRONG_MESSAGE_FORMAT2",
+        "signature": "WrongMessageFormat2()",
+        "selector": "0x4913ec0d",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_WRONG_SIGN_POLICY_REWARD_EPOCH",
+        "signature": "WrongSignPolicyRewardEpoch()",
+        "selector": "0x8134d963",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_WRONG_SIGNATURE",
+        "signature": "WrongSignature()",
+        "selector": "0x356a4418",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_WRONG_SIZE_FOR_NEW_SIGN_POLICY",
+        "signature": "WrongSizeForNewSignPolicy()",
+        "selector": "0x60c18b0d",
+        "expected_uses": 1
+      },
+      {
+        "constant": "ERR_ZERO_MERKLE_ROOT",
+        "signature": "ZeroMerkleRoot()",
+        "selector": "0x9266ee62",
+        "expected_uses": 1
+      },
+      { "constant": "ERR_ZERO_SIGNER", "signature": "ZeroSigner()", "selector": "0xe5c48ac5", "expected_uses": 1 }
     ]
   },
   "toolchain": {
-    "foundry": "1.7.1",
+    "foundry": {
+      "version": "1.7.2-nightly",
+      "commit": "160b60260db63ce6204f2ee15764aca3e9ef04fe",
+      "image": "flarefoundation/foundry-custom:forge-nightly-160b6026@sha256:47041ac6a92be3551e1987e0dbb4505e2039a491820decb0e98d70a6d6f7edbc"
+    },
     "halmos": "0.3.3",
     "z3": "4.12.6.0",
     "evmyullean_commit": "047f63070309f436b66c61e276ab3b6d1169265a",
@@ -74,140 +242,126 @@
     "kontrol": "1.0.248",
     "k": "7.1.334"
   },
-  "gss_governance_tests": {
-    "foundry": "1.7.1",
-    "safe_contracts": "1.3.0",
-    "minimum_fuzz_runs": 256,
-    "invariant_runs": 128,
-    "invariant_depth": 128,
-    "invariant_handler_functions": [
-      "createConflict",
-      "createFee",
-      "createRotation",
-      "deliver",
-      "mutateAndDeliver"
-    ],
-    "suites": [
-      {
-        "path": "test-forge/unit/governance/GSSGovernance.t.sol",
-        "contract": "GSSGovernanceTest",
-        "tests": [
-          "testFuzz_everySafeTransactionFieldIsBound",
-          "testFuzz_safeDigestMatchesRealSafeForArbitraryTransaction",
-          "test_acceptsMessageExecutedThroughAnyCompatibleHelper",
-          "test_acceptsMoreValidSignaturesThanThreshold",
-          "test_checkerAndRelayRejectNonCanonicalFeeList",
-          "test_checkerRejectsFeesWhileOwnerRotationIsStaged",
-          "test_conflictingTransactionsAtSameSafeNonceAreFirstDeliveryWins",
-          "test_delayedOwnerRotationCannotBeStrandedByHigherOldConfigFee",
-          "test_deploymentReplayFloorRejectsPredatingMessage",
-          "test_extremeFutureNonceCanExhaustFeeSequenceWithoutSourceExecution",
-          "test_feeMessageWorksOnTwoIndependentTargetChains",
-          "test_gappedSafeNonceIsAccepted",
-          "test_governanceConfigurationRequiresRelayModeAndNoOldRelay",
-          "test_higherNonceFeeDeliveredFirstSuppressesLowerNonceFee",
-          "test_irrelevantFeeMessageDoesNotConsumeLocalNonce",
-          "test_maximumCanonicalFeeBatchIsExecutable",
-          "test_ownerRotationRequiresLocalInstallationBeforeNewOwnersCanGovern",
-          "test_rejectsActionNonceThatDoesNotMatchSafeTransactionNonce",
-          "test_rejectsDuplicateLocalFeeWithoutPartialUpdate",
-          "test_rejectsEmptyFeeList",
-          "test_rejectsFeeBatchAboveLimit",
-          "test_rejectsInvalidSignatureSetsAndNormalizesRecoveryErrors",
-          "test_rejectsReplayAndModifiedAction",
-          "test_removedOwnerRemainsAuthorizedUntilTargetInstallsRotation",
-          "test_returningToSameOwnersDoesNotReviveOldFutureNonceMessage",
-          "test_safeCancellationDoesNotRevokeRemoteAuthorization",
-          "test_safeDigestMatchesRealSafeForCompleteTransaction",
-          "test_sameSignedMessageAuthorizesTwoRelayDeploymentsOnSameChain",
-          "test_setupIsThreeOfFiveAndCheckerMatchesGSS",
-          "test_targetDeploymentDoesNotRequireSourceSafeCode"
-        ]
-      },
-      {
-        "path": "test-forge/unit/governance/GSSGovernanceProductionRehearsal.t.sol",
-        "contract": "GSSGovernanceProductionRehearsalTest",
-        "tests": [
-          "test_rehearsalExecutesFeesRotationAndFeesThroughRealSafe",
-          "test_rehearsalMatchesFlareSafeVersionAndConfigurationShape",
-          "test_rehearsalMaximumBatchFitsRecordedFlareBlockGasLimit"
-        ]
-      },
-      {
-        "path": "test-forge/invariant/governance/GSSGovernanceInvariant.t.sol",
-        "contract": "GSSGovernanceInvariantTest",
-        "tests": [
-          "invariant_modelMatchesBothRelayTargets",
-          "test_stateMachineHandlesDelayedRotationAndTargetDivergence",
-          "test_stateMachineMakesSameNonceConflictsFirstDeliveryWinsPerTarget"
-        ]
-      }
-    ]
-  },
-  "gss_source_safe": {
-    "network": "flare",
-    "rpc_url": "https://flare-api.flare.network/ext/C/rpc",
-    "chain_id": 14,
-    "safe": "0xbe653c54df337f13fcb726101388f4a4803049f3",
-    "block_number": 65907987,
-    "block_hash": "0x63ad0a44c3ab8703a5946e588642458faa35b5a9bb7d486c03eceeb43572773e",
-    "block_timestamp": 1785023428,
-    "block_gas_limit": "28000000",
-    "version": "1.3.0",
-    "owner_count": 11,
-    "owner_contract_count": 0,
-    "owners_canonical": [
-      "0x1ff339f9e01a138201c03a42050973a024d568ee",
-      "0x2d40222a08f8d1d51e8e9eae640aaa2f00062ac8",
-      "0x460a7f465e8e9b4189f2ae22a900cc9e5c7372d0",
-      "0x49893c5dfc035f4ee4e46fac014f6d4bc80f7f92",
-      "0x5d2f75392ddda69a2818021dd6a64937904c8352",
-      "0x6455dc38fdf739b6fe021b30c7d9672c1c6deb5c",
-      "0x6bc7dca62010d418eb72ccdc58561e00c5868ef1",
-      "0x714783a6e709b878f9181ce43222683fd32eaccd",
-      "0x968631112f9517450b524bed54b39efb8e6cbac6",
-      "0xe34bb361536610a9dccea5292262e36aff65c06c",
-      "0xebacb762a5dc1f022fce61be0deb5d2423936508"
-    ],
-    "threshold": "6",
-    "nonce": "998",
-    "module_count": 0,
-    "module_next": "0x0000000000000000000000000000000000000001",
-    "singleton": "0xf09fc2658270ac5494fa365dc5e29e0a2c636413",
-    "safe_runtime_keccak256": "0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000",
-    "singleton_runtime_keccak256": "0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f",
-    "guard": "0x0000000000000000000000000000000000000000",
-    "fallback_handler": "0x3f083d314c01ad7f1cc53b0a8422ee335cf2923a",
-    "fallback_handler_runtime_keccak256": "0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf"
-  },
   "certora_local": {
     "certora_cli": "8.16.1",
     "minimum_java_major": 21,
-    "solc_long_version": "0.8.27+commit.40a35a09",
+    "solc_long_version": "0.8.35+commit.47b9dedd",
+    "config_glob": "certora/Relay*.conf",
     "configs": [
       "certora/Relay.conf",
+      "certora/Relay-threshold.conf",
       "certora/Relay-writeonce.conf"
-    ]
+    ],
+    "config_expectations": {
+      "certora/Relay.conf": {
+        "files": [
+          "contracts/protocol/implementation/Relay.sol"
+        ],
+        "verify": "Relay:certora/specs/RelayInvariants.spec",
+        "solc": "solc0.8.35",
+        "solc_via_ir": true,
+        "solc_optimize": "200",
+        "solc_evm_version": "cancun",
+        "packages": [
+          "@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.7.0/",
+          "@openzeppelin/contracts-upgradeable/=dependencies/@openzeppelin-contracts-upgradeable-5.7.0/",
+          "@flarenetwork/flare-periphery-contracts/flare/=dependencies/flare-periphery-0.1.38/src/flare/"
+        ],
+      "loop_iter": "3",
+      "optimistic_loop": true,
+      "optimistic_hashing": true,
+      "hashing_length_bound": "512",
+      "rule_sanity": "basic",
+        "wait_for_results": "all",
+        "prover_args": [
+          "-enableStorageSplitting false"
+        ],
+        "rule": [
+          "sourceChainIdImmutableAfterInitialization",
+          "signingPolicySetterModeStable",
+          "lastInitializedMonotonic",
+          "ownerCannotBecomeZero",
+          "timelockDurationBoundPreserved",
+          "feeCollectionAddressCannotBecomeZero"
+        ]
+      },
+      "certora/Relay-threshold.conf": {
+        "files": [
+          "certora/harness/RelayHarness.sol"
+        ],
+        "verify": "RelayHarness:certora/specs/RelayThreshold.spec",
+        "solc": "solc0.8.35",
+        "solc_via_ir": true,
+        "solc_optimize": "200",
+        "solc_evm_version": "cancun",
+        "packages": [
+          "@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.7.0/",
+          "@openzeppelin/contracts-upgradeable/=dependencies/@openzeppelin-contracts-upgradeable-5.7.0/",
+          "@flarenetwork/flare-periphery-contracts/flare/=dependencies/flare-periphery-0.1.38/src/flare/"
+        ],
+        "loop_iter": "3",
+        "optimistic_loop": true,
+        "optimistic_hashing": true,
+        "hashing_length_bound": "512",
+        "rule_sanity": "basic",
+        "wait_for_results": "all",
+        "prover_args": [
+          "-enableStorageSplitting false"
+        ],
+        "rule": [
+          "thresholdAtOrAbove100PercentRevertsBeforeEffects",
+          "thresholdFloorCrossProductArithmeticLemma"
+        ]
+      },
+      "certora/Relay-writeonce.conf": {
+        "files": [
+          "certora/harness/RelayHarness.sol"
+        ],
+        "verify": "RelayHarness:certora/specs/RelayWriteOnce.spec",
+        "solc": "solc0.8.35",
+        "solc_via_ir": true,
+        "solc_optimize": "200",
+        "solc_evm_version": "cancun",
+        "packages": [
+          "@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.7.0/",
+          "@openzeppelin/contracts-upgradeable/=dependencies/@openzeppelin-contracts-upgradeable-5.7.0/",
+          "@flarenetwork/flare-periphery-contracts/flare/=dependencies/flare-periphery-0.1.38/src/flare/"
+        ],
+        "loop_iter": "3",
+        "optimistic_loop": true,
+        "optimistic_hashing": true,
+        "hashing_length_bound": "512",
+        "rule_sanity": "basic",
+        "wait_for_results": "all",
+        "prover_args": [
+          "-enableStorageSplitting false"
+        ],
+        "rule": [
+          "policyHashWriteOnce",
+          "merkleRootWriteOnce",
+          "onlyOwnerCanEnterGuardedSurface",
+          "delayedOwnerCallDoesNotApply",
+          "successfulExecutionConsumesQueue",
+          "successfulDurationUpdateIsBounded",
+          "ownershipRenounceAlwaysReverts"
+        ]
+      }
+    }
   },
   "halmos": {
+    "configuration": {
+      "path": "halmos.toml",
+      "forge_build_out": "artifacts-forge",
+      "loop": 6,
+      "solver": "z3",
+      "solver_timeout_assertion": 0
+    },
     "function_prefix": "check_",
+    "source_glob": "*.t.sol",
     "expected_process_exitcode": 1,
-    "expected_check_count": 102,
+    "expected_check_count": 123,
     "max_bounded_loops": 0,
     "proofs": [
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_actionNonce_boundToSafeNonce",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_consumedNonce_excludesConflict",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_delayedRotation_preservesFeeHighWater",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_duplicateSigner_rejected",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_irrelevantFee_doesNotConsume",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_lowerFeeNonce_cannotRegress",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_nonCanonicalFee_isAtomic",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_nonOwnerSigner_rejected",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_ownerRotation_advancesGeneration",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_relevantFee_atomicAndConsumed",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_signers_belowThreshold_rejected",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_unorderedSigners_rejected",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_gss_wrongCurrentHash_cannotRotate",
       "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_setSigningPolicy_onlySetter",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_badV_cannotAccept",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_highS_cannotAccept",
@@ -216,6 +370,9 @@
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroPolicyHash",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroRewardEpochDuration",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_rejectsZeroVotingEpochDuration",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_setterMode_rejectsFeeCollectorExactly",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_setterMode_rejectsFeeConfigExactly",
+      "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_ctor_setterMode_rejectsFeeExemptionExactly",
       "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_noDoubleCount",
       "test-forge/fv/RelayCrossEpochFV.t.sol:RelayCrossEpochFV.check_crossEpoch_threshold",
       "test-forge/fv/RelayDelayedPolicyFV.t.sol:RelayDelayedPolicyFV.check_delayedPolicy_rejected",
@@ -240,6 +397,19 @@
       "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_bridge_2sig",
       "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_bridge_3sig",
       "test-forge/fv/RelayMustUseNewPolicyFV.t.sol:RelayMustUseNewPolicyFV.check_mustUseNewPolicy_afterStart",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerModesFV.check_timelock_relayModeCannotEnableSetter",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerModesFV.check_timelock_relayModeFeeSetters",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerModesFV.check_timelock_setterModeGuardedSurface",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerTimelockFV.check_timelock_cancelRequiresOwner",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerTimelockFV.check_timelock_enforcesRecordedEta",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerTimelockFV.check_timelock_exactCalldataHash",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerTimelockFV.check_timelock_failedExecutionIsAtomic",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerTimelockFV.check_timelock_permissionlessOneShotExecution",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerTimelockFV.check_timelock_queueRequiresOwner",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerUpgradeFV.check_timelock_nestedGuardIsSingleUseAndAtomic",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerUpgradeFV.check_timelock_proxyInitializerInvariants",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerUpgradeFV.check_timelock_storageNamespaceDisjoint",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerUpgradeFV.check_timelock_upgradeExactAndPreservesStorage",
       "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_equiv_NV1",
       "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_equiv_NV2",
       "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_equiv_NV3",
@@ -260,6 +430,17 @@
       "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_threshold_3sig_param",
       "test-forge/fv/RelayThresholdConsistencyFV.t.sol:RelayThresholdConsistencyFV.check_thresholdTooBig_rejected",
       "test-forge/fv/RelayThresholdConsistencyFV.t.sol:RelayThresholdConsistencyFV.check_thresholdTooSmall_rejected",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_caughtRevert_preservesLegacyThreshold",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_caughtRevert_rollsBackTransient",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_overrideAtOrAbove100Percent_rejectedExactly",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_override_9999_rejectsFourOfFive",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_override_exact4000Boundary_rejects",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_override_twoSignerAcceptanceImpliesExactBips",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_protocolIdGreaterThanOne_ignoresOverride",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_protocolIdZero_ignoresOverride",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_successfulOverride_clearsTransient",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_transientStorage_isAddressScoped",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_zeroOverride_matchesLegacy",
       "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_scaling_identityAtBoundary",
       "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_scaling_neverWeakens",
       "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_scaling_noOverflow",
@@ -269,8 +450,6 @@
       "test-forge/fv/RelayWrongEpochFV.t.sol:RelayWrongEpochFV.check_wrongEpoch_rejected"
     ],
     "reachability": [
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_reach_gss_validFeeAction",
-      "test-forge/fv/GSSGovernanceFV.t.sol:GSSGovernanceFV.check_reach_gss_validSignerSet",
       "test-forge/fv/RelayAccessControlFV.t.sol:RelayAccessControlFV.check_reach_setter_canCall",
       "test-forge/fv/RelayCanonicalityFV.t.sol:RelayCanonicalityFV.check_p3_reachability_canonicalAccepts",
       "test-forge/fv/RelayConstructorFV.t.sol:RelayConstructorFV.check_reach_ctor_validDeploys",
@@ -288,6 +467,9 @@
       "test-forge/fv/RelayModeOneFV.t.sol:RelayModeOneFV.check_reach_modeOne_validInstalls",
       "test-forge/fv/RelayModelBridgeFV.t.sol:RelayModelBridgeFV.check_reach_bridge_canAccept",
       "test-forge/fv/RelayMustUseNewPolicyFV.t.sol:RelayMustUseNewPolicyFV.check_reach_oldPolicyOkBeforeStart",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerModesFV.check_reach_timelock_setterRotation",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerTimelockFV.check_reach_timelock_permissionlessExecution",
+      "test-forge/fv/RelayOwnerTimelockFV.t.sol:RelayOwnerUpgradeFV.check_reach_timelock_upgradeCanExecute",
       "test-forge/fv/RelayPolicyHashFV.t.sol:RelayPolicyHashFV.check_policyHash_mismatchReachable_NV3",
       "test-forge/fv/RelayRandomBindingFV.t.sol:RelayRandomBindingFV.check_p4_reachability",
       "test-forge/fv/RelayRandomMonotonicityFV.t.sol:RelayRandomMonotonicityFV.check_reachability_twoRelays",
@@ -296,6 +478,12 @@
       "test-forge/fv/RelaySigFV.t.sol:RelaySigFV.check_reachability_threeVoters_canAccept",
       "test-forge/fv/RelaySigParamFV.t.sol:RelaySigParamFV.check_reachability_param",
       "test-forge/fv/RelayThresholdConsistencyFV.t.sol:RelayThresholdConsistencyFV.check_reach_inBand_accepted",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_reach_manualOverride_lowersProtocolIdOne",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_reach_override_3999_twoSignersCanAccept",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_reach_override_9999_allWeightCanAccept",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_reach_protocolIdGreaterThanOne_policyQuorumCanAccept",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_reach_protocolIdZero_policyQuorumCanAccept",
+      "test-forge/fv/RelayThresholdOverrideFV.t.sol:RelayThresholdOverrideFV.check_reach_zeroOverride_policyQuorumCanAccept",
       "test-forge/fv/RelayThresholdScalingFV.t.sol:RelayThresholdScalingFV.check_reach_scaling_canIncrease",
       "test-forge/fv/RelayVerifyFeeFV.t.sol:RelayVerifyFeeFV.check_reach_exactFee",
       "test-forge/fv/RelayWrongEpochFV.t.sol:RelayWrongEpochFV.check_reach_correctEpoch"
@@ -320,20 +508,26 @@
       ]
     },
     "axiom_audit_counts": {
-      "RelaySigLoop.lean": 2,
+      "RelaySigLoop.lean": 8,
       "RelayBytecodeRefinement.lean": 5,
       "DataLayer.lean": 11,
       "RelayLoopMemRead.lean": 8,
       "RelayLoopWindows.lean": 26,
       "RelayLoopLiteral.lean": 31,
-      "RelayStorageLayer.lean": 13,
+      "RelayStorageLayer.lean": 24,
       "RelayFeeLayer.lean": 14,
-      "RelayBodyEff.lean": 55
+      "RelayBodyEff.lean": 56
     },
     "required_results": {
       "RelaySigLoop.lean": [
         "RelaySigLoop.threshold_sound",
-        "RelaySigLoop.insufficient_weight_cannot_accept"
+        "RelaySigLoop.insufficient_weight_cannot_accept",
+        "RelaySigLoop.bips_floor_strict_iff_cross",
+        "RelaySigLoop.override_product_noOverflow",
+        "RelaySigLoop.selectThreshold_zero",
+        "RelaySigLoop.selectThreshold_nonProtocolOne",
+        "RelaySigLoop.fullWeight_accepts_sub10000",
+        "RelaySigLoop.protocolOne_override_loop_sound"
       ],
       "RelayBytecodeRefinement.lean": [
         "bytecode_loop_correct",
@@ -354,7 +548,12 @@
         "staticcall_hyp_compose"
       ],
       "RelayStorageLayer.lean": [
-        "sstore_reads_back"
+        "sstore_reads_back",
+        "tstore_tload",
+        "tstore_zero_tload",
+        "tstore_otherAccount",
+        "step_TLOAD",
+        "tstore_reads_back"
       ],
       "RelayFeeLayer.lean": [
         "two_transfer_caller_net_zero"
@@ -363,7 +562,8 @@
         "relay_loop_sound_literal_derived_tight",
         "relay_loop_sound_literal_early",
         "relay_dispatch_loop_accept",
-        "dispatch_setup_loop_accept"
+        "dispatch_setup_loop_accept",
+        "protocolOne_tload_override_loop_sound"
       ]
     }
   }

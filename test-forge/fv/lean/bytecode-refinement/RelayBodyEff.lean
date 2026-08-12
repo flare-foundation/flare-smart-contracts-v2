@@ -1,6 +1,7 @@
 import RelayLoopLiteral
 import RelayLoopWindows
 import DataLayer
+import RelayStorageLayer
 open EvmYul
 
 /-!
@@ -8,17 +9,18 @@ open EvmYul
 
 The **integration layer** for the literal loop-body model. Where `RelayLoopLiteral` provides the
 statement/expression *atoms* (against EVMYulLean's real `exec`/`eval`), `RelayLoopWindows` the byte-window
-*decode* lemmas, and `DataLayer` the `mstore(slot,0)` zero-init bridge, this file *composes* them into the
+*decode* lemmas, `DataLayer` the `mstore(slot,0)` zero-init bridge, and `RelayStorageLayer` the
+validated transient-storage operations, this file *composes* them into the
 effect of the deployed signature-verification loop body (`RelayLoopLiteral.bodyL`), deriving the
 per-iteration accounting that `RelayLoopMemRead.relay_loop_sound` currently assumes (`hcorr`/`hvalid`).
 
 **This is the first inter-file-dependent proof file.** Unlike the others (each self-contained), it
-`import`s three sibling modules, so checking it requires compiling those into the package lib first:
+`import`s four sibling modules, so checking it requires compiling those into the package lib first:
 
 ```bash
 # (after the one-time EVMYulLean setup in ./README.md)
 LIB=/tmp/evmyul2/.lake/build/lib/lean
-for f in DataLayer RelayLoopWindows RelayLoopLiteral; do
+for f in DataLayer RelayLoopWindows RelayLoopLiteral RelayStorageLayer; do
   cp <repo>/test-forge/fv/lean/bytecode-refinement/$f.lean /tmp/evmyul2/
   lake env lean -o $LIB/$f.olean /tmp/evmyul2/$f.lean            # compile deps into the lib
 done
@@ -896,7 +898,7 @@ open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral in
 set_option maxHeartbeats 4000000 in
 /-- **Full literal loop-body effect (brick 36).** Chains all seventeen statements of the
     deployed signature-verification loop body `bodyL` (transliterated from
-    `relay_ir_optimized.yul:2177-2220`) through the EVMYulLean interpreter's real
+    `relay_ir_optimized.yul:1518-1632`) through the EVMYulLean interpreter's real
     `exec`/`eval` semantics, threading genuine `mstore`/`mload`/`calldatacopy` state
     changes. Given the nine guard-condition pass hypotheses (`hg4..hg17`, one per `if`
     that must NOT revert on the advance path) and the two staticcall-produced states
@@ -1494,14 +1496,15 @@ set_option maxHeartbeats 4000000 in
 /-- **Relay signature loop soundness, on the validated EVM, with the LITERAL 17-statement body.**
     If the deployed loop — modeled with its *actual* transliterated body `bodyL` executed by EVMYulLean's
     validated Yul `exec`, iterated by `loop_accL` — completes with a final tally exceeding the threshold,
-    then the TOTAL registered voting weight exceeds the threshold. No voter is double-counted.
+    then the TOTAL indexed policy weight exceeds the threshold. No policy slot is counted twice; distinct
+    signing identities additionally require unique voter addresses in the admitted policy.
 
     Mirrors `RelayLoopMemRead.relay_loop_sound` but with the genuine loop body (`body_effL`) rather than the
     abstract masked-read body. The external call remains an **assumption** (OP-1): `hstep` packages, per
     iteration, exactly what `body_effL` delivers — one turn of `bodyL` preserves the counter and adds the
     selected voter's registered weight — which is provable from `body_effL` once ecrecover's outcome
     (`recHypothesis`) and the guard passes (`hvalid`) are supplied. `hvalid` (`ValidRun`) is the
-    strictly-increasing-in-range index discipline (guards passed, no double-count); `hnoovf` is BR-2. -/
+    strictly-increasing-in-range index discipline (guards passed, no repeated slot); `hnoovf` is BR-2. -/
 theorem relay_loop_sound_literal
     (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
     (hN : NN < UInt256.size)
@@ -1541,7 +1544,7 @@ theorem relay_loop_sound_literal
   have h3 : thr.val < accNat cd sigStart nVotN NN := by omega
   -- 4. accNat NN = abstract sigLoop accumulated weight
   rw [accNat_eq_sigLoop] at h3
-  -- 5. transfer the abstract threshold soundness (no double-count via ValidRun)
+  -- 5. transfer the abstract indexed-weight soundness (no repeated slot via ValidRun)
   exact RelayLoopLiteral.threshold_sound (weightsOf cd nVotN) (idxSel cd sigStart NN) thr.val hvalid h3
 
 
@@ -1593,7 +1596,8 @@ set_option maxHeartbeats 4000000 in
     `iter_advance`, so the only remaining hypotheses are the per-iteration OP-1 facts (`hiters`, i.e.
     `IterPremise` at each valid entering state) plus `hvalid`/`hnoovf`/the accept. If the deployed loop —
     its ACTUAL transliterated body executed by validated Yul `exec` — completes with a final tally
-    exceeding the threshold, the total registered voting weight exceeds it; no voter is double-counted. -/
+    exceeding the threshold, the total indexed policy weight exceeds it; no policy slot is counted twice.
+    This does not prove address uniqueness across distinct slots. -/
 theorem relay_loop_sound_literal_derived
     (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
     (hN : NN < UInt256.size)
@@ -1697,6 +1701,88 @@ theorem relay_loop_sound_literal_derived_tight
     hg8, hg9, hg10, hg11, hg12, hg15, hg17, hWW15, hII15, hcorr, hidxlt⟩ := hiters k ssk vsk hk hII hWW
   exact iter_advance_tight m sigStart nVot thr cd nVotN k nui ssk vsk ss10 vs10 ss15 vs15
     hidx hnui hnv horder hsz hg8 hg9 hg10 hg11 hg12 hg15 hg17 hWW15 hII15 hcorr hidxlt
+
+set_option maxHeartbeats 4000000 in
+/-- **Protocol-1 threshold-override refinement capstone.** This composes the
+validated transient-storage round trip with the existing literal strict-loop
+theorem. The production guard is explicit (`0 < overrideBIPS < 10000`), as is
+the parser-wide total-weight bound used to rule out `UInt256` multiplication
+wrap. The `hsetupThreshold` equality is the precise remaining setup seam: the
+current EVMYulLean development does not extract Relay's complete
+`TSTORE -> self-call -> TLOAD -> threshold-local` call-frame path, so it is
+assumed that the loop local `thr` equals the floor computed from the modeled
+`TLOAD`. Once that seam is supplied, the theorem proves the exact
+cross-product acceptance predicate and reuses
+`relay_loop_sound_literal_derived_tight` for indexed-policy soundness. -/
+theorem protocolOne_tload_override_loop_sound
+    (transientState : EvmYul.State .Yul) (slot overrideBIPS : EvmYul.UInt256)
+    (owner : EvmYul.Account .Yul)
+    (hpresent : transientState.lookupAccount transientState.executionEnv.codeOwner = some owner)
+    (hoverride : overrideBIPS.val.val ≠ 0) (hbips : overrideBIPS.val.val < 10000)
+    (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
+    (hN : NN < UInt256.size)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
+    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
+    (hiters : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        k < NN →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
+        IterPremiseT m sigStart nVot thr cd nVotN k ssk vsk)
+    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart NN))
+    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size)
+    (htotal : sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length ≤ 65535 * 65535)
+    (hsetupThreshold :
+      thr.val.val =
+        sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length *
+          ((EvmYul.State.tstore transientState slot overrideBIPS).tload slot).2.val.val / 10000)
+    (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore)
+    (hexec : EvmYul.Yul.exec (3 * NN + 140)
+        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
+          (EvmYul.Yul.State.Ok ss vs)
+        = .ok (EvmYul.Yul.State.Ok ss' vs'))
+    (haccept : thr < (EvmYul.Yul.State.Ok ss' vs')[WW]!) :
+    let loadedBIPS :=
+      ((EvmYul.State.tstore transientState slot overrideBIPS).tload slot).2
+    loadedBIPS = overrideBIPS ∧
+      0 < loadedBIPS.val.val ∧
+      sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length * overrideBIPS.val.val <
+        (EvmYul.Yul.State.Ok ss' vs')[WW]!.val.val * 10000 ∧
+      sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length * overrideBIPS.val.val <
+        UInt256.size ∧
+      thr.val.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+  dsimp only
+  have hloaded :
+      ((EvmYul.State.tstore transientState slot overrideBIPS).tload slot).2 = overrideBIPS :=
+    RelayStorageLayer.tstore_tload transientState slot overrideBIPS owner hpresent
+  have hsetup :
+      thr.val.val =
+        sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length * overrideBIPS.val.val / 10000 := by
+    simpa [hloaded] using hsetupThreshold
+  have hacceptNat : thr.val.val < (EvmYul.Yul.State.Ok ss' vs')[WW]!.val.val := haccept
+  have hcross :
+      sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length * overrideBIPS.val.val <
+        (EvmYul.Yul.State.Ok ss' vs')[WW]!.val.val * 10000 := by
+    apply (Nat.div_lt_iff_lt_mul (by decide : 0 < 10000)).1
+    rw [← hsetup]
+    exact hacceptNat
+  have hbips' : overrideBIPS.val.val ≤ 9999 := by omega
+  have hproduct :
+      sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length * overrideBIPS.val.val ≤
+        (65535 * 65535) * 9999 :=
+    Nat.mul_le_mul htotal hbips'
+  have hconstant : (65535 * 65535) * 9999 < UInt256.size := by decide
+  have hnowrap :
+      sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length * overrideBIPS.val.val <
+        UInt256.size :=
+    Nat.lt_of_le_of_lt hproduct hconstant
+  have hloadedPos :
+      0 < ((EvmYul.State.tstore transientState slot overrideBIPS).tload slot).2.val.val := by
+    rw [hloaded]
+    exact Nat.pos_of_ne_zero hoverride
+  have hsound := relay_loop_sound_literal_derived_tight
+    m sigStart cd nVot thr nVotN NN hN ss vs hi hw hiters hvalid hnoovf ss' vs' hexec haccept
+  exact ⟨hloaded, hloadedPos, hcross, hnowrap, hsound⟩
 
 
 
@@ -2034,6 +2120,7 @@ theorem relay_dispatch_loop_accept
 end CompositionLayer
 
 #print axioms relay_dispatch_loop_accept
+#print axioms protocolOne_tload_override_loop_sound
 #print axioms dispatch_then_loop_accept
 #print axioms dispatch_setup_loop_accept
 #print axioms dispatch_routes_verify

@@ -5,7 +5,7 @@
 # `toSigningPolicyHashPrivate` / `merkleRootsPrivate` before and after each method call. Both mappings are
 # `private`, so no harness can read them, and CVL direct storage access is unavailable on this contract
 # (Relay's raw-assembly stores defeat the prover's storage analysis — the documented C-1 wall). The
-# standard Certora practice is a munged verification copy. The ONLY change made here is the visibility of
+# standard Certora practice is a munged verification copy. The ONLY semantic-source change made here is the visibility of
 # those two mappings: `private` -> `internal` (same storage layout, same slots, no behavior change), which
 # lets certora/harness/RelayHarness.sol expose plain Solidity view getters over them.
 #
@@ -18,18 +18,22 @@ cd "$(dirname "$0")/.."   # repo root
 
 SRC=contracts
 DST=certora/munged/contracts
+
+# This directory is generated output. Recreate it so files from a retired
+# architecture can never remain in the Certora source graph unnoticed.
+rm -rf "$DST"
 mkdir -p \
-  "$DST/governance" \
   "$DST/protocol/implementation" \
   "$DST/protocol/interface" \
+  "$DST/utils/implementation" \
+  "$DST/userInterfaces" \
   "$DST/userInterfaces/LTS"
 
 # 1. verbatim dependencies (byte-identical copies)
-cp "$SRC/governance/GnosisSafeTx.sol"                     "$DST/governance/GnosisSafeTx.sol"
-cp "$SRC/governance/GSSGovernance.sol"                    "$DST/governance/GSSGovernance.sol"
-cp "$SRC/protocol/interface/IIRelay.sol"                 "$DST/protocol/interface/IIRelay.sol"
-cp "$SRC/userInterfaces/IRelay.sol"                      "$DST/userInterfaces/IRelay.sol"
-cp "$SRC/userInterfaces/IRelayGovernance.sol"            "$DST/userInterfaces/IRelayGovernance.sol"
+cp "$SRC/protocol/interface/IIRelay.sol"                  "$DST/protocol/interface/IIRelay.sol"
+cp "$SRC/utils/implementation/OwnableWithTimelock.sol"    "$DST/utils/implementation/OwnableWithTimelock.sol"
+cp "$SRC/userInterfaces/IOwnableWithTimelock.sol"         "$DST/userInterfaces/IOwnableWithTimelock.sol"
+cp "$SRC/userInterfaces/IRelay.sol"                       "$DST/userInterfaces/IRelay.sol"
 cp "$SRC/userInterfaces/LTS/RandomNumberV2Interface.sol" "$DST/userInterfaces/LTS/RandomNumberV2Interface.sol"
 
 # 2. Relay.sol with EXACTLY two visibility changes
@@ -62,11 +66,10 @@ if (diff "$SRC/protocol/implementation/Relay.sol" "$DST/protocol/implementation/
   exit 1
 fi
 # 4. verify: the dependency copies are byte-identical
-cmp -s "$SRC/governance/GnosisSafeTx.sol"                     "$DST/governance/GnosisSafeTx.sol"
-cmp -s "$SRC/governance/GSSGovernance.sol"                    "$DST/governance/GSSGovernance.sol"
-cmp -s "$SRC/protocol/interface/IIRelay.sol"                 "$DST/protocol/interface/IIRelay.sol"
-cmp -s "$SRC/userInterfaces/IRelay.sol"                      "$DST/userInterfaces/IRelay.sol"
-cmp -s "$SRC/userInterfaces/IRelayGovernance.sol"            "$DST/userInterfaces/IRelayGovernance.sol"
+cmp -s "$SRC/protocol/interface/IIRelay.sol"                  "$DST/protocol/interface/IIRelay.sol"
+cmp -s "$SRC/utils/implementation/OwnableWithTimelock.sol"    "$DST/utils/implementation/OwnableWithTimelock.sol"
+cmp -s "$SRC/userInterfaces/IOwnableWithTimelock.sol"         "$DST/userInterfaces/IOwnableWithTimelock.sol"
+cmp -s "$SRC/userInterfaces/IRelay.sol"                       "$DST/userInterfaces/IRelay.sol"
 cmp -s "$SRC/userInterfaces/LTS/RandomNumberV2Interface.sol" "$DST/userInterfaces/LTS/RandomNumberV2Interface.sol"
 
 echo "munge OK: certora/munged/ regenerated; Relay.sol differs by exactly the 2 visibility keywords."

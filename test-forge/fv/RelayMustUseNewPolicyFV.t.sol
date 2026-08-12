@@ -34,22 +34,29 @@ contract RelayMustUseNewPolicyFV is RelayTestBase {
     uint32 internal constant START_E2 = E2_START_ROUND + 100; // 6820, delayed epoch-2 start
     bytes32 internal constant ROOT = keccak256("fv-root");
 
-    struct Sig { uint8 v; bytes32 r; bytes32 s; }
+    struct Sig {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
 
     function setUp() public override {
         for (uint256 i = 0; i < NV; i++) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             voters.push(address(uint160(0x1001 + i)));
             weights.push(WEIGHT); // 100 each, 300 > 260
             pks.push(0);
         }
         policy1 = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
         // setter mode so setSigningPolicy can advance lastInitialized to 2
-        relay = deployRelay(_initialConfig(_signingPolicyHash(policy1)), address(this), IRelay(address(0)));
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy1));
+        cfg.feeCollectionAddress = payable(address(0));
+        relay = deployRelay(cfg, address(this), IRelay(address(0)));
         // step 2: initialise epoch 2 (lastInitialized 1 -> 2, startingVotingRoundIds[2] = START_E2)
         IIRelay.SigningPolicy memory p2;
         p2.rewardEpochId = uint24(REWARD_EPOCH_ID) + 1; // 2
         p2.startVotingRoundId = START_E2;
-        p2.threshold = 60;             // valid band for totalWeight 100
+        p2.threshold = 60; // valid band for totalWeight 100
         p2.seed = SEED;
         p2.voters = new address[](1);
         p2.voters[0] = address(uint160(0x2001));
@@ -65,7 +72,7 @@ contract RelayMustUseNewPolicyFV is RelayTestBase {
     function _relayWithP1(uint32 vrid, Sig calldata a, Sig calldata b, Sig calldata c) internal returns (bool ok) {
         bytes memory message = _protocolMessage(3, vrid, false, ROOT); // Mode-2 epoch-2 message
         bytes memory sigs = abi.encodePacked(uint16(3), _sig(a, 0), _sig(b, 1), _sig(c, 2));
-        (ok, ) = address(relay).call(abi.encodePacked(Relay.relay.selector, policy1, message, sigs));
+        (ok,) = address(relay).call(abi.encodePacked(Relay.relay.selector, policy1, message, sigs));
     }
 
     // L8 — once epoch 2 is initialised, the epoch-1 policy CANNOT finalize an epoch-2 round at/after the

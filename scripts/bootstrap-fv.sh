@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Bootstrap the Relay formal-verification toolchain from a fresh clone. Idempotent.
 #
-#   ./scripts/bootstrap-fv.sh            # core: node deps, forge build, .venv-halmos, Halmos gate
+#   ./scripts/bootstrap-fv.sh            # core: exact artifacts, ABI gate, .venv-halmos, Halmos gate
 #   ./scripts/bootstrap-fv.sh --no-gate  # core without the final ~5-10 min Halmos gate run
 #   ./scripts/bootstrap-fv.sh --lean     # additionally clone+build the pinned EVMYulLean (/tmp/evmyul2,
 #                                        #   ~30-60 min first time) and run the 9-file Lean gate
 #
-# What "done" looks like: the Halmos gate prints
-#   [fv] 101/101 checks observed: 71/71 proofs hold, 30/30 reachability controls have validated counterexamples.
+# What "done" looks like: every gate prints PASS/OK and Halmos reports the exact manifest inventory.
 # The reference interpretation of every verdict: docs/relay-verification/11-reproducibility.md.
 #
 # Not automated (deliberately): the Kontrol Docker image (~18.5 GB — see test-forge/fv/kontrol/README.md)
@@ -28,31 +27,46 @@ done
 
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 
-# --- 0. sanity: expected branch ------------------------------------------------------------------
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-case "$BRANCH" in
-  relay-fix-3|relay-fix-3-gss) ;;
-  *) echo "NOTE: you are on '$BRANCH'; the maintained Relay verification branches are relay-fix-3 and relay-fix-3-gss." ;;
-esac
-
-# --- 1. node deps (forge remappings reference node_modules/, e.g. @gnosis.pm) ---------------------
-step "node deps (needed by forge remappings)"
-if [ ! -d node_modules ]; then
-  # this is a yarn.lock project — npm ci does NOT apply (no package-lock.json). Prefer a real yarn;
-  # otherwise run yarn classic via npx (ships with npm), pinned for determinism.
-  if command -v yarn >/dev/null 2>&1; then yarn install --frozen-lockfile;
-  elif command -v npx >/dev/null 2>&1; then npx --yes yarn@1.22.22 install --frozen-lockfile;
-  else echo "ERROR: need yarn (or node+npx) for node_modules (forge remappings depend on it)." >&2; exit 1; fi
-else
-  echo "node_modules present — skipping"
+# --- 0. exact Foundry build -----------------------------------------------------------------------
+FORGE_BIN="${FORGE:-forge}"
+command -v "$FORGE_BIN" >/dev/null 2>&1 || { echo "ERROR: forge not installed (https://getfoundry.sh)." >&2; exit 1; }
+EXPECTED_FOUNDRY_VERSION=$(python3 -c 'import json; print(json.load(open("test-forge/fv/verification-manifest.json"))["toolchain"]["foundry"]["version"])')
+EXPECTED_FOUNDRY_COMMIT=$(python3 -c 'import json; print(json.load(open("test-forge/fv/verification-manifest.json"))["toolchain"]["foundry"]["commit"])')
+EXPECTED_FOUNDRY_IMAGE=$(python3 -c 'import json; print(json.load(open("test-forge/fv/verification-manifest.json"))["toolchain"]["foundry"]["image"])')
+ACTUAL_FOUNDRY_VERSION=$("$FORGE_BIN" --version | sed -n 's/^forge Version:[[:space:]]*//p')
+ACTUAL_FOUNDRY_COMMIT=$("$FORGE_BIN" --version | sed -n 's/^Commit SHA:[[:space:]]*//p')
+if [ "$ACTUAL_FOUNDRY_VERSION" != "$EXPECTED_FOUNDRY_VERSION" ] || [ "$ACTUAL_FOUNDRY_COMMIT" != "$EXPECTED_FOUNDRY_COMMIT" ]; then
+  echo "ERROR: forge is ${ACTUAL_FOUNDRY_VERSION}@${ACTUAL_FOUNDRY_COMMIT}; expected ${EXPECTED_FOUNDRY_VERSION}@${EXPECTED_FOUNDRY_COMMIT}." >&2
+  echo "       Reproduce in the immutable CI image: ${EXPECTED_FOUNDRY_IMAGE}" >&2
+  exit 1
 fi
 
-# --- 2. forge deps + build -----------------------------------------------------------------------
-step "forge deps + build"
-command -v forge >/dev/null 2>&1 || { echo "ERROR: foundry not installed (https://getfoundry.sh)." >&2; exit 1; }
-forge soldeer install
-forge install
-forge build --force --ast --extra-output storageLayout metadata
+# --- 1. node deps (Forge remappings and the production Hardhat artifact) ---------------------------
+step "node deps (needed by Forge remappings and Hardhat)"
+command -v node >/dev/null 2>&1 || { echo "ERROR: Node.js is required." >&2; exit 1; }
+NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
+if [ "$NODE_MAJOR" -lt 24 ]; then
+  echo "ERROR: Node.js $(node --version) does not satisfy package.json's >=24 engine." >&2
+  exit 1
+fi
+if ! command -v pnpm >/dev/null 2>&1; then
+  command -v corepack >/dev/null 2>&1 || { echo "ERROR: need pnpm or Node.js corepack." >&2; exit 1; }
+  corepack enable
+fi
+EXPECTED_PNPM_VERSION=$(python3 -c 'import json; print(json.load(open("package.json"))["packageManager"].split("@", 1)[1].split("+", 1)[0])')
+ACTUAL_PNPM_VERSION=$(pnpm --version)
+if [ "$ACTUAL_PNPM_VERSION" != "$EXPECTED_PNPM_VERSION" ]; then
+  echo "ERROR: pnpm is ${ACTUAL_PNPM_VERSION}; expected ${EXPECTED_PNPM_VERSION} from package.json." >&2
+  exit 1
+fi
+# The deployment-provenance wrapper below recreates node_modules from this
+# exact pnpm executable and the committed lock before compiling.
+
+# --- 2. exact production artifact ----------------------------------------------------------------
+step "production artifact provenance"
+node scripts/relay-artifact-provenance.js --output verification-reports/relay-deployment.json
+# Each release-capable Forge wrapper below independently performs a checksummed
+# `forge soldeer install --clean`, hashes that tree, and builds its exact inputs.
 
 # --- 3. the Halmos reference venv (./.venv-halmos, gitignored) ------------------------------------
 step "Halmos reference venv (.venv-halmos from test-forge/fv/requirements-halmos.lock)"
@@ -73,27 +87,22 @@ fi
 
 # --- 4. the fail-closed local gates ----------------------------------------------------------------
 if [ "$RUN_GATE" = 1 ]; then
-  step "Relay legacy revert ABI gate"
+  step "Relay custom-error ABI and production-artifact gates"
   python3 -m unittest discover -s test-forge/fv/tests -v
-  python3 test-forge/fv/verify_relay_revert_abi.py \
-    --report-output verification-reports/relay-revert-abi.json
-
-  step "GSS governance tests and stateful invariant gate"
-  python3 test-forge/fv/verify_gss_governance.py \
-    --report-output verification-reports/relay-gss-governance.json
-
-  step "Flare governance Safe fixed-block snapshot gate"
-  node scripts/verify-gss-source-safe.js
+  python3 test-forge/fv/verify_relay_custom_error_abi.py \
+    --report-output verification-reports/relay-custom-error-abi.json
+  FORGE="$FORGE_BIN" .venv-halmos/bin/python test-forge/fv/verify_relay_artifact.py \
+    --deployment-report verification-reports/relay-deployment.json \
+    --report-output verification-reports/relay-artifact-parity.json
 
   step "Halmos FV gate (verify_fv.py — judge from the [fv] summary lines)"
-  HALMOS="$PWD/.venv-halmos/bin/halmos" .venv-halmos/bin/python test-forge/fv/verify_fv.py \
+  FORGE="$FORGE_BIN" HALMOS="$PWD/.venv-halmos/bin/halmos" .venv-halmos/bin/python test-forge/fv/verify_fv.py \
     --report-output verification-reports/relay-halmos.json
 else
   step "skipping the local gates (--no-gate); run later with:"
-  echo '  python3 test-forge/fv/verify_relay_revert_abi.py'
-  echo '  python3 test-forge/fv/verify_gss_governance.py'
-  echo '  node scripts/verify-gss-source-safe.js'
-  echo '  HALMOS=$PWD/.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py'
+  echo '  python3 test-forge/fv/verify_relay_custom_error_abi.py'
+  echo '  FORGE=<pinned-forge> .venv-halmos/bin/python test-forge/fv/verify_relay_artifact.py --deployment-report verification-reports/relay-deployment.json'
+  echo '  FORGE=<pinned-forge> HALMOS=$PWD/.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py'
 fi
 
 # --- 5. optional: the pinned EVMYulLean + Lean gate ------------------------------------------------

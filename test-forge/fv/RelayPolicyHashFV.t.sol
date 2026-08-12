@@ -61,9 +61,8 @@ import {IRelay} from "../../contracts/userInterfaces/IRelay.sol";
 // slot). seed, threshold, every voter address and every weight are SYMBOLIC.
 // ============================================================================================
 contract RelayPolicyHashFV is RelayTestBase {
-    // Exact revert blob produced by revertWithMessage(..., "Signing policy hash mismatch", 28)
-    // (Relay.sol:513-522): Error(string) selector || offset(0x20) || length(28) || right-padded msg.
-    // length "Signing policy hash mismatch" == 28 (matches Relay.sol:828).
+    // Exact canonical four-byte custom-error payload emitted by relay() assembly.
+    // The selector is tied to IRelay.SigningPolicyHashMismatch by the custom-error ABI gate.
     function _mismatchReturndata() internal pure returns (bytes memory) {
         return abi.encodeWithSelector(IRelay.SigningPolicyHashMismatch.selector);
     }

@@ -5,7 +5,7 @@ open EvmYul EvmYul.Yul EvmYul.Yul.Ast
 # Relay signature loop — the LITERAL body (work in progress: deriving `hcorr`/`hvalid`)
 
 This file transliterates the deployed signature loop's **actual body** — from the committed optimized-IR
-snapshot `../relay_ir_optimized.yul:2177-2220` — into the EVMYulLean Yul AST: both `calldatacopy`s (the
+snapshot `../relay_ir_optimized.yul:1518-1632` — into the EVMYulLean Yul AST: both `calldatacopy`s (the
 67-byte signature record; the 22-byte voter record), the **fixed scratch-slot addressing** (`m+32`…`m+128`),
 the full guard cascade (index range/order, canonical `v`, low-`s`, `staticcall`-success,
 `returndatasize()==32`, non-zero signer, signer==expected), the masked weight accumulation, and the
@@ -18,14 +18,14 @@ Deviations from the IR, each deliberate and accounting-irrelevant (fidelity regi
 * **D1 — folded addressing.** The IR writes `add(usr$memPtrFor, 32)` with `memPtrFor` loop-invariant
   (`mload(0x40)`, fixed before the loop); we parameterize the whole AST by the base `m : Nat` and emit the
   folded literals `⟨m+32⟩` etc. Same addresses, fewer interpreter steps.
-* **D2 — revert payloads.** The IR calls per-message helpers (`usr$revertWithMessage_18927(...)` = store
-  message + `revert(ptr, len)`); we emit `revert(0,0)`. The guard **conditions** are verbatim; only the
+* **D2 — revert payloads.** The IR calls per-error helpers (`usr$revertWithError_*` = store the
+  four-byte custom-error selector + `revert(ptr, 4)`); we emit `revert(0,0)`. The guard **conditions** are verbatim; only the
   revert *data* (irrelevant to the accounting theorem, and to whether the run reverts) is simplified.
 * **D3 — accept-branch interior.** On `gt(weight, threshold)` the IR runs the mode-specific finalization
   (sstore / event / return payload); we emit `return(0,0)`. The accept **control flow** (early halt inside
   the first threshold-crossing iteration) is verbatim; the finalization's storage effects are the separate
   "storage effects" work item, out of scope for the accounting theorem.
-* **D4 — loop-invariant scalars as literals.** `numberOfSignatures` (`_17`), `numberOfVoters`
+* **D4 — loop-invariant scalars as literals.** `numberOfSignatures` (`_18`), `numberOfVoters`
   (`shr(240,_1)`), `threshold`, and `signatureStart` are computed before the loop in the IR; they enter the
   AST as parameters (`nSig`, `nVot`, `thr`, `sigStart`), exactly as the folded values the IR loop reads.
 
@@ -41,7 +41,7 @@ def II  : EvmYul.Identifier := "i"       -- usr$i
 def WW  : EvmYul.Identifier := "weight"  -- usr$weight
 def NUI : EvmYul.Identifier := "nui"     -- usr$nextUnusedIndex
 def IDX : EvmYul.Identifier := "idx"     -- usr$index (fresh each iteration)
-def VV  : EvmYul.Identifier := "v"       -- _18 (the v byte)
+def VV  : EvmYul.Identifier := "v"       -- _19 (the v byte)
 
 /-! ## Expression builders -/
 
@@ -54,7 +54,7 @@ def litU (u : EvmYul.UInt256) : Expr := Expr.Lit u
 /-- Variable read. -/
 def V (x : EvmYul.Identifier) : Expr := Expr.Var x
 
-/-- secp256k1n/2 — the EIP-2 low-`s` bound (IR line 2177). -/
+/-- secp256k1n/2 — the EIP-2 low-`s` bound (IR line 1537). -/
 def SECP_HALF : EvmYul.UInt256 :=
   UInt256.ofNat 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
 
@@ -64,12 +64,12 @@ def revert00 : Stmt := Stmt.ExprStmtCall (bc .REVERT [litN 0, litN 0])
 /-- `if cond { revert }` — the guard shape used by every check in the loop. -/
 def guard' (cond : Expr) : Stmt := Stmt.If cond [revert00]
 
-/-! ## The loop, transliterated (IR lines 2177-2220)
+/-! ## The loop, transliterated (IR lines 1518-1632)
 
 Parameters: `m` = `usr$memPtrFor` (loop-invariant free-memory base), `sigStart` = `usr$signatureStart`,
-`nSig` = `_17` (numberOfSignatures), `nVot` = `shr(240,_1)` (numberOfVoters), `thr` = `usr$threshold`. -/
+`nSig` = `_18` (numberOfSignatures), `nVot` = `shr(240,_1)` (numberOfVoters), `thr` = `usr$threshold`. -/
 
-/-- Loop condition `lt(usr$i, _17)`. -/
+/-- Loop condition `lt(usr$i, _18)`. -/
 def condL (nSig : EvmYul.UInt256) : Expr := bc .LT [V II, litU nSig]
 
 /-- Loop post `usr$i := add(usr$i, 1)`. -/

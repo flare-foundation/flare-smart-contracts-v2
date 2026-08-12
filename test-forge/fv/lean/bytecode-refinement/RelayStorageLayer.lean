@@ -1,8 +1,9 @@
 /-
   RelayStorageLayer.lean
 
-  A hole-free storage round-trip (`sstore` then `sload` returns the stored value)
-  on NethermindEth's EVMYulLean `EvmYul.State`.
+  Hole-free persistent and transient storage round-trips (`sstore`/`sload` and
+  `tstore`/`tload`) on NethermindEth's EVMYulLean `EvmYul.State`, including
+  transient zero-clear, account isolation, and Yul dispatch facts.
 
   Self-contained: imports `EvmYul` only. Every `#print axioms` at the bottom is
   a subset of `{propext, Classical.choice, Quot.sound}`.
@@ -277,7 +278,161 @@ theorem sstore_reads_back (fuel : Nat) (s : EvmYul.Yul.State) (K v : EvmYul.UInt
     rw [hf] at hperm
     exact absurd hperm (by decide)
 
-/-! ## 8. Hole-freeness checks -/
+/-! ## 8. Transient-storage threshold-override layer
+
+The pinned EVMYulLean semantics implements EIP-1153 explicitly:
+`Operation.TSTORE` dispatches to `State.tstore`, and `Operation.TLOAD` dispatches
+to `State.tload`. Relay's threshold wrapper writes a nonzero BIPS override,
+self-calls the protocol-1 path, and then writes zero to the same slot. The
+theorems below cover the semantics this model exposes directly:
+
+* same-account `TSTORE`/`TLOAD` round-trip;
+* writing zero clears the slot and reads back zero;
+* a write is scoped to `executionEnv.codeOwner` and leaves every distinct
+  account unchanged; and
+* Yul-level `TSTORE`/`TLOAD` dispatch uses those state operations.
+
+These are operation/state facts, not a call-frame theorem. In particular, this
+file does not claim self-call propagation, revert rollback, or transaction-end
+clearing; those require a call/transaction refinement outside the current
+Relay Yul model. -/
+
+/-- Transient storing `v` at `k` and reading it back yields `v`, including the
+zero/erase branch. -/
+theorem updateTransientStorage_lookupTransientStorage
+    {τ} (acc : Account τ) (k v : UInt256) :
+    (acc.updateTransientStorage k v).lookupTransientStorage k = v := by
+  unfold Account.lookupTransientStorage Account.updateTransientStorage
+  split
+  · next h =>
+    show (acc.tstorage.erase k).findD k ⟨0⟩ = v
+    rw [Batteries.RBMap.findD, RBMap_find?_erase_self]
+    exact (uint_eq_of_beq h).symm
+  · next _ =>
+    show (acc.tstorage.insert k v).findD k ⟨0⟩ = v
+    rw [Batteries.RBMap.findD,
+      Batteries.RBMap.find?_insert_of_eq _ Std.ReflCmp.compare_self]
+    rfl
+
+/-- `tstore` leaves the active code-owner address unchanged. -/
+theorem tstore_codeOwner {τ} (self : State τ) (k v : UInt256) (acc : Account τ)
+    (hpresent : self.lookupAccount self.executionEnv.codeOwner = some acc) :
+    (State.tstore self k v).executionEnv.codeOwner = self.executionEnv.codeOwner := by
+  unfold State.tstore
+  simp only [hpresent, Option.option]
+  rfl
+
+/-- `tstore` replaces only the code owner's account with its transiently updated
+version. -/
+theorem tstore_accountMap {τ} (self : State τ) (k v : UInt256) (acc : Account τ)
+    (hpresent : self.lookupAccount self.executionEnv.codeOwner = some acc) :
+    (State.tstore self k v).accountMap =
+      self.accountMap.insert self.executionEnv.codeOwner
+        (acc.updateTransientStorage k v) := by
+  unfold State.tstore
+  simp only [hpresent, Option.option]
+  rfl
+
+/-- Same-owner transient write/read round-trip on the validated state model. -/
+theorem tstore_tload {τ} (self : State τ) (k v : UInt256) (acc : Account τ)
+    (hpresent : self.lookupAccount self.executionEnv.codeOwner = some acc) :
+    ((State.tstore self k v).tload k).2 = v := by
+  show Option.option (⟨0⟩ : UInt256) (Account.lookupTransientStorage (k := k))
+      ((State.tstore self k v).lookupAccount
+        (State.tstore self k v).executionEnv.codeOwner) = v
+  rw [tstore_codeOwner self k v acc hpresent]
+  have hla : (State.tstore self k v).lookupAccount self.executionEnv.codeOwner =
+      some (acc.updateTransientStorage k v) := by
+    unfold State.lookupAccount
+    rw [tstore_accountMap self k v acc hpresent]
+    exact Batteries.RBMap.find?_insert_of_eq _ Std.ReflCmp.compare_self
+  rw [hla]
+  exact updateTransientStorage_lookupTransientStorage acc k v
+
+/-- Relay's explicit post-verification `TSTORE(slot, 0)` makes the next load of
+that slot return the zero sentinel. -/
+theorem tstore_zero_tload {τ} (self : State τ) (k : UInt256) (acc : Account τ)
+    (hpresent : self.lookupAccount self.executionEnv.codeOwner = some acc) :
+    ((State.tstore self k ⟨0⟩).tload k).2 = ⟨0⟩ :=
+  tstore_tload self k ⟨0⟩ acc hpresent
+
+/-- Distinct account addresses compare non-equal under EVMYulLean's address
+ordering. -/
+theorem addr_compare_ne_of_ne {a b : AccountAddress} (hne : a ≠ b) :
+    compare a b ≠ Ordering.eq := by
+  intro hcmp
+  change compare a.val b.val = Ordering.eq at hcmp
+  exact hne (Fin.ext (Nat.compare_eq_eq.mp hcmp))
+
+/-- `TSTORE` is scoped to `executionEnv.codeOwner`; the complete account value
+at any different address is unchanged. -/
+theorem tstore_otherAccount {τ} (self : State τ) (k v : UInt256) (acc : Account τ)
+    (other : AccountAddress)
+    (hpresent : self.lookupAccount self.executionEnv.codeOwner = some acc)
+    (hne : other ≠ self.executionEnv.codeOwner) :
+    (State.tstore self k v).lookupAccount other = self.lookupAccount other := by
+  unfold State.tstore
+  simp only [hpresent, Option.option]
+  unfold State.lookupAccount State.updateAccount
+  exact Batteries.RBMap.find?_insert_of_ne _ (addr_compare_ne_of_ne hne)
+
+set_option maxHeartbeats 1000000 in
+/-- Yul `TSTORE` dispatches to the modeled transient-state update. -/
+theorem step_TSTORE (s : EvmYul.Yul.State) (key val : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.TSTORE none s [key, val] =
+      .ok (s.setState (EvmYul.State.tstore s.toState key val), none) := by
+  unfold EvmYul.step
+  rfl
+
+set_option maxHeartbeats 1000000 in
+/-- Yul `TLOAD` dispatches to the modeled transient-state load. -/
+theorem step_TLOAD (s : EvmYul.Yul.State) (key : EvmYul.UInt256) :
+    EvmYul.step (τ := .Yul) Operation.TLOAD none s [key] =
+      .ok
+        (s.setSharedState
+          { s.toSharedState with toState := (EvmYul.State.tload s.toState key).1 },
+        some (EvmYul.State.tload s.toState key).2) := by
+  unfold EvmYul.step
+  rfl
+
+set_option maxHeartbeats 4000000 in
+/-- Full Yul execution of a literal `tstore(key, val)` statement. -/
+theorem tstore_eff (fuel : Nat) (s : EvmYul.Yul.State) (key val : EvmYul.UInt256)
+    (hperm : s.executionEnv.perm = true) :
+    EvmYul.Yul.exec (fuel + 6)
+      (EvmYul.Yul.Ast.Stmt.ExprStmtCall
+        (EvmYul.Yul.Ast.Expr.Call (Sum.inl Operation.TSTORE)
+          [EvmYul.Yul.Ast.Expr.Lit key, EvmYul.Yul.Ast.Expr.Lit val])) none s =
+      .ok (s.setState (EvmYul.State.tstore s.toState key val)) := by
+  simp [EvmYul.Yul.exec, EvmYul.Yul.eval, EvmYul.Yul.evalArgs,
+    EvmYul.Yul.evalTail, EvmYul.Yul.execPrimCall, EvmYul.Yul.primCall,
+    EvmYul.Yul.cons', EvmYul.Yul.reverse', EvmYul.Yul.multifill',
+    step_TSTORE, multifill_nil, hperm]
+
+set_option maxHeartbeats 4000000 in
+/-- Exec-level transient round-trip: after the real Yul `TSTORE` statement,
+the validated `TLOAD` state operation reads the same value. -/
+theorem tstore_reads_back (fuel : Nat) (s : EvmYul.Yul.State)
+    (K v : EvmYul.UInt256) (acc : EvmYul.Account .Yul)
+    (hperm : s.executionEnv.perm = true)
+    (hpresent : s.toState.lookupAccount s.toState.executionEnv.codeOwner = some acc) :
+    ∃ post, EvmYul.Yul.exec (fuel + 6)
+        (EvmYul.Yul.Ast.Stmt.ExprStmtCall
+          (EvmYul.Yul.Ast.Expr.Call (Sum.inl Operation.TSTORE)
+            [EvmYul.Yul.Ast.Expr.Lit K, EvmYul.Yul.Ast.Expr.Lit v])) none s =
+        .ok post ∧ (post.toState.tload K).2 = v := by
+  refine ⟨_, tstore_eff fuel s K v hperm, ?_⟩
+  cases s with
+  | Ok ss vs =>
+    show ((EvmYul.State.tstore ss.toState K v).tload K).2 = v
+    exact tstore_tload ss.toState K v acc hpresent
+  | OutOfFuel => exact absurd hperm (by decide)
+  | Checkpoint j =>
+    have hf : (EvmYul.Yul.State.Checkpoint j).executionEnv.perm = false := rfl
+    rw [hf] at hperm
+    exact absurd hperm (by decide)
+
+/-! ## 9. Hole-freeness checks -/
 
 #print axioms uint_transcmp
 #print axioms addr_transcmp
@@ -292,5 +447,16 @@ theorem sstore_reads_back (fuel : Nat) (s : EvmYul.Yul.State) (K v : EvmYul.UInt
 #print axioms step_SSTORE
 #print axioms sstore_eff
 #print axioms sstore_reads_back
+#print axioms updateTransientStorage_lookupTransientStorage
+#print axioms tstore_codeOwner
+#print axioms tstore_accountMap
+#print axioms tstore_tload
+#print axioms tstore_zero_tload
+#print axioms addr_compare_ne_of_ne
+#print axioms tstore_otherAccount
+#print axioms step_TSTORE
+#print axioms step_TLOAD
+#print axioms tstore_eff
+#print axioms tstore_reads_back
 
 end RelayStorageLayer

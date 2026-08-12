@@ -20,8 +20,8 @@ Capstones (all hole-free; `#print axioms` ⊆ `{propext, Classical.choice, Quot.
 * `bridge`           — the integer masked-read accumulator equals the abstract `sigLoop` accumulated weight,
                        under the data-layer correspondence `mrd rdv k = w[idxs[k]]`.
 * **`relay_loop_sound`** — the full simulation-relation conclusion: ∀N, if the deployed loop (with its real
-                       masked memory read, on the validated EVM) accepts, then the TOTAL registered voting
-                       weight exceeds the threshold — no voter double-counted.
+                       masked memory read, on the validated EVM) accepts, then the TOTAL indexed policy
+                       weight exceeds the threshold — no policy slot counted twice.
 
 Modeling choice: weights are memory-resident at 32-byte-aligned slots, and the loop reads
 `mload(slot) & 0xffff`. The behaviour of the external call is an **assumption**, as throughout the
@@ -335,7 +335,7 @@ theorem bytecode_threshold_sound_mem_int (N : Nat) (hN : N < UInt256.size) (rdv 
 -- ===================== abstract signature loop (self-contained restatement of RelaySigLoop) =====================
 -- Pure ℕ/List accounting model of the loop, with the cryptography abstracted: a "signature" is the voter
 -- index it carries, and we reason about the weight it contributes. `ValidRun` encodes the
--- strictly-increasing-in-range index discipline (no double-count). Restated here so this file checks with a
+-- strictly-increasing-in-range index discipline (no repeated policy slot). Restated here so this file checks with a
 -- single `lake env lean`; identical to `test-forge/fv/lean/RelaySigLoop.lean`.
 
 /-- prefix sum of the first `k` registered weights (on-chain `psAt(k)`). -/
@@ -370,7 +370,7 @@ def sigLoop : List Nat → Nat → Nat → List Nat → (Nat × Nat)
   | _, weight, nui, []          => (weight, nui)
   | w, weight, nui, idx :: rest => sigLoop w (weight + w.getD idx 0) (idx + 1) rest
 
-/-- A valid signature stream: indices strictly increasing and in range (no double-count). This encodes the
+/-- A valid signature stream: indices strictly increasing and in range (no repeated slot). This encodes the
     deployed loop's guards (`nui ≤ idx`, `idx < numberOfVoters`) — i.e. the assumption that execution did not
     revert on any iteration. -/
 inductive ValidRun (w : List Nat) : Nat → List Nat → Prop
@@ -437,7 +437,8 @@ theorem bridge (w : List Nat) (rdv : Nat → EvmYul.UInt256) :
 /-- **The relay signature loop is sound, on the validated EVM, for all N.**
     If the deployed loop — modeled with its *actual* masked memory read `w += mload(slot)&0xffff` executed by
     EVMYulLean's validated Yul `exec` — accepts (final weight strictly exceeds the threshold), then the TOTAL
-    registered voting weight exceeds the threshold. No voter is double-counted.
+    indexed policy weight exceeds the threshold. No policy slot is counted twice. This theorem does not
+    establish that distinct indices contain distinct voter addresses.
 
     The behaviour of the external call is an **assumption**, as throughout the engagement: ecrecover (the
     `0x01` staticcall) is not modeled; instead its effect — that signature `k` selects voter `idxs[k]`, whose
@@ -447,7 +448,7 @@ theorem bridge (w : List Nat) (rdv : Nat → EvmYul.UInt256) :
     * `hcorr` — `mrd rdv k = w[idxs[k]]`: the masked read is the registered weight of the selected voter
                 (this is where ecrecover→recovered-signer→voter and the calldata decode enter);
     * `hvalid`— `ValidRun w 0 idxs`: the selected indices are strictly increasing and in range (the deployed
-                guards passed, i.e. execution did not revert — no double-count);
+                guards passed, i.e. execution did not revert — no repeated policy slot);
     * `hnoovf`— the accumulated weight stays below `2²⁵⁶` (BR-2).
     Everything *else* — the loop mechanism, the memory read, the mask, the accumulation, the accept gate — is
     proven against the validated semantics. -/

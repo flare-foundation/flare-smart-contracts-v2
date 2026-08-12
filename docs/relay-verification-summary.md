@@ -1,142 +1,117 @@
-# Relay.sol — formal verification summary
+# Relay formal-verification summary
 
-> The authoritative, complete write-up is **[`docs/relay-verification/`](relay-verification/00-README.md)**
-> (audit + tutorial + reproducibility, all rungs). This file is a brief one-page map; for the claims
-> ledger, the assumption register, and reproducibility, use that set.
->
-> **Governance redesign boundary (2026-08):** the cross-chain Safe (GSS)
-> governance design and its verification suites were retired before any
-> deployment; Relay governance is now a per-chain owner + timelock — see
-> [`relay-governance.md`](relay-governance.md). The relay-core results below
-> stand, but every gate (manifest pins, Lean Yul snapshot, artifact parity,
-> Certora munge, Kontrol) is deliberately red pending the re-baseline onto the
-> owner-timelock source (solc 0.8.35, proxy-aware harnesses).
+> **Current evidence:**
+> [`relay-verification/CURRENT-STATUS.md`](relay-verification/CURRENT-STATUS.md)
+> is the sole current-results page. The complete methodology, claims ledger,
+> assumptions, and reproducibility guide begin at
+> [`relay-verification/00-README.md`](relay-verification/00-README.md).
 
-This is the map of the whole verification effort on `contracts/protocol/implementation/Relay.sol`. It
-states what is proven, by which tool, at what scope, under what assumptions, and — just as importantly —
-what is **not** proven and why. Per-area detail lives in the linked docs.
+> **Latest-source status (2026-08-12):** HEAD is `d5af7136…`, manifest
+> `7ae2208f…`. All six local constituent gates pass after the threshold/FV
+> rebaseline. They are development-only solely because they were generated in
+> a dirty worktree. The aggregate bundle also passes as development-only;
+> supplemental Certora cloud evidence is PARTIAL (threshold PASS; scalar and
+> write-once PARTIAL because of sanity failures). See the current-status page
+> before interpreting either evidence set.
 
-## 1. The modeling contract (assumptions — what FV is *not* asked to prove)
+This summary describes the owner/timelock/UUPS re-baseline on
+`relay-owner-timelock`. Historical Safe/GSS results, older compiler runs, and
+old proof counts do not apply to this architecture.
 
-All results below hold relative to these standing assumptions; they are where formal methods are the wrong
-tool, by design:
+## Current verification map
 
-- **A1/A2 — cryptography:** `keccak256` is an injective uninterpreted function; `ecrecover` is
-  uninterpreted (ECDSA unforgeability assumed). We prove the on-chain **accounting**, not the cryptography.
-- **RLY-06 — trusted setter:** the signing-policy setter (FlareSystemsManager) supplies distinct, non-zero,
-  canonically-ordered voters with normalised weights; `startingVotingRoundId` is non-decreasing across
-  epochs. Documented, not on-chain-enforced.
-- **OZ `MerkleProof.verifyCalldata`** internals are assumed correct (only the call-site is in scope).
-- **`oldRelay`** is a trusted, audited prior deployment.
-- **Owner governance:** the per-chain Relay owner (a multisig behind the
-  OwnableWithTimelock queue) is trusted for parameter changes and upgrades; the
-  timelock mechanics are covered by unit/property tests
-  (`RelayOwnableWithTimelock.t.sol`), not by the FV stack.
+| Layer                       | Current scope                                                                                   | Current evidence boundary                                                                                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundry                     | Concrete/fuzz Relay, owner/timelock, proxy, upgrade, and exact-BIPS behavior                    | Current full tree passes 2,079/2,079; exact-BIPS suite 11/11, FDC2 53/53, governance 39/39, and Hardhat Relay 53/53                                                    |
+| Halmos                      | 123 checks across 27 harness contracts: 86 proofs and 37 validated reachability controls        | **PASS 123/123, 0 violations; development-only.** Bounded symbolic evidence. Report `f591eb78…`                                                                        |
+| Certora local               | Three configs and 15 current scalar, threshold, write-once, and owner/timelock rules            | **PASS 3/3 configs, 15 rules, 0 local violations; development-only.** Front-end/typecheck evidence only. Report `9d3ce039…`                                            |
+| Certora cloud               | Supplemental scalar, threshold, and write-once jobs                                             | **PARTIAL.** Threshold PASS; scalar/write-once PARTIAL. Totals: 308 `SUCCESS`, 2 `SATISFIED`, 24 `SANITY_FAIL`, 0 semantic CEX/`UNKNOWN`/`TIMEOUT`. Report `93d09d86…` |
+| Lean/EVMYulLean             | Nine files and 183 declared axiom audits for Relay accounting/refinement and the threshold seam | **PASS 9/9, 183 audits; development-only.** Protocol-1 composition retains explicit `hsetupThreshold`. Report `82fff1ff…`                                              |
+| Artifact/custom-error gates | solc 0.8.35 deployment/FV bytecode and optimized-Yul parity; 37 assembly custom errors          | **All PASS, development-only.** Deployment `44468783…`, ABI `1fb2ca10…`, artifact `0b2a7518…`                                                                          |
+| Kontrol                     | Historical fixed-model induction experiments                                                    | Not rerun for the current governance architecture                                                                                                                      |
 
-See `docs/relay-assembly-review.md` (mutation surface, no delegatecall/fallback, memory layout) and
-`docs/relay-phase3-documented-items.md` (the assumption-class obligations: AC-3, R1/R2, M4, R6/R7).
+## What the accounting theorem actually says
 
-## 2. The verification stack
+Strictly increasing signature indices ensure that one **policy slot** is not
+used twice. They do not ensure that different slots contain different voter
+addresses. Every distinct-voter interpretation is conditional on unique voter
+addresses at policy admission, which the current contract does not enforce.
+This is a live security finding, not wording trivia; see
+[`relay-verification/13-residual-weaknesses.md`](relay-verification/13-residual-weaknesses.md).
 
-| Layer | Tool | What it gives | Scope |
-|------|------|---------------|-------|
-| Symbolic execution on **real bytecode** | **Halmos** | relay-core harnesses (`test-forge/fv/*.t.sol`) | bounded; relay core K≤3/N≤5; manifest re-baseline pending after the governance redesign |
-| Unbounded-in-K via k-induction | **Kontrol/KEVM** | sig-loop weight invariant + random monotonicity (`test-forge/fv/kontrol/`) | ∀K, on a faithful Solidity **model**, N∈{3,5} |
-| Unbounded **algorithm** proof | **Lean 4** | sig-loop threshold soundness (`test-forge/fv/lean/RelaySigLoop.lean`) | **∀N ∀K**, abstract algorithm, machine-checked (no `sorry`) |
-| Model↔bytecode bridge | **Halmos** | `RelayModelBridgeFV` — real bytecode obeys the Kontrol model's `psAt` invariant | K=1,2,3 |
-| Global storage invariants | **Certora** | rules under `certora/` predate the governance redesign | re-baseline pending |
+Cryptographic unforgeability and hash collision resistance remain assumptions.
+The Lean refinement is conditional on its explicit execution, acceptance, data,
+and model-fidelity premises. UUPS authorization is checked only for the current
+implementation; arbitrary replacement semantics and storage compatibility are a
+trusted-upgrade boundary.
 
-## 3. What is proven (by area)
+## Owner/timelock/UUPS coverage added in this re-baseline
 
-- **Signature/threshold accounting (the core):** accept ⟹ enough distinct registered weight, no
-  double-count — tight per-prefix (Halmos `RelaySig*FV`), unbounded-in-K (Kontrol `RelaySigLoopFV`), and
-  **∀N∀K** at the algorithm level (Lean). `RelayModelBridgeFV` ties the Kontrol model's invariant to the
-  real bytecode at K≤3.
-- **The entire relay() epoch decision matrix** (Relay.sol:743–754) — all five gates:
-  wrong-epoch (`RelayWrongEpochFV`), delayed-policy (`RelayDelayedPolicyFV`), too-old/finalization-window
-  (`RelayFinalizationWindowFV`), threshold-increase (`RelayCrossEpochFV` + `RelayThresholdScalingFV`),
-  must-use-new-policy (`RelayMustUseNewPolicyFV`).
-- **Access control & lifecycle:** only the setter rotates policy
-  (`RelayAccessControlFV`); the constructor fail-closes on the proved baseline
-  configuration (`RelayConstructorFV`, incl. L4/RLY-11); threshold consistency
-  is checked on the setter path and the **live Mode-1 relay path**
-  (`RelayThresholdConsistencyFV`, `RelayModeOneFV`).
-- **Owner governance (not FV):** the retired Safe-governance proofs were removed
-  with that design; the owner-timelock queue/execute/cancel mechanics, the
-  guarded setters and the timelocked upgrade path are covered by the unit and
-  property suites (`RelayOwnableWithTimelock.t.sol`, `RelayUpgrade.t.sol`).
-- **Lifecycle:** strict +1 epoch advance + monotonic `lastInitialized` state-effect (`RelayEpochAdvanceFV`);
-  random-pointer monotonicity over arbitrary sequences (`RelayRandomMonotonicityFV` + Kontrol
-  `RelayRandomMonoFV`).
-- **Merkle & randomness:** random value binding (`RelayRandomBindingFV`), proof-element + alignment
-  soundness (`RelayMerkleProofFV`), and fold injectivity along a fixed sibling/path sequence
-  (`RelayMerkleFoldFV`). Full membership soundness against arbitrary alternate proof sequences and typed
-  leaf/internal-node domain separation remains outside that fold harness.
-- **Fees:** conservation in `relay()` (`RelayFeeConservationFV`) and `verify()` (`RelayVerifyFeeFV`).
-- **Encoding/return/secure-bit:** P3/P5/P6/P8 (`RelayCanonicalityFV`, `RelayIsSecureNormFV`,
-  `RelayReturnDiscriminatorFV`, `RelayPolicyHashFV`).
+The current Halmos manifest includes checks for:
 
-Every harness pairs a positive proof with an **anti-vacuity control** that must produce a counterexample —
-so a proof that is trivially/vacuously true is caught. For the multi-step harnesses, that counterexample
-also confirms the elaborate setup genuinely reaches acceptance.
+- owner-only queue and cancel;
+- exact-calldata queue identity and recorded ETA;
+- permissionless one-shot execution and rollback after target failure;
+- relay-mode fee setters and immutable relay/setter mode separation;
+- one-shot proxy initialization and implementation lock;
+- exact queued UUPS implementation/migration data;
+- selected storage preservation and nested-guard rollback; and
+- ERC-7201 timelock namespace separation from ERC-1967 slots;
+- exact floor-plus-strict BIPS boundaries, zero/non-protocol fallback, and
+  protocol-1 reachability; and
+- transient-slot success cleanup, caught-revert rollback, and address scope.
 
-## 4. Reproducing
+Current Certora rules complement those checks with current-implementation
+scalar/write-once properties, owner/timelock transitions, and a dedicated
+threshold harness/spec. All three configurations compile and CVL-typecheck
+locally; that local pass is not a prover verdict. The supplemental cloud report
+is PARTIAL: the threshold job passes, while scalar and write-once retain 24
+sanity exclusions for `relay`, `setSigningPolicy`, and
+`renounceOwnership` for all six scalar rules and both mapping rules. The two
+loop-heavy methods are not shown nonvacuous under `viaIR`, `loop_iter=3`, and
+`optimistic_loop=true`; `renounceOwnership` always reverts, while its dedicated
+`ownershipRenounceAlwaysReverts` rule passes. Both `satisfy` witnesses have
+concrete models: a queued duration update consumes the ETA, clears the flag, and
+changes the duration, and a zero-delay owner call applies a duration update.
+The normalized cloud evidence contains 308 `SUCCESS`, 2 validated `SATISFIED`,
+24 `SANITY_FAIL`, and no semantic assertion counterexample, `UNKNOWN`, or
+`TIMEOUT`.
 
-- **Halmos:** `python3 test-forge/fv/verify_fv.py` checks an exact check manifest, exact Halmos exit
-  classes, validated reachability models, and zero truncated loops (manifest re-baseline pending).
-- **Artifact parity:** `verify_relay_artifact.py` binds the pinned FV build and optimized Yul to the
-  Hardhat deployment artifact after stripping only Solidity CBOR metadata.
-- **Kontrol:** the pinned Docker `run.sh` emits JUnit and `verify_kontrol.py` checks all 9 proofs + 4 controls.
-- **Lean:** `verify_lean.py` checks the abstract proof plus all eight refinement files, the exact
-  EVMYulLean commit/toolchain, source holes, declared axioms, and 165 `#print axioms` results.
-- **Certora:** `verify_certora_local.py` checks the pinned 8.16.1/Java 21/solc
-  front end and two configs; `certoraRun ...` with `CERTORAKEY` is still required
-  for a proof verdict.
-- **Evidence:** `verify_bundle.py` requires eight passing, commit/manifest-bound
-  reports and rejects dirty release trees by default.
+The threshold cloud job's scope is narrower than the complete transient-flow
+claim. It proves a pure exact floor/cross-product arithmetic lemma and that
+`_thresholdBIPS >= 10000` fails before any `SSTORE`, `TSTORE`, or external
+`CALL`. Successful forwarding, cleanup, rollback, and mode isolation are
+covered by Halmos and Lean instead; Certora does not link the pure lemma to the
+successful Yul-local path. Lean's refinement retains the explicit
+`hsetupThreshold` call-frame seam.
 
-## 5. Honest limits (what is NOT proven, and why)
+The cloud evidence remains bounded by optimistic hashing at 512 bytes, `viaIR`
+internal-resolution diagnostics, and a direct-implementation scene.
+Initialization, direct upgrade, and queued-upgrade dispatch remain outside the
+old-implementation preservation rules because authorized UUPS replacement can
+invalidate them. The results are not unrestricted all-input or proxy/UUPS
+correctness claims.
 
-1. **Global all-functions/all-sequences storage invariants.** On the pre-redesign
-   source, the epoch/setter/hash/root rules were cloud-proven for every function
-   except `relay()` (legacy codegen also covered `setSigningPolicy`, which
-   via-ir excepted). The CVL under `certora/` still targets the retired
-   Safe-governance source and awaits the re-baseline. On
-   `relay()` itself the historical model was vacuous (visible no-coverage, not
-   false alarms); its storage behavior remains covered by per-sequence Halmos
-   proofs and the Lean literal model. Run matrix and current status:
-   `certora/README.md`.
-2. **Bytecode-level ∀N refinement** — the EVMYulLean files are hole-free and the memory/window/overflow
-   layers are substantially discharged, but the literal and early-return capstones still take execution,
-   `ValidRun`, and acceptance facts as hypotheses. The model is now hash-bound to freshly generated Yul;
-   whole-program accepted-execution refinement remains open. See
-   `test-forge/fv/lean/bytecode-refinement/` and `docs/relay-verification/07-R4b-bytecode-refinement.md`.
-3. **Full symbolic-N in Kontrol** — empirically state-explosive; mitigated by verified N∈{3,5} + the Lean
-   ∀N proof + the bounded model↔bytecode bridge. Detail: `docs/relay-phase3-documented-items.md`.
-4. **Owner-timelock governance is out of FV scope.** The retired cross-chain
-   Safe authorization model and its risk register went with that design (git
-   history). The current owner + timelock surface is deliberately small — four
-   guarded setters plus the timelocked upgrade — and is covered by unit and
-   property tests, not the FV stack; the owner multisig itself is a trust
-   anchor (see [`relay-governance.md`](relay-governance.md)).
+## Reproduce and release
 
-### Why the stack is sound despite these
-The convergence in (1)+(3) — two independent state-of-the-art provers blocked by the same inline-assembly
-storage modeling — is itself the finding: it validates the chosen strategy. Halmos works because it
-symbolically *executes* the real bytecode (no storage analysis); Lean gives the unbounded guarantee at the
-algorithm level (no EVM model needed); the bridge + the assumptions connect them. The signing-policy
-accounting core is machine-checked at its stated scopes. The
-remaining model, cryptographic, source-execution, and cloud-proof boundaries are explicit rather than
-folded into an overbroad whole-contract claim.
+Use
+[`relay-verification/11-reproducibility.md`](relay-verification/11-reproducibility.md)
+for exact tools and commands. The manifest pins solc 0.8.35, Cancun,
+optimizer 200, `viaIR=true`, the exact Foundry/Halmos/Lean toolchains, the
+Halmos inventory, and the complete proof-semantic Certora configs at manifest
+`7ae2208f96a520f477b528ee808909f87e9402247bacab00e04052fa02ec2cb1`.
 
-## 6. Document index
-
-- `docs/relay-fv.md` — Phases 1–2 (P1–P8 + bounded cross-epoch/monotonicity), modeling contract detail.
-- `docs/relay-phase3-plan.md` — Phase-3 plan + the live per-obligation verified-status table.
-- `docs/relay-assembly-review.md` — assembly mutation surface / memory / arithmetic review (Step 2).
-- `docs/relay-phase3-documented-items.md` — assumption-class obligations + deferred-item resolutions.
-- `docs/relay-t1-bridge.md` — the model↔bytecode bridge (T1) analysis.
-- `docs/relay-verification/` — the authoritative full ladder (audit + tutorial + reproducibility), incl. the completed bytecode-level ∀N refinement.
-- `test-forge/fv/lean/bytecode-refinement/` — the bytecode-level ∀N refinement proof + README.
-- `certora/README.md` — Certora specs, the discharged run matrix, and the `relay()` residual.
-- `.claude/skills/kontrol-fv/SKILL.md` — the reusable FV methodology.
+A release claim requires all normalized reports to pass for the same clean Git
+commit and manifest hash, followed by a successful evidence bundle. The six
+current local constituents pass for reviewed source revision `d5af7136…` and manifest `7ae2208f…`,
+but each has `release_eligible=false` solely because generation began and ended
+in a dirty worktree. Their aggregate bundle passes, validates all six reports,
+and has SHA-256
+`be386d63acdd336b99ab84c64cb0f32ba9c3bafbba02b17164ebd176b7e4f64a`; it is
+also development-only solely because the worktree was dirty at start and end.
+Cloud evidence is not a constituent of that bundle. The supplemental cloud
+report is SHA-256
+`93d09d86d1acbf3b3ffdb0f6d9f8145b094722b9b7de94e131ef8e8e97ca4821`
+and remains PARTIAL. A local Certora front-end pass, a partial cloud result, an
+old green pipeline, or a dirty development bundle is not release evidence; a
+clean commit-bound rerun remains required.

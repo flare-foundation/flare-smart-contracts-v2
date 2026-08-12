@@ -12,10 +12,10 @@ The module has since grown to a full **data layer** and a **literal hand-transli
 | `RelayBytecodeRefinement.lean` | loop *mechanism*, memory-free body, ∀N |
 | `DataLayer.lean` | the byte/memory/value/mask data layer (`weight_read`) against EVMYulLean's real `ByteArray`/`MachineState` |
 | `RelayLoopMemRead.lean` | abstract memory-reading loop + `relay_loop_sound` (accept ⟹ total registered weight > thr, ∀N; assumes `hcov`/`hcorr`) |
-| `RelayLoopLiteral.lean` | the hand-transliterated body model sourced from the optimized-Yul loop beginning at `relay_ir_optimized.yul:2175`, with deviations D1-D4 documented in the file, + reusable interpreter atoms and abstract accounting |
+| `RelayLoopLiteral.lean` | the hand-transliterated body model sourced from the optimized-Yul loop beginning at `relay_ir_optimized.yul:1516`, with deviations D1-D4 documented in the file, + reusable interpreter atoms and abstract accounting |
 | `RelayLoopWindows.lean` | the calldata byte-window decode layer |
-| `RelayBodyEff.lean` | composes the literal model into `relay_loop_sound_literal_derived_tight`; reads and structural guards are derived from explicit model preconditions, while ecrecover and model-to-deployment fidelity remain boundaries |
-| `RelayStorageLayer.lean` | storage round-trip and accept-write components |
+| `RelayBodyEff.lean` | composes the literal model into `relay_loop_sound_literal_derived_tight` and connects the protocol-1 transient threshold seam to that loop; reads and structural guards are derived from explicit model preconditions, while ecrecover and model-to-deployment fidelity remain boundaries |
+| `RelayStorageLayer.lean` | persistent/transient storage round-trip, clear, account-isolation, and accept-write components |
 | `RelayFeeLayer.lean` | fee and balance-transfer conservation components |
 
 `RelayBodyEff.lean` is the one file that `import`s its siblings; checking it needs them compiled into the
@@ -75,10 +75,12 @@ lake env lean RelayLoopWindows.lean
 lake env lean RelayLoopLiteral.lean
 lake env lean RelayStorageLayer.lean
 lake env lean RelayFeeLayer.lean
-# RelayBodyEff.lean imports the three siblings, so compile them into the package lib first
+# RelayBodyEff.lean imports four siblings, so compile them into the package lib first
 # (a plain LEAN_PATH prepend does NOT work — Lean won't fall through to it):
 LIB=.lake/build/lib/lean
-for f in DataLayer RelayLoopWindows RelayLoopLiteral; do lake env lean -o $LIB/$f.olean $f.lean; done
+for f in DataLayer RelayLoopWindows RelayLoopLiteral RelayStorageLayer; do
+  lake env lean -o $LIB/$f.olean $f.lean
+done
 lake env lean RelayBodyEff.lean                          # literal model + relay_loop_sound_literal_derived_tight
 ```
 
@@ -122,7 +124,7 @@ closes BR-3.
 - `ecrecover` (`0x01`) is the uninterpreted matcher (assumptions MC-2 / OP-1).
 
 Then prove `exec` of the loop preserves `R` with `(weight', nui') = RelaySigLoop.loop w weight nui sigs`,
-and transfer [`RelaySigLoop.threshold_sound`](../RelaySigLoop.lean#L102) through it. **Progress + feasibility (investigated):**
+and transfer [`RelaySigLoop.threshold_sound`](../RelaySigLoop.lean#L106) through it. **Progress + feasibility (investigated):**
 - *Byte-decode layer — ✅ done.* `DataLayer.lean` proves the big-endian round-trip
   (`fromBytesBigEndian_toBytesBigEndian`) about EVMYulLean's real functions, hole-free (reuses EVMYulLean's
   existing `@[simp] fromBytes'_toBytes'`; the padding/bounds lemmas also exist upstream).
@@ -160,8 +162,8 @@ and transfer [`RelaySigLoop.threshold_sound`](../RelaySigLoop.lean#L102) through
   does not perturb `activeWords`); `loop_accM` runs the `3N+15`-fuel induction.
 - *Simulation relation `R`, accounting core — ✅ done (`RelayLoopMemRead.lean:relay_loop_sound`); the
   selection/validity half of `R` is assumed (see below).* Composes the EVM
-  accumulation with the abstract loop: ∀N, **if the modeled loop accepts under its hypotheses, the total registered voting weight
-  exceeds the threshold** (no voter double-counted), on the validated EVM. The `bridge` lemma identifies the
+  accumulation with the abstract loop: ∀N, **if the modeled loop accepts under its hypotheses, the total indexed policy weight
+  exceeds the threshold** (no policy slot repeated), on the validated EVM. The `bridge` lemma identifies the
   integer masked-read accumulator with the abstract `sigLoop` accumulated weight; the abstract
   `sumTake`/`sigLoop`/`ValidRun`/`threshold_sound` are restated here (identical to `../RelaySigLoop.lean`) so
   one `lake env lean` checks the whole chain. The **behaviour of the external call is an assumption**, as
@@ -170,10 +172,12 @@ and transfer [`RelaySigLoop.threshold_sound`](../RelaySigLoop.lean#L102) through
   stated hypotheses `hcov` / `hcorr` / `hvalid` / `hnoovf` (MC-2 / OP-1 / BR-1 / BR-2). `hcorr` is discharged
   per-slot by `DataLayer.weight_read`. Within this model, the loop mechanism, `mload`, mask, accumulation,
   accept gate, and accounting soundness are proved against the validated semantics.
+  Voter addresses are outside this model: distinct-identity threshold claims require the separate policy
+  admission invariant that voter addresses are unique.
 - *Literal conditional body model — ✅ checked as stated (`RelayBodyEff.lean`, with `RelayLoopLiteral.lean` +
   `RelayLoopWindows.lean`; 2026-07-02/03).* The "remaining, optional" item above is built. It executes the
   **17-statement hand-transliterated body model** `bodyL`, sourced from the optimized-Yul signature loop
-  beginning at `relay_ir_optimized.yul:2175` — through the validated Yul `exec`, threading modeled
+  beginning at `relay_ir_optimized.yul:1516` — through the validated Yul `exec`, threading modeled
   `mstore`/`calldatacopy`/`mload` state (no `hcov` state-preservation assumption). The chain, all hole-free:
   `body_effL` (one iteration) → `s16_ww_advance`/`s16_ii_preserved` (the body adds exactly the selected
   voter's registered weight, preserves the counter) → `iter_advance` (the per-iteration advance `hstep`,
@@ -202,6 +206,14 @@ storage/dispatch/write breadth, but is not a byte-complete refinement of `relay(
   with the `perm=true` static-mode guard) + `sstore_reads_back` — executing the accept-branch write
   `sstore(merkleRootsPrivate[protocolId][votingRoundId], merkleRoot)` (Relay.sol:1394) stores a value that
   reads back, via `sstore_sload`.
+- **R5.3b — protocol-1 transient threshold seam — ✅ proved at the supported seam**
+  (`RelayStorageLayer.lean`, `RelayBodyEff.lean`): `tstore_tload`, `tstore_zero_tload`, and
+  `tstore_otherAccount` prove the modeled EIP-1153 round-trip, zero clear, and account isolation;
+  `protocolOne_tload_override_loop_sound` then composes the loaded nonzero value with the existing literal
+  strict-loop theorem, proves exact cross-product semantics, and proves no wrap under the parser bound and
+  production `overrideBIPS < 10000` guard. The theorem exposes `hsetupThreshold` for the unextracted
+  `TSTORE -> self-call -> TLOAD -> threshold-local` call-frame path. It does not claim self-call
+  propagation, revert rollback, or transaction-end clearing.
 - **R5.4 — fees — ✅ done** (`RelayFeeLayer.lean`): `verify()` fee conservation. Word- and integer-level
   `fee + (msg.value − fee) = msg.value` with no under/overflow (`fee_conservation` / `fee_conservation_toNat`),
   the `transferBalance` value-conservation primitive (`transfer_conservation` — the balance analog of

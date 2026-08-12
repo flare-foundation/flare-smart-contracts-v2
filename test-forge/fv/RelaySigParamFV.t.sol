@@ -97,7 +97,7 @@ contract RelaySigParamFV is RelayTestBase {
         assert(!_call(r, p, sigs));
     }
 
-    // ---- P1 (parametric) — no-double-count, two duplicate layouts ----
+    // ---- P1 (parametric) — no-repeat-index, two duplicate-index layouts ----
     // A repeated voter index cannot inflate weight past the threshold. We assume single-counting the
     // non-repeated prefix is insufficient, so the only way to clear the threshold would be to count a
     // voter twice; the strict-increase guard rejects the repeat, so relay() cannot accept.
@@ -111,7 +111,8 @@ contract RelaySigParamFV is RelayTestBase {
     {
         // Hypothesis: counting voters 0 and 1 ONCE each (w0+w1) does not clear thr. So the only route to
         // acceptance would be to count voter 1 a SECOND time via the repeated index — which the contract's
-        // strict-increase index guard forbids. A PASS shows that double-counting escape is impossible.
+        // strict-increase index guard forbids. A PASS excludes repeated slots; voter addresses are
+        // distinct by this harness's A4 construction, not by a production admission check.
         vm.assume(uint256(w0) + uint256(w1) <= uint256(thr));
         (Relay r, bytes memory p) = _deploy(w0, w1, 0, thr);
         bytes memory sigs = abi.encodePacked(

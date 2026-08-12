@@ -63,8 +63,8 @@ contract RelaySigFV is RelayTestBase {
         assert(!_relayCall(sigs));
     }
 
-    // P1 — No-double-count (bounded, 3 slots, indices [0,1,1]). The repeated index is rejected
-    // ("Index out of order"), so a voter cannot be counted twice; max honest weight is 200 <= 260.
+    // P1 — No-repeat-index (bounded, 3 slots, indices [0,1,1]). The repeated index is rejected
+    // ("Index out of order"), so a policy index cannot be counted twice; max indexed weight is 200 <= 260.
     // EXPECT: PASS.
     function check_noDoubleCount_duplicateIndex_cannotAccept(
         uint8 v0, bytes32 r0, bytes32 s0,

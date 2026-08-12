@@ -1,170 +1,286 @@
-# Certora — Relay cross-transaction storage invariants
+# Certora verification for Relay
 
-> **Current-status boundary (2026-07-26).** The linked cloud runs below were
-> made against the pre-GSS `relay-fix-3` contract. They remain useful historical
-> evidence for the unchanged relay/signing-policy core, but they are not current
-> proofs of `processGSSMessage` or its state. The checked-in CVL now replaces the
-> removed `governanceFeeNonce` rule with four GSS state-machine rules covering
-> the global high-water mark, owner-generation nonce, hash/generation coupling,
-> and consumed-nonce permanence. The current rule set must be rerun before any
-> result is claimed for `relay-fix-3-gss`. The current sources pass the pinned
-> local front-end gate for both configs (CLI 8.16.1, Java 21, solc 0.8.27,
-> compile + CVL typecheck + exact munge). That is not a cloud proof verdict.
+This directory targets the current `relay-owner-timelock` architecture:
 
-CVL specs for the properties where **Certora genuinely beats the Halmos/Kontrol proofs in this repo**:
-*parametric* storage invariants that hold over **every function and every call sequence**, not just the
-specific sequences those tools could enumerate.
+- upgradeable `Relay` implementation compiled with Solidity 0.8.35;
+- per-chain `OwnableUpgradeable` owner;
+- exact-calldata owner timelock in an ERC-7201 namespace; and
+- UUPS upgrades guarded by that same owner-timelock path.
 
-## Current rule inventory (`specs/RelayInvariants.spec`)
+The retired cross-chain Safe/GSS model is not part of the current source graph.
+Its specifications and configurations were removed rather than left as apparently
+executable evidence. Git history remains the record of that abandoned design.
 
-| Rule | Property | Current GSS status |
-|------|----------|---------------------------|
-| `governanceSafeNonceMonotonic` | `lastGovernanceSafeNonce` never decreases, ∀ function | local typecheck pass; cloud proof pending |
-| `governanceOwnerConfigSafeNonceMonotonic` | owner-configuration generations never regress, ∀ function | local typecheck pass; cloud proof pending |
-| `governanceOwnerHashChangeAdvancesGeneration` | a changed owner hash strictly advances its generation | local typecheck pass; cloud proof pending |
-| `governanceConsumedNonceWriteOnce` | a consumed Safe nonce can never become reusable | local typecheck pass; cloud proof pending |
-| `lastInitializedMonotonic` | `lastInitializedRewardEpoch` never regresses, ∀ function | historical cloud baseline; current local typecheck pass; cloud proof pending |
-| `signingPolicySetterImmutable` | the setter authority is immutable after construction | historical cloud baseline; current local typecheck pass; cloud proof pending |
-| `policyHashWriteOnce` | a finalized signing-policy hash is never overwritten/cleared (under the documented reachable-state link) | historical cloud baseline; current local typecheck pass; cloud proof pending |
-| `merkleRootWriteOnce` | a finalized Merkle root is write-once per `(protocolId, votingRoundId)` | historical cloud baseline; current local typecheck pass; cloud proof pending |
+## Current evidence status
 
-(The first six run against the production contract as-is — [`Relay.conf`](Relay.conf) historically,
-[`Relay-rawstorage.conf`](Relay-rawstorage.conf) for the discharged runs. The write-once pair runs against
-[`harness/RelayHarness.sol`](harness/RelayHarness.sol) over the munged tree — see *The write-once route*
-below — via [`Relay-writeonce.conf`](Relay-writeonce.conf).)
+> **Current normalized evidence.** At HEAD
+> `d5af7136c03d6bab83307b0f4bd49101b8792e40`, manifest SHA-256
+> `7ae2208f96a520f477b528ee808909f87e9402247bacab00e04052fa02ec2cb1`
+> binds 3 Certora configs and an exact 15-rule inventory. The normalized local
+> report SHA-256
+> `9d3ce0394ebcfadb2b415021a077a0a29761814a11a510d90d23364f97185067`
+> is **PASS** (3/3 configs, 15 rules, 0 local violations). This is a
+> compilation/CVL front-end result, not a prover verdict. The aggregate local
+> evidence bundle SHA-256
+> `be386d63acdd336b99ab84c64cb0f32ba9c3bafbba02b17164ebd176b7e4f64a`
+> is also **PASS**, but both artifacts are development-only solely because they
+> were generated from a dirty worktree. A clean committed rerun is required for
+> release-eligible evidence.
 
-Each is a `rule … (method f)` — Certora checks it for **all** external/public methods and arbitrary args
-(quantifying over all callers and sequences). ecrecover is left NONDET (modeling contract A2): the storage
-invariants hold regardless of which signatures the prover admits.
+The current three-config local run used:
 
-## Honest scope
+- `certora-cli 8.16.1`;
+- Java 26 (the manifest requires at least Java 21);
+- `solc 0.8.35+commit.47b9dedd`;
+- Cancun EVM, optimizer 200, `viaIR=true`; and
+- OpenZeppelin contracts and upgradeable contracts 5.7.0.
 
-- Certora, like Halmos and Kontrol, **unrolls the within-call signature loop** (`loop_iter`), so it does
-  **not** close the ∀N within-call signature-loop gap better than Kontrol. The ∀N∀K signature-loop
-  soundness remains the Lean proof (`../test-forge/fv/lean/RelaySigLoop.lean`). Certora's value here is the
-  cross-transaction **storage** invariants above.
-- **Historical baseline status:** cloud-proven for every then-present function except
-  `relay()` (and, under the deployment `via-ir` codegen only,
-  `setSigningPolicy`) — see the run matrix below. Those runs passed
-  `rule_sanity basic`, so their SUCCESS verdicts were non-vacuous. They do not
-  cover the current GSS functions.
-- **Two codegens, two fidelity levels.** The `via-ir` runs match the deployment compilation pipeline; the
-  `legacy`-codegen runs compile the same source the classic way and achieve strictly wider function
-  coverage (they additionally prove `setSigningPolicy`). A legacy-codegen proof is evidence about the
-  *source semantics* rather than the deployed bytes — corroborating, one notch below deployment-grade.
+The normalized supplemental cloud report SHA-256
+`93d09d86d1acbf3b3ffdb0f6d9f8145b094722b9b7de94e131ef8e8e97ca4821`
+binds the same HEAD and manifest and is **PARTIAL**. Its threshold configuration
+is **PASS**; the scalar and write-once configurations are **PARTIAL** because of
+sanity exclusions. Across all three jobs, the normalized semantic totals are
+308 `SUCCESS`, 2 `SATISFIED`, and 24 `SANITY_FAIL`, with no semantic assertion
+counterexample, `UNKNOWN`, or `TIMEOUT`. Imported cloud results are supplemental
+evidence, not a constituent of the local aggregate bundle or a release verdict.
 
-## How to run (with a Certora account)
+Current cloud jobs:
+
+- [scalar invariants](https://prover.certora.com/output/3798318/96136f4b1ce349889963c722745f6d8a)
+- [threshold fail-fast and arithmetic](https://prover.certora.com/output/3798318/a133698c16d54e7cb4a518a3251dd73a)
+- [write-once and timelock transitions](https://prover.certora.com/output/3798318/5f29c9d404134b7aa3578484455bf424)
+
+## Rule inventory
+
+[`Relay.conf`](Relay.conf) checks scalar preservation rules directly against the
+production implementation:
+
+| Rule                                        | Claim                                                                                          |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `sourceChainIdImmutableAfterInitialization` | ordinary current-implementation calls cannot change the initialized source domain              |
+| `signingPolicySetterModeStable`             | relay mode cannot gain a setter and setter mode cannot be cleared; a nonzero setter may rotate |
+| `lastInitializedMonotonic`                  | the initialized reward epoch does not regress                                                  |
+| `ownerCannotBecomeZero`                     | ownership may rotate but cannot be renounced or transferred to zero                            |
+| `timelockDurationBoundPreserved`            | an in-range delay remains at most seven days                                                   |
+| `feeCollectionAddressCannotBecomeZero`      | an established fee recipient cannot be cleared                                                 |
+
+[`Relay-writeonce.conf`](Relay-writeonce.conf) checks raw mappings and timelock
+transitions against [`RelayHarness`](harness/RelayHarness.sol):
+
+| Rule                                | Claim                                                                                                                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `policyHashWriteOnce`               | an initialized policy hash cannot be overwritten by an ordinary current-implementation call, under the documented reachable-state epoch link                                     |
+| `merkleRootWriteOnce`               | a nonzero finalized root cannot be overwritten by an ordinary current-implementation call                                                                                        |
+| `onlyOwnerCanEnterGuardedSurface`   | with the transient execution flag clear, a non-owner cannot enter any of the six guarded mutation entry points                                                                   |
+| `delayedOwnerCallDoesNotApply`      | with a positive delay, a successful non-upgrade owner call cannot apply a sampled Relay-state mutation; queue creation itself is covered by Halmos/concrete tests                |
+| `successfulExecutionConsumesQueue`  | a ready, successful execution of one of the five non-upgrade guarded calls deletes its exact entry and clears the transient flag; a real applied setter witness prevents vacuity |
+| `successfulDurationUpdateIsBounded` | a successful duration update respects the seven-day cap; a clean-boundary owner witness proves a zero-delay update is actually applied rather than queued or reverted            |
+| `ownershipRenounceAlwaysReverts`    | Relay cannot renounce ownership                                                                                                                                                  |
+
+[`Relay-threshold.conf`](Relay-threshold.conf) isolates the wrapper's fail-fast
+opcode checks and the threshold arithmetic lemma from the established
+mapping/timelock job:
+
+| Rule                                               | Claim                                                                                                                                                                                                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `thresholdAtOrAbove100PercentRevertsBeforeEffects` | with zero call value and `thresholdBIPS >= 10000`, the real wrapper reverts before any Relay `SSTORE`, `TSTORE`, or `CALL`; persistent opcode ghosts keep attempted-effect observations visible through the expected revert                                        |
+| `thresholdFloorCrossProductArithmeticLemma`        | for production-bounded nonnegative weights and `BIPS < 10000`, strict comparison against `floor(totalWeight * BIPS / 10000)` is mathematically equivalent to the exact cross-product inequality; this is not an implementation-link proof of Relay's Yul threshold |
+
+## Cloud-proof interpretation and bounds
+
+Every configuration enables `rule_sanity=basic`. This checks that the end of a
+rule remains reachable after its assertions are removed; it does not by itself
+show that a conditional `reverted || property` reached the successful branch.
+The two success-conditional timelock rules therefore include explicit `satisfy`
+witnesses. `ownershipRenounceAlwaysReverts` and the threshold fail-fast rule
+intentionally have no successful path: rejection is their property, so a generic
+non-revert witness is inapplicable. The current normalized cloud report records
+24 sanity exclusions and two concrete SAT witnesses. These outcomes must be read
+per rule and per method rather than hidden behind the CLI's aggregate banner.
+
+All three configurations set `loop_iter=3` and `optimistic_loop=true`. Certora may
+assume away executions that continue past three loop iterations, so a cloud
+`SUCCESS` is conditional on this bounded loop model and is not an unrestricted
+all-input result for Relay's longer loops.
+
+All three configurations also set `optimistic_hashing=true` with
+`hashing_length_bound=512`. The Prover therefore assumes that every unbounded
+byte chunk it hashes is at most 512 bytes. In `Relay-writeonce.conf`, this
+includes the timelock's `encodedCall` and the raw `msg.data` hashed when an owner
+call is queued. The current threshold fail-fast rule rejects before parsing or
+hashing the relay message, and the arithmetic lemma is pure, so this hashing
+assumption is not load-bearing for either current threshold claim. Other claims
+remain limited to hashed inputs at or below 512 bytes; inputs longer than the
+bound are not proved safe.
+
+The threshold fail-fast rule invokes the real
+`verifyCustomSignatureWithThreshold` method, with zero call value to exclude the
+unrelated nonpayable guard. Persistent `ALL_SSTORE`, `ALL_TSTORE`, and `CALL`
+ghosts are essential: unlike ordinary ghosts, their observations are not erased
+when the expected Solidity revert rolls back. The rule therefore establishes that
+every `uint16` threshold at or above 10000 is rejected before either kind of store
+or the raw-calldata self-call. There is no dispatcher, `HAVOC`, or `NONDET`
+summary in this spec.
+
+Certora does **not** currently claim the below-100% successful path. In the
+superseded attempt, solc's via-IR lowering did not leave the Prover a sufficient
+relation between `_relayMessage`'s CVL bytes and the low-level `CALL` selector for
+a pessimistic dispatcher to eliminate its fail-closed fallback. An optimistic
+dispatcher would merely assume the key match. Successful override forwarding,
+`TSTORE -> self-call -> TLOAD`, zero cleanup, caught-revert rollback, address
+scope, and protocol-mode isolation therefore remain the responsibility of the
+bounded Halmos checks and the stated Lean operation/state refinement seam, with
+their documented bounds and assumptions. Lean keeps this dependency explicit as
+the `hsetupThreshold` hypothesis; it is not discharged by either threshold
+Certora rule.
+
+The separate Certora arithmetic lemma proves only the floor/cross-product
+identity: CVL cannot directly expose the Yul-local threshold variable, so this
+layer does not by itself link that identity to the production
+`div(mul(totalWeight, overrideBIPS), 10000)` instruction. At `BIPS == 0` the
+identity remains mathematical only: production treats zero as the no-override
+sentinel and uses the policy threshold.
+
+All three scenes compile through `viaIR=true`. The current jobs preserve their
+cloud call-resolution diagnostics. A “failed to locate internal function” diagnostic
+does not by itself omit that code: without an internal summary, the TAC remains
+inlined and attributed to the enclosing external method. It does limit internal
+function attribution, decomposition, and the applicability of an internal
+summary. The normalized report contains no semantic counterexample, `UNKNOWN`,
+or `TIMEOUT`, but its `viaIR` resolution diagnostics and 24 sanity failures remain
+limitations of the current scalar and write-once jobs. In particular, the direct
+implementation scene cannot establish full proxy-context reachability for UUPS;
+proxy upgrade behavior remains a separate proxy-aware verification and test
+obligation.
+
+## Trusted-upgrade boundary
+
+The parametric scalar and mapping-preservation rules exclude:
+
+1. `initialize(...)`, which establishes proxy state;
+2. `upgradeToAndCall(...)`, which can deliberately replace every implementation
+   invariant; and
+3. `executeTimelockedCall(...)`, because it can dispatch the queued upgrade.
+
+This exclusion is necessary for sound specification. An owner-authorized UUPS
+upgrade can install arbitrary code, so an invariant over the old implementation
+cannot quantify over arbitrary replacement semantics. The CVL still checks the
+owner entry guard and current-implementation timelock queue behavior. The
+`successfulExecutionConsumesQueue` uses a positive, exact-selector allowlist for
+the five non-upgrade owner methods; this excludes every
+`upgradeToAndCall(address,bytes)` call, whose selector is `0x4f1ef286`. The
+four-byte length guard is load-bearing because out-of-bounds CVL array reads are
+otherwise unconstrained. The rule also requires a clean external boundary,
+zero-value execution, and a nonzero queue timestamp whose ETA has passed. Its
+outer caller remains unconstrained because execution is permissionless after the
+ETA.
+
+Inside `RelayHarness.executeTimelockedCall(bytes)`, the unresolved self-call uses
+the default pessimistic `DISPATCH` mode and explicitly lists the same five
+methods, so a matching selector executes real current-implementation code; only
+unmatched calls fall back to `HAVOC_ECF`. The explicit success witness further
+requires canonical `setTimelockDuration(uint256)` calldata and an observed
+in-range duration change. Thus neither a queued no-op nor the fallback summary
+can be the sole reachability evidence. The current detailed SAT model
+exhibited the intended queued duration call's ETA consumption, transient-flag
+cleanup, and applied duration mutation.
+
+Upgrade arguments are deliberately not parsed or constrained: every call to the
+UUPS entry point is outside the execution rule, including malformed calls that
+would revert.
+
+The queue claim therefore means: for a successful non-upgrade self-call executed
+by the currently modeled Relay implementation, the exact queue entry is consumed
+and the transient authorization flag is cleared. It does **not** establish that a
+queued upgrade succeeds through a proxy, that arbitrary replacement or migration
+code preserves the timelock namespace, that a new implementation is
+storage-compatible, or that migration calldata is safe.
+
+Unresolved old-Relay, precompile and external-call boundaries use an ECF summary.
+The rules therefore assume an external callback does not cause an owner-controlled
+upgrade during the modeled operation. Cryptographic correctness of `ecrecover`
+and `keccak256` is outside this storage-invariant layer.
+
+## Faithful mapping access
+
+The two mappings written from Relay's large assembly routine are private.
+[`munge.sh`](munge.sh) regenerates `certora/munged/` from production source and
+changes exactly these two visibility keywords from `private` to `internal`:
+
+- `toSigningPolicyHashPrivate`; and
+- `merkleRootsPrivate`.
+
+All current owner-timelock dependencies are copied byte-for-byte. The script deletes
+the generated tree first, preventing retired architecture files from surviving a
+regeneration, then fails if the Relay diff is anything other than those two lines.
+The harness adds read-only raw getters; it does not alter production storage.
+
+## Reproduce the local preparation gate
+
+From the repository root, with the pinned tools available:
 
 ```bash
-pip install certora-cli            # tested: certora-cli 8.16.1
-export CERTORAKEY=<your key>
-# from the repo root, with dependencies/ present (soldeer) and a solc 0.8.27 binary:
-certoraRun certora/Relay.conf --solc /path/to/solc-0.8.27
+bash certora/munge.sh
 
-# Local fail-closed front-end gate (no key/cloud; needs JDK 21+):
+certoraRun certora/Relay.conf \
+  --compilation_steps_only \
+  --solc /path/to/solc-0.8.35
+
+certoraRun certora/Relay-threshold.conf \
+  --compilation_steps_only \
+  --solc /path/to/solc-0.8.35
+
+certoraRun certora/Relay-writeonce.conf \
+  --compilation_steps_only \
+  --solc /path/to/solc-0.8.35
+
 python3 test-forge/fv/verify_certora_local.py \
-  --solc /path/to/solc-0.8.27 \
+  --solc /path/to/solc-0.8.35 \
   --report-output verification-reports/relay-certora-local.json
 ```
 
-The local gate verifies exact tool versions, runs `munge.sh`, compiles and
-typechecks `Relay.conf` and `Relay-writeonce.conf`, and emits normalized bundle
-evidence. A local `compilation_steps_only` success means the current spec is
-well-formed against the current contract; only a cloud run can establish a CVL
-rule as proven.
+The Python wrapper additionally enforces the manifest's exact CLI and solc versions,
+plus a minimum Java major version of 21. CI separately pins the exact Temurin build
+and archive digest. Before invoking Certora it fail-closes on config drift: the exact config
+set and its complete proof-semantic field inventory — source/target, packages,
+compiler, loop/hash optimism and bounds, sanity/wait modes, prover arguments,
+and ordered rule inventory — must match the manifest;
+the rule declarations discovered in each CVL file must match too. Config/spec and
+command-output hashes are recorded in the normalized report.
 
-If solc/import resolution differs in your setup, adjust `solc`, `packages`, and `solc_via_ir` in
-`Relay.conf` to match the repo's foundry remappings (see `../remappings.txt`).
+## Run the cloud prover
 
-## Historical baseline: the inline-assembly wall and its 2026-07-15 discharge
-
-**The wall.** The first two cloud runs
-(https://prover.certora.com/output/3798318/a9a6c094009f4711852a166db63ac06f,
-https://prover.certora.com/output/3798318/93ef4cf514274eac9f089c3ac3533be9) reported spurious "violations"
-of all three scalar rules on every assembly-writing function, and `UNKNOWN` for the write-once pair. Cause:
-Relay builds mapping slots in scratch memory (`keccak256(mload(0x40), 64)`) and writes the bit-packed
-`StateData` whole-slot via assembly; when Certora's **storage-splitting analysis** cannot attribute an
-`sstore`, it havocs all storage — so every invariant "broke" on every assembly writer, including slots the
-function never touches (the tell: `setSigningPolicy` "violating" `signingPolicySetterImmutable`, a slot it
-never writes). This was ledger item **C-1**.
-
-**The discharge.** The fix was *not* the ghost/hook re-modeling this README previously prescribed — it was
-removing the failing analysis from the loop entirely:
-
-- **`-enableStorageSplitting false`**: storage becomes one SMT array, and aliasing is decided by the
-  prover's **injective hashing model** (a keccak-derived location is guaranteed distinct from the scalar
-  slots and from other keys' locations). The spurious cross-slot havoc vanishes with **zero spec changes**
-  for the three getter-based rules.
-- **`optimistic_hashing` + `hashing_length_bound 512`**: load-bearing on the
-  historical source, not cosmetic — the discriminator run (A2 below) showed
-  the then-present `governanceFeeSetup`, which hashed unbounded message bytes,
-  failed under the default pessimistic 224-byte bound and passed with the flags.
-
-### Historical run matrix (pre-GSS; all with `rule_sanity basic`)
-
-| Run | Codegen | Rules | Verdict | Report |
-|-----|---------|-------|---------|--------|
-| A ([`Relay-rawstorage.conf`](Relay-rawstorage.conf)) | via-ir | 3 scalar | **19/21 fns proven**; `relay()`, `setSigningPolicy` vacuous | [8e14cd3b](https://prover.certora.com/output/3798318/8e14cd3b30c74af5a4dd234350208e63?anonymousKey=dafb962bd63b9c6ec63e383a02b5c70a7ff5b030) |
-| A2 ([`Relay-rawstorage-A2.conf`](Relay-rawstorage-A2.conf)) | via-ir, default hashing | discriminator | hashing flags load-bearing; vacuity intrinsic to splitting-off | [bb56456c](https://prover.certora.com/output/3798318/bb56456c933f44959cf52e808b0282f9?anonymousKey=88093e9e238dc658a63b457cf8a4fc88afd1730e) |
-| A3 ([`Relay-rawstorage-A3.conf`](Relay-rawstorage-A3.conf)) | **legacy** | 3 scalar | **20/21 proven** — `setSigningPolicy` included; only `relay()` vacuous | [757ee100](https://prover.certora.com/output/3798318/757ee100d32c4d02a56d628a048990ff?anonymousKey=56c92dbd7c6e5fc96201f48203f655c092d6400c) |
-| B ([`Relay-writeonce.conf`](Relay-writeonce.conf)) | via-ir | 2 write-once | 21/23 proven (pre-link run) | [01afed2b](https://prover.certora.com/output/3798318/01afed2b1329420497645a5555a78ca0?anonymousKey=7a7ad1c1aa3cfae35c3ccf4db611d86b7986a122) |
-| B2 ([`Relay-writeonce-B2.conf`](Relay-writeonce-B2.conf)) | legacy | 2 write-once | found the **unreachable-state counterexample** (below) | [f4777ba7](https://prover.certora.com/output/3798318/f4777ba7d0864b53afd6cc302f86bb1e?anonymousKey=4b7686a2ced0119a0aaddef5031537cbdd2e7a3f) |
-| B3 (B2 conf, spec+link) | legacy | 2 write-once | **22/23 proven** — incl. `setSigningPolicy`, the policy-hash writer; only `relay()` vacuous | [d6877cf6](https://prover.certora.com/output/3798318/d6877cf6b08d4037a08c7ddc879b0de7?anonymousKey=ff471ce600844df6bbdaccb414b6f8e85716e688) |
-| B1b (B conf, spec+link) | via-ir | 2 write-once | 21/23 proven; no regression | [9406f186](https://prover.certora.com/output/3798318/9406f186eda94a5dbd3c21f6690ef76b?anonymousKey=2e34180b0982ec0720535052c1b1caf47150d297) |
-
-### The write-once route (munge + harness)
-
-The write-once rules originally read the two private mappings via CVL *direct storage access*, which
-depends on the same analysis the assembly defeats. They are restated over plain-Solidity view getters:
-
-- [`munge.sh`](munge.sh) regenerates [`munged/`](munged/) from the production sources, changing **exactly
-  two visibility keywords** (`private → internal` on the two mappings) — and **fails if the diff is
-  anything else**. Faithfulness is machine-checked on every run, never hand-trusted.
-- [`harness/RelayHarness.sol`](harness/RelayHarness.sol) adds `policyHashAt` / `merkleRootAt` raw readers
-  (the production getters are unusable here: `toSigningPolicyHash()` delegates to `oldRelay`,
-  `merkleRoots()` gates on protocol id).
-- [`specs/RelayWriteOnce.spec`](specs/RelayWriteOnce.spec) restates the two rules over those getters.
-
-### The B2 counterexample — the prover working correctly
-
-Under legacy codegen (where `setSigningPolicy` has model coverage), the prover exhibited a real gap in the
-*rule as stated*: parametric rules start from **arbitrary** storage, including the unreachable state
-"`hash[E] ≠ 0` while `lastInitializedRewardEpoch = E−1`", from which `setSigningPolicy(E)` legitimately
-rewrites epoch E (its guard only enforces `rewardEpochId == lastInitialized + 1`). On every *reachable*
-state a non-zero hash exists only for epochs ≤ the initialized pointer (the constructor seeds the initial
-epoch; both writers — the setter and `relay()` Mode-1 — write exactly `lastInitialized + 1`, then advance).
-The rule now carries that **reachable-state link** as a documented `require`
-(`epoch <= lastInitializedRewardEpoch`) — stated in the rule, visible to any auditor. Two useful
-by-products: the write-once rules demonstrably exercise `setSigningPolicy`'s real write path, and the
-epoch-sequencing gate is identified as the load-bearing mechanism behind policy-hash immutability.
-
-### The honest residual — `relay()`
-
-Under `-enableStorageSplitting false`, `relay()` (and under via-ir also `setSigningPolicy`) has **no
-non-reverting path in the prover's model** (`SANITY_FAIL`): the rules hold for it only vacuously. This is
-intrinsic to the no-splitting storage model on the ~930-line assembly body — **the ghost/hook route cannot
-rescue it** (raw `ALL_SSTORE`/`ALL_SLOAD` hooks *require* splitting-off, so any ghost-restated rule
-inherits the same vacuity). The failure mode is now *no coverage* (visible, flagged by `rule_sanity`)
-rather than *false alarms* — and `relay()`'s storage behavior is exactly where the rest of the stack
-concentrates: Halmos proves the epoch-decision matrix, nonce sequences, and write paths on the **real
-bytecode** (`RelayEpochAdvanceFV` and the Mode-2 harnesses), Kontrol proves the ∀K
-loop invariant, and the Lean literal model proves the accept-path storage write on validated EVM semantics.
-
-### Reproduce
+With a Certora account key:
 
 ```bash
-export CERTORAKEY=<your key>   # cloud account required
-# three scalar rules (production contract, no munge needed):
-certoraRun certora/Relay-rawstorage.conf --solc /path/to/solc-0.8.27      # via-ir, 19/21
-certoraRun certora/Relay-rawstorage-A3.conf --solc /path/to/solc-0.8.27   # legacy, 20/21
-# write-once rules (regenerate + verify the munged tree first):
-./certora/munge.sh
-certoraRun certora/Relay-writeonce.conf --solc /path/to/solc-0.8.27       # via-ir, 21/23
-certoraRun certora/Relay-writeonce-B2.conf --solc /path/to/solc-0.8.27    # legacy, 22/23
-# the historical wall (for comparison — spurious violations):
-certoraRun certora/Relay.conf --solc /path/to/solc-0.8.27
+export CERTORAKEY=<key>
+certoraRun certora/Relay.conf --solc /path/to/solc-0.8.35
+certoraRun certora/Relay-threshold.conf --solc /path/to/solc-0.8.35
+certoraRun certora/Relay-writeonce.conf --solc /path/to/solc-0.8.35
 ```
 
-Note the CLI's exit banner lumps `SANITY_FAIL` under "violations" — judge from the per-rule statuses in the
-report (`output.json`): `SUCCESS` = proven non-vacuously, `SANITY_FAIL` = vacuous for that function (the
-`relay()` residual), `FAIL` = a real counterexample.
+Normalize saved logs together with the exact CLI submission archives:
+
+```bash
+python3 test-forge/fv/verify_certora_cloud.py \
+  --run certora/Relay.conf=/path/to/scalar.log=/path/to/scalar-submission.zip \
+  --run certora/Relay-threshold.conf=/path/to/threshold.log=/path/to/threshold-submission.zip \
+  --run certora/Relay-writeonce.conf=/path/to/writeonce.log=/path/to/writeonce-submission.zip \
+  --report verification-reports/relay-certora-cloud.json
+```
+
+Do not convert a local `compilation_steps_only` pass into a proof claim, or read
+the CLI's aggregate `FAIL` label on a SAT `satisfy` subnode as a property
+counterexample. The normalizer binds job identity, archive inputs, config/spec
+semantics, every authoritative result block, and the detailed SAT witness table.
+Imported cloud evidence remains development-only. Record the commit, manifest,
+compiler settings, rule inventory, report URLs, per-method outcomes, and every
+sanity exclusion before updating the claims ledger.
+
+## Historical evidence
+
+Earlier jobs targeted predecessor source, manifests, or a non-upgradeable,
+pre-owner-timelock Relay with different compiler settings. They remain useful for
+explaining why the successful threshold-path dispatcher was retired, but none is
+evidence for the current revision. Use only the current normalized reports and
+the three current job URLs listed above for present-tense claims.

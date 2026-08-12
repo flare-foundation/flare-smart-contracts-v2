@@ -18,6 +18,18 @@ from typing import Any
 FV_DIR = Path(__file__).resolve().parent
 REPO_ROOT = FV_DIR.parents[1]
 DEFAULT_MANIFEST = FV_DIR / "verification-manifest.json"
+if str(FV_DIR) not in sys.path:
+    sys.path.insert(0, str(FV_DIR))
+from report_provenance import (  # noqa: E402
+    GENERATED_MODE,
+    IMPORTED_MODE,
+    capture_git_state,
+    clean_install_soldeer,
+    finalize_soldeer,
+    finalize_generation_provenance,
+    report_commit,
+)
+from verify_relay_custom_error_abi import keccak256  # noqa: E402
 
 
 def bytecode_bytes(value: str, label: str) -> bytes:
@@ -26,59 +38,70 @@ def bytecode_bytes(value: str, label: str) -> bytes:
     return bytes.fromhex(value[2:])
 
 
-def strip_cbor_metadata(value: str, label: str = "bytecode") -> tuple[bytes, int]:
+def strip_cbor_metadata(value: str, label: str = "bytecode") -> tuple[bytes, int, int, int]:
     raw = bytecode_bytes(value, label)
     if len(raw) < 2:
         raise ValueError(f"{label} is too short to contain a CBOR length suffix")
-    metadata_length = int.from_bytes(raw[-2:], "big")
-    suffix_length = metadata_length + 2
-    if suffix_length >= len(raw):
-        raise ValueError(f"{label} has invalid CBOR metadata length {metadata_length}")
-    metadata = raw[-suffix_length:-2]
-    if not metadata or metadata[0] & 0xE0 != 0xA0:
-        raise ValueError(f"{label} suffix is not a CBOR map")
-    return raw[:-suffix_length], suffix_length
+    for end in range(len(raw), 1, -1):
+        metadata_length = int.from_bytes(raw[end - 2:end], "big")
+        start = end - metadata_length - 2
+        if start <= 0:
+            continue
+        metadata = raw[start:end - 2]
+        if not metadata or metadata[0] & 0xE0 != 0xA0:
+            continue
+        if end != len(raw) and b"solc" not in metadata:
+            continue
+        semantic = raw[:start] + raw[end:]
+        return semantic, metadata_length + 2, start, len(raw) - end
+    raise ValueError(f"{label} has no valid Solidity CBOR metadata segment")
 
 
-def strip_embedded_cbor_metadata(value: str, runtime_suffix: bytes, label: str) -> tuple[bytes, int]:
+def strip_embedded_cbor_metadata(
+    value: str, runtime_suffix: bytes, label: str
+) -> tuple[bytes, int, int, int]:
     # The legacy codegen pipeline places the runtime object (and thus its CBOR metadata suffix)
     # at the very end of the creation bytecode; via_ir emits constructor code after the embedded
     # runtime, so the metadata sits mid-stream. Excise the runtime's exact suffix bytes wherever
     # they occur. Mirrors stripEmbeddedCborMetadata in scripts/relay-artifact-provenance.js.
     raw = bytecode_bytes(value, label)
+    if not runtime_suffix:
+        raise ValueError(f"{label} was given an empty runtime CBOR metadata suffix")
     count = raw.count(runtime_suffix)
     if count == 0:
         raise ValueError(f"{label} does not embed the runtime CBOR metadata suffix")
-    return raw.replace(runtime_suffix, b""), len(runtime_suffix) * count
+    first_offset = raw.find(runtime_suffix)
+    last_end = raw.rfind(runtime_suffix) + len(runtime_suffix)
+    return (
+        raw.replace(runtime_suffix, b""),
+        len(runtime_suffix) * count,
+        first_offset,
+        len(raw) - last_end,
+    )
 
 
 def sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def git_commit() -> str:
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return result.stdout.strip() if result.returncode == 0 else "unknown"
-
-
-def summarize_bytecode(value: str, label: str, runtime_suffix: bytes | None = None) -> dict[str, Any]:
+def summarize_bytecode(
+    value: str, label: str, runtime_suffix: bytes | None = None
+) -> dict[str, Any]:
     raw = bytecode_bytes(value, label)
     if runtime_suffix is None:
-        semantic, metadata_bytes = strip_cbor_metadata(value, label)
+        semantic, metadata_bytes, metadata_offset, trailing_bytes = strip_cbor_metadata(value, label)
     else:
-        semantic, metadata_bytes = strip_embedded_cbor_metadata(value, runtime_suffix, label)
+        semantic, metadata_bytes, metadata_offset, trailing_bytes = strip_embedded_cbor_metadata(
+            value, runtime_suffix, label
+        )
     return {
         "bytes": len(raw),
         "metadata_bytes": metadata_bytes,
         "full_sha256": sha256(raw),
         "semantic_bytes": len(semantic),
         "semantic_sha256": sha256(semantic),
+        "metadata_offset": metadata_offset,
+        "trailing_bytes": trailing_bytes,
     }
 
 
@@ -105,17 +128,30 @@ def analyze_foundry_artifact(path: Path, source_path: Path) -> dict[str, Any]:
     metadata = artifact.get("metadata")
     if not isinstance(metadata, dict):
         raise ValueError(f"{path}: Foundry metadata object is missing")
+    source_key = source_path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
+    source_bytes = source_path.read_bytes()
+    metadata_source = metadata.get("sources", {}).get(source_key)
+    expected_keccak = "0x" + keccak256(source_bytes).hex()
+    if not isinstance(metadata_source, dict) or metadata_source.get("keccak256") != expected_keccak:
+        actual = metadata_source.get("keccak256") if isinstance(metadata_source, dict) else None
+        raise ValueError(
+            f"{path}: compiler metadata source hash is {actual!r}; current {source_key} is {expected_keccak}"
+        )
     runtime_object = artifact["deployedBytecode"]["object"]
     runtime_raw = bytecode_bytes(runtime_object, "FV runtime bytecode")
-    _, runtime_suffix_length = strip_cbor_metadata(runtime_object, "FV runtime bytecode")
+    _, runtime_suffix_length, runtime_offset, _ = strip_cbor_metadata(
+        runtime_object, "FV runtime bytecode"
+    )
+    runtime_suffix = runtime_raw[runtime_offset : runtime_offset + runtime_suffix_length]
     return {
-        "source_sha256": sha256(source_path.read_bytes()),
+        "source_sha256": sha256(source_bytes),
+        "source_keccak256": expected_keccak,
         "compiler": foundry_compiler(metadata),
         "abi_sha256": canonical_abi_hash(artifact["abi"]),
         "creation": summarize_bytecode(
             artifact["bytecode"]["object"],
             "FV creation bytecode",
-            runtime_suffix=runtime_raw[-runtime_suffix_length:],
+            runtime_suffix=runtime_suffix,
         ),
         "runtime": summarize_bytecode(runtime_object, "FV runtime bytecode"),
     }
@@ -128,19 +164,20 @@ def compare_artifacts(
 ) -> list[str]:
     problems: list[str] = []
     target = manifest["target"]
-    if deployment.get("schema_version") != 1 or deployment.get("status") != "pass":
+    if type(deployment.get("schema_version")) is not int or deployment.get("schema_version") != 1 or deployment.get("status") != "pass":
         problems.append("deployment provenance report is not a passing schema-version-1 report")
     if deployment.get("source") != target["source"] or deployment.get("contract") != target["contract"]:
         problems.append("deployment provenance report identifies the wrong source or contract")
 
-    for side, actual, expected in (
-        ("deployment", deployment.get("compiler", {}), target["deployment_compiler"]),
-        ("verification", verification.get("compiler", {}), target["verification_compiler"]),
+    expected_compiler = target["production_compiler"]
+    for side, actual in (
+        ("deployment", deployment.get("compiler", {})),
+        ("verification", verification.get("compiler", {})),
     ):
-        for key, value in expected.items():
+        for key, value in expected_compiler.items():
             if key == "short_version":
                 continue
-            if actual.get(key) != value:
+            if type(actual.get(key)) is not type(value) or actual.get(key) != value:
                 problems.append(f"{side} compiler {key} is {actual.get(key)!r}; expected {value!r}")
 
     for field in ("source_sha256", "abi_sha256"):
@@ -156,19 +193,20 @@ def compare_artifacts(
     return problems
 
 
-def forge_version(forge: str) -> str:
+def forge_version(forge: str) -> dict[str, str]:
     completed = subprocess.run([forge, "--version"], capture_output=True, text=True, check=False)
     if completed.returncode != 0:
         raise RuntimeError(f"could not run {forge} --version: {completed.stderr.strip()}")
-    match = re.search(r"forge Version: ([0-9]+\.[0-9]+\.[0-9]+)", completed.stdout)
-    if not match:
+    version = re.search(r"^forge Version:\s*(\S+)", completed.stdout, re.MULTILINE)
+    commit = re.search(r"^Commit SHA:\s*([0-9a-f]{40})", completed.stdout, re.MULTILINE)
+    if not version or not commit:
         raise RuntimeError(f"could not parse Forge version from: {completed.stdout.strip()}")
-    return match.group(1)
+    return {"version": version.group(1), "commit": commit.group(1)}
 
 
 def build_verification_artifact(manifest: dict[str, Any], forge: str, work: Path) -> tuple[Path, Path]:
     target = manifest["target"]
-    compiler = target["verification_compiler"]
+    compiler = target["production_compiler"]
     out = work / "out"
     cache = work / "cache"
     command = [
@@ -184,9 +222,15 @@ def build_verification_artifact(manifest: dict[str, Any], forge: str, work: Path
         str(cache),
         "--force",
         "--quiet",
+        "--evm-version",
+        compiler["evm_version"],
         "--extra-output-files",
         "irOptimized",
     ]
+    if compiler["optimizer_enabled"]:
+        command.extend(["--optimize", "--optimizer-runs", str(compiler["optimizer_runs"])])
+    if compiler["via_ir"]:
+        command.append("--via-ir")
     completed = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
     if completed.returncode != 0:
         raise RuntimeError(
@@ -206,6 +250,12 @@ def write_report(path: Path, report: dict[str, Any]) -> None:
     path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
 
 
+def verification_input_mode(artifact: Path | None, optimized_ir: Path | None) -> str:
+    if bool(artifact) != bool(optimized_ir):
+        raise ValueError("--verification-artifact and --verification-ir must be supplied together")
+    return IMPORTED_MODE if artifact is not None else GENERATED_MODE
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
@@ -219,18 +269,33 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    generation_start = capture_git_state(REPO_ROOT)
     try:
         manifest_bytes = args.manifest.read_bytes()
         manifest = json.loads(manifest_bytes)
         deployment = json.loads(args.deployment_report.read_text())
-        version = forge_version(args.forge)
+        foundry = forge_version(args.forge)
         expected_foundry = manifest["toolchain"]["foundry"]
-        if version != expected_foundry:
-            raise RuntimeError(f"Forge version is {version}; expected pinned {expected_foundry}")
+        for field in ("version", "commit"):
+            if foundry[field] != expected_foundry[field]:
+                raise RuntimeError(
+                    f"Forge {field} is {foundry[field]!r}; expected {expected_foundry[field]!r}"
+                )
+        ci_image = os.environ.get("FV_FOUNDRY_IMAGE")
+        if ci_image is not None and ci_image != expected_foundry["image"]:
+            raise RuntimeError(
+                f"FV_FOUNDRY_IMAGE is {ci_image!r}; expected {expected_foundry['image']!r}"
+            )
 
+        input_mode = verification_input_mode(args.verification_artifact, args.verification_ir)
+        imported = input_mode == IMPORTED_MODE
+        dependency_record: dict[str, Any] | None = None
+        dependency_problems: list[str] = []
+        if not imported:
+            dependency_record, dependency_problems = clean_install_soldeer(REPO_ROOT, args.forge)
+            if dependency_problems:
+                raise RuntimeError("clean Soldeer preparation failed: " + "; ".join(dependency_problems))
         with tempfile.TemporaryDirectory(prefix="relay-fv-artifact-") as directory:
-            if bool(args.verification_artifact) != bool(args.verification_ir):
-                raise RuntimeError("--verification-artifact and --verification-ir must be supplied together")
             if args.verification_artifact:
                 artifact_path, generated_ir_path = args.verification_artifact, args.verification_ir
             else:
@@ -240,6 +305,14 @@ def main() -> int:
             source_path = REPO_ROOT / manifest["target"]["source"]
             verification = analyze_foundry_artifact(artifact_path, source_path)
             problems = compare_artifacts(deployment, verification, manifest)
+            if dependency_record is not None:
+                problems.extend(finalize_soldeer(REPO_ROOT, dependency_record))
+            manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
+            if deployment.get("manifest_sha256") != manifest_hash:
+                problems.append("deployment provenance report was produced from a different manifest")
+            repository_commit = generation_start.get("head", "unknown")
+            if deployment.get("git_commit") != repository_commit:
+                problems.append("deployment provenance report was produced from a different Git commit")
             committed_ir_path = REPO_ROOT / manifest["target"]["optimized_ir_snapshot"]
             generated_ir = generated_ir_path.read_bytes()
             committed_ir = committed_ir_path.read_bytes()
@@ -253,13 +326,36 @@ def main() -> int:
                 "committed_sha256": sha256(committed_ir),
                 "identical": generated_ir == committed_ir,
             }
+            generation = finalize_generation_provenance(
+                REPO_ROOT,
+                generation_start,
+                mode=input_mode,
+            )
+            repository_commit = report_commit(generation)
             report = {
                 "schema_version": 1,
                 "gate": "relay-artifact-parity",
                 "status": "pass" if not problems else "fail",
-                "git_commit": git_commit(),
-                "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
-                "foundry_version": version,
+                "release_eligible": (
+                    not problems
+                    and generation["release_eligible"] is True
+                    and dependency_record is not None
+                    and dependency_record["release_eligible"] is True
+                ),
+                "git_commit": repository_commit,
+                "manifest_sha256": manifest_hash,
+                "generation_provenance": generation,
+                "inputs": {
+                    "mode": input_mode,
+                    "soldeer": dependency_record,
+                    "release_eligible": (
+                        not imported
+                        and dependency_record is not None
+                        and dependency_record["release_eligible"] is True
+                    ),
+                    "problems": dependency_problems,
+                },
+                "foundry": {**foundry, "ci_image": ci_image},
                 "deployment": deployment,
                 "verification": verification,
                 "optimized_ir": ir_record,
@@ -277,6 +373,11 @@ def main() -> int:
             print(f"[relay-artifact] creation sha256 {verification['creation']['semantic_sha256']}")
             print(f"[relay-artifact] runtime sha256  {verification['runtime']['semantic_sha256']}")
             print(f"[relay-artifact] IR sha256       {ir_record['generated_sha256']}")
+            if imported:
+                print(
+                    "[relay-artifact] DEVELOPMENT ONLY: imported artifact/IR inputs cannot enter "
+                    "a release bundle"
+                )
             if args.report_output:
                 print(f"[relay-artifact] report: {args.report_output}")
             return 0

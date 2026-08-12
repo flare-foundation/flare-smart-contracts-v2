@@ -1130,7 +1130,7 @@ contract RelayPolicyRotationTest is RelayTestBase {
 // verifyCustomSignatureWithThreshold: caller-chosen signature-weight threshold in BIPS of the
 // policy's total weight for the pure verification path (protocolId == 1), carried into relay()
 // via a transient-storage override. Voters: 5 x weight 100 (total 500), policy threshold 260;
-// the effective threshold is ceil(500 * bips / 10000) and acceptance is weight > threshold.
+// the effective threshold is floor(500 * bips / 10000) and acceptance is weight > threshold.
 contract RelayThresholdOverrideTest is RelayTestBase {
     bytes internal policy;
 
@@ -1140,7 +1140,7 @@ contract RelayThresholdOverrideTest is RelayTestBase {
     }
 
     // 2 signers (weight 200) fail the policy threshold (260) but clear a lower BIPS bar:
-    // 3980 BIPS -> ceil(500 * 0.398) = 199, and 200 > 199.
+    // 3980 BIPS -> floor(500 * 0.398) = 199, and 200 > 199.
     function test_thresholdOverride_lower_accepts() public {
         bytes32 mh = keccak256("app-action");
         bytes memory rm = _customSigRelayMessage(policy, mh, 2);
@@ -1154,17 +1154,18 @@ contract RelayThresholdOverrideTest is RelayTestBase {
         );
     }
 
-    // The effective threshold rounds UP (FSM-style mulDivRoundUp): 3999 BIPS ->
-    // ceil(500 * 0.3999) = ceil(199.95) = 200, and 200 > 200 fails; floor would have accepted.
-    function test_thresholdOverride_roundsUp() public {
+    // Fractional thresholds use floor + strict comparison, exactly matching
+    // signedWeight * 10000 > totalWeight * BIPS. Thus 3999 accepts but 4000 rejects.
+    function test_thresholdOverride_fractionalBoundary() public {
         bytes32 mh = keccak256("app-action");
         bytes memory rm = _customSigRelayMessage(policy, mh, 2);
+        assertEq(relay.verifyCustomSignatureWithThreshold(rm, mh, 3999), REWARD_EPOCH_ID);
         vm.expectRevert(IRelay.VerificationFailed.selector);
-        relay.verifyCustomSignatureWithThreshold(rm, mh, 3999);
+        relay.verifyCustomSignatureWithThreshold(rm, mh, 4000);
     }
 
     // 3 signers (weight 300) clear the policy threshold but not a higher BIPS bar:
-    // 6000 BIPS -> ceil(500 * 0.6) = 300, and 300 > 300 fails (strict inequality).
+    // 6000 BIPS -> floor(500 * 0.6) = 300, and 300 > 300 fails (strict inequality).
     function test_thresholdOverride_higher_rejects() public {
         bytes32 mh = keccak256("app-action");
         bytes memory rm = _customSigRelayMessage(policy, mh, 3);
@@ -1180,6 +1181,48 @@ contract RelayThresholdOverrideTest is RelayTestBase {
         bytes memory rm = _customSigRelayMessage(policy, mh, 5);
         vm.expectRevert(IRelay.ThresholdTooHigh.selector);
         relay.verifyCustomSignatureWithThreshold(rm, mh, 10000);
+    }
+
+    function testFuzz_thresholdOverride_atOrAbove100Percent_reverts(uint16 _thresholdBIPS) public {
+        uint16 thresholdBIPS = uint16(bound(_thresholdBIPS, 10000, type(uint16).max));
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm = _customSigRelayMessage(policy, mh, 5);
+        vm.expectRevert(IRelay.ThresholdTooHigh.selector);
+        relay.verifyCustomSignatureWithThreshold(rm, mh, thresholdBIPS);
+    }
+
+    // The extreme nonzero boundaries remain exact: one signer clears 1 BIPS, while 9999 BIPS
+    // rejects 400/500 and accepts all 500/500 weight.
+    function test_thresholdOverride_extremeNonzeroBoundaries() public {
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm1 = _customSigRelayMessage(policy, mh, 1);
+        assertEq(relay.verifyCustomSignatureWithThreshold(rm1, mh, 1), REWARD_EPOCH_ID);
+
+        bytes memory rm4 = _customSigRelayMessage(policy, mh, 4);
+        vm.expectRevert(IRelay.VerificationFailed.selector);
+        relay.verifyCustomSignatureWithThreshold(rm4, mh, 9999);
+
+        bytes memory rm5 = _customSigRelayMessage(policy, mh, 5);
+        assertEq(relay.verifyCustomSignatureWithThreshold(rm5, mh, 9999), REWARD_EPOCH_ID);
+    }
+
+    // Differential regression for the advertised exact BIPS predicate.
+    function testFuzz_thresholdOverride_matchesExactBips(uint16 _thresholdBIPS, uint8 _numSigners) public {
+        uint16 thresholdBIPS = uint16(bound(_thresholdBIPS, 1, 9999));
+        uint256 numSigners = bound(uint256(_numSigners), 1, N);
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm = _customSigRelayMessage(policy, mh, numSigners);
+
+        (bool success, bytes memory result) = address(relay).call(
+            abi.encodeCall(IRelay.verifyCustomSignatureWithThreshold, (rm, mh, thresholdBIPS))
+        );
+        bool expected = numSigners * uint256(WEIGHT) * 10000 > N * uint256(WEIGHT) * thresholdBIPS;
+        assertEq(success, expected, "Relay must implement the exact BIPS predicate");
+        if (success) {
+            assertEq(abi.decode(result, (uint256)), REWARD_EPOCH_ID);
+        } else {
+            assertEq(bytes4(result), IRelay.VerificationFailed.selector);
+        }
     }
 
     // 0 BIPS uses the signing policy's own threshold (the Fdc2RequestHeader.thresholdBIPS

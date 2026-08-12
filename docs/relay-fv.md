@@ -1,5 +1,12 @@
 # Relay.sol — Formal Verification (Phase 0 modeling contract + Phase 1 plan)
 
+> **Historical modeling plan.** This document targets the earlier `relay-fix-3`
+> implementation and preserves the assumptions used to develop the original
+> harnesses. It is not a current result or reproduction guide for
+> `relay-owner-timelock`. See
+> [`relay-verification/CURRENT-STATUS.md`](relay-verification/CURRENT-STATUS.md)
+> for the current manifest, toolchain, evidence, and unresolved boundaries.
+
 **Target:** [`contracts/protocol/implementation/Relay.sol`](../contracts/protocol/implementation/Relay.sol) @ `relay-fix-3`.
 **Primary focus (per author):** the `relay()` function and signature verification.
 **Tooling:** Halmos (bounded symbolic execution on the Foundry harness) for Phase 1; Kontrol (KEVM, inductive) reserved for Phase 2.

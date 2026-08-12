@@ -22,7 +22,7 @@ to a fixed depth; these are ∀-over-the-iteration-count via k-induction).
 a one-off; identical 5 PROVE + 2 CEX, prove ~2.25 h):
 `prove_base_invariant` ✅ · `prove_step_preserves_invariant` ✅ · `prove_lemma_prefix_monotone` ✅ ·
 `prove_accept_implies_threshold_exceeded` ✅ · `prove_insufficientWeight_cannotAccept` ✅ ·
-`prove_reach_stepNeedsGuard` → counterexample (G2/no-double-count guard is load-bearing) ·
+`prove_reach_stepNeedsGuard` → counterexample (G2/no-repeat-index guard is load-bearing) ·
 `prove_reach_acceptIsPossible` → counterexample (accept path live).
 
 `RelayRandomMonoFV`:
@@ -87,3 +87,8 @@ control failures. Errors, skips, pending/incomplete proofs, and drift fail close
 3. These check a faithful **Solidity model** of the loop body, not Relay's actual inline-assembly bytecode.
    The bytecode side at K ≤ 3 is covered by the Halmos suite (`RelaySigParamFV`). A bmc-depth-1
    model↔bytecode equivalence obligation would fully bridge the gap (future work).
+4. Signature proofs count distinct **policy indices**, not distinct recovered signer identities. They imply
+   a distinct-voter threshold only under the explicit admission assumption that policy addresses are unique.
+   Relay does not enforce that invariant for every ingestion path today.
+5. The random model proves monotonic safety only. Its `uint256` state omits production's `uint32.max`
+   terminal-pointer/getter-overflow liveness failure; it is not evidence that current randomness stays readable.
