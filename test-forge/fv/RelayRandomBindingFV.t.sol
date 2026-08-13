@@ -14,8 +14,8 @@ import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 // CLAIM. For the random-number protocol (Mode-2 relay with the trailer randomNumber||proof), the contract
 // reads the random VALUE from the trailer, recomputes the Merkle leaf keccak256(abi.encode(vrid, value,
 // isSecure)) in processRandomMerkleProof and reverts unless that leaf reproduces the SIGNED merkleRoot via
-// the provided proof; only then does it store toRandomNumberPrivate[vrid] = value. Therefore that mapping can only ever
-// hold a value that is committed (as a leaf) under the signed root — no off-tree value can be stored.
+// the provided proof; only then does it store toRandomNumberPrivate[vrid] = value. Therefore that mapping
+// can only hold a value committed as a leaf under the signed root — no off-tree value can be stored.
 //
 // HOW (decoupled oracle — machine-checked, NOT by-construction). We DECOUPLE the COMMITTED value `cv`
 // (used to build the signed root) from the TRAILER value `tv` (the value the contract actually reads and
