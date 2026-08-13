@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Regenerates the Certora verification-only "munged" tree (certora/munged/) from the production sources.
 #
-# WHY THIS EXISTS. The write-once rules (certora/specs/RelayWriteOnce.spec) must READ
-# `toSigningPolicyHashPrivate` / `merkleRootsPrivate` before and after each method call. Both mappings are
-# `private`, so no harness can read them, and CVL direct storage access is unavailable on this contract
-# because Relay's raw-assembly stores are not tracked reliably by that analysis. The
-# verification scene therefore uses a munged copy. The ONLY semantic-source change made here is the visibility of
-# those two mappings: `private` -> `internal` (same storage layout, same slots, no behavior change), which
-# lets certora/harness/RelayHarness.sol expose plain Solidity view getters over them.
+# WHY THIS EXISTS. The write-once and fee-table rules (certora/specs/RelayWriteOnce.spec) must READ
+# `toSigningPolicyHashPrivate`, `merkleRootsPrivate`, and `feeProtocolIdsPrivate` before and after method
+# calls. Those values are private, so no harness can read them, and CVL direct storage access is unavailable
+# for the mappings because Relay's raw-assembly stores are not tracked reliably by that analysis. The
+# verification scene therefore uses a munged copy. The ONLY semantic-source changes made here are the visibility of
+# those two mappings and the fee-protocol enumeration set: `private` -> `internal` (same storage layout, same slots,
+# no behavior change), which lets certora/harness/RelayHarness.sol expose plain Solidity view getters over them.
 #
 # FAITHFULNESS IS MACHINE-CHECKED: this script re-derives the munged tree from the production files on
-# every run and FAILS if the result differs from anything but the two visibility keywords. Run it (or CI
+# every run and FAILS if the result differs from anything but the three visibility keywords. Run it (or CI
 # runs it) before every Certora write-once run; a drifted production Relay.sol can therefore never be
 # silently verified against a stale munged copy.
 set -euo pipefail
@@ -36,7 +36,7 @@ cp "$SRC/userInterfaces/IOwnableWithTimelock.sol"         "$DST/userInterfaces/I
 cp "$SRC/userInterfaces/IRelay.sol"                       "$DST/userInterfaces/IRelay.sol"
 cp "$SRC/userInterfaces/LTS/RandomNumberV2Interface.sol" "$DST/userInterfaces/LTS/RandomNumberV2Interface.sol"
 
-# 2. Relay.sol with EXACTLY two visibility changes
+# 2. Relay.sol with EXACTLY three visibility changes
 python3 - "$SRC/protocol/implementation/Relay.sol" "$DST/protocol/implementation/Relay.sol" <<'EOF'
 import sys
 src, dst = sys.argv[1], sys.argv[2]
@@ -46,6 +46,8 @@ subs = [
      "mapping(uint256 rewardEpochId => bytes32) internal toSigningPolicyHashPrivate;"),
     ("mapping(uint256 protocolId => mapping(uint256 votingRoundId => bytes32)) private merkleRootsPrivate;",
      "mapping(uint256 protocolId => mapping(uint256 votingRoundId => bytes32)) internal merkleRootsPrivate;"),
+    ("EnumerableSet.UintSet private feeProtocolIdsPrivate;",
+     "EnumerableSet.UintSet internal feeProtocolIdsPrivate;"),
 ]
 for old, new in subs:
     assert s.count(old) == 1, f"munge target not found exactly once: {old}"
@@ -53,16 +55,16 @@ for old, new in subs:
 open(dst, "w").write(s)
 EOF
 
-# 3. verify: munged Relay differs from production by EXACTLY the two visibility lines
+# 3. verify: munged Relay differs from production by EXACTLY the three visibility lines
 # (diff exits 1 when files differ — expected here — so shield it from set -o pipefail)
 DIFFLINES=$( (diff "$SRC/protocol/implementation/Relay.sol" "$DST/protocol/implementation/Relay.sol" || true) | grep -c '^[<>]')
-if [ "$DIFFLINES" != "4" ]; then   # 2 removed + 2 added
-  echo "MUNGE VERIFICATION FAILED: expected exactly 2 changed lines (4 diff lines), got $DIFFLINES" >&2
+if [ "$DIFFLINES" != "6" ]; then   # 3 removed + 3 added
+  echo "MUNGE VERIFICATION FAILED: expected exactly 3 changed lines (6 diff lines), got $DIFFLINES" >&2
   diff "$SRC/protocol/implementation/Relay.sol" "$DST/protocol/implementation/Relay.sol" >&2 || true
   exit 1
 fi
-if (diff "$SRC/protocol/implementation/Relay.sol" "$DST/protocol/implementation/Relay.sol" || true) | grep '^[<>]' | grep -qv 'toSigningPolicyHashPrivate;\|merkleRootsPrivate;'; then
-  echo "MUNGE VERIFICATION FAILED: a changed line is not one of the two visibility declarations" >&2
+if (diff "$SRC/protocol/implementation/Relay.sol" "$DST/protocol/implementation/Relay.sol" || true) | grep '^[<>]' | grep -qv 'toSigningPolicyHashPrivate;\|merkleRootsPrivate;\|feeProtocolIdsPrivate;'; then
+  echo "MUNGE VERIFICATION FAILED: a changed line is not one of the three visibility declarations" >&2
   exit 1
 fi
 # 4. verify: the dependency copies are byte-identical
@@ -72,4 +74,4 @@ cmp -s "$SRC/userInterfaces/IOwnableWithTimelock.sol"         "$DST/userInterfac
 cmp -s "$SRC/userInterfaces/IRelay.sol"                       "$DST/userInterfaces/IRelay.sol"
 cmp -s "$SRC/userInterfaces/LTS/RandomNumberV2Interface.sol" "$DST/userInterfaces/LTS/RandomNumberV2Interface.sol"
 
-echo "munge OK: certora/munged/ regenerated; Relay.sol differs by exactly the 2 visibility keywords."
+echo "munge OK: certora/munged/ regenerated; Relay.sol differs by exactly the 3 visibility keywords."

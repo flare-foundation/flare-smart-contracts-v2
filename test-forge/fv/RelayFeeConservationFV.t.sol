@@ -12,7 +12,7 @@ import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 // Symbolic proof of fee conservation in verify() when oldRelay == address(0).
 //
 // CLAIM (formal): for a deployed relay with feeCollectionAddress = FEE_COLLECTION and
-// protocolFeeInWei[PID] = fee (symbolic), with a finalized non-zero root for (PID, VRID) and an
+// protocolFee[PID] = fee (symbolic), with a finalized non-zero root for (PID, VRID) and an
 // empty Merkle proof whose leaf == root, then for any msg.value >= fee a SUCCEEDING verify() satisfies
 //   (1) feeCollection.balance increases by exactly `fee`;
 //   (2) the caller (this contract) net-pays exactly `fee` (overpayment msg.value-fee is refunded);
@@ -29,9 +29,10 @@ import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 //  - EMPTY Merkle proof (length 0): MerkleProof.processProofCalldata returns the leaf unchanged, so the
 //    proof loop runs ZERO iterations (loop bound irrelevant here) and verifyCalldata passes iff
 //    leaf == root. We set leaf == ROOT.
-//  - `fee` is SYMBOLIC (passed through the constructor feeConfigs), so the theorem quantifies over ALL
-//    fees, including fee == 0 (no fee transfer; full refund) — hence the deploy is INSIDE each check and
-//    setUp is a no-op (the base setUp uses vm.addr/sorting -> "Multiple paths in setUp" under Halmos).
+//  - `fee` is SYMBOLIC (passed through the initializer feeConfigs), so the theorem quantifies over every
+//    valid configured fee. Configured fees are strictly positive; a free protocol is represented by
+//    omission from the table. The deploy is therefore INSIDE each check and setUp is a no-op (the base
+//    setUp uses vm.addr/sorting -> "Multiple paths in setUp" under Halmos).
 //  - `msg.value` is SYMBOLIC with fee <= msgValue <= CAP; this contract is dealt CAP and has a
 //    receive() so the overpayment refund (msg.sender.call) succeeds.
 //  - feeCollection is a concrete code-less EOA (0xFEE...), distinct from this caller and from the relay,
@@ -44,7 +45,7 @@ contract RelayFeeConservationFV is RelayTestBase {
 
     // Concrete (protocolId, votingRoundId): protocolId > 1 (passes the "invalid protocol id" gate),
     // same-epoch round so no epoch/threshold interaction is touched (verify() does no epoch math anyway).
-    uint8  internal constant PID  = 3;
+    uint8 internal constant PID = 3;
     uint256 internal constant VRID = uint256(START_VOTING_ROUND_ID);
 
     bytes32 internal constant ROOT = keccak256("p7-root"); // concrete, non-zero
@@ -57,7 +58,7 @@ contract RelayFeeConservationFV is RelayTestBase {
     receive() external payable {} // accept the overpayment refund
 
     // Build a relay-only deployment (oldRelay == 0, signingPolicySetter == 0) with feeCollection set and
-    // protocolFeeInWei[PID] = fee. The initial signing-policy hash is a concrete non-zero sentinel (only
+    // protocolFee[PID] = fee. The initial signing-policy hash is a concrete non-zero sentinel (only
     // its non-zeroness matters here — verify() never reads it).
     function _deploy(uint256 fee) internal returns (Relay r) {
         IRelay.RelayInitialConfig memory cfg;
@@ -74,7 +75,7 @@ contract RelayFeeConservationFV is RelayTestBase {
         cfg.feeCollectionAddress = FEE_COLLECTION;
         cfg.sourceChainId = block.chainid; // the source id is mandatory
         cfg.feeConfigs = new IRelay.FeeConfig[](1);
-        cfg.feeConfigs[0] = IRelay.FeeConfig(PID, fee); // protocolFeeInWei[PID] = fee
+        cfg.feeConfigs[0] = IRelay.FeeConfig(PID, fee); // protocolFee[PID] = fee
         r = deployRelay(cfg, address(0), IRelay(address(0)));
     }
 
@@ -82,7 +83,7 @@ contract RelayFeeConservationFV is RelayTestBase {
     // [PID][VRID] sits at keccak(VRID . keccak(PID . 1)). PID/VRID concrete => concrete slot.
     function _finalizeRoot(Relay r, bytes32 root) internal {
         bytes32 inner = keccak256(abi.encode(uint256(PID), uint256(1)));
-        bytes32 slot  = keccak256(abi.encode(VRID, inner));
+        bytes32 slot = keccak256(abi.encode(VRID, inner));
         vm.store(address(r), slot, root);
     }
 
@@ -98,13 +99,13 @@ contract RelayFeeConservationFV is RelayTestBase {
         vm.deal(FEE_COLLECTION, 0);
         vm.deal(address(r), 0);
         feeCollBefore = FEE_COLLECTION.balance; // == 0
-        selfBefore = address(this).balance;     // == CAP
-        relayBefore = address(r).balance;        // == 0
+        selfBefore = address(this).balance; // == CAP
+        relayBefore = address(r).balance; // == 0
     }
 
     function _callVerify(Relay r, uint256 msgValue) internal returns (bool ok) {
         // Empty proof => verifyCalldata passes iff leaf == root; leaf := ROOT.
-        (ok, ) = address(r).call{value: msgValue}(
+        (ok,) = address(r).call{value: msgValue}(
             abi.encodeWithSelector(Relay.verify.selector, uint256(PID), VRID, ROOT, new bytes32[](0))
         );
     }
@@ -112,6 +113,7 @@ contract RelayFeeConservationFV is RelayTestBase {
     // ---- Fee-conservation proof on the succeeding new-relay verify() path. EXPECT: PASS. ----
     // For all fee and all msg.value >= fee, IF verify() succeeds THEN (1)-(3) hold exactly.
     function check_p7_feeConservation(uint256 fee, uint256 msgValue) external {
+        vm.assume(fee > 0); // configured zero fees are rejected; free means omitted
         vm.assume(fee <= msgValue);
         vm.assume(msgValue <= CAP); // caller can fund the call
         (Relay r, uint256 feeCollBefore, uint256 selfBefore, uint256 relayBefore) = _arrange(fee);
@@ -131,9 +133,10 @@ contract RelayFeeConservationFV is RelayTestBase {
     // verify() MUST be able to succeed at this config (else the main proof is vacuous: a never-true
     // `vm.assume(ok)` would let every assert pass trivially). Asserting !ok must therefore be refuted.
     function check_p7_reachability(uint256 fee, uint256 msgValue) external {
+        vm.assume(fee > 0); // stay inside the initializer's valid fee domain
         vm.assume(fee <= msgValue);
         vm.assume(msgValue <= CAP);
-        (Relay r, , , ) = _arrange(fee);
+        (Relay r,,,) = _arrange(fee);
         bool ok = _callVerify(r, msgValue);
         assert(!ok); // EXPECT counterexample: a successful verify() exists
     }

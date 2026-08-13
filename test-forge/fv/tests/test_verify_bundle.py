@@ -24,6 +24,7 @@ class CollectEvidenceTest(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
         root = Path(self.directory.name)
+        self.manifest = json.loads(verify_bundle.DEFAULT_MANIFEST.read_text())
         self.reports: list[Path] = []
         self.data: dict[str, dict] = {}
         for index, gate in enumerate(verify_bundle.EXPECTED_GATES):
@@ -51,6 +52,31 @@ class CollectEvidenceTest(unittest.TestCase):
         self.data["relay-artifact-parity"]["deployment"] = self.data[
             "relay-deployment-artifact"
         ]
+        target = self.manifest["target"]
+        optimized_ir_sha = verify_bundle.digest(
+            verify_bundle.REPO / target["optimized_ir_snapshot"]
+        )
+        storage_value = json.loads(
+            (verify_bundle.REPO / target["storage_layout_snapshot"]).read_text()
+        )
+        storage_sha = hashlib.sha256(
+            (
+                json.dumps(storage_value, separators=(",", ":"), sort_keys=True)
+                + "\n"
+            ).encode()
+        ).hexdigest()
+        self.data["relay-artifact-parity"]["optimized_ir"] = {
+            "path": target["optimized_ir_snapshot"],
+            "generated_sha256": optimized_ir_sha,
+            "committed_sha256": optimized_ir_sha,
+            "identical": True,
+        }
+        self.data["relay-artifact-parity"]["storage_layout"] = {
+            "path": target["storage_layout_snapshot"],
+            "generated_sha256": storage_sha,
+            "committed_sha256": storage_sha,
+            "identical": True,
+        }
         self.data["relay-deployment-artifact"]["inputs"] = {
             "release_eligible": True,
             "problems": [],
@@ -69,7 +95,7 @@ class CollectEvidenceTest(unittest.TestCase):
                 ],
             },
         }
-        custom_config = json.loads(verify_bundle.DEFAULT_MANIFEST.read_text())["relay_custom_error_abi"]
+        custom_config = self.manifest["relay_custom_error_abi"]
         self.data["relay-custom-error-abi"]["sources"] = [
             {"path": custom_config["source"], "sha256": "a" * 64},
             {"path": custom_config["interface_source"], "sha256": "b" * 64},
@@ -177,6 +203,8 @@ class CollectEvidenceTest(unittest.TestCase):
                             "FOUNDRY_OPTIMIZER": "true",
                             "FOUNDRY_OPTIMIZER_RUNS": "200",
                             "FOUNDRY_VIA_IR": "true",
+                            "FOUNDRY_ADDITIONAL_COMPILER_PROFILES": "[]",
+                            "FOUNDRY_COMPILATION_RESTRICTIONS": "[]",
                         },
                         "effective": {
                             "src": "test-forge/fv",
@@ -189,6 +217,8 @@ class CollectEvidenceTest(unittest.TestCase):
                             "optimizer": True,
                             "optimizer_runs": 200,
                             "via_ir": True,
+                            "additional_compiler_profiles": [],
+                            "compilation_restrictions": [],
                         },
                     },
                     "soldeer": soldeer,
@@ -237,6 +267,7 @@ class CollectEvidenceTest(unittest.TestCase):
     def collect(self, *, allow_development: bool = False) -> list[dict]:
         return verify_bundle.collect_evidence(
             self.reports,
+            self.manifest,
             self.manifest_sha256,
             self.git_commit,
             allow_development=allow_development,
@@ -261,13 +292,39 @@ class CollectEvidenceTest(unittest.TestCase):
     def test_rejects_missing_gate(self) -> None:
         with self.assertRaisesRegex(ValueError, "missing required evidence gates"):
             verify_bundle.collect_evidence(
-                self.reports[:-1], self.manifest_sha256, self.git_commit
+                self.reports[:-1], self.manifest, self.manifest_sha256, self.git_commit
             )
 
     def test_rejects_deployment_report_substitution(self) -> None:
         self.data["relay-artifact-parity"]["deployment"] = {"status": "pass"}
         self._write()
         with self.assertRaisesRegex(ValueError, "not bound"):
+            self.collect()
+
+    def test_rejects_missing_artifact_baseline_evidence(self) -> None:
+        del self.data["relay-artifact-parity"]["storage_layout"]
+        self._write()
+        with self.assertRaisesRegex(ValueError, "storage_layout evidence"):
+            self.collect()
+
+    def test_rejects_nonidentical_artifact_baseline(self) -> None:
+        self.data["relay-artifact-parity"]["optimized_ir"]["identical"] = False
+        self._write()
+        with self.assertRaisesRegex(ValueError, "optimized_ir evidence"):
+            self.collect()
+
+    def test_rejects_artifact_baseline_path_drift(self) -> None:
+        self.data["relay-artifact-parity"]["storage_layout"]["path"] = "other.json"
+        self._write()
+        with self.assertRaisesRegex(ValueError, "storage_layout evidence"):
+            self.collect()
+
+    def test_rejects_artifact_baseline_digest_drift(self) -> None:
+        record = self.data["relay-artifact-parity"]["optimized_ir"]
+        record["generated_sha256"] = "c" * 64
+        record["committed_sha256"] = "c" * 64
+        self._write()
+        with self.assertRaisesRegex(ValueError, "optimized_ir evidence"):
             self.collect()
 
     def test_rejects_imported_halmos_results(self) -> None:
@@ -337,6 +394,21 @@ class CollectEvidenceTest(unittest.TestCase):
         self._write()
         with self.assertRaisesRegex(ValueError, "manifest production paths"):
             self.collect()
+
+    def test_selected_manifest_controls_release_input_validation(self) -> None:
+        selected = json.loads(json.dumps(self.manifest))
+        selected["relay_custom_error_abi"]["source"] = "contracts/SelectedRelay.sol"
+        self.data["relay-custom-error-abi"]["sources"][0]["path"] = (
+            "contracts/SelectedRelay.sol"
+        )
+        self._write()
+        evidence = verify_bundle.collect_evidence(
+            self.reports,
+            selected,
+            self.manifest_sha256,
+            self.git_commit,
+        )
+        self.assertEqual(set(verify_bundle.EXPECTED_GATES), {item["gate"] for item in evidence})
 
     def test_dirty_generated_then_restored_cannot_be_promoted(self) -> None:
         report = self.data["relay-deployment-artifact"]

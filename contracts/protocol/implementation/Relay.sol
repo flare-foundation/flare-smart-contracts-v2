@@ -258,9 +258,9 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     /// Must be a standard exact-transfer ERC-20 — fee-on-transfer or rebasing tokens are
     /// unsupported (the pull is assumed to deliver exactly the fee).
     address public override feeToken;
-    /// Protocol ids with a nonzero fee — kept in lockstep with `protocolFee`
-    /// (id in set ⟺ protocolFee[id] != 0), so a fee-token switch can clear the whole table
-    /// instead of silently carrying stale amounts over in the wrong denomination.
+    /// Protocol ids with a nonzero fee, kept in lockstep with `protocolFee`
+    /// (id in set ⟺ protocolFee[id] != 0). Replacing the fee token clears and rebuilds
+    /// this set and the mapping atomically, preserving one denomination for the entire table.
     EnumerableSet.UintSet private feeProtocolIdsPrivate;
     /// Addresses allowed to call verify() without paying the protocol fee (e.g. DVN
     /// adapters). Owner-set via setFeeExemptions.
@@ -1838,9 +1838,8 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         external view
         returns (uint256)
     {
-        // Deprecated pre-feeToken name of protocolFee(). Fail closed in token mode: the fee is
-        // then in token base units and reporting it as "wei" would misprice every caller that
-        // still uses this getter to size its msg.value.
+        // This getter's unit is wei. Fail closed in token mode, where protocolFee is expressed
+        // in token base units and cannot safely be used to size msg.value.
         require(feeToken == address(0), FeeTokenActive());
         return protocolFee[_protocolId];
     }

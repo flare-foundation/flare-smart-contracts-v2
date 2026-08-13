@@ -7,6 +7,10 @@ The current verification target is
 The exact compiler, toolchain, source, harness, theorem, rule, and ABI inventories
 are defined by
 [`test-forge/fv/verification-manifest.json`](../../test-forge/fv/verification-manifest.json).
+The target includes Relay's native/token fee branches and the current
+first-deployment sequential Solidity storage layout. ERC-7201 namespaces and
+transient slots are outside the layout snapshot. No proxy-storage migration is
+part of this baseline.
 
 This page does not duplicate commit IDs, manifest hashes, report hashes, or proof
 counts. Those values change whenever the source or inventory changes and are
@@ -29,10 +33,12 @@ and the bundle binds every mandatory constituent to:
 - a clean and unchanged worktree for the duration of every run; and
 - the required in-process execution mode and pinned toolchain.
 
-Any source, manifest, harness, specification, compiler setting, or committed
-optimized-Yul change invalidates earlier reports until all affected gates are
-regenerated. A report with `release_eligible = false` is development evidence,
-even when `status = pass`.
+Evidence applies only to the source, manifest, harness, specification, compiler
+settings, committed optimized-Yul, and committed sequential storage layout bound
+by the relevant reports. Changed inputs require regeneration of every affected
+gate. A
+report with `release_eligible = false` is development evidence, even when
+`status = pass`.
 
 ## Required local reports
 
@@ -42,6 +48,7 @@ normalized evidence for:
 - production deployment artifact provenance;
 - Relay custom-error ABI consistency;
 - deployment/FV artifact and optimized-Yul parity;
+- compiler-normalized sequential-storage-layout parity against the committed baseline;
 - the exact Halmos proof/reachability manifest;
 - the Lean theorem and axiom-audit manifest; and
 - the Certora local compiler/config/CVL front-end gate.
@@ -60,8 +67,10 @@ The current claim-to-evidence map is
 The current implementation has open security boundaries documented in
 [`../relay-security-review.md`](../relay-security-review.md), including duplicate
 voter identities, terminal future randomness, migration-boundary mismatch, and
-current-random discontinuity. Proof fixtures that assume those inputs are valid
-only under the corresponding assumption; they do not close the finding.
+current-random discontinuity. Token-mode fee evidence assumes a standard
+exact-transfer ERC-20, and Lean's fee model is native-only. Proof fixtures that
+assume those inputs are valid only under the corresponding assumption; they do
+not close the finding.
 
 ## How to obtain the verdict
 

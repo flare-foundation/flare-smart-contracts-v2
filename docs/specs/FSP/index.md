@@ -10,7 +10,7 @@ The foundational voting layer that all sub-protocols ride on. FSP organizes vote
 - [Weighting](./Weighting.md) — vote-power composition (CCHAIN + PCHAIN + WNAT) and the diversity factor
 - [Signing Policy](./SigningPolicy.md) — snapshot, sign phase, threshold
 - [Submission](./Submission.md) — commit/reveal and signature submissions through `Submission.sol`
-- [Finalization](./Finalization.md) — `Relay`, threshold sigs, slashing for late finalization
+- [Finalization](./Finalization.md) — `Relay` threshold signatures, finalized-root reads, Merkle verification, and native/token verification fees
 - [Random Number](./RandomNumber.md) — secure random source and quality flag
 - [Rewarding](./Rewarding.md) — reward-epoch flow, claim path, unclaimed handling
 

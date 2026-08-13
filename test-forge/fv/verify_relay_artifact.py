@@ -111,6 +111,60 @@ def canonical_abi_hash(value: list[dict[str, Any]]) -> str:
     return sha256(encoded)
 
 
+def canonical_storage_layout(value: dict[str, Any]) -> dict[str, Any]:
+    """Remove compiler-local AST/type ids while retaining every storage-layout decision."""
+    storage = value.get("storage")
+    types = value.get("types")
+    if not isinstance(storage, list) or not isinstance(types, dict):
+        raise ValueError("FV artifact has no Solidity storageLayout")
+
+    def canonical_type(type_id: str, active: tuple[str, ...] = ()) -> dict[str, Any]:
+        if not isinstance(type_id, str) or type_id not in types:
+            raise ValueError(f"storageLayout references unknown type {type_id!r}")
+        if type_id in active:
+            raise ValueError(f"storageLayout contains a recursive type through {type_id!r}")
+        raw = types[type_id]
+        if not isinstance(raw, dict):
+            raise ValueError(f"storageLayout type {type_id!r} is not an object")
+        result: dict[str, Any] = {}
+        for key in ("encoding", "label", "numberOfBytes"):
+            if not isinstance(raw.get(key), str):
+                raise ValueError(f"storageLayout type {type_id!r} has invalid {key}")
+            result[key] = raw[key]
+        next_active = (*active, type_id)
+        for key in ("base", "key", "value"):
+            if key in raw:
+                result[key] = canonical_type(raw[key], next_active)
+        if "members" in raw:
+            members = raw["members"]
+            if not isinstance(members, list):
+                raise ValueError(f"storageLayout type {type_id!r} has invalid members")
+            result["members"] = [canonical_entry(member, next_active) for member in members]
+        return result
+
+    def canonical_entry(entry: dict[str, Any], active: tuple[str, ...] = ()) -> dict[str, Any]:
+        if not isinstance(entry, dict):
+            raise ValueError("storageLayout entry is not an object")
+        label, slot, offset, type_id = (
+            entry.get("label"),
+            entry.get("slot"),
+            entry.get("offset"),
+            entry.get("type"),
+        )
+        if not isinstance(label, str) or not isinstance(slot, str):
+            raise ValueError("storageLayout entry has an invalid label or slot")
+        if type(offset) is not int or offset < 0:
+            raise ValueError(f"storageLayout entry {label!r} has an invalid offset")
+        return {
+            "label": label,
+            "slot": slot,
+            "offset": offset,
+            "type": canonical_type(type_id, active),
+        }
+
+    return {"storage": [canonical_entry(entry) for entry in storage]}
+
+
 def foundry_compiler(metadata: dict[str, Any]) -> dict[str, Any]:
     settings = metadata["settings"]
     optimizer = settings["optimizer"]
@@ -143,11 +197,15 @@ def analyze_foundry_artifact(path: Path, source_path: Path) -> dict[str, Any]:
         runtime_object, "FV runtime bytecode"
     )
     runtime_suffix = runtime_raw[runtime_offset : runtime_offset + runtime_suffix_length]
+    storage_layout = canonical_storage_layout(artifact.get("storageLayout", {}))
+    storage_layout_bytes = (json.dumps(storage_layout, separators=(",", ":"), sort_keys=True) + "\n").encode()
     return {
         "source_sha256": sha256(source_bytes),
         "source_keccak256": expected_keccak,
         "compiler": foundry_compiler(metadata),
         "abi_sha256": canonical_abi_hash(artifact["abi"]),
+        "storage_layout": storage_layout,
+        "storage_layout_sha256": sha256(storage_layout_bytes),
         "creation": summarize_bytecode(
             artifact["bytecode"]["object"],
             "FV creation bytecode",
@@ -226,6 +284,8 @@ def build_verification_artifact(manifest: dict[str, Any], forge: str, work: Path
         compiler["evm_version"],
         "--extra-output-files",
         "irOptimized",
+        "--extra-output",
+        "storageLayout",
     ]
     if compiler["optimizer_enabled"]:
         command.extend(["--optimize", "--optimizer-runs", str(compiler["optimizer_runs"])])
@@ -326,6 +386,22 @@ def main() -> int:
                 "committed_sha256": sha256(committed_ir),
                 "identical": generated_ir == committed_ir,
             }
+            storage_layout_path = REPO_ROOT / manifest["target"]["storage_layout_snapshot"]
+            committed_storage_layout = json.loads(storage_layout_path.read_text())
+            generated_storage_layout = verification["storage_layout"]
+            storage_layout_identical = generated_storage_layout == committed_storage_layout
+            if not storage_layout_identical:
+                problems.append(
+                    "committed storage-layout baseline differs from the pinned compiler output"
+                )
+            storage_layout_record = {
+                "path": manifest["target"]["storage_layout_snapshot"],
+                "generated_sha256": verification["storage_layout_sha256"],
+                "committed_sha256": sha256(
+                    (json.dumps(committed_storage_layout, separators=(",", ":"), sort_keys=True) + "\n").encode()
+                ),
+                "identical": storage_layout_identical,
+            }
             generation = finalize_generation_provenance(
                 REPO_ROOT,
                 generation_start,
@@ -359,6 +435,7 @@ def main() -> int:
                 "deployment": deployment,
                 "verification": verification,
                 "optimized_ir": ir_record,
+                "storage_layout": storage_layout_record,
                 "violations": problems,
             }
             if args.report_output:
@@ -373,6 +450,10 @@ def main() -> int:
             print(f"[relay-artifact] creation sha256 {verification['creation']['semantic_sha256']}")
             print(f"[relay-artifact] runtime sha256  {verification['runtime']['semantic_sha256']}")
             print(f"[relay-artifact] IR sha256       {ir_record['generated_sha256']}")
+            print(
+                f"[relay-artifact] layout sha256   "
+                f"{storage_layout_record['generated_sha256']}"
+            )
             if imported:
                 print(
                     "[relay-artifact] DEVELOPMENT ONLY: imported artifact/IR inputs cannot enter "

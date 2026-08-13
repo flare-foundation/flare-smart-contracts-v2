@@ -43,7 +43,7 @@ contract RelayUpgradeTest is Test {
         assertEq(relay.getTimelockDurationSeconds(), 0);
         uint256 startingVotingRoundBefore = relay.startingVotingRoundIds(1);
         (uint32 lastEpochBefore,) = relay.lastInitializedRewardEpochData();
-        // Populate the appended fee-token slot so the upgrade must carry it over too.
+        // Populate token-denominated fees so the upgrade must preserve the complete fee state.
         IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
         fees[0] = IRelay.FeeConfig(3, 5_000_000);
         vm.prank(relayOwner);
@@ -62,13 +62,13 @@ contract RelayUpgradeTest is Test {
         assertEq(relay.protocolFee(3), 5_000_000, "fee table preserved across upgrade");
     }
 
-    // Enabling the fee token on an ALREADY-DEPLOYED native-fee mirror: upgrade to a
-    // feeToken-aware implementation, then flip token + re-denominated fees in one owner call.
-    function test_relayUpgradeThenEnableFeeToken() public {
+    // A native-fee deployment remains in native mode across an upgrade and can atomically
+    // replace its denomination and complete fee table through the current owner surface.
+    function test_relayUpgradePreservesNativeFeeModeAndCanSetTokenFees() public {
         Relay newImplementation = new Relay();
         vm.prank(relayOwner);
         relay.upgradeToAndCall(address(newImplementation), bytes(""));
-        assertEq(relay.feeToken(), address(0), "fresh slot reads zero (native fees)");
+        assertEq(relay.feeToken(), address(0), "native fee mode preserved");
 
         IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
         fees[0] = IRelay.FeeConfig(3, 5_000_000);

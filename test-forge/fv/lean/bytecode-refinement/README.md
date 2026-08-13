@@ -15,7 +15,7 @@ semantics. The exact EVMYulLean revision and Lean toolchain are pinned in
 | `RelayLoopLiteral.lean` | Defines a 17-statement hand transcription of the optimized-Yul signature-loop body and reusable interpreter lemmas. |
 | `RelayBodyEff.lean` | Composes the literal body, window reads, structural guards, mode dispatch, and protocol-1 threshold selection. |
 | `RelayStorageLayer.lean` | Proves persistent/transient storage round trips, clearing, account isolation, and accept-write effects. |
-| `RelayFeeLayer.lean` | Proves fee arithmetic and balance-transfer conservation. |
+| `RelayFeeLayer.lean` | Proves native-fee arithmetic and balance-transfer conservation under `feeToken == address(0)`. |
 
 The proof sources contain no `sorry`, `admit`, or `native_decide`. `verify_lean.py` audits every
 `#print axioms` result against the manifest.
@@ -48,7 +48,7 @@ The proof set establishes the following within its stated models:
 - strict threshold comparison, including the protocol-1 BIPS arithmetic;
 - dispatch isolation between the custom-signature and ordinary verification paths;
 - persistent and transient storage primitives; and
-- fee and balance conservation primitives.
+- native-fee and native-balance conservation primitives.
 
 The following are explicit boundaries, not proved deployment-wide guarantees:
 
@@ -61,8 +61,10 @@ The following are explicit boundaries, not proved deployment-wide guarantees:
   composition theorem;
 - the accept write is a separate theorem because the loop model represents acceptance as an immediate
   halt; and
-- fee-call arithmetic and balance transfer are proved, but the complete `.CALL` dispatcher path is not
-  composed into a single `verify()` theorem.
+- native-fee call arithmetic and balance transfer are proved, but the complete `.CALL` dispatcher path is
+  not composed into a single `verify()` theorem; and
+- ERC-20 fee transfer, allowance, token return behavior, SafeERC20, and the enumerable fee table are not
+  represented in the Lean model.
 
 The committed optimized-Yul snapshot is checked separately by the artifact-provenance gate. That gate
 binds compiler output to the deployment artifact; it does not prove semantic equivalence between the
@@ -93,6 +95,7 @@ cd <repo>
 EVMYUL_DIR=/tmp/evmyul2 python3 test-forge/fv/lean/verify_lean.py
 ```
 
-The script verifies the pinned checkout and dependencies, builds EVMYulLean, checks all nine Lean source
-files, compiles the imported modules required by `RelayBodyEff.lean`, audits all declared and emitted
-axioms, and writes the configured verification report.
+The script verifies the pinned checkout and dependencies, builds EVMYulLean,
+checks every manifest-listed Lean source, compiles the imported modules required
+by `RelayBodyEff.lean`, audits all declared and emitted axioms, and writes the
+configured verification report.

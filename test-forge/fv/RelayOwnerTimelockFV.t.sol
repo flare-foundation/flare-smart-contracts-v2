@@ -283,6 +283,7 @@ contract RelayOwnerModesFV is RelayOwnerTimelockFVBase {
     function check_timelock_relayModeFeeSetters(address recipient, address account, uint96 fee) external {
         vm.assume(recipient != address(0));
         vm.assume(account != address(0));
+        vm.assume(fee > 0); // configured zero fees are rejected; free means omitted
         (Relay relay,) = _deployRelay(address(0));
         IRelay.FeeConfig[] memory fees = _fees(3, fee);
         IIRelay.FeeExemption[] memory exemptions = _exemptions(account, true);
@@ -310,6 +311,31 @@ contract RelayOwnerModesFV is RelayOwnerTimelockFVBase {
         assert(relay.feeCollectionAddress() == recipient);
     }
 
+    /// Token denomination and its complete fee table change atomically only after the ETA.
+    // EXPECT: PASS (proof).
+    function check_timelock_relayModeTokenTransition(address nextToken, uint96 fee) external {
+        vm.assume(nextToken != address(0));
+        vm.assume(fee > 0);
+        (Relay relay,) = _deployRelay(address(0));
+        IRelay.FeeConfig[] memory fees = _fees(3, fee);
+        bytes memory encodedCall = abi.encodeCall(relay.setProtocolFees, (nextToken, fees));
+
+        relay.setProtocolFees(nextToken, fees);
+        uint256 recordedEta = _recordedEta(relay, encodedCall);
+        assert(relay.feeToken() == address(0));
+        assert(relay.protocolFee(3) == 0);
+        assert(relay.getFeeConfigs().length == 0);
+
+        vm.warp(recordedEta);
+        relay.executeTimelockedCall(encodedCall);
+
+        IRelay.FeeConfig[] memory installed = relay.getFeeConfigs();
+        assert(relay.feeToken() == nextToken);
+        assert(relay.protocolFee(3) == fee);
+        assert(installed.length == 1);
+        assert(installed[0].protocolId == 3 && installed[0].fee == fee);
+    }
+
     /// Relay mode is immutable: even a correctly queued owner call cannot add a setter.
     // EXPECT: PASS (proof).
     function check_timelock_relayModeCannotEnableSetter(address proposedSetter) external {
@@ -330,13 +356,7 @@ contract RelayOwnerModesFV is RelayOwnerTimelockFVBase {
     /// Setter mode permanently rejects every fee-control surface; the reachability
     /// control below independently demonstrates that setter rotation remains live.
     // EXPECT: PASS (proof).
-    function check_timelock_setterModeGuardedSurface(
-        address recipient,
-        address account,
-        uint8 surface
-    )
-        external
-    {
+    function check_timelock_setterModeGuardedSurface(address recipient, address account, uint8 surface) external {
         vm.assume(recipient != address(0));
         vm.assume(account != address(0));
         vm.assume(surface < 3);
@@ -388,8 +408,7 @@ contract RelayOwnerModesFV is RelayOwnerTimelockFVBase {
         uint256 recordedEta = _recordedEta(relay, forbiddenCall);
         vm.warp(recordedEta);
 
-        (bool forbiddenOk,) =
-            address(relay).call(abi.encodeCall(relay.executeTimelockedCall, (forbiddenCall)));
+        (bool forbiddenOk,) = address(relay).call(abi.encodeCall(relay.executeTimelockedCall, (forbiddenCall)));
         (bool forbiddenQueued, uint256 eta) = _queuedAt(relay, forbiddenCall);
 
         assert(!forbiddenOk);
@@ -410,11 +429,10 @@ contract RelayOwnerUpgradeFV is RelayOwnerTimelockFVBase {
         assert(relay.getTimelockDurationSeconds() == TIMELOCK);
         assert(relay.sourceChainId() == block.chainid);
 
-        (bool proxyReinitOk,) = address(relay).call(
-            abi.encodeCall(relay.initialize, (cfg, address(0), IRelay(address(0)), address(this)))
-        );
-        (bool implementationInitOk,) = address(implementation)
-            .call(abi.encodeCall(implementation.initialize, (cfg, address(0), IRelay(address(0)), address(this))));
+        bytes memory initializeCall =
+            abi.encodeCall(relay.initialize, (cfg, address(0), IRelay(address(0)), address(this)));
+        (bool proxyReinitOk,) = address(relay).call(initializeCall);
+        (bool implementationInitOk,) = address(implementation).call(initializeCall);
 
         assert(!proxyReinitOk && !implementationInitOk);
         assert(relay.owner() == address(this));

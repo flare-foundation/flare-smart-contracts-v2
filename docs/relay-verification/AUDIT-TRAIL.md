@@ -35,12 +35,13 @@ the bundle.
 | --- | --- | --- | --- |
 | Production target identity | lock-recreated deployment compile and provenance capture | `scripts/relay-artifact-provenance.js`, Hardhat config and locks | generated `relay-deployment.json` |
 | Assembly custom-error ABI | selector/interface/use-count and canonical four-byte revert scan | manifest ABI inventory, `Relay.sol`, `IRelay.sol` | generated `relay-custom-error-abi.json` |
-| FV/deployment program equality | compiler/settings check, metadata-stripped bytecode comparison, optimized-Yul byte comparison | `verify_relay_artifact.py`, committed Yul snapshot | generated `relay-artifact-parity.json` |
+| FV/deployment program equality and layout drift | compiler/settings check, metadata-stripped bytecode comparison, optimized-Yul byte comparison, normalized sequential-storage-layout comparison | `verify_relay_artifact.py`, committed Yul and `relay_storage_layout.json` baselines | generated `relay-artifact-parity.json` |
 | Bounded signature-slot accounting | symbolic compiled-bytecode execution plus accepting reachability witnesses | `RelaySigFV`, `RelaySigParamFV`, `RelayModelBridgeFV` | generated `relay-halmos.json` |
 | Canonical signature gates and precompile ABI | bounded symbolic execution; concrete EVM precompile tests are supplementary | `RelayCanonicalityFV`, `RelayEcrecoverSymbolicFV`, `RelayEcrecoverABI` | generated Halmos report; separate Foundry output |
 | Epoch/policy state machine and `oldRelay` mode compatibility | bounded symbolic compiled-bytecode execution | epoch, delay, window, rotation, mode, and `RelayConstructorFV` harnesses listed by manifest | generated `relay-halmos.json` |
 | Random/Merkle binding | bounded symbolic compiled-bytecode execution | random binding, monotonicity, security normalization, and Merkle harnesses | generated `relay-halmos.json` |
-| Fee and return semantics | bounded symbolic compiled-bytecode execution | fee-conservation, verify-fee, and return-discriminator harnesses | generated `relay-halmos.json` |
+| Native fee and return semantics | bounded symbolic compiled-bytecode execution plus native-balance Lean lemmas | fee-conservation, verify-fee, return-discriminator harnesses, and `RelayFeeLayer.lean` | generated Halmos and Lean reports |
+| Token fee and fee-table semantics | bounded symbolic execution against a deterministic exact-transfer ERC-20; storage CVL rules where declared | `RelayFeeTokenFV`, constructor/owner-mode harnesses, and manifest-declared Certora rules | generated Halmos report; Certora cloud report only when current and complete |
 | Owner/timelock/UUPS modeled behavior | bounded symbolic execution; concrete governance tests are supplementary | access-control and owner-timelock harnesses | generated Halmos report; separate Foundry output |
 | Exact protocol-1 threshold arithmetic | bounded compiled-bytecode checks and unbounded Lean arithmetic | threshold override/scaling harnesses and `RelaySigLoop.lean` | generated Halmos and Lean reports |
 | Unbounded policy-slot threshold theorem | Lean induction over arbitrary policy/signature lengths | `RelaySigLoop.lean` | generated `relay-lean.json` |
@@ -51,6 +52,13 @@ the bundle.
 
 The manifest is authoritative for the exact harness, theorem, and rule
 inventory; representative names above are navigation aids.
+
+The storage snapshot is the current first-deployment sequential Solidity layout.
+The comparison is a future-upgrade review tripwire: a slot, offset, order, or
+type change in the compiler-emitted `storageLayout` output is rejected until
+explicitly reviewed and rebaselined. ERC-7201 namespaces and EIP-1153 transient
+slots are outside the snapshot. It makes no compatibility claim about unknown
+future implementation behavior.
 
 ## Claim interpretation trail
 

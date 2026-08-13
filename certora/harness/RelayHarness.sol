@@ -1,25 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.35;
 
-import { Relay } from "../munged/contracts/protocol/implementation/Relay.sol";
-import { IRelay } from "../munged/contracts/userInterfaces/IRelay.sol";
+import {Relay} from "../munged/contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../munged/contracts/userInterfaces/IRelay.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * Certora verification harness (NOT deployed; not part of the production build).
  *
- * Adds plain-Solidity view getters over the write-once mappings so the CVL rules in
- * `certora/specs/RelayWriteOnce.spec` can observe them before/after each method call. Those getters read the
- * mappings via ordinary solc-generated storage loads — no assembly — at the exact same storage locations
+ * Adds plain-Solidity view getters over the private write-once mappings and fee-protocol enumeration so
+ * the CVL rules in `certora/specs/RelayWriteOnce.spec` can observe them before/after each method call. Those
+ * getters read via ordinary solc-generated storage loads — no assembly — at the exact same storage locations
  * the production contract writes. The parent is the MUNGED Relay (`certora/munged/…`, regenerated and
  * faithfulness-checked by `certora/munge.sh`), whose only difference from production is
- * `private -> internal` on these two mappings. A separate assembly getter exposes only the fixed
- * EIP-1153 override slot needed to state Certora's external-transaction-boundary precondition.
+ * `private -> internal` on these two mappings and the fee-protocol enumeration set. A separate assembly
+ * getter exposes only the fixed EIP-1153 override slot needed to state Certora's external-transaction-boundary
+ * precondition.
  *
  * (The production getters are unusable for this purpose: `toSigningPolicyHash()` delegates to `oldRelay`
  * below the initial epoch, and `merkleRoots()`/`isFinalized()` gate on protocol id — both would entangle
  * the invariant with delegation/gating logic that is irrelevant to storage write-once-ness.)
  */
 contract RelayHarness is Relay {
+    using EnumerableSet for EnumerableSet.UintSet;
 
     /// Raw read of Relay's EIP-1153 threshold-override slot. Certora starts rules in an
     /// already-active transaction, where transient storage is otherwise unconstrained;
@@ -40,6 +43,11 @@ contract RelayHarness is Relay {
     /// Raw read of merkleRootsPrivate[protocolId][votingRoundId] — no delegation, no gating.
     function merkleRootAt(uint256 _protocolId, uint256 _votingRoundId) external view returns (bytes32) {
         return merkleRootsPrivate[_protocolId][_votingRoundId];
+    }
+
+    /// Raw membership read of the protocol-id enumeration kept in lockstep with protocolFee.
+    function feeProtocolIdInSet(uint256 _protocolId) external view returns (bool) {
+        return feeProtocolIdsPrivate.contains(_protocolId);
     }
 
     /// Raw read of the ERC-7201 timelock queue, without the production getter's nonzero guard.

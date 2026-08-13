@@ -4,9 +4,10 @@
   The fee logic of Relay.sol `verify()` as a hole-free Lean lemma set, on
   NethermindEth's EVMYulLean semantics.
 
-  Models the fee-forwarding `else` branch of `verify()`:
+  Models the native-coin fee branch of `verify()` under `feeToken == address(0)`
+  and a non-exempt caller:
 
-      uint256 fee = protocolFeeInWei[_protocolId];
+      uint256 fee = protocolFee[_protocolId];
       require(msg.value >= fee, "too low fee");
       if (fee > 0) feeCollectionAddress.call{value: fee}("");   // forward `fee`
       uint256 refund = msg.value - fee;
@@ -27,8 +28,10 @@
   Self-contained: imports `EvmYul` only. Every `#print axioms` at the bottom is a
   subset of `{propext, Classical.choice, Quot.sound}` — no sorry/native_decide.
 
-  The remaining boundary (the exec-level `.CALL` wiring through `primCall`/`callDispatcher`)
-  is documented in Section 4 — the fuel-carrying analogue of RelayStorageLayer's `sstore_eff`.
+  The ERC-20 branch (`feeToken != address(0)`, zero `msg.value`, and SafeERC20
+  `transferFrom`) is outside this module. The remaining native-branch boundary (the
+  exec-level `.CALL` wiring through `primCall`/`callDispatcher`) is documented in
+  Section 4 — the fuel-carrying analogue of RelayStorageLayer's `sstore_eff`.
 -/
 import EvmYul
 open EvmYul
@@ -183,10 +186,11 @@ theorem transfer_conservation_toNat {τ} (σ : AccountMap τ) (A B : AccountAddr
     have hle' : amt.toNat ≤ accA.balance.toNat := hle
     omega
 
-/-! ## Section 3.  Two-transfer net-zero for the caller (the relay-specific composition)
+/-! ## Section 3.  Two-transfer net-zero for the caller (native-fee composition)
 
-`verify()` forwards `fee` to `collector` and `refund = msgValue - fee` to `sender`, both from
-the caller `codeOwner`.  Composing two `transferBalance`s, the caller's balance drops by exactly
+In native-fee mode, `verify()` forwards `fee` to `collector` and
+`refund = msgValue - fee` to `sender`, both from the caller `codeOwner`.
+Composing two `transferBalance`s, the caller's balance drops by exactly
 `fee + refund = msgValue`. -/
 
 /-- **Caller balance delta across the fee-forwarding.**  Executing
@@ -266,14 +270,19 @@ theorem two_transfer_caller_net_zero {τ} (σ : AccountMap τ)
   show (Binitial.val + msgValue.val) - msgValue.val = Binitial.val
   abel
 
-/-! ## Section 4.  The honest boundary — the exec-level `call` layer (NOT proved here)
+/-! ## Section 4.  Explicit boundaries
 
 Sections 2-3 anchor conservation at the **balance primitive** `AccountMap.transferBalance`,
 which is precisely the value-movement the Yul `.CALL` primitive performs through
 `transferBalance .Yul codeOwner address value`.
 
-What is **not** covered here is wiring Relay.sol's `feeCollectionAddress.call{value: fee}("")`
-through the *full* exec-level `.CALL` path in `EvmYul.Yul.primCall`/`callDispatcher`:
+This module is conditional on the native-fee branch (`feeToken == address(0)`) and
+does not model ERC-20 balances, allowances, return conventions, SafeERC20, or the
+EnumerableSet-backed fee-table replacement logic.
+
+Within the native branch, what is **not** covered here is wiring Relay.sol's
+`feeCollectionAddress.call{value: fee}("")` through the *full* exec-level `.CALL`
+path in `EvmYul.Yul.primCall`/`callDispatcher`:
   * decoding the 7 stack args and `AccountAddress.ofUInt256 address_arg`;
   * the static-mode / depth-1024 / insufficient-funds branches
     (each returning a `buildContractCallEmptyReturnState`);
@@ -284,9 +293,9 @@ RelayStorageLayer's `sstore_eff`, but for `.CALL`) and is left as the remaining 
 The `transferBalance`-level facts above are the faithful balance-semantics core that any such
 exec-level result would ultimately reduce to.
 
-Note: value conservation is *also* covered at bounded scope by the Halmos harness
-`RelayVerifyFeeFV` (require-guard, fee forwarding, refund) — this Lean layer adds the
-unbounded balance-primitive semantics.
+Native value conservation is also covered at bounded scope by the Halmos harnesses
+`RelayVerifyFeeFV` and `RelayFeeConservationFV`; this Lean layer adds the unbounded
+balance-primitive semantics.
 -/
 
 /-! ## Section 5.  Hole-freeness checks (each ⊆ {propext, Classical.choice, Quot.sound}) -/

@@ -5,12 +5,12 @@ audit-facing companion is [`docs/relay-verification/`](../../docs/relay-verifica
 starting at [`00-README.md`](../../docs/relay-verification/00-README.md). This file
 explains how to read, run, and audit the verification tooling.
 
-The exact manifest contains **126 Halmos checks: 88 proofs and 38 reachability
-controls**. It covers signing-policy admission and rotation, `relay()`, Merkle
-proofs, randomness, fees, owner timelocks/UUPS, protocol-1 threshold overrides,
-single-keccak policy hashing, and old-Relay migration-mode restrictions. These
-numbers describe the normative inventory, not a cached verdict. The reproducible
-gates below establish a verdict for the checked-out source.
+The exact manifest defines the Halmos proof and reachability inventories. It
+covers signing-policy admission and rotation, `relay()`, Merkle proofs,
+randomness, native/token fees and fee-table replacement, owner timelocks/UUPS,
+protocol-1 threshold overrides, source-domain policy hashing, and `oldRelay`
+mode restrictions. The reproducible gates below establish a verdict for the
+checked-out source; durable prose does not duplicate mutable check counts.
 
 ---
 
@@ -80,8 +80,8 @@ calldata that breaks the property.
 
 Consequences to respect when adding checks:
 
-- Add the fully-qualified identifier to exactly one manifest list. The `reach` naming convention remains
-  useful to readers but no longer controls the machine verdict.
+- Add the fully-qualified identifier to exactly one manifest list. The `reach` naming convention is
+  a readability aid; explicit manifest membership controls the machine verdict.
 - **Every `check_` function carries a matching `EXPECT:` line** in the comment block directly above it, so
   the intent is readable at the function and greppable against the convention:
   - proofs end with `EXPECT: PASS` (canonical dedicated line: `// EXPECT: PASS (proof).`),
@@ -100,15 +100,16 @@ FORGE=/path/to/manifest-pinned-forge HALMOS=$PWD/.venv-halmos/bin/halmos \
 ```
 
 The first command enforces the current `relay()` assembly custom-error ABI. The
-exact manifest pins 37 constants, error signatures, selectors, use counts, and
+exact manifest pins the constants, error signatures, selectors, use counts, and
 canonical four-byte revert encoding.
 
 Before invoking Halmos, the proof gate clean-installs the checksummed Soldeer tree,
 checks the pinned Foundry version/commit, and force-rebuilds the complete FV harness
 tree with solc 0.8.35, Cancun, optimizer 200, and viaIR. Both that build and Halmos's
 internal Forge build are confined to the manifest-derived `test-forge/fv` source/test
-root under a sanitized, audited Foundry environment; unrelated mixed-version repository
-sources cannot enter the proof build. The gate pins the tracked config, loop bound,
+root under a sanitized, audited Foundry environment. Repository-wide compiler-profile
+variants and path restrictions are disabled, so Halmos consumes one unambiguous artifact
+per contract and unrelated mixed-version sources cannot enter the proof build. The gate pins the tracked config, loop bound,
 artifact directory, and Z3 solver on the child command, then hashes and audits the exact
 compiler settings, source binding, and semantic bytecode of Relay,
 RelayProxy, and all declaring harness contracts before and after symbolic
@@ -117,8 +118,13 @@ release evidence.
 
 CI also runs [`verify_relay_artifact.py`](verify_relay_artifact.py). It recompiles Relay with the pinned FV
 compiler, proves that its metadata-stripped creation and runtime bytecode equal the Hardhat deployment
-artifact, and byte-compares the generated optimized Yul with the committed Lean source snapshot. Both
-checks emit normalized JSON evidence consumed by the final bundle gate.
+artifact, byte-compares the generated optimized Yul with the committed Lean source snapshot, and compares
+the compiler-normalized sequential Solidity storage layout with the committed first-deployment baseline.
+Solidity's `storageLayout` output does not enumerate state addressed through ERC-7201 namespace constants
+(including OpenZeppelin `Initializable`) or EIP-1153 transient slots. Those are outside this layout snapshot
+and require their separate source-level and behavioral checks. The sequential-layout comparison is a
+future-upgrade drift tripwire, not a proof of compatibility with unknown future code. The gate emits
+normalized JSON evidence consumed by the final bundle gate.
 
 Every normalized report captures HEAD plus a hash/count of the complete Git
 porcelain state at gate start and end. Only a passing in-process run that starts
@@ -148,6 +154,11 @@ formalization of EVM/Yul, itself validated against the standard `ethereum/tests`
 - [`lean/bytecode-refinement/`](lean/bytecode-refinement/) — the same soundness lifted onto a loop executed by
   the _validated EVM semantics_, for all N. See its [`README.md`](lean/bytecode-refinement/README.md).
 
+The Lean fee layer covers native coin under `feeToken == address(0)`. ERC-20
+`transferFrom`, SafeERC20 return behavior, allowances, and enumerable fee-table
+replacement are covered only by the bounded Solidity/CVL layers and retain the
+standard exact-transfer-token assumption.
+
 **"[Hole-free](../../docs/relay-verification/CONCEPTS.md#hole-free-lean-proof-and-axiom-audit)" is a precise claim, and you can check it yourself.** Every declared audited result has a
 `#print axioms` directive. A proof is trusted when that list is a subset of
 `[propext, Classical.choice, Quot.sound]` — Lean's three standard
@@ -160,7 +171,7 @@ theorems. To re-check:
 
 ```bash
 git clone https://github.com/NethermindEth/EVMYulLean /tmp/evmyul2
-cd /tmp/evmyul2 && git checkout 047f63070309f436b66c61e276ab3b6d1169265a  # 2025-09-24 (pinned, not HEAD)
+cd /tmp/evmyul2 && git checkout 047f63070309f436b66c61e276ab3b6d1169265a  # pinned by the manifest
 lake exe cache get && lake clean && lake build EvmYul           # Lean 4.22.0
 cp <repo>/test-forge/fv/lean/RelaySigLoop.lean . && lake env lean RelaySigLoop.lean   # exit 0
 ```
@@ -172,7 +183,11 @@ cp <repo>/test-forge/fv/lean/RelaySigLoop.lean . && lake env lean RelaySigLoop.l
 [`../../certora/specs/RelayInvariants.spec`](../../certora/specs/RelayInvariants.spec) specifies storage
   invariants in CVL. External boundaries use explicit summaries: queued execution pessimistically
   dispatches the five modeled owner calls, while unmatched external calls use an ECF fallback that
-  cannot mutate Relay storage; `ecrecover` remains nondeterministic.
+  cannot mutate Relay storage; `ecrecover` remains nondeterministic. The fee-token rules cover
+  setter-mode exclusion, native-getter behavior, fee mapping/enumeration lockstep, reserved IDs,
+  proof-before-token-call ordering, and the configured token call target. They do not model ERC-20
+  balance deltas; the exact-transfer Halmos fixture covers that bounded behavior under the standard-token
+  assumption.
   [`verify_certora_local.py`](verify_certora_local.py) fail-closes on compiler,
   CVL typecheck, config, toolchain, and munge drift. It is not a cloud-proof
   substitute.
@@ -229,6 +244,7 @@ The full trust base — every assumption, where it lives, and how it is discharg
 [`RelayMerkleProofFV.t.sol`](RelayMerkleProofFV.t.sol) · [`RelayMerkleFoldFV.t.sol`](RelayMerkleFoldFV.t.sol) ·
 [`RelayVerifyFeeFV.t.sol`](RelayVerifyFeeFV.t.sol) ·
 [`RelayFeeConservationFV.t.sol`](RelayFeeConservationFV.t.sol) ·
+[`RelayFeeTokenFV.t.sol`](RelayFeeTokenFV.t.sol) ·
 [`RelayPolicyHashFV.t.sol`](RelayPolicyHashFV.t.sol) · [`RelaySigParamFV.t.sol`](RelaySigParamFV.t.sol) ·
 [`RelayReturnDiscriminatorFV.t.sol`](RelayReturnDiscriminatorFV.t.sol) ·
 [`RelayAccessControlFV.t.sol`](RelayAccessControlFV.t.sol) ·
@@ -239,8 +255,9 @@ The full trust base — every assumption, where it lives, and how it is discharg
 (the shared `RelayTestBase` calldata encoders, reused by the Halmos harnesses) ·
 [`verify_fv.py`](verify_fv.py) (the Halmos gate) · [`lean/`](lean/) (Lean proofs).
 
-Do not cite the Halmos inventory as a proof of ECDSA. Lean covers indexed
-accounting plus the protocol-1 threshold seam, not cryptography or the complete
+Do not cite the Halmos inventory as a proof of ECDSA or arbitrary token
+semantics. Lean covers indexed accounting, the protocol-1 threshold seam, and
+native-fee balance primitives—not cryptography, token mode, or the complete
 self-call frame. Certora's local gate establishes compilation, munging, and CVL
 typechecking; it is not a cloud prover verdict. Consult the current generated
 reports and the claims ledger for the exact evidence boundary.

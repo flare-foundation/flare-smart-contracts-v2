@@ -11,7 +11,8 @@ honestly:
 - the connection between the algorithm and EVM/Yul execution belongs in the
   refinement development;
 - storage-oriented CVL rules belong in Certora; and
-- provenance and compiler equivalence belong in dedicated artifact gates.
+- provenance, compiler equivalence, optimized-Yul parity, and sequential-storage-layout
+  drift belong in dedicated artifact gates.
 
 The result is layered evidence, not a ranking in which a higher layer replaces a
 lower one.
@@ -54,7 +55,8 @@ The bundle validator requires all mandatory normalized reports to bind:
 - the same source revision;
 - the exact manifest bytes;
 - the production compiler and settings;
-- the generated Relay runtime/creation bytecode and optimized Yul snapshot; and
+- the generated Relay runtime/creation bytecode and optimized Yul snapshot;
+- the compiler-normalized current sequential-storage-layout baseline; and
 - a clean, stable Git state throughout every evidence-producing run.
 
 Certora cloud results are supplemental unless the manifest and bundle explicitly

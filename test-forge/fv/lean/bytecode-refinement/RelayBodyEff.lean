@@ -1429,7 +1429,7 @@ theorem order_guard_pass (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStor
 
 set_option maxHeartbeats 4000000 in
 /-- **Per-iteration advance with the STRUCTURAL guards derived (`iter_advance_tight`).** Same conclusion
-    as `iter_advance`, but the range/order guards (`hg4`/`hg5`) are no longer assumed — they are discharged
+    as `iter_advance`, with the range/order guards (`hg4`/`hg5`) discharged
     from the ValidRun numeric conditions (`nui ≤ idx < nVot`) plus the calldata index decode
     (`index = sigIdxAt`, itself derivable rather than part of the recovery boundary). The remaining guard
     hypotheses are exactly the genuinely cryptographic ones (`v ∈ {27,28}`, low-`s`, ecrecover success,

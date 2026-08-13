@@ -74,8 +74,11 @@ theorem; the gate compares them with an explicit allowlist.
 
 Artifact parity checks that the formal-verification build and deployment build
 refer to the same program. The Relay gate compares compiler/settings,
-metadata-stripped creation/runtime bytecode, and the optimized-Yul snapshot used
-by the Lean development.
+metadata-stripped creation/runtime bytecode, the optimized-Yul snapshot used by
+the Lean development, and the compiler-normalized current sequential-storage-layout
+baseline. The layout snapshot excludes ERC-7201 namespaces and transient slots.
+The scoped comparison detects drift; it does not establish semantic compatibility
+of unknown future implementation code.
 
 ## Provenance
 

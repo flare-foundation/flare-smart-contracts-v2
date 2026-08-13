@@ -618,6 +618,13 @@ def _halmos_foundry_environment(manifest: dict[str, Any]) -> dict[str, str]:
         "FOUNDRY_OPTIMIZER": "true" if compiler["optimizer_enabled"] else "false",
         "FOUNDRY_OPTIMIZER_RUNS": str(compiler["optimizer_runs"]),
         "FOUNDRY_VIA_IR": "true" if compiler["via_ir"] else "false",
+        # The repository build defines additional profiles and path restrictions
+        # for unrelated contracts.  Halmos indexes artifacts by source basename
+        # and contract name, so those extra variants create ambiguous duplicates.
+        # The FV build is already scoped to the exact manifest inventory and pins
+        # every compiler setting above; disable the repository-wide variants.
+        "FOUNDRY_ADDITIONAL_COMPILER_PROFILES": "[]",
+        "FOUNDRY_COMPILATION_RESTRICTIONS": "[]",
     }
 
 
@@ -680,6 +687,8 @@ def _audit_halmos_foundry_environment(
         "optimizer": pinned["FOUNDRY_OPTIMIZER"] == "true",
         "optimizer_runs": int(pinned["FOUNDRY_OPTIMIZER_RUNS"]),
         "via_ir": pinned["FOUNDRY_VIA_IR"] == "true",
+        "additional_compiler_profiles": [],
+        "compilation_restrictions": [],
     }
     actual = {field: parsed.get(field) for field in expected}
     problems: list[str] = []

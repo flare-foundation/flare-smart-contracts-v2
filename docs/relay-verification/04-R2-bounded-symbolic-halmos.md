@@ -14,7 +14,8 @@ contains the exact lists of:
 - reachability checks, which must return a validated `COUNTEREXAMPLE` witness;
 - declaring harness contracts;
 - compiler, EVM, optimizer, Foundry, Halmos, and solver pins; and
-- the target source and optimized-Yul snapshot used by the evidence gates.
+- the target source, optimized-Yul snapshot, and normalized sequential-storage-layout
+  baseline used by the evidence gates.
 
 The gate fails if source discovery and the manifest differ. Adding, renaming, or
 deleting a `check_*` function therefore requires an explicit manifest change.
@@ -30,7 +31,7 @@ The current harness tree covers these implementation surfaces:
 | Policy/epoch selection | `RelayWrongEpochFV`, `RelayDelayedPolicyFV`, `RelayFinalizationWindowFV`, `RelayCrossEpochFV`, `RelayMustUseNewPolicyFV` |
 | Policy rotation and thresholds | `RelayModeOneFV`, `RelayEpochAdvanceFV`, `RelayThresholdScalingFV`, `RelayThresholdConsistencyFV`, `RelayThresholdOverrideFV` |
 | Randomness and Merkle binding | `RelayRandomBindingFV`, `RelayRandomMonotonicityFV`, `RelayIsSecureNormFV`, `RelayMerkleProofFV`, `RelayMerkleFoldFV` |
-| Fees and return values | `RelayVerifyFeeFV`, `RelayFeeConservationFV`, `RelayReturnDiscriminatorFV` |
+| Fees, fee-table replacement, and return values | `RelayVerifyFeeFV`, `RelayFeeConservationFV`, `RelayFeeTokenFV`, `RelayReturnDiscriminatorFV` |
 | Initialization, access, owner/timelock/UUPS | `RelayConstructorFV`, `RelayAccessControlFV`, `RelayOwnerTimelockFV` |
 | Policy digest encoding | `RelayPolicyHashFV`; message source-domain fixtures are supplementary Foundry tests |
 
@@ -50,6 +51,11 @@ It does not generalize automatically to:
 - arbitrarily deep Merkle proofs;
 - arbitrary transaction sequences; or
 - inputs excluded by `vm.assume` or fixed fixture construction.
+
+The token-fee harness executes SafeERC20 against a deterministic standard
+exact-transfer ERC-20 fixture. Its claims do not generalize to fee-on-transfer,
+rebasing, callback-capable, adversarial, or independently upgradeable token
+semantics.
 
 For example, a harness that constructs distinct addresses proves a theorem under
 address uniqueness. It cannot detect duplicate-identity weight amplification.

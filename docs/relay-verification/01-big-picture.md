@@ -11,6 +11,11 @@ Depending on the message mode, an accepted call can:
 - install the next signing policy; or
 - attest to a consumer-defined digest.
 
+For a finalized local Merkle root, `verify()` also enforces the configured fee
+branch: native coin is forwarded and excess is refunded when `feeToken == 0`;
+otherwise `msg.value` must be zero and an exact configured ERC-20 amount is
+pulled from a non-exempt caller after proof validation.
+
 The security-critical computation is implemented largely in inline assembly. It
 parses calldata, chooses a policy and threshold, verifies an ordered signature
 stream, accumulates weight, checks message-specific conditions, and writes state.
@@ -57,7 +62,15 @@ It does not establish:
 - correctness of arbitrary future upgrades;
 - correctness of consumer-defined custom-message semantics;
 - availability under every valid quorum-signed future input; or
-- safe migration when independently supplied metadata is inconsistent.
+- safe migration when independently supplied metadata is inconsistent;
+- exact fee delivery by a token that violates the standard exact-transfer ERC-20
+  assumption; or
+- storage compatibility of an arbitrary future UUPS implementation.
+
+This version defines the first-deployment sequential Solidity storage baseline.
+Artifact parity detects changes to that compiler-visible `storageLayout` output;
+ERC-7201 namespaces and transient slots are outside the snapshot, and no
+proxy-storage migration is part of the current deployment model.
 
 The current open risks are documented in
 [`../relay-security-review.md`](../relay-security-review.md).

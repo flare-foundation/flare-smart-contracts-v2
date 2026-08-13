@@ -1870,7 +1870,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
 
       const relay = await deployRelayProxy(relayInitialConfig, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
       expect(await relay.feeToken()).to.equal(feeToken.address);
-      // The deprecated wei-named getter fails closed in token mode; the primary getter serves it.
+      // The native-wei compatibility getter fails closed in token mode; protocolFee serves it.
       expect((await relay.protocolFee(17)).toString()).to.equal("1000");
       await expectCustomError(relay.protocolFeeInWei(17), "FeeTokenActive");
 

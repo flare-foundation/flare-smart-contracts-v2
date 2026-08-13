@@ -22,6 +22,53 @@ def with_metadata(code: bytes, metadata: bytes) -> str:
 
 
 class ArtifactParityTest(unittest.TestCase):
+    def test_canonical_storage_layout_strips_ast_ids_and_expands_types(self) -> None:
+        raw = {
+            "storage": [
+                {
+                    "astId": 100,
+                    "contract": "contracts/Relay.sol:Relay",
+                    "label": "fees",
+                    "offset": 0,
+                    "slot": "4",
+                    "type": "t_mapping(t_uint256,t_uint256)",
+                }
+            ],
+            "types": {
+                "t_mapping(t_uint256,t_uint256)": {
+                    "encoding": "mapping",
+                    "key": "t_uint256",
+                    "label": "mapping(uint256 => uint256)",
+                    "numberOfBytes": "32",
+                    "value": "t_uint256",
+                },
+                "t_uint256": {
+                    "encoding": "inplace",
+                    "label": "uint256",
+                    "numberOfBytes": "32",
+                },
+            },
+        }
+        canonical = verify_artifact.canonical_storage_layout(raw)
+        self.assertEqual("fees", canonical["storage"][0]["label"])
+        self.assertEqual("4", canonical["storage"][0]["slot"])
+        self.assertNotIn("astId", json.dumps(canonical))
+        self.assertEqual(
+            "uint256",
+            canonical["storage"][0]["type"]["value"]["label"],
+        )
+
+    def test_canonical_storage_layout_rejects_unknown_type(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unknown type"):
+            verify_artifact.canonical_storage_layout(
+                {
+                    "storage": [
+                        {"label": "x", "slot": "0", "offset": 0, "type": "missing"}
+                    ],
+                    "types": {},
+                }
+            )
+
     def test_strips_solidity_cbor_suffix(self) -> None:
         semantic, suffix_length, offset, trailing = verify_artifact.strip_cbor_metadata(
             with_metadata(b"\x60\x00", b"\xa1\x01\x02")

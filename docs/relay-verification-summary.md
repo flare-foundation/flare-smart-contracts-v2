@@ -14,6 +14,9 @@ Use these entry points:
   clean-checkout reproduction procedure.
 - [`relay-security-review.md`](relay-security-review.md) records current security
   findings that constrain the interpretation of every proof.
+- [`specs/FSP/Finalization.md`](specs/FSP/Finalization.md) is the normative Relay
+  behavior specification, and [`relay-governance.md`](relay-governance.md) is the
+  owner/deployment/upgrade runbook.
 
 Mutable commit identifiers, proof counts, and job results are intentionally not
 copied into this summary. The verification manifest and normalized JSON reports

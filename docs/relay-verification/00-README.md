@@ -9,13 +9,15 @@ in this tree.
 
 ## Normative inputs
 
-The verification claim is defined by four versioned inputs:
+The verification claim is defined by these versioned inputs:
 
 1. [`Relay.sol`](../../contracts/protocol/implementation/Relay.sol), the target;
 2. [`verification-manifest.json`](../../test-forge/fv/verification-manifest.json),
    the compiler/toolchain pins and exact proof inventory;
-3. the harnesses and Lean/Certora specifications referenced by the manifest; and
-4. the normalized reports generated under `verification-reports/`.
+3. the harnesses and Lean/Certora specifications referenced by the manifest;
+4. the committed optimized-Yul and sequential-storage-layout baselines selected by the
+   manifest; and
+5. the normalized reports generated under `verification-reports/`.
 
 Prose is explanatory. If prose disagrees with the manifest or a normalized
 report, the machine-readable artifact controls.
@@ -71,10 +73,17 @@ assumptions.
   assumptions, not theorems in this repository.
 - Halmos is bounded by the manifest's loop and fixture shapes.
 - Lean refinement covers the modeled loop and declared composition seams; it is
-  not an extraction proof of the complete optimized contract.
+  not an extraction proof of the complete optimized contract. Its fee layer is
+  conditional on native-fee mode and does not model ERC-20/SafeERC20 behavior.
+- Token-fee conclusions assume a standard exact-transfer ERC-20; fee-on-transfer,
+  rebasing, callback, and upgrade behavior of the configured token is outside
+  Relay's internal proof model.
 - Migration configuration, `oldRelay`, owner behavior, and future upgrade
   implementations are environmental trust boundaries unless a listed property
   says otherwise.
+- The committed sequential-storage-layout baseline detects drift in Solidity's
+  `storageLayout` output. It excludes ERC-7201 namespaces and transient slots
+  and does not prove compatibility of an unknown future implementation.
 - Current open findings remain valid even if every proof in the manifest passes.
 
 The precise register is in

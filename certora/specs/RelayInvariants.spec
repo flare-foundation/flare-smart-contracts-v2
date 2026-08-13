@@ -10,7 +10,8 @@
  * That is a trust boundary, not a prover workaround: an authorized UUPS upgrade can
  * install arbitrary code, so no implementation-level invariant can soundly quantify
  * over it without constraining the replacement implementation. The separate timelock
- * rules exercise queue/execute/cancel behavior without claiming upgrade equivalence.
+ * rules exercise queue/execute/cancel behavior without claiming upgrade equivalence;
+ * successful allowlisted non-upgrade execution has an explicit preservation rule.
  *
  * Parametric calls use @withrevert. Reverting calls remain in the method domain
  * and must preserve sampled state after rollback. This includes a generic ABI
@@ -32,12 +33,15 @@ methods {
     function owner() external returns (address) envfree;
     function getTimelockDurationSeconds() external returns (uint256) envfree;
     function feeCollectionAddress() external returns (address) envfree;
+    function feeToken() external returns (address) envfree;
+    function protocolFee(uint256) external returns (uint256) envfree;
+    function protocolFeeInWei(uint256) external returns (uint256) envfree;
 
     unresolved external in _._ => DISPATCH [] default HAVOC_ECF;
 }
 
 definition preservesCurrentImplementation(method f) returns bool =
-    f.selector != 0x1d5226a3 /* initialize((...),address,address,address) */
+    f.selector != 0xa64ad51b /* initialize((...),address,address,address) */
     && f.selector != sig:upgradeToAndCall(address, bytes).selector
     && f.selector != sig:executeTimelockedCall(bytes).selector;
 
@@ -118,4 +122,36 @@ filtered { f -> preservesCurrentImplementation(f) }
     currentContract.f@withrevert(e, args);
     address post = feeCollectionAddress();
     assert post != 0, "fee collection address must not become zero";
+}
+
+/// Setter-mode (home) deployments never use an ERC-20 verification-fee token.
+/// Initialization and the upgrade-capable executor are excluded above. Every
+/// direct current-implementation transition must preserve the reachable
+/// setter-mode value of zero; successful allowlisted non-upgrade execution is
+/// covered by successfulNonUpgradeExecutionPreservesRelayInvariants.
+rule feeTokenZeroInSetterMode(method f)
+filtered { f -> preservesCurrentImplementation(f) }
+{
+    require signingPolicySetter() != 0;
+    require feeToken() == 0;
+    env e; calldataarg args;
+    currentContract.f@withrevert(e, args);
+    assert feeToken() == 0, "setter mode must not configure a fee token";
+}
+
+/// In native-fee mode the native-wei compatibility getter returns exactly the
+/// canonical protocolFee value.
+rule protocolFeeInWeiMatchesNativeFee(uint256 protocolId) {
+    require feeToken() == 0;
+    assert protocolFeeInWei(protocolId) == protocolFee(protocolId),
+        "the native compatibility getter must match protocolFee";
+}
+
+/// In token-fee mode the native-wei compatibility getter fails closed rather
+/// than exposing token base units as native wei.
+rule protocolFeeInWeiRejectsTokenMode(uint256 protocolId) {
+    require feeToken() != 0;
+    protocolFeeInWei@withrevert(protocolId);
+    assert lastReverted,
+        "the wei compatibility getter must revert while a fee token is active";
 }

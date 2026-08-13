@@ -627,12 +627,19 @@ documentation; read them from the manifest and normalized reports.
   files through `test-forge/fv/lean/verify_lean.py`.
 - Lean results must remain free of `sorryAx` and `native_decide`; the verifier
   enforces the manifest's exact allowed-axiom set.
+- `RelayFeeLayer.lean` is a native-fee theorem under `feeToken == address(0)`.
+  Do not cite it for SafeERC20, allowance, token return, or enumerable fee-table
+  behavior.
 - Judge Halmos by the normalized gate: proofs must pass and every reachability
   control must produce its expected counterexample.
 - A Certora local preparation pass establishes compilation and CVL type-checking,
   not a cloud-prover verdict.
 - A release-capable bundle must bind clean-worktree reports to one Git commit and
   one manifest hash.
+- The current Relay layout is the first-deployment baseline. The artifact gate
+  must reject compiler-visible slot/order/offset/type drift until an intentional
+  future-upgrade review rebaselines it; this is a drift guard, not a proof about
+  unknown implementation code.
 
 ## Gates
 
@@ -640,7 +647,7 @@ documentation; read them from the manifest and normalized reports.
 |------|---------|--------|
 | Deployment provenance | `node scripts/relay-artifact-provenance.js` | deployment bytecode, ABI and compiler provenance |
 | Custom-error ABI | `python3 test-forge/fv/verify_relay_custom_error_abi.py` | assembly revert payloads against Solidity error selectors |
-| Artifact parity | `test-forge/fv/verify_relay_artifact.py --deployment-report verification-reports/relay-deployment.json` | FV solc output against the deployment artifact and committed optimized Yul |
+| Artifact parity | `test-forge/fv/verify_relay_artifact.py --deployment-report verification-reports/relay-deployment.json` | FV solc output against the deployment artifact, committed optimized Yul, and normalized storage-layout baseline |
 | Halmos | `HALMOS=$PWD/.venv-halmos/bin/halmos .venv-halmos/bin/python test-forge/fv/verify_fv.py` | manifest-bound proofs and non-vacuity controls |
 | Lean | `EVMYUL_DIR=/tmp/evmyul2 python3 test-forge/fv/lean/verify_lean.py` | required theorems and allowed axioms against pinned semantics |
 | Certora local | `python3 test-forge/fv/verify_certora_local.py --solc /path/to/solc-0.8.35` | exact three-config front-end preparation |

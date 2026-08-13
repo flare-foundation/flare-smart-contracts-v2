@@ -15,7 +15,8 @@ The current files cover:
 - the literal signature-loop body and its accumulator update;
 - storage/transient-storage component semantics;
 - protocol-1 threshold selection and strict comparison; and
-- conditional dispatch, acceptance, and fee/storage composition lemmas.
+- conditional dispatch, acceptance, storage composition, and native-fee balance
+  lemmas.
 
 The exact file and exported-theorem inventory is declared by the verification
 manifest and checked by `verify_lean.py`.
@@ -38,14 +39,19 @@ premises or external bindings unless a current theorem says otherwise:
   policy admission;
 - complete self-call composition for protocol-1 transient threshold setup;
 - complete control-flow linkage from dispatch through state write and return;
+- ERC-20 fee transfer, allowance, token return behavior, SafeERC20, and the
+  EnumerableSet-backed fee table;
 - solc's transformation from optimized Yul to bytecode; and
 - equivalence of a future implementation after UUPS upgrade.
 
 The artifact-parity gate byte-compares the committed optimized-Yul snapshot with
-the current compiler output and compares metadata-stripped bytecode across the
-FV and deployment builds. Halmos supplies bounded behavioral evidence on the
-compiled bytecode. Together these narrow the seam but do not turn the
-conditional refinement into whole-contract extraction.
+the current compiler output, compares metadata-stripped bytecode across the FV
+and deployment builds, and compares the compiler-normalized sequential Solidity
+storage layout with the current first-deployment baseline. ERC-7201 namespaces
+and transient slots are outside that snapshot. Halmos supplies bounded behavioral
+evidence on the compiled bytecode. Together these narrow the seam but do not
+turn the conditional refinement into whole-contract extraction or prove future
+upgrade compatibility.
 
 ## Trust in the semantics
 

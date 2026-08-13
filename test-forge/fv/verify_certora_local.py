@@ -409,7 +409,7 @@ def main() -> int:
 
     munge_result = command(["bash", "certora/munge.sh"])
     if munge_result.returncode:
-        violations.append("certora/munge.sh failed its exact two-keyword faithfulness audit")
+            violations.append("certora/munge.sh failed its exact visibility faithfulness audit")
 
     config_results: list[dict[str, Any]] = []
     if not violations:

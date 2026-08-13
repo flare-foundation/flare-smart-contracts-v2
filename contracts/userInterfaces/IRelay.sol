@@ -130,8 +130,8 @@ interface IRelay is RandomNumberV2Interface {
     error FeeExemptAddressZero();
     /// Initial fee-exempt addresses supplied on a setter-mode (home) deploy, which charges no fee.
     error FeeExemptionsNotAllowed();
-    /// The deprecated protocolFeeInWei() getter was called while a fee token is active — the
-    /// fee is then in token base units, not wei; use protocolFee() and feeToken() instead.
+    /// protocolFeeInWei() was called while a fee token is active. Token-denominated fees
+    /// are expressed in token base units; use protocolFee() and feeToken() in this mode.
     error FeeTokenActive();
     error FeeTransferFailed();
     error HistoryBeforeStart();
@@ -412,9 +412,9 @@ interface IRelay is RandomNumberV2Interface {
     function getFeeConfigs() external view returns (FeeConfig[] memory _feeConfigs);
 
     /**
-     * Returns fee in wei for one verification of a given protocol id.
-     * @dev Deprecated pre-feeToken name of protocolFee(). Reverts with FeeTokenActive when a
-     * fee token is set, so a token-denominated fee can never be misread as a wei amount.
+     * Returns the native-coin fee in wei for one verification of a given protocol id.
+     * @dev Reverts with FeeTokenActive when a fee token is set, so token-denominated amounts
+     * cannot be exposed through a getter whose unit is wei.
      * @param _protocolId The protocol id.
      */
     function protocolFeeInWei(uint256 _protocolId) external view returns (uint256);

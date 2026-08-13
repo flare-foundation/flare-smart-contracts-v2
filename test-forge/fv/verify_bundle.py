@@ -114,7 +114,9 @@ def validate_report_provenance(report: dict[str, Any], gate: str) -> bool:
     return report_eligible
 
 
-def _validate_release_halmos_inputs(report: dict[str, Any], command: list[str]) -> None:
+def _validate_release_halmos_inputs(
+    report: dict[str, Any], command: list[str], manifest: dict[str, Any]
+) -> None:
     inputs = report.get("inputs")
     if not isinstance(inputs, dict) or inputs.get("release_eligible") is not True:
         raise ValueError("Halmos release evidence has no eligible input provenance")
@@ -122,7 +124,6 @@ def _validate_release_halmos_inputs(report: dict[str, Any], command: list[str]) 
     if not isinstance(config, dict) or not isinstance(config.get("effective"), dict):
         raise ValueError("Halmos release evidence has no audited effective config")
 
-    manifest = json.loads(DEFAULT_MANIFEST.read_text())
     checks = manifest["halmos"]["proofs"] + manifest["halmos"]["reachability"]
     source_parents = [Path(check.partition(":")[0]).parent.as_posix() for check in checks]
     foundry_root = Path(os.path.commonpath(source_parents)).as_posix()
@@ -147,6 +148,8 @@ def _validate_release_halmos_inputs(report: dict[str, Any], command: list[str]) 
         "FOUNDRY_OPTIMIZER": "true" if compiler["optimizer_enabled"] else "false",
         "FOUNDRY_OPTIMIZER_RUNS": str(compiler["optimizer_runs"]),
         "FOUNDRY_VIA_IR": "true" if compiler["via_ir"] else "false",
+        "FOUNDRY_ADDITIONAL_COMPILER_PROFILES": "[]",
+        "FOUNDRY_COMPILATION_RESTRICTIONS": "[]",
     }
     expected_effective = {
         "src": foundry["src"],
@@ -159,6 +162,8 @@ def _validate_release_halmos_inputs(report: dict[str, Any], command: list[str]) 
         "optimizer": compiler["optimizer_enabled"],
         "optimizer_runs": compiler["optimizer_runs"],
         "via_ir": compiler["via_ir"],
+        "additional_compiler_profiles": [],
+        "compilation_restrictions": [],
     }
     foundry_record = inputs.get("halmos_foundry_build")
     halmos_forge = report.get("toolchain", {}).get("halmos_forge")
@@ -361,8 +366,9 @@ def _validate_node_inputs(report: dict[str, Any]) -> None:
             raise ValueError("deployment evidence changed pnpm executable during preparation")
 
 
-def _validate_custom_error_sources(report: dict[str, Any]) -> None:
-    manifest = json.loads(DEFAULT_MANIFEST.read_text())
+def _validate_custom_error_sources(
+    report: dict[str, Any], manifest: dict[str, Any]
+) -> None:
     config = manifest["relay_custom_error_abi"]
     expected = [config["source"], config["interface_source"]]
     sources = report.get("sources")
@@ -379,24 +385,69 @@ def _validate_custom_error_sources(report: dict[str, Any]) -> None:
             raise ValueError("custom-error evidence is not bound to the manifest production paths")
 
 
-def _validate_gate_inputs(report: dict[str, Any], gate: str) -> None:
+def _validate_artifact_baselines(
+    report: dict[str, Any], manifest: dict[str, Any]
+) -> None:
+    """Bind release evidence to both committed compiler-derived baselines."""
+    target = manifest["target"]
+    storage_path = REPO / target["storage_layout_snapshot"]
+    storage_value = json.loads(storage_path.read_text())
+    storage_bytes = (
+        json.dumps(storage_value, separators=(",", ":"), sort_keys=True) + "\n"
+    ).encode()
+    expected = {
+        "optimized_ir": (
+            target["optimized_ir_snapshot"],
+            digest(REPO / target["optimized_ir_snapshot"]),
+        ),
+        "storage_layout": (
+            target["storage_layout_snapshot"],
+            hashlib.sha256(storage_bytes).hexdigest(),
+        ),
+    }
+    for label, (path, committed_digest) in expected.items():
+        record = report.get(label)
+        generated_digest = record.get("generated_sha256") if isinstance(record, dict) else None
+        recorded_committed = record.get("committed_sha256") if isinstance(record, dict) else None
+        if (
+            not isinstance(record, dict)
+            or record.get("path") != path
+            or record.get("identical") is not True
+            or not isinstance(generated_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", generated_digest) is None
+            or not isinstance(recorded_committed, str)
+            or re.fullmatch(r"[0-9a-f]{64}", recorded_committed) is None
+            or generated_digest != recorded_committed
+            or recorded_committed != committed_digest
+        ):
+            raise ValueError(
+                f"artifact-parity {label} evidence is not bound to the manifest baseline"
+            )
+
+
+def _validate_gate_inputs(
+    report: dict[str, Any], gate: str, manifest: dict[str, Any]
+) -> None:
     if report.get("release_eligible") is not True:
         return
     if gate == "relay-deployment-artifact":
         _validate_node_inputs(report)
     elif gate == "relay-custom-error-abi":
-        _validate_custom_error_sources(report)
+        _validate_custom_error_sources(report, manifest)
     elif gate in {"relay-artifact-parity", "relay-certora-local"}:
         inputs = report.get("inputs")
         if not isinstance(inputs, dict):
             raise ValueError(f"{gate}: missing input provenance")
         _validate_soldeer(inputs.get("soldeer"), gate)
+        if gate == "relay-artifact-parity":
+            _validate_artifact_baselines(report, manifest)
     elif gate == "relay-lean":
         _validate_lean_inputs(report)
 
 
 def collect_evidence(
     reports: list[Path],
+    manifest: dict[str, Any],
     manifest_sha256: str,
     repository_commit: str,
     *,
@@ -421,7 +472,7 @@ def collect_evidence(
         if data.get("git_commit") != repository_commit:
             raise ValueError(f"evidence report was produced from a different Git commit: {path}")
         release_eligible = validate_report_provenance(data, gate)
-        _validate_gate_inputs(data, gate)
+        _validate_gate_inputs(data, gate, manifest)
         if not release_eligible and not allow_development:
             raise ValueError(f"{gate}: evidence report is development-only")
         by_gate[gate] = data
@@ -462,7 +513,7 @@ def collect_evidence(
             raise ValueError("Halmos evidence has incomplete in-process execution provenance")
         if not all(isinstance(argument, str) and argument for argument in halmos_command):
             raise ValueError("Halmos evidence has a malformed in-process command")
-        _validate_release_halmos_inputs(halmos, halmos_command)
+        _validate_release_halmos_inputs(halmos, halmos_command, manifest)
     elif execution_mode == IMPORTED_MODE:
         if (
             execution.get("halmos_process_exitcode") is not None
@@ -505,6 +556,7 @@ def main() -> int:
             raise ValueError("working tree is dirty; commit the reviewed inputs or use --allow-dirty for development only")
         evidence = collect_evidence(
             reports,
+            manifest,
             manifest_sha256,
             repository_commit,
             allow_development=args.allow_dirty,

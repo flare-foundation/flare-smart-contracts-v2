@@ -13,7 +13,7 @@ It contains an abstract proof and a refinement over EVMYulLean's validated Yul o
 | `bytecode-refinement/RelayLoopLiteral.lean` | hand-transliterated signature-loop body | statement-level semantics |
 | `bytecode-refinement/RelayBodyEff.lean` | literal-body, dispatch, and protocol-1 threshold composition | arbitrary loop count under explicit premises |
 | `bytecode-refinement/RelayStorageLayer.lean` | persistent and transient storage effects | arbitrary keys and values under stated account premises |
-| `bytecode-refinement/RelayFeeLayer.lean` | fee arithmetic and balance conservation | arbitrary values under stated balance premises |
+| `bytecode-refinement/RelayFeeLayer.lean` | native-fee arithmetic and balance conservation | arbitrary values under stated balance premises and `feeToken == address(0)` |
 
 ## Abstract accounting theorem
 
@@ -44,12 +44,13 @@ The model intentionally leaves these boundaries explicit:
   hand-transliterated loop body is not a proved AST refinement;
 - the complete setup path around transient storage, self-call behavior, rollback, and transaction-end
   clearing is not extracted into the composition theorem; and
-- the accept write and fee-call interpreter wiring are proved as separate components.
+- the accept write and native-fee call interpreter wiring are proved as separate components; and
+- ERC-20 fee transfer, allowance, token return behavior, and fee-table enumeration are outside Lean's model.
 
 ## Assumptions and proof audit
 
 The source contains no `sorry`, `admit`, or `native_decide`. The manifest allowlists Lean's standard
-logical axioms and exactly three local declarations:
+logical axioms and these local declarations:
 
 - `RelayDataLayer.zeroes_data`;
 - `RelayDataLayer.toByteArray_size`; and

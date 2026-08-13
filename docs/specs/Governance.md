@@ -1,12 +1,12 @@
 # Governance
 
-System governance on Flare is administered through a stack of governance primitives: a base [`Governed`](../../contracts/governance/implementation/Governed.sol) pattern that every governed contract inherits, a [`Governor`](../../contracts/governance/implementation/Governor.sol) on-chain proposal system for community votes, and concrete polling contracts that drive specific decisions. The pattern is the same one used in v1 — the v2 contracts plug into the existing v1 governance settings.
+System governance on Flare uses several explicit authority models: the [`Governed`](../../contracts/governance/implementation/Governed.sol) family, the ERC-7201 [`FlareGovernance`](../../contracts/governance/lib/FlareGovernance.sol) family, [`Governor`](../../contracts/governance/implementation/Governor.sol) proposal contracts, and Relay's per-chain owner model. Consumers must identify the concrete contract's inheritance before reasoning about authority or timelock semantics.
 
-This page covers the system-wide governance contracts (everything except FCC). FCC has its own governance layer at the diamond level — see [FCC / Governance](./FCC/Governance.md).
+This page covers the system-wide governance contracts and records Relay's exception. FCC has its own governance layer at the diamond level — see [FCC / Governance](./FCC/Governance.md).
 
 ## `Governed`
 
-[`Governed`](../../contracts/governance/implementation/Governed.sol) and [`GovernedBase`](../../contracts/governance/implementation/GovernedBase.sol) are the base contracts that every governed contract in this repo (and the v1 repo) inherits. They provide:
+[`Governed`](../../contracts/governance/implementation/Governed.sol) and [`GovernedBase`](../../contracts/governance/implementation/GovernedBase.sol) provide:
 
 - A `governance()` accessor — the address authorized to perform governance-only operations (`initialGovernance` before production mode, the central `IGovernanceSettings.getGovernanceAddress()` after).
 - An `onlyGovernance` modifier that wraps governance-only methods, plus `onlyImmediateGovernance` for the few calls that must run without the timelock.
@@ -23,7 +23,7 @@ A second, structurally-similar governance stack lives in [`contracts/governance/
 
 Two abstracts sit above the library:
 
-- [`FlareGovernedAccess`](../../contracts/governance/implementation/FlareGovernedAccess.sol) — provides `onlyGovernance` / `onlyImmediateGovernance` modifiers. Inherits OpenZeppelin's [`Initializable`](../../dependencies/@openzeppelin-contracts-5.4.0/proxy/utils/Initializable.sol) and calls `_disableInitializers()` in its constructor as the implementation-side anti-selfdestruct. **No public functions** — used by TEE Diamond facets that share the diamond's governance state but must not pollute its ABI with duplicate selectors.
+- [`FlareGovernedAccess`](../../contracts/governance/implementation/FlareGovernedAccess.sol) — provides `onlyGovernance` / `onlyImmediateGovernance` modifiers. Inherits OpenZeppelin's [`Initializable`](../../dependencies/@openzeppelin-contracts-5.7.0/proxy/utils/Initializable.sol) and calls `_disableInitializers()` in its constructor as the implementation-side anti-selfdestruct. **No public functions** — used by TEE Diamond facets that share the diamond's governance state but must not pollute its ABI with duplicate selectors.
 - [`FlareGovernedBase`](../../contracts/governance/implementation/FlareGovernedBase.sol) — extends `FlareGovernedAccess` and adds the seven public governance functions. Inherited by [`FlareUpgradeableBase`](../../contracts/governance/implementation/FlareUpgradeableBase.sol) (the UUPS base used by FDC2 and TEE non-Diamond contracts) and by the TEE Diamond's [`DiamondGovernanceFacet`](../../contracts/tee/facets/DiamondGovernanceFacet.sol).
 
 The initialization lifecycle is enforced at two layers:
@@ -31,14 +31,20 @@ The initialization lifecycle is enforced at two layers:
 - **OpenZeppelin's `Initializable`** — every concrete `initialize(...)` external function carries the `initializer` modifier, and `initializeBase(...)` carries `onlyInitializing`. OZ tracks state in its own ERC-7201 slot (`openzeppelin.storage.Initializable`). This is the primary single-call guard, and unlocks `reinitializer(uint64)` for future versioned migrations.
 - **`FlareGovernance` library** — keeps its own `bool initialised` flag inside the namespaced State struct (defense in depth). The library's `initialise(...)` reverts with `IFlareGovernance.GovernedAlreadyInitialized` if called a second time on the same storage — relevant if an existing proxy is upgraded to new bytecode whose OZ slot is virgin (zero) but whose FlareGovernance state is already set.
 
-Scope today: this library backs the TEE Diamond and every FDC2 / TEE UUPS contract. All other governed contracts in the repo (FdcHub, FtsoRewardOffersManager, ValidatorRewardOffersManager, FastUpdateIncentiveManager, ChainlinkAdapter, FtsoV2Proxy, the protocol contracts, etc.) continue to use the legacy `GovernedBase`-derived stack above.
+This library backs the TEE Diamond and the FDC2 / TEE UUPS contracts. Contracts inheriting `GovernedBase` use the fixed-slot governance model described above.
+
+### Relay exception: per-chain owner, exact-calldata timelock, and UUPS
+
+[`Relay`](../../contracts/protocol/implementation/Relay.sol) does not inherit either governed stack. Each Relay proxy has an owner managed by [`OwnableWithTimelock`](../../contracts/utils/implementation/OwnableWithTimelock.sol) and uses OpenZeppelin UUPS upgrade mechanics. With a nonzero Relay timelock, an owner call protected by `onlyOwnerWithTimelock` queues the exact calldata; after its ETA, anyone may execute it through `executeTimelockedCall(bytes)`. The owner can cancel it. Queue entries are keyed by calldata, do not expire, and survive ownership or implementation changes unless canceled.
+
+Relay's owner-timelocked surface includes fee configuration, fee exemptions, fee collection, signing-policy-setter changes in the applicable deployment mode, and `upgradeToAndCall`. Relay has no `governance()`, `productionMode`, or `executeGovernanceCall(bytes4)` lifecycle. See the [Relay governance runbook](../relay-governance.md) for its exact operating model.
 
 ## `Governor` — community proposals
 
 [`Governor`](../../contracts/governance/implementation/Governor.sol) is the OpenZeppelin-style on-chain proposal system, adapted for Flare's vote-power model. It implements [`IGovernor`](../../contracts/userInterfaces/IGovernor.sol) and aggregates two helpers: [`GovernorProposals`](../../contracts/governance/implementation/GovernorProposals.sol) (proposal lifecycle) and [`GovernorVotes`](../../contracts/governance/implementation/GovernorVotes.sol) (vote counting). Inputs:
 
-- A reference to [`IISupply`](https://github.com/flare-foundation/flare-periphery-contracts) — the v1 supply contract that provides circulating-supply data for quorum calculations.
-- A reference to [`IIGovernanceVotePower`](https://github.com/flare-foundation/flare-periphery-contracts) — the v1 contract that exposes per-address governance vote power (typically WNat governance vote power, separate from FSP delegation vote power).
+- A reference to [`IISupply`](https://github.com/flare-foundation/flare-periphery-contracts) — the system supply contract that provides circulating-supply data for quorum calculations.
+- A reference to [`IIGovernanceVotePower`](https://github.com/flare-foundation/flare-periphery-contracts) — the contract that exposes per-address governance vote power (typically WNat governance vote power, separate from FSP delegation vote power).
 - A reference to [`Submission`](../../contracts/protocol/implementation/Submission.sol) — used for the gas-refunded `submit3` mechanism if proposals route through it.
 
 Lifecycle:
@@ -63,21 +69,21 @@ Each poll has its own quorum and threshold parameters. Both inherit `Governor` a
 
 ## How `Governed` interacts with these polls
 
-The flow for a typical governance change to a v2 contract:
+The flow for a typical change to a `Governed` contract:
 
 1. **Foundation** drafts a proposal (e.g. "set `randomAcquisitionMaxDurationSeconds` to 6 hours") and submits via `PollingFoundation.propose`.
 2. Voting window opens. WNat / governance-vote-power holders cast votes.
 3. If passed, `PollingFoundation.execute(proposalId)` runs the proposal's `(target, calldata)` — typically a call into the target contract's governance-only setter (e.g. `flareSystemsManager.updateSettings(...)`).
-4. The setter, gated by `onlyGovernance`, checks `msg.sender == governance()`. The poll address *is* the governance for v2 contracts (via `IGovernanceSettings`).
+4. The setter, gated by `onlyGovernance`, checks `msg.sender == governance()`. The poll address is the effective governance through `IGovernanceSettings`.
 5. After the timelock, the change takes effect.
 
 Day-to-day operational changes (chilling a misbehaving provider, adding an FDC attestation type, setting a feed configuration) are done through `IGovernanceSettings.executors[]` — addresses authorized to execute already-passed governance directly. The executors don't have proposal power; they just submit the on-chain transaction once the proposal has been approved.
 
-## Differences from v1 governance
+## Shared governance settings
 
-The v2 contracts deliberately reuse v1's governance settings — the `IGovernanceSettings` instance, the polling foundation, the executor list. This means a single governance action can update a v1 and a v2 contract together.
-
-The v2-specific addition is `IIGovernanceVotePower` for vote weight, which is computed against the `governanceVotePower` snapshot rather than v1's `vpToken`. The accounting model is otherwise identical.
+The `Governed` contracts share the `IGovernanceSettings` instance, polling
+foundation, and executor list. Polling vote weight is read through
+`IIGovernanceVotePower` at the proposal's `governanceVotePower` snapshot.
 
 ## What governance can and cannot do
 

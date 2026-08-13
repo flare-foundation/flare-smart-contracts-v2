@@ -2,7 +2,7 @@
 
 Foundry tests establish the executable fixtures reused by the formal harnesses.
 They also pin behavior that is more directly reviewed as examples than as an
-abstract theorem: initialization, error selectors, fee transfers, proxy context,
+abstract theorem: initialization, error selectors, native/token fee transfers, proxy context,
 timelock lifecycle, migration delegation, event/state agreement, and malformed
 calldata handling.
 
@@ -14,7 +14,7 @@ Foundation tests provide:
 - success witnesses for symbolic reachability checks;
 - exact boundary cases for strict threshold comparisons;
 - differential checks between high-level and assembly encodings;
-- regressions for the security findings already covered by the test suite; and
+- regressions that exercise the security findings mapped to the test suite; and
 - interface/ABI behavior used by integrations.
 
 They are not a substitute for symbolic or inductive coverage.

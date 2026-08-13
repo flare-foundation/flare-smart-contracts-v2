@@ -5,11 +5,12 @@ This directory targets the current Relay architecture:
 - upgradeable `Relay` implementation compiled with Solidity 0.8.35;
 - per-chain `OwnableUpgradeable` owner;
 - exact-calldata owner timelock in an ERC-7201 namespace; and
-- UUPS upgrades guarded by that same owner-timelock path.
+- UUPS upgrades guarded by that same owner-timelock path; and
+- atomically replaceable native/ERC-20 verification-fee configuration.
 
 ## Evidence outputs
 
-The verification manifest binds three Certora configurations and 15 rules. The
+The verification manifest binds three Certora configurations and 27 rules. The
 local preparation gate compiles the Solidity scenes and type-checks every CVL
 rule with:
 
@@ -34,27 +35,39 @@ than copying job metadata into this document.
 [`Relay.conf`](Relay.conf) checks scalar preservation rules directly against the
 production implementation:
 
-| Rule                                        | Claim                                                                                          |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `sourceChainIdImmutableAfterInitialization` | ordinary current-implementation calls cannot change the initialized source domain              |
-| `signingPolicySetterModeStable`             | relay mode cannot gain a setter and setter mode cannot be cleared; a nonzero setter may rotate |
-| `lastInitializedMonotonic`                  | the initialized reward epoch does not regress                                                  |
-| `ownerCannotBecomeZero`                     | ownership may rotate but cannot be renounced or transferred to zero                            |
-| `timelockDurationBoundPreserved`            | an in-range delay remains at most seven days                                                   |
-| `feeCollectionAddressCannotBecomeZero`      | an established fee recipient cannot be cleared                                                 |
+| Rule                                             | Claim                                                                                                        |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `sourceChainIdImmutableAfterInitialization`      | ordinary current-implementation calls cannot change the initialized source domain                            |
+| `signingPolicySetterModeStable`                  | relay mode cannot gain a setter and setter mode cannot be cleared; a nonzero setter may rotate               |
+| `lastInitializedMonotonic`                       | the initialized reward epoch does not regress                                                                |
+| `ownerCannotBecomeZero`                          | ownership may rotate but cannot be renounced or transferred to zero                                          |
+| `timelockDurationBoundPreserved`                 | an in-range delay remains at most seven days                                                                 |
+| `feeCollectionAddressCannotBecomeZero`           | an established fee recipient cannot be cleared                                                               |
+| `feeTokenZeroInSetterMode`                       | ordinary current-implementation calls preserve the zero fee token required in setter mode                    |
+| `protocolFeeInWeiMatchesNativeFee`               | in native mode the native-wei compatibility getter equals the canonical protocol fee                         |
+| `protocolFeeInWeiRejectsTokenMode`               | in token mode the native-wei compatibility getter reverts instead of exposing token units as wei             |
 
 [`Relay-writeonce.conf`](Relay-writeonce.conf) checks raw mappings and timelock
 transitions against [`RelayHarness`](harness/RelayHarness.sol):
 
-| Rule                                | Claim                                                                                                                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `policyHashWriteOnce`               | an initialized policy hash cannot be overwritten by an ordinary current-implementation call, under the documented reachable-state epoch link                                     |
-| `merkleRootWriteOnce`               | a nonzero finalized root cannot be overwritten by an ordinary current-implementation call                                                                                        |
-| `onlyOwnerCanEnterGuardedSurface`   | with the transient execution flag clear, a non-owner cannot enter any of the six guarded mutation entry points                                                                   |
-| `delayedOwnerCallDoesNotApply`      | with a positive delay, a successful non-upgrade owner call cannot apply a sampled Relay-state mutation; queue creation itself is covered by Halmos/concrete tests                |
-| `successfulExecutionConsumesQueue`  | a ready, successful execution of one of the five non-upgrade guarded calls deletes its exact entry and clears the transient flag; a real applied setter witness prevents vacuity |
-| `successfulDurationUpdateIsBounded` | a successful duration update respects the seven-day cap; a clean-boundary owner witness proves a zero-delay update is actually applied rather than queued or reverted            |
-| `ownershipRenounceAlwaysReverts`    | Relay cannot renounce ownership                                                                                                                                                  |
+| Rule                                                   | Claim                                                                                                                                                                            |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `policyHashWriteOnce`                                  | an initialized policy hash cannot be overwritten by an ordinary current-implementation call, under the documented reachable-state epoch link                                     |
+| `merkleRootWriteOnce`                                  | a nonzero finalized root cannot be overwritten by an ordinary current-implementation call                                                                                        |
+| `feeTableMappingSetLockstepPreserved`                  | the sampled mapping entry is nonzero exactly when its protocol id is in the fee enumeration, assuming that reachable-state relation before the transition                        |
+| `reservedProtocolFeesRemainUnset`                      | protocol ids 0 and 1 remain absent and free across ordinary current-implementation calls                                                                                         |
+| `immediateSetterModeProtocolFeeUpdateReverts`          | a clean zero-delay setter-mode call rejects every argument to the current `setProtocolFees` ABI                                                                                   |
+| `immediateProtocolFeeUpdateCanApply`                   | a real zero-delay relay-mode fee-token transition has a successful execution witness                                                                                            |
+| `tokenModeRejectsNativeValueBeforeExternalCall`        | token mode rejects nonzero `msg.value` before any external call                                                                                                                  |
+| `tokenModeUnfinalizedVerificationDoesNotCallToken`     | a zero stored root reverts before an ERC-20 call                                                                                                                                 |
+| `tokenModeInvalidEmptyProofDoesNotCallToken`           | a nonmatching leaf with an empty proof reverts before an ERC-20 call                                                                                                              |
+| `tokenModeValidEmptyProofCallsConfiguredToken`         | a charged, valid empty-proof path calls the configured token with zero native value and has a successful witness                                                                 |
+| `onlyOwnerCanEnterGuardedSurface`                      | with the transient execution flag clear, a non-owner cannot enter any of the six guarded mutation entry points                                                                   |
+| `delayedOwnerCallDoesNotApply`                         | with a positive delay, a successful non-upgrade owner call cannot apply sampled Relay or fee-table state; concrete queue creation is covered by the manifest-bound `RelayOwnerTimelockFV` concrete/Halmos fixture within its stated bounds |
+| `successfulExecutionConsumesQueue`                     | a ready, successful execution of one of the five non-upgrade guarded calls deletes its exact entry and clears the transient flag; a real applied setter witness prevents vacuity |
+| `successfulNonUpgradeExecutionPreservesRelayInvariants` | a ready, successful allowlisted non-upgrade execution preserves scalar, write-once, fee-table, reserved-id, and setter-mode invariants                                           |
+| `successfulDurationUpdateIsBounded`                    | a successful duration update respects the seven-day cap; a clean-boundary owner witness proves a zero-delay update is actually applied rather than queued or reverted            |
+| `ownershipRenounceAlwaysReverts`                       | Relay cannot renounce ownership                                                                                                                                                  |
 
 [`Relay-threshold.conf`](Relay-threshold.conf) isolates the wrapper's fail-fast
 opcode checks and the threshold arithmetic lemma from the established
@@ -70,14 +83,16 @@ mapping/timelock job:
 Every configuration enables `rule_sanity=basic`. This checks that the end of a
 rule remains reachable after its assertions are removed; it does not by itself
 show that a conditional `reverted || property` reached the successful branch.
-The two success-conditional timelock rules therefore include explicit `satisfy`
-witnesses. `ownershipRenounceAlwaysReverts` and the threshold fail-fast rule
+Success-conditional timelock and fee-token rules therefore include explicit
+`satisfy` witnesses. `ownershipRenounceAlwaysReverts`, setter-mode fee rejection,
+native-value rejection, unfinalized verification, invalid-proof verification,
+and the threshold fail-fast rule
 intentionally have no successful path: rejection is their property, so a generic
 non-revert witness is inapplicable. Sanity exclusions and SAT witnesses are
 recorded in the normalized cloud report and must be read per rule and method
 rather than hidden behind the CLI's aggregate banner.
 
-The parametric scalar and write-once rules invoke generic methods with
+The parametric scalar and write-once rules invoke generic direct methods with
 `@withrevert`. Reverting calls remain in the method domain and must preserve the
 sampled state after rollback. This includes ABI-dispatched `relay()`, whose
 generic zero-argument call supplies only the selector and lacks the required
@@ -89,7 +104,8 @@ covers the disabled ownership path.
 All three configurations set `loop_iter=3` and `optimistic_loop=true`. Certora may
 assume away executions that continue past three loop iterations, so a cloud
 `SUCCESS` is conditional on this bounded loop model and is not an unrestricted
-all-input result for Relay's longer loops.
+all-input result for Relay's longer loops. In particular, fee-table replacement
+claims cover only executions that finish within this loop bound.
 
 All three configurations also set `optimistic_hashing=true` with
 `hashing_length_bound=512`. The Prover therefore assumes that every unbounded
@@ -100,6 +116,18 @@ hashing the relay message, and the arithmetic lemma is pure, so this hashing
 assumption is not load-bearing for either current threshold claim. Other claims
 remain limited to hashed inputs at or below 512 bytes; inputs longer than the
 bound are not proved safe.
+
+The token-fee opcode rules require `oldRelay == 0`, matching the reachable token
+mode, and use the harness's raw root getter to isolate current-contract proof
+ordering. Persistent `CALL` ghosts remain visible across a revert. They establish
+that nonzero native value, an unfinalized root, and a concrete invalid empty proof
+are rejected before any external call. For a concrete valid empty proof with a
+nonzero fee and a non-exempt caller, they establish a call to the configured token
+with zero native value and include a successful witness. These rules do not decode
+the ERC-20 call arguments or establish recipient balance deltas. Correct
+`transferFrom(sender, feeCollectionAddress, fee)` behavior and exact-transfer
+balance semantics remain assumptions about the configured standard token; ECF
+also excludes reentrant effects on Relay state.
 
 The threshold fail-fast rule invokes the real
 `verifyCustomSignatureWithThreshold` method, with zero call value to exclude the
@@ -145,14 +173,16 @@ The parametric scalar and mapping-preservation rules exclude:
 1. `initialize(...)`, which establishes proxy state;
 2. `upgradeToAndCall(...)`, which can deliberately replace every implementation
    invariant; and
-3. `executeTimelockedCall(...)`, because it can dispatch the queued upgrade.
+3. `executeTimelockedCall(...)`, because arbitrary queued calldata can dispatch
+   an upgrade.
 
 This exclusion is necessary for sound specification. An owner-authorized UUPS
 upgrade can install arbitrary code, so an invariant over the modeled implementation
 cannot quantify over arbitrary replacement semantics. The CVL still checks the
 owner entry guard and current-implementation timelock queue behavior. The
-`successfulExecutionConsumesQueue` uses a positive, exact-selector allowlist for
-the five non-upgrade owner methods; this excludes every
+`successfulExecutionConsumesQueue` and
+`successfulNonUpgradeExecutionPreservesRelayInvariants` rules use a positive,
+exact-selector allowlist for the five non-upgrade owner methods; this excludes every
 `upgradeToAndCall(address,bytes)` call, whose selector is `0x4f1ef286`. The
 four-byte length guard is load-bearing because out-of-bounds CVL array reads are
 otherwise unconstrained. The rule also requires a clean external boundary,
@@ -172,9 +202,10 @@ Upgrade arguments are deliberately not parsed or constrained: every call to the
 UUPS entry point is outside the execution rule, including malformed calls that
 would revert.
 
-The queue claim therefore means: for a successful non-upgrade self-call executed
-by the currently modeled Relay implementation, the exact queue entry is consumed
-and the transient authorization flag is cleared. It does **not** establish that a
+The delayed-execution claims therefore mean: for a successful non-upgrade
+self-call executed by the currently modeled Relay implementation, the exact queue
+entry is consumed, the transient authorization flag is cleared, and the sampled
+current-implementation invariants remain true. They do **not** establish that a
 queued upgrade succeeds through a proxy, that arbitrary replacement or migration
 code preserves the timelock namespace, that a new implementation is
 storage-compatible, or that migration calldata is safe.
@@ -184,18 +215,20 @@ The rules therefore assume an external callback does not cause an owner-controll
 upgrade during the modeled operation. Cryptographic correctness of `ecrecover`
 and `keccak256` is outside this storage-invariant layer.
 
-## Faithful mapping access
+## Faithful private-state access
 
-The two mappings written from Relay's large assembly routine are private.
+Two mappings written from Relay's assembly routine and the fee-protocol
+enumeration set are private.
 [`munge.sh`](munge.sh) regenerates `certora/munged/` from production source and
-changes exactly these two visibility keywords from `private` to `internal`:
+changes exactly these three visibility keywords from `private` to `internal`:
 
 - `toSigningPolicyHashPrivate`; and
-- `merkleRootsPrivate`.
+- `merkleRootsPrivate`; and
+- `feeProtocolIdsPrivate`.
 
 All required dependencies are copied byte-for-byte. The script deletes the
 generated tree first so unlisted files cannot survive a regeneration, then fails
-if the Relay diff is anything other than those two lines.
+if the Relay diff is anything other than those three lines.
 The harness adds read-only raw getters; it does not alter production storage.
 
 ## Reproduce the local preparation gate

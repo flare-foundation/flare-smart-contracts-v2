@@ -20,7 +20,8 @@ contract CompatibleOldRelayFV {
     }
 
     function stateData()
-        external pure
+        external
+        pure
         returns (uint8, uint32, uint8, uint32, uint16, uint16, uint32, bool, uint32, bool, uint32)
     {
         return (0, 1_700_000_000, 90, 0, 3360, 0, 0, false, 0, false, 0);
@@ -34,6 +35,7 @@ contract CompatibleOldRelayFV {
 //   votingEpochDurationSeconds == 0
 //   initialSigningPolicyHash == 0                   (would brick the initial epoch)
 //   sourceChainId != block.chainid on setter deploy (home-domain binding)
+//   feeToken != 0 on a setter-mode deployment
 //   oldRelay != 0 on a relay-mode deployment
 //   a relay-mode oldRelay on a setter-mode deployment
 // Each check builds the otherwise-valid base config and corrupts exactly one field, then asserts that
@@ -84,6 +86,7 @@ contract RelayConstructorFV is Relay {
         // Setter-mode deployments do not expose fee verification, so every fee field must be
         // empty. Individual negative properties below corrupt exactly one of these fields.
         cfg.feeCollectionAddress = payable(address(0));
+        cfg.feeToken = address(0);
         cfg.feeConfigs = new IRelay.FeeConfig[](0);
         cfg.feeExemptAddresses = new address[](0);
         cfg.sourceChainId = block.chainid;
@@ -169,6 +172,18 @@ contract RelayConstructorFV is Relay {
         assert(_revertSelector(returnData) == IRelay.FeeConfigNotAllowed.selector);
     }
 
+    // Setter mode cannot seed an ERC-20 fee token. Pin the same mode-specific error used for
+    // the other fee configuration fields.
+    // EXPECT: PASS (proof).
+    function check_ctor_setterMode_rejectsFeeTokenExactly(address token) external {
+        VM.assume(token != address(0));
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
+        cfg.feeToken = token;
+        (bool ok, bytes memory returnData) = _tryInitialize(cfg);
+        assert(!ok);
+        assert(_revertSelector(returnData) == IRelay.FeeConfigNotAllowed.selector);
+    }
+
     // Setter mode cannot seed protocol fees. The protocol id/value are otherwise valid; the
     // rejection must be the mode-specific FeeConfigNotAllowed error.
     // EXPECT: PASS (proof).
@@ -199,8 +214,7 @@ contract RelayConstructorFV is Relay {
     function check_ctor_relayMode_rejectsOldRelayExactly() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.feeCollectionAddress = payable(address(0xFEE));
-        (bool ok, bytes memory returnData) =
-            _tryInitializeWith(cfg, address(0), IRelay(address(compatibleOldRelay)));
+        (bool ok, bytes memory returnData) = _tryInitializeWith(cfg, address(0), IRelay(address(compatibleOldRelay)));
         assert(!ok);
         assert(_revertSelector(returnData) == IRelay.OldRelayNotAllowedInRelayMode.selector);
     }
@@ -209,8 +223,8 @@ contract RelayConstructorFV is Relay {
     // EXPECT: PASS (proof).
     function check_ctor_setterMode_rejectsRelayModeOldExactly() external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
-        (bool ok, bytes memory returnData) =
-            _tryInitializeWith(cfg, address(this), IRelay(address(relayModeOldRelay)));
+        IRelay oldRelay = IRelay(address(relayModeOldRelay));
+        (bool ok, bytes memory returnData) = _tryInitializeWith(cfg, address(this), oldRelay);
         assert(!ok);
         assert(_revertSelector(returnData) == IRelay.OldRelayIncompatible.selector);
     }
@@ -229,5 +243,17 @@ contract RelayConstructorFV is Relay {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         (bool ok,) = _tryInitializeWith(cfg, address(this), IRelay(address(compatibleOldRelay)));
         assert(!ok); // EXPECT counterexample: compatible migration configuration initializes
+    }
+
+    // A relay-mode deployment can atomically seed a nonzero fee token and a valid fee table.
+    // EXPECT: COUNTEREXAMPLE (reachability control).
+    function check_reach_ctor_relayModeTokenConfigDeploys() external {
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
+        cfg.feeCollectionAddress = payable(address(0xFEE));
+        cfg.feeToken = address(0x70CE2);
+        cfg.feeConfigs = new IRelay.FeeConfig[](1);
+        cfg.feeConfigs[0] = IRelay.FeeConfig({protocolId: 3, fee: 1});
+        (bool ok,) = _tryInitializeWith(cfg, address(0), IRelay(address(0)));
+        assert(!ok); // EXPECT counterexample: relay-mode token configuration initializes
     }
 }

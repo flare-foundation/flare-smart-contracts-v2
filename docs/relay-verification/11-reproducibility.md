@@ -11,7 +11,61 @@ is authoritative for compiler settings, tool versions, proof inventories,
 Certora configs, Lean files, and expected ABI selectors. Do not substitute a
 newer local tool with the same executable name.
 
-## 2. Bootstrap deployment artifact, ABI, artifact parity, and Halmos
+The manifest also selects two compiler-derived committed baselines:
+
+- `test-forge/fv/lean/relay_ir_optimized.yul`; and
+- `test-forge/fv/relay_storage_layout.json`.
+
+The Yul file is the exact pinned compiler output. The storage file is a
+compiler-ID-independent normalization retaining each slot, offset, order, and
+type decision emitted in Solidity's sequential `storageLayout` output. It does not
+enumerate state addressed through ERC-7201 namespace constants, including
+OpenZeppelin `Initializable`, or EIP-1153 transient slots. This version is the
+first-deployment sequential layout baseline; no proxy-storage migration is part
+of it.
+
+## 2. Rebaseline compiler-derived artifacts after an intentional source change
+
+Do not hand-edit either baseline. Build the current source with the exact
+manifest toolchain and settings:
+
+```bash
+FORGE=/path/to/manifest-pinned-forge
+RELAY_REBASE_DIR=/private/tmp/relay-artifact-rebaseline
+
+$FORGE build contracts/protocol/implementation/Relay.sol \
+  --use 0.8.35 --no-auto-detect \
+  --out "$RELAY_REBASE_DIR/out" --cache-path "$RELAY_REBASE_DIR/cache" --force --quiet \
+  --evm-version cancun --optimize --optimizer-runs 200 --via-ir \
+  --extra-output-files irOptimized --extra-output storageLayout
+
+cmp "$RELAY_REBASE_DIR/out/Relay.sol/Relay.iropt" \
+  test-forge/fv/lean/relay_ir_optimized.yul
+```
+
+For an intended Yul change, review the diff and replace the snapshot with that
+exact `.iropt` file. Generate deployment provenance, then run the artifact gate
+with a diagnostic report. On an intended layout change the gate fails closed but
+records the normalized candidate at `.verification.storage_layout`:
+
+```bash
+FORGE="$FORGE" python3 test-forge/fv/verify_relay_artifact.py \
+  --deployment-report verification-reports/relay-deployment.json \
+  --report-output /private/tmp/relay-artifact-layout-review.json
+
+jq '.verification.storage_layout' \
+  /private/tmp/relay-artifact-layout-review.json \
+  > /private/tmp/relay-storage-layout-candidate.json
+```
+
+Review the candidate against `test-forge/fv/relay_storage_layout.json`. Replace
+the committed baseline only when the change is intentional and upgrade
+compatibility has been reviewed. Rerun the gate and require both baseline
+comparisons to pass. Passing sequential-layout parity detects drift only within
+the compiler-emitted scope; it is not a formal compatibility proof for future
+implementation code.
+
+## 3. Bootstrap deployment artifact, ABI, artifact parity, and Halmos
 
 The bootstrap script verifies prerequisites, recreates dependency inputs from
 their locks, prepares the pinned Halmos environment, and runs the local gates:
@@ -53,7 +107,7 @@ EVMYUL_DIR=/path/to/pinned/EVMYulLean \
   --report-output verification-reports/relay-lean.json
 ```
 
-## 3. Certora local front-end gate
+## 4. Certora local front-end gate
 
 Install the manifest-pinned Certora CLI, Java, solc, and Foundry versions, then:
 
@@ -68,7 +122,7 @@ CERTORA_RUN=/path/to/certoraRun \
 This command proves that the exact configs compile and typecheck against the
 expected source transformation. It does not execute the Certora cloud prover.
 
-## 4. Certora cloud evidence
+## 5. Certora cloud evidence
 
 Submit every config declared by the manifest with the pinned toolchain and
 capture both the console log and the exact submission archive produced by the
@@ -93,7 +147,7 @@ A backend output archive downloaded separately is optional evidence. Bind it,
 together with its `jobData` sidecar, through `--backend-evidence`; it does not
 replace the CLI submission archive consumed by `--run`.
 
-## 5. Aggregate bundle
+## 6. Aggregate bundle
 
 After every mandatory constituent was generated on the same clean commit:
 
@@ -105,14 +159,14 @@ python3 test-forge/fv/verify_bundle.py \
 `--allow-dirty` is only for development diagnostics. A bundle created with it
 must retain `release_eligible: false` and cannot support a release claim.
 
-## 6. Documentation and verifier self-tests
+## 7. Documentation and verifier self-tests
 
 ```bash
 python3 -m unittest discover -s test-forge/fv/tests -v
 python3 docs/relay-verification/verify_links.py --check
 ```
 
-## 7. Review the result
+## 8. Review the result
 
 Check every normalized report for:
 
@@ -121,6 +175,7 @@ Check every normalized report for:
 - manifest SHA-256;
 - execution mode and tool version;
 - expected versus observed inventory;
+- optimized-Yul and normalized sequential-storage-layout baseline equality;
 - violation, timeout, unknown, and sanity counts; and
 - hashes of compiled artifacts and raw external evidence.
 

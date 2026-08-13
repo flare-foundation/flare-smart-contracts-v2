@@ -3,6 +3,10 @@
 This document describes the current Relay governance, upgrade, and deployment
 model. Security limitations are recorded in
 [`relay-security-review.md`](relay-security-review.md).
+Normative finalization, verification-fee, and randomness behavior is documented
+in [`specs/FSP/Finalization.md`](specs/FSP/Finalization.md) and
+[`specs/FSP/RandomNumber.md`](specs/FSP/RandomNumber.md); this file is the
+owner/deployment/upgrade runbook.
 
 ## 1. Governance authority and timelock
 
@@ -47,13 +51,15 @@ The owner/timelock controls:
 `setProtocolFees` is a full replace: the previous fee table is cleared before the
 supplied one is applied, so a protocol not listed in the call is free (fee 0)
 afterwards, and fees can never be silently carried over as amounts in a different
-denomination after a token switch. Every listed protocol id must be unique
-(`DuplicateProtocolId`) and every fee nonzero (`ProtocolFeeZero`) — a free protocol
-is expressed by omission. Each call (and each
+denomination after a token switch. Every listed protocol ID must be greater than
+`1`, unique (`DuplicateProtocolId`), and paired with a nonzero fee
+(`ProtocolFeeZero`) — a free protocol is expressed by omission. Each call (and each
 relay-mode initialization) emits one self-contained `ProtocolFeesSet(feeToken,
 feeConfigs)` event whose latest occurrence fully describes the current fee state.
-The configured token must be a standard exact-transfer ERC-20 — fee-on-transfer or
-rebasing tokens are unsupported. The live table is enumerable via `getFeeConfigs()`.
+The configured token must be a standard exact-transfer ERC-20 with conventional
+`transferFrom` behavior. Fee-on-transfer and rebasing tokens are unsupported,
+and callers need sufficient balance and allowance. The live table is enumerable
+via `getFeeConfigs()`.
 
 Deployment mode is immutable:
 
@@ -79,6 +85,24 @@ self-call context without opening an arbitrary external route.
 An upgrade can change every Relay security property. Review storage layout,
 initializer/reinitializer guards, owner/timelock behavior, and the formal proof
 target before queueing it.
+
+### Current sequential storage baseline
+
+This version is the first-deployment sequential Solidity storage baseline. Relay
+proxies initialize this layout directly; deployment includes no proxy-storage
+migration. The optional `oldRelay` is a read-delegation source and does not
+populate or mutate the current proxy's storage.
+
+The artifact-parity gate recompiles Relay with the manifest-pinned compiler,
+normalizes its compiler-emitted sequential Solidity storage layout, and compares
+it with
+[`relay_storage_layout.json`](../test-forge/fv/relay_storage_layout.json). A
+future slot, offset, declaration-order, or type change in that layout fails the
+gate until the baseline is deliberately updated after compatibility review.
+The snapshot does not enumerate state addressed through ERC-7201 namespace
+constants, including OpenZeppelin `Initializable`, or EIP-1153 transient slots.
+Those require separate review. This guard detects scoped layout drift; it does
+not prove that an unknown future implementation is upgrade-compatible.
 
 ## 4. Atomic initialization
 

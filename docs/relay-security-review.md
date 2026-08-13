@@ -4,12 +4,18 @@
 
 This review covers the current implementation of
 [`Relay.sol`](../contracts/protocol/implementation/Relay.sol). Inherited owner,
-timelock, proxy, and migration behavior is considered only where it changes the
-security of Relay.
+timelock, proxy, and `oldRelay` read-delegation behavior is considered only where
+it changes the security of Relay.
+
+Normative protocol behavior is in
+[`specs/FSP/Finalization.md`](specs/FSP/Finalization.md); owner and deployment
+operations are in [`relay-governance.md`](relay-governance.md). This document
+records findings, assumptions, impact, and remediation rather than redefining
+those interfaces.
 
 No unconditional permissionless Critical or High vulnerability was identified.
 The contract nevertheless has one conditional high-impact policy-integrity
-failure, two quorum/migration state-machine failures, and several lower-severity
+failure, two quorum/migration state-machine failures, and lower-severity
 availability and integration risks. These findings are part of the current
 security boundary and must not be hidden by a passing formal-verification gate.
 
@@ -23,6 +29,7 @@ security boundary and must not be hidden by a passing formal-verification gate.
 | RLY-SEC-06 | Low | Nonmonotonic policy starts can preserve overlapping policy authority | A malformed policy sequence is admitted |
 | RLY-SEC-07 | Low | Queued privileged calls survive owner and implementation changes | A call was queued before the change |
 | RLY-SEC-08 | Informational | A secure random finalized at voting round zero is reported insecure by the live getter | The first valid round is zero |
+| RLY-SEC-09 | Informational | Token-fee accounting assumes exact-transfer ERC-20 semantics | The owner configures a fee-on-transfer, rebasing, callback-capable, or otherwise nonstandard token |
 
 Severity is conditional on the stated prerequisite. A trusted setter, a valid
 quorum, or a migration operator is not treated as an arbitrary attacker; the
@@ -142,6 +149,20 @@ than its zero-initialized value. A valid secure random at round zero is stored i
 the per-round mappings, but the live security flag remains false. Use an explicit presence
 bit, or update the pointer when the first local random is stored.
 
+### RLY-SEC-09 — token-fee accounting trusts token semantics
+
+In token mode, `verify()` uses `SafeERC20.safeTransferFrom` after successful
+Merkle verification. SafeERC20 checks call success and supported return
+conventions; Relay does not measure the collector's balance delta. A
+fee-on-transfer or rebasing token can therefore deliver an amount different
+from `protocolFee[protocolId]`, and a callback-capable or adversarial token can
+add availability and reentrancy behavior outside Relay's internal model.
+
+Configure only a reviewed, standard exact-transfer ERC-20. Treat the token
+contract and its upgrade authority as part of Relay's trusted environment.
+Changing the token and fee table in one owner-timelocked full-replace call avoids
+mixed denominations, but does not validate the selected token's semantics.
+
 ## Integration boundary for custom messages
 
 `verifyCustomSignature` is intentionally stateless. A valid signature set can be
@@ -178,12 +199,23 @@ The current UUPS surface exposes no unguarded upgrade route: the public upgrade
 entry is timelocked and proxy-context checks remain active. This conclusion does
 not cover the semantics of a future implementation selected by the owner.
 
+This version is the first-deployment sequential Solidity storage baseline and
+requires no proxy storage migration. The artifact gate compares the pinned
+compiler's normalized `storageLayout` output with the committed baseline so an
+unreviewed sequential slot, order, offset, or type change fails. The snapshot
+does not enumerate ERC-7201 namespaced state, including OpenZeppelin
+`Initializable`, or EIP-1153 transient slots. That scoped drift check is not a
+proof that future implementation code is storage-compatible.
+
 ## Formal-verification consequence
 
 The formal claims must preserve the distinction between unique policy slots and
 unique signer identities. A proof that constructs voter addresses as distinct,
 assumes positive weights, restricts rounds to an ordinary bounded range, or
 aligns migration boundaries has assumed away the corresponding finding.
+Lean's fee layer covers only the native-coin branch; token-fee claims require
+compiled-bytecode or CVL evidence and retain the standard exact-transfer token
+assumption.
 
 Required proof obligations and counterexample regressions are listed in
 [`relay-verification/10-claims-ledger-trust-and-residual.md`](relay-verification/10-claims-ledger-trust-and-residual.md).

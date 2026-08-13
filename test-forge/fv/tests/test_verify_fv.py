@@ -160,6 +160,8 @@ Build Profile: dist
             self.assertEqual("test-forge/fv", environment["FOUNDRY_TEST"])
             self.assertEqual("0.8.35", environment["FOUNDRY_SOLC_VERSION"])
             self.assertEqual("false", environment["FOUNDRY_AUTO_DETECT_SOLC"])
+            self.assertEqual("[]", environment["FOUNDRY_ADDITIONAL_COMPILER_PROFILES"])
+            self.assertEqual("[]", environment["FOUNDRY_COMPILATION_RESTRICTIONS"])
             self.assertNotIn("DAPP_SOLC_VERSION", environment)
             self.assertEqual(pinned, {key: environment[key] for key in pinned})
 
@@ -195,6 +197,8 @@ Build Profile: dist
                     "optimizer": True,
                     "optimizer_runs": 200,
                     "via_ir": True,
+                    "additional_compiler_profiles": [],
+                    "compilation_restrictions": [],
                 }
             ),
             stderr="",

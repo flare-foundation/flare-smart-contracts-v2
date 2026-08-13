@@ -33,11 +33,16 @@ are in [`10-claims-ledger-trust-and-residual.md`](10-claims-ledger-trust-and-res
 - Cancun/EIP-1153 support is a deployment prerequisite for paths that execute
   transient-storage opcodes.
 - Value-transfer recipients can cause availability failures by reverting.
+- Token-fee correctness assumes a reviewed standard exact-transfer ERC-20.
+  Fee-on-transfer, rebasing, callback-capable, adversarial, or later-upgraded
+  token behavior is outside the transfer claim.
 
 ## Formal-method residuals
 
 - Halmos proofs cover manifest-declared bounded shapes.
 - Lean's distinct-signer interpretation depends on unique policy addresses.
+- Lean's fee layer covers native coin only; token transfer and fee-table claims
+  come from bounded compiled-bytecode/CVL evidence under the token assumption.
 - The EVM/Yul refinement is conditional on declared setup and composition
   premises and the pinned semantics.
 - solc's Yul-to-bytecode lowering is not verified unboundedly; artifact parity
@@ -45,6 +50,9 @@ are in [`10-claims-ledger-trust-and-residual.md`](10-claims-ledger-trust-and-res
 - Certora local evidence is front-end validation only. Cloud claims require a
   current normalized complete job set.
 - Formal verification covers stated properties, not the absence of all bugs.
+- The committed sequential-storage-layout comparison detects compiler-emitted
+  drift from the first-deployment baseline. ERC-7201 namespaces and transient
+  slots are outside it, and it does not prove future upgrade compatibility.
 
 ## Release interpretation
 

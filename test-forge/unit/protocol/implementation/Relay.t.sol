@@ -678,8 +678,8 @@ contract RelayVerifyTest is RelayTestBase {
         assertEq(token.balanceOf(feeCollection), 0, "no tokens pulled for a zero-fee protocol");
     }
 
-    // The deprecated wei-named getter serves native mode and fails closed in token mode, so a
-    // token-denominated fee can never be misread as a msg.value amount.
+    // The native-wei compatibility getter serves native mode and fails closed in token mode,
+    // so a token-denominated fee cannot be misread as a msg.value amount.
     function test_protocolFeeInWei_aliasRevertsInTokenMode() public {
         (Relay r,,,) = _deployTokenFeeFixture(1000);
         assertEq(r.protocolFee(3), 1000, "primary getter serves token mode");

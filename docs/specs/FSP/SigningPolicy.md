@@ -19,7 +19,7 @@ The on-chain signing policy struct (see `IIRelay.SigningPolicy`) is:
 
 ## Definition lifecycle
 
-The orchestrator advances through five phases in `daemonize()`. Each phase ends when the corresponding storage timestamp on `RewardEpochState` becomes non-zero; reading the timestamp tells you exactly which phase the next reward epoch is in.
+The lifecycle below has six stages. The daemon advances initialization and epoch-start stages, while voter transactions complete the signing stage. The corresponding `RewardEpochState` timestamps expose the live stage.
 
 ### 1. Random acquisition
 
@@ -91,7 +91,7 @@ When `state.signingPolicyVotes.accumulatedWeight + weight > rewardEpochState[rew
 
 `SigningPolicySigned(rewardEpochId, signingPolicyAddress, voter, ts, thresholdReached)` is emitted on every sign call.
 
-> **Note.** The new reward epoch's start is **not** gated on this signing — see [Epochs / Per-reward-epoch state](./Epochs.md#per-reward-epoch-state). `_isNextRewardEpochId` requires only that the policy is *initialized* (signing-policy hash is non-zero), not that it is signed. What threshold-signing the policy by the previous epoch's voters *does* gate is (a) the late-signing burn factor in [`FlareSystemsCalculator.calculateBurnFactorPPM`](./Weighting.md#burn-factor-for-late-signing) — which requires `signingPolicySignEndTs != 0` to compute — and (b) the rewards-signing flow, which uses the previous-epoch threshold to validate `signRewards` signatures. Slow signing therefore only impacts reward distribution for the current (signing) epoch's voters, never the start of the next reward epoch.
+> **Note.** The reward epoch's start is **not** gated on this signing — see [Epochs / Per-reward-epoch state](./Epochs.md#per-reward-epoch-state). `_isNextRewardEpochId` requires the initialized policy hash, scheduled time, and configured start round. Completing signatures for policy `E + 1` sets `rewardEpochState[E + 1].signingPolicySignEndTs`. That timestamp is required by both `signRewards(E, ...)` and the governance `setRewardsData(E, ...)` path, and it supplies the end point used for epoch-`E` late-signing burn factors. `signRewards(E, ...)` separately validates its signers and accumulated weight against epoch `E`'s voter data and threshold.
 
 ### 6. Reward epoch start
 
