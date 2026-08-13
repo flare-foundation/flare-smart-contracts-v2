@@ -11,7 +11,7 @@
  */
 
 const { secp256k1 } = require("@noble/curves/secp256k1");
-const { keccak256, AbiCoder, getBytes } = require("ethers");
+const { keccak256, AbiCoder, getBytes, solidityPacked } = require("ethers");
 
 const P = secp256k1.CURVE.p;
 const N = secp256k1.CURVE.n;
@@ -39,8 +39,11 @@ function modSqrt(a) {
     return result;
 }
 
-function hashToCurve(input) {
-    let buf = keccak256(input);
+// Mirrors VrfVerifier._hashToCurve: salted with the public key so each key
+// is bound to an independent hash-to-curve function.
+function hashToCurve(pk, input) {
+    // abi.encodePacked(bytes32(pk.x), bytes32(pk.y), input)
+    let buf = keccak256(solidityPacked(["uint256", "uint256", "bytes"], [pk.x, pk.y, input]));
     let x = BigInt(buf) % P;
     for (let i = 0; i < 256; i++) {
         const rhs = ((((x * x) % P) * x) % P + 7n) % P;
@@ -81,7 +84,7 @@ function onCurvePointWithXAboveN() {
 }
 
 function generateProof(sk, pk, nonceBytes) {
-    const h = hashToCurve(nonceBytes);
+    const h = hashToCurve(pk, nonceBytes);
     if (h.x >= N) throw new Error("h.x >= N");
 
     const gamma = secp256k1.ProjectivePoint.fromAffine(h).multiply(sk).toAffine();

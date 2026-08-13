@@ -1,5 +1,5 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
-import { keccak256, AbiCoder, getBytes, hexlify } from "ethers";
+import { keccak256, AbiCoder, getBytes, hexlify, solidityPacked } from "ethers";
 import { expect } from "chai";
 import { expectRevert } from "@openzeppelin/test-helpers";
 
@@ -54,10 +54,12 @@ function modSqrt(a: bigint): bigint {
 
 /**
  * Mirrors VrfVerifier._hashToCurve.
- * Hashes `input` to a secp256k1 point using the try-and-increment method.
+ * Hashes `input` to a secp256k1 point using the try-and-increment method, salted
+ * with the public key so each key is bound to an independent hash-to-curve function.
  */
-function hashToCurve(input: Uint8Array): AffinePoint {
-  let buf = keccak256(input); // "0x..." – same as keccak256(input) in Solidity
+function hashToCurve(pk: AffinePoint, input: Uint8Array): AffinePoint {
+  // abi.encodePacked(bytes32(pk.x), bytes32(pk.y), input)
+  let buf = keccak256(solidityPacked(["uint256", "uint256", "bytes"], [pk.x, pk.y, input]));
   let x = BigInt(buf) % P;
   for (let i = 0; i < 256; i++) {
     const rhs = (((((x * x) % P) * x) % P) + 7n) % P;
@@ -111,7 +113,7 @@ function hashToZn(
  * The witness fields (u, cGamma, v, zInv) are computed off-chain as the contract expects.
  */
 function generateVrfProof(sk: bigint, pk: AffinePoint, nonce: Uint8Array): VrfProof {
-  const h = hashToCurve(nonce);
+  const h = hashToCurve(pk, nonce);
   if (h.x >= N) throw new Error("VRF: h.x >= N (degenerate input)");
 
   const gamma = secp256k1.ProjectivePoint.fromAffine(h).multiply(sk).toAffine();

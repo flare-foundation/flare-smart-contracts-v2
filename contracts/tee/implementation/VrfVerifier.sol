@@ -55,8 +55,8 @@ contract VrfVerifier is IVrfVerifier {
         require(_pkX < N, PkXUnverifiable());
         require(_proof.gamma.x < N, GammaXUnverifiable());
 
-        // Hash the nonce to a curve point.
-        Point memory h = _hashToCurve(_nonce);
+        // Hash the nonce to a curve point, salted with the public key.
+        Point memory h = _hashToCurve(_pkX, _pkY, _nonce);
 
         // Guard against the rare case h.x in [N, P) (would make the ecrecover trick invalid).
         // Probability ≈ (P − N) / P ≈ 2^{−128}. Mirrors the PkXUnverifiable / GammaXUnverifiable
@@ -124,15 +124,18 @@ contract VrfVerifier is IVrfVerifier {
     }
 
     /**
-     * Hash bytes to a secp256k1 point (try-and-rehash).
+     * Hash bytes to a secp256k1 point (try-and-rehash), salted with the public key
+     * so that each key is bound to an independent hash-to-curve function.
      */
     function _hashToCurve(
+        uint256 _pkX,
+        uint256 _pkY,
         bytes memory _input
     )
         internal view
         returns (Point memory)
     {
-        bytes32 buf = keccak256(_input);
+        bytes32 buf = keccak256(abi.encodePacked(bytes32(_pkX), bytes32(_pkY), _input));
         uint256 x = uint256(buf) % P;
         for (uint256 i = 0; i < 256; i++) {
             // probability of a valid point is ≈ 1/2, so 256 iterations is enough for negligible failure probability
