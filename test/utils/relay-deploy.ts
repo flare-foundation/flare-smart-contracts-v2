@@ -30,6 +30,7 @@ export async function deployRelayProxy(
     {
       ...relayInitialConfig,
       feeExemptAddresses: relayInitialConfig.feeExemptAddresses ?? [],
+      feeToken: relayInitialConfig.feeToken ?? "0x0000000000000000000000000000000000000000",
       ...(setterMode ? { feeCollectionAddress: "0x0000000000000000000000000000000000000000" } : {}),
     },
     signingPolicySetter,

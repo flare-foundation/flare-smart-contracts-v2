@@ -175,7 +175,7 @@ contract RelayConstructorFV is Relay {
     function check_ctor_setterMode_rejectsFeeConfigExactly(uint256 fee) external {
         IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
         cfg.feeConfigs = new IRelay.FeeConfig[](1);
-        cfg.feeConfigs[0] = IRelay.FeeConfig({protocolId: 3, feeInWei: fee});
+        cfg.feeConfigs[0] = IRelay.FeeConfig({protocolId: 3, fee: fee});
         (bool ok, bytes memory returnData) = _tryInitialize(cfg);
         assert(!ok);
         assert(_revertSelector(returnData) == IRelay.FeeConfigNotAllowed.selector);

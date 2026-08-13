@@ -11,6 +11,7 @@
       "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
       "timelockDurationSeconds": 3600,
       "feeConfigs": [],
+      "feeToken": "0x0000000000000000000000000000000000000000",
       "feeExemptAddresses": []
     },
     "arbitrum": {
@@ -19,6 +20,7 @@
       "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
       "timelockDurationSeconds": 3600,
       "feeConfigs": [],
+      "feeToken": "0x0000000000000000000000000000000000000000",
       "feeExemptAddresses": []
     }
   }

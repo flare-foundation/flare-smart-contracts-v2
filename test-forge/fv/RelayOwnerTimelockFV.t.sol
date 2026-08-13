@@ -286,11 +286,11 @@ contract RelayOwnerModesFV is RelayOwnerTimelockFVBase {
         (Relay relay,) = _deployRelay(address(0));
         IRelay.FeeConfig[] memory fees = _fees(3, fee);
         IIRelay.FeeExemption[] memory exemptions = _exemptions(account, true);
-        bytes memory feeCall = abi.encodeCall(relay.setProtocolFees, (fees));
+        bytes memory feeCall = abi.encodeCall(relay.setProtocolFees, (address(0), fees));
         bytes memory exemptionCall = abi.encodeCall(relay.setFeeExemptions, (exemptions));
         bytes memory recipientCall = abi.encodeCall(relay.setFeeCollectionAddress, (recipient));
 
-        relay.setProtocolFees(fees);
+        relay.setProtocolFees(address(0), fees);
         relay.setFeeExemptions(exemptions);
         relay.setFeeCollectionAddress(recipient);
         uint256 recordedEta = _recordedEta(relay, feeCall);
@@ -343,14 +343,14 @@ contract RelayOwnerModesFV is RelayOwnerTimelockFVBase {
         (Relay relay,) = _deployRelay(CURRENT_SETTER);
         IRelay.FeeConfig[] memory fees = _fees(3, 1);
         IIRelay.FeeExemption[] memory exemptions = _exemptions(account, true);
-        bytes memory feeCall = abi.encodeCall(relay.setProtocolFees, (fees));
+        bytes memory feeCall = abi.encodeCall(relay.setProtocolFees, (address(0), fees));
         bytes memory exemptionCall = abi.encodeCall(relay.setFeeExemptions, (exemptions));
         bytes memory recipientCall = abi.encodeCall(relay.setFeeCollectionAddress, (recipient));
 
         // One symbolic branch per forbidden surface keeps failed-call rollback paths
         // independent while universally covering all three selectors in this check.
         if (surface == 0) {
-            relay.setProtocolFees(fees);
+            relay.setProtocolFees(address(0), fees);
             _executeAndReject(relay, feeCall);
         } else if (surface == 1) {
             relay.setFeeExemptions(exemptions);

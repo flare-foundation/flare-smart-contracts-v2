@@ -11,6 +11,7 @@ import { RelayProxy } from "../../../../contracts/protocol/implementation/RelayP
 import { deployRelay, RELAY_TEST_GOVERNANCE } from "../../../utils/RelayDeploy.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
+import { ERC20Mock } from "../../../../contracts/mock/ERC20Mock.sol";
 
 /**
  * Foundry harness + tests for Relay.sol.
@@ -570,6 +571,251 @@ contract RelayVerifyTest is RelayTestBase {
         cfg.feeExemptAddresses[0] = address(0);
         vm.expectRevert(IRelay.FeeExemptAddressZero.selector);
         new RelayProxy(impl, cfg, address(0), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
+    }
+
+    // ── ERC-20 fee-token mode (mirrors on chains without a spendable native token) ────────
+
+    // Deploys a relay-mode Relay whose verify() fee is paid in a 6-decimals ERC-20 (models
+    // USDT0 on Tempo), with a finalized root to prove against.
+    function _deployTokenFeeFixture(
+        uint256 fee
+    )
+        internal
+        returns (Relay r, ERC20Mock token, bytes32 leaf, bytes32[] memory proof)
+    {
+        token = new ERC20Mock("USDT0", "USDT0", 6);
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeToken = address(token);
+        cfg.feeConfigs = new IRelay.FeeConfig[](1);
+        cfg.feeConfigs[0] = IRelay.FeeConfig(3, fee);
+        r = deployRelay(cfg, address(0), IRelay(address(0)));
+
+        leaf = keccak256("claim");
+        bytes32 sibling = keccak256("sib");
+        bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, _sortedPair(leaf, sibling));
+        bytes memory sigs = _signatures(_ethSignedHash(message), _firstK(3));
+        (bool ok,) = address(r).call(abi.encodePacked(Relay.relay.selector, policy, message, sigs));
+        require(ok, "relay failed");
+        proof = new bytes32[](1);
+        proof[0] = sibling;
+    }
+
+    // Token mode pulls the exact fee straight to the collector; nothing sticks to the Relay
+    // and no native value moves.
+    function test_verify_tokenFee_pulledToCollector() public {
+        uint256 fee = 5_000_000; // 5 USDT0 at 6 decimals
+        (Relay r, ERC20Mock token, bytes32 leaf, bytes32[] memory proof) = _deployTokenFeeFixture(fee);
+        assertEq(r.feeToken(), address(token), "fee token seeded at deploy");
+
+        token.mintAmount(address(this), 20_000_000);
+        token.approve(address(r), fee);
+        uint256 nativeBefore = feeCollection.balance;
+        assertTrue(r.verify(3, START_VOTING_ROUND_ID, leaf, proof), "token-paid verification");
+        assertEq(token.balanceOf(feeCollection), fee, "collector received exactly the fee in tokens");
+        assertEq(token.balanceOf(address(this)), 15_000_000, "caller paid exactly the fee");
+        assertEq(token.balanceOf(address(r)), 0, "relay holds no tokens");
+        assertEq(feeCollection.balance, nativeBefore, "no native value moved");
+        assertEq(token.allowance(address(this), address(r)), 0, "allowance consumed");
+    }
+
+    // Token mode rejects any attached native value — it would strand (no refund path).
+    function test_verify_tokenFee_revertsMsgValueNotAllowed() public {
+        (Relay r, ERC20Mock token, bytes32 leaf, bytes32[] memory proof) = _deployTokenFeeFixture(1000);
+        token.mintAmount(address(this), 1000);
+        token.approve(address(r), 1000);
+        vm.deal(address(this), 1 ether);
+        vm.expectRevert(IRelay.MsgValueNotAllowed.selector);
+        r.verify{value: 1}(3, START_VOTING_ROUND_ID, leaf, proof);
+    }
+
+    // Underpayment in token mode surfaces as the token's own allowance/balance revert.
+    function test_verify_tokenFee_revertsWithoutAllowance() public {
+        uint256 fee = 1000;
+        (Relay r, ERC20Mock token, bytes32 leaf, bytes32[] memory proof) = _deployTokenFeeFixture(fee);
+        token.mintAmount(address(this), fee);
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "ERC20InsufficientAllowance(address,uint256,uint256)", address(r), 0, fee
+            )
+        );
+        r.verify(3, START_VOTING_ROUND_ID, leaf, proof);
+    }
+
+    function test_verify_tokenFee_revertsWithoutBalance() public {
+        uint256 fee = 1000;
+        (Relay r, ERC20Mock token, bytes32 leaf, bytes32[] memory proof) = _deployTokenFeeFixture(fee);
+        token.approve(address(r), fee);
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "ERC20InsufficientBalance(address,uint256,uint256)", address(this), 0, fee
+            )
+        );
+        r.verify(3, START_VOTING_ROUND_ID, leaf, proof);
+    }
+
+    // The fee-exemption allowlist applies unchanged in token mode: an exempt caller needs
+    // neither balance nor allowance.
+    function test_verify_tokenFee_exemptCallerPaysNothing() public {
+        (Relay r, ERC20Mock token, bytes32 leaf, bytes32[] memory proof) = _deployTokenFeeFixture(1000);
+        _installFeeExemption(r);
+        assertTrue(r.verify(3, START_VOTING_ROUND_ID, leaf, proof), "exempt verification without tokens");
+        assertEq(token.balanceOf(feeCollection), 0, "no tokens pulled for exempt caller");
+    }
+
+    // A protocol without a configured fee verifies without any token interaction.
+    function test_verify_tokenFee_zeroFeeNoTransfer() public {
+        (Relay r, ERC20Mock token,,) = _deployTokenFeeFixture(1000);
+        // finalize a root for protocol 4, which has no fee configured
+        bytes32 leaf = keccak256("claim-4");
+        bytes32 sibling = keccak256("sib-4");
+        bytes memory message = _protocolMessage(4, START_VOTING_ROUND_ID, false, _sortedPair(leaf, sibling));
+        bytes memory sigs = _signatures(_ethSignedHash(message), _firstK(3));
+        (bool ok,) = address(r).call(abi.encodePacked(Relay.relay.selector, policy, message, sigs));
+        require(ok, "relay failed");
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = sibling;
+        assertTrue(r.verify(4, START_VOTING_ROUND_ID, leaf, proof), "free protocol needs no tokens");
+        assertEq(token.balanceOf(feeCollection), 0, "no tokens pulled for a zero-fee protocol");
+    }
+
+    // The deprecated wei-named getter serves native mode and fails closed in token mode, so a
+    // token-denominated fee can never be misread as a msg.value amount.
+    function test_protocolFeeInWei_aliasRevertsInTokenMode() public {
+        (Relay r,,,) = _deployTokenFeeFixture(1000);
+        assertEq(r.protocolFee(3), 1000, "primary getter serves token mode");
+        vm.expectRevert(IRelay.FeeTokenActive.selector);
+        r.protocolFeeInWei(3);
+        // the shared fixture relay is native-mode: the alias works there
+        assertEq(relay.protocolFeeInWei(3), 0, "alias serves native mode");
+    }
+
+    // Clearing the token via setProtocolFees (one atomic owner call: token + re-denominated
+    // fees) restores the native-coin payment path.
+    function test_setProtocolFees_clearTokenRestoresNativePath() public {
+        (Relay r, ERC20Mock token, bytes32 leaf, bytes32[] memory proof) = _deployTokenFeeFixture(1000);
+        IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
+        fees[0] = IRelay.FeeConfig(3, 700);
+        vm.prank(RELAY_TEST_GOVERNANCE);
+        r.setProtocolFees(address(0), fees);
+        assertEq(r.feeToken(), address(0), "token cleared");
+
+        vm.deal(address(this), 1 ether);
+        uint256 feeCollBefore = feeCollection.balance;
+        assertTrue(r.verify{value: 700}(3, START_VOTING_ROUND_ID, leaf, proof), "native payment again");
+        assertEq(feeCollection.balance - feeCollBefore, 700, "native fee forwarded");
+        assertEq(token.balanceOf(feeCollection), 0, "no token movement after clearing");
+    }
+
+    // setProtocolFees is a FULL REPLACE: the previous table is cleared, so a protocol whose
+    // fee is not restated reads 0 instead of silently keeping its old numeric value in the
+    // new denomination — 1e15 native wei carried into a 6-decimals token would otherwise
+    // become a billion-dollar fee. The single self-contained ProtocolFeesSet event carries
+    // the complete new state.
+    function test_setProtocolFees_fullReplaceClearsOmittedFees() public {
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeConfigs = new IRelay.FeeConfig[](2);
+        cfg.feeConfigs[0] = IRelay.FeeConfig(3, 1e15); // native wei
+        cfg.feeConfigs[1] = IRelay.FeeConfig(4, 500);
+        Relay r = deployRelay(cfg, address(0), IRelay(address(0)));
+        assertEq(r.getFeeConfigs().length, 2, "two seeded fees enumerated");
+
+        // Switch to a token but deliberately restate ONLY protocol 4.
+        IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
+        fees[0] = IRelay.FeeConfig(4, 5_000_000);
+        vm.expectEmit(true, true, true, true);
+        emit IRelay.ProtocolFeesSet(address(0x70CE2), fees);
+        vm.prank(RELAY_TEST_GOVERNANCE);
+        r.setProtocolFees(address(0x70CE2), fees);
+
+        assertEq(r.protocolFee(3), 0, "omitted fee cleared by the full replace");
+        assertEq(r.protocolFee(4), 5_000_000, "restated fee applied");
+        assertEq(r.getFeeConfigs().length, 1, "only the restated fee remains");
+
+        // Reverse switch with an empty list empties the table entirely.
+        vm.prank(RELAY_TEST_GOVERNANCE);
+        r.setProtocolFees(address(0), new IRelay.FeeConfig[](0));
+        assertEq(r.protocolFee(4), 0, "empty replace cleared the token-denominated fee");
+        assertEq(r.getFeeConfigs().length, 0, "empty table after empty replace");
+    }
+
+    // A duplicated protocol id in the supplied table is rejected — the self-contained
+    // ProtocolFeesSet event must be unambiguous — at the setter and at initialize.
+    function test_setProtocolFees_revertsDuplicateProtocolId() public {
+        IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](2);
+        fees[0] = IRelay.FeeConfig(3, 1000);
+        fees[1] = IRelay.FeeConfig(3, 2000);
+        vm.prank(RELAY_TEST_GOVERNANCE);
+        vm.expectRevert(IRelay.DuplicateProtocolId.selector);
+        relay.setProtocolFees(address(0), fees);
+
+        address impl = address(new Relay());
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeConfigs = new IRelay.FeeConfig[](2);
+        cfg.feeConfigs[0] = IRelay.FeeConfig(3, 1000);
+        cfg.feeConfigs[1] = IRelay.FeeConfig(3, 2000);
+        vm.expectRevert(IRelay.DuplicateProtocolId.selector);
+        new RelayProxy(impl, cfg, address(0), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
+    }
+
+    // With full-replace semantics a free protocol is expressed by omission, so a listed
+    // zero fee is rejected as a configuration mistake — at the setter and at initialize.
+    function test_setProtocolFees_revertsProtocolFeeZero() public {
+        IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
+        fees[0] = IRelay.FeeConfig(3, 0);
+        vm.prank(RELAY_TEST_GOVERNANCE);
+        vm.expectRevert(IRelay.ProtocolFeeZero.selector);
+        relay.setProtocolFees(address(0), fees);
+
+        address impl = address(new Relay());
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeConfigs = new IRelay.FeeConfig[](1);
+        cfg.feeConfigs[0] = IRelay.FeeConfig(3, 0);
+        vm.expectRevert(IRelay.ProtocolFeeZero.selector);
+        new RelayProxy(impl, cfg, address(0), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
+    }
+
+    // The enumerated fee table stays in lockstep with the mapping and reflects each replace.
+    function test_getFeeConfigs_matchesLatestReplace() public {
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeConfigs = new IRelay.FeeConfig[](1);
+        cfg.feeConfigs[0] = IRelay.FeeConfig(3, 1000);
+        Relay r = deployRelay(cfg, address(0), IRelay(address(0)));
+        IRelay.FeeConfig[] memory table = r.getFeeConfigs();
+        assertEq(table.length, 1);
+        assertEq(table[0].protocolId, 3);
+        assertEq(table[0].fee, 1000);
+
+        IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
+        fees[0] = IRelay.FeeConfig(4, 700);
+        vm.prank(RELAY_TEST_GOVERNANCE);
+        r.setProtocolFees(address(0), fees);
+        table = r.getFeeConfigs();
+        assertEq(table.length, 1, "table is exactly the latest replace");
+        assertEq(table[0].protocolId, 4);
+        assertEq(table[0].fee, 700);
+        assertEq(r.protocolFee(3), 0, "previous entry cleared");
+    }
+
+    // Every relay-mode deployment announces its complete fee configuration exactly once at
+    // initialization — the self-contained ProtocolFeesSet fires even for the empty native
+    // config, mirroring the unconditional emit in setProtocolFees.
+    function test_initialProtocolFeesSet_alwaysEmittedOnRelayModeDeploy() public {
+        address impl = address(new Relay());
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        vm.expectEmit(true, true, true, true);
+        emit IRelay.ProtocolFeesSet(address(0), new IRelay.FeeConfig[](0));
+        new RelayProxy(impl, cfg, address(0), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
+    }
+
+    // Setter-mode (home) deploys never charge fees, so a seeded fee token is a config mistake
+    // and is rejected (mirrors the feeConfigs / feeCollectionAddress restrictions).
+    function test_initialFeeToken_rejectedOnHomeDeploy() public {
+        address impl = address(new Relay());
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.feeCollectionAddress = payable(address(0)); // pass the collector guard first
+        cfg.feeToken = address(0x70CE2);
+        vm.expectRevert(IRelay.FeeConfigNotAllowed.selector);
+        new RelayProxy(impl, cfg, address(0xF5), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
     }
 
     // Owner-timelock repoint of the trusted signing-policy setter (e.g. after a

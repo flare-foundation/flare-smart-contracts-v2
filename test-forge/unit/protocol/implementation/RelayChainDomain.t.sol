@@ -129,7 +129,7 @@ contract RelayChainDomainTest is RelayTestBase {
         for (uint256 i; i < current.feeConfigs.length; ++i) {
             c.feeConfigs[i] = RelayMainDeployed.MainDeployedFeeConfig(
                 current.feeConfigs[i].protocolId,
-                current.feeConfigs[i].feeInWei
+                current.feeConfigs[i].fee
             );
         }
     }

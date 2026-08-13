@@ -10,7 +10,8 @@ interface IRelay is RandomNumberV2Interface {
 
     struct FeeConfig {
         uint8 protocolId;   // Protocol id for which the fee is set
-        uint256 feeInWei;   // Fee in wei
+        uint256 fee;        // Fee in native wei, or in base units of the configured fee
+                            // token when one is set (see feeToken)
     }
 
     struct RelayInitialConfig {
@@ -29,6 +30,10 @@ interface IRelay is RandomNumberV2Interface {
                                                                // the protocol messages.
         address payable feeCollectionAddress;                  // Fee collection address
         FeeConfig[] feeConfigs;                                // Fee configurations
+        address feeToken;                                      // ERC-20 the verify() fee is paid in;
+                                                               // zero = native coin. For chains without
+                                                               // a (spendable) native token. Relay mode
+                                                               // only; must be zero on a home deploy.
         address[] feeExemptAddresses;                          // Accounts exempt from the verify() fee at
                                                                // deployment (e.g. DVN adapters). Relay mode
                                                                // only; must be empty on a home deploy.
@@ -81,10 +86,13 @@ interface IRelay is RandomNumberV2Interface {
         bool isSecureRandom                 // Whether the random is secure
     );
 
-    /// A protocol verify() fee was set — at deployment (seeded config) or by the owner.
-    event ProtocolFeeSet(
-        uint8 indexed protocolId,
-        uint256 feeInWei
+    /// The verify() fee configuration was set — once at every relay-mode deployment (seeded
+    /// config) and on every setProtocolFees call. The event is SELF-CONTAINED: it carries the
+    /// fee token (zero = native coin) and the complete fee table; every protocol not listed
+    /// has fee 0. The latest event therefore fully describes the current fee configuration.
+    event ProtocolFeesSet(
+        address indexed feeToken,
+        FeeConfig[] feeConfigs
     );
 
     /// A verify() fee exemption was set — at deployment (seeded config) or by the owner.
@@ -111,6 +119,9 @@ interface IRelay is RandomNumberV2Interface {
     error BadS();
     error BadV();
     error DelayedSignPolicy();
+    /// A protocol id appears more than once in a supplied fee table — the self-contained
+    /// ProtocolFeesSet event must be unambiguous.
+    error DuplicateProtocolId();
     error EcrecoverError();
     error EcrecoverReturnedBadData();
     error FeeCollectionAddressZero();
@@ -119,6 +130,9 @@ interface IRelay is RandomNumberV2Interface {
     error FeeExemptAddressZero();
     /// Initial fee-exempt addresses supplied on a setter-mode (home) deploy, which charges no fee.
     error FeeExemptionsNotAllowed();
+    /// The deprecated protocolFeeInWei() getter was called while a fee token is active — the
+    /// fee is then in token base units, not wei; use protocolFee() and feeToken() instead.
+    error FeeTokenActive();
     error FeeTransferFailed();
     error HistoryBeforeStart();
     error IncorrectMerkleProof();
@@ -135,6 +149,9 @@ interface IRelay is RandomNumberV2Interface {
     error InvalidVotingRoundId();
     error MerkleProofInvalid();
     error MessageTooOld();
+    /// Native value was sent to verify() while a fee token is active — the fee is then paid
+    /// exclusively in that token (via allowance), so any attached value would strand.
+    error MsgValueNotAllowed();
     error MustUseNewSignPolicy();
     error NoAccessToMerkleRoots();
     error NoAccessToSigningPolicyHashes();
@@ -157,6 +174,9 @@ interface IRelay is RandomNumberV2Interface {
     error OldRelayWrongStartTs();
     error OldRelayWrongVotingEpochDuration();
     error OnlySigningPolicySetterRole();
+    /// A configured protocol fee is zero. With full-replace fee semantics a free protocol is
+    /// expressed by omitting it, so every listed (protocolId, fee) entry must be nonzero.
+    error ProtocolFeeZero();
     error RefundFailed();
     error RewardEpochDurationZero();
     error SignPolicyRelayDisabled();
@@ -280,9 +300,15 @@ interface IRelay is RandomNumberV2Interface {
      * Verifies the leaf (or intermediate node) with the Merkle proof against the Merkle root
      * for given protocol id and voting round id.
      * A fee may need to be paid. It is protocol specific.
-     * **NOTE:** Overpayment above the protocol fee is refunded to the caller via a value-bearing call, so a
-     *           contract caller MUST be able to receive ETH (or send exactly the fee);
-     *           otherwise verify() reverts.
+     * Payment medium depends on the configuration (see feeToken):
+     * - No fee token set (all home deployments, default on mirrors): the fee is paid in native
+     *   coin via msg.value. Overpayment above the protocol fee is refunded to the caller via a
+     *   value-bearing call, so a contract caller MUST be able to receive ETH (or send exactly
+     *   the fee); otherwise verify() reverts.
+     * - Fee token set (mirror deployments on chains without a spendable native token): the exact
+     *   fee is pulled via the token's transferFrom to the fee-collection address, so the caller
+     *   MUST approve at least the fee beforehand. msg.value MUST be zero (MsgValueNotAllowed);
+     *   there is no refund path.
      * **NOTE:** A leaf equal to the (finalized, non-zero) root verifies with an empty proof —
      *           a standard Merkle property. Off-chain leaf encoding MUST be domain-separated from internal
      *           and root node hashes so an internal node cannot be presented as a differently-typed leaf.
@@ -365,7 +391,30 @@ interface IRelay is RandomNumberV2Interface {
     function feeCollectionAddress() external view returns (address payable);
 
     /**
+     * Returns the fee for one verification of a given protocol id, in native wei — or in
+     * base units of the configured fee token when one is set (see feeToken).
+     * @param _protocolId The protocol id.
+     */
+    function protocolFee(uint256 _protocolId) external view returns (uint256);
+
+    /**
+     * Returns the ERC-20 token the verify() fee is paid in, or the zero address when fees
+     * are paid in the native coin (all home deployments, default on mirrors). A configured
+     * token is always a standard exact-transfer ERC-20 — fee-on-transfer or rebasing tokens
+     * are unsupported.
+     */
+    function feeToken() external view returns (address);
+
+    /**
+     * Returns the complete fee table: every protocol id with a nonzero verify() fee and that
+     * fee, denominated per feeToken() (native wei when it is zero). Order is unspecified.
+     */
+    function getFeeConfigs() external view returns (FeeConfig[] memory _feeConfigs);
+
+    /**
      * Returns fee in wei for one verification of a given protocol id.
+     * @dev Deprecated pre-feeToken name of protocolFee(). Reverts with FeeTokenActive when a
+     * fee token is set, so a token-denominated fee can never be misread as a wei amount.
      * @param _protocolId The protocol id.
      */
     function protocolFeeInWei(uint256 _protocolId) external view returns (uint256);

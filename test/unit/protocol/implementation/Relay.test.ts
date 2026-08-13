@@ -1747,7 +1747,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         feeConfigs: [
           {
             protocolId: 17,
-            feeInWei: "1000",
+            fee: "1000",
           },
         ],
         sourceChainId: chainId,
@@ -1827,6 +1827,96 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       });
       const afterOverpay = Number(await web3.eth.getBalance(BURN_ADDRESS));
       expect(afterOverpay - beforeOverpay).to.equal(1000);
+    });
+
+    it("Should verification work with an ERC-20 fee token", async () => {
+      // Mirror-on-Tempo shape: verify() fees are paid in a 6-decimals stablecoin via
+      // allowance + transferFrom (msg.value must be 0), pulled straight to the collector.
+      const ERC20Mock = artifacts.require("ERC20Mock");
+      const feeToken = await ERC20Mock.new("USDT0", "USDT0", 6);
+
+      const signingPolicyData = defaultTestSigningPolicy(
+        signers.map((x) => x.address),
+        N,
+        singleWeight
+      );
+      signingPolicyData.rewardEpochId = rewardEpochId;
+      signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
+      const signingPolicy = SigningPolicy.encode(signingPolicyData);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy, chainId);
+
+      const relayInitialConfig: RelayInitialConfig = {
+        initialRewardEpochId: signingPolicyData.rewardEpochId,
+        startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
+        initialSigningPolicyHash: localHash,
+        randomNumberProtocolId: randomNumberProtocolId,
+        firstVotingRoundStartTs: firstVotingRoundStartSec,
+        votingEpochDurationSeconds: votingRoundDurationSec,
+        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
+        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
+        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: BURN_ADDRESS,
+        feeConfigs: [
+          {
+            protocolId: 17,
+            fee: "1000",
+          },
+        ],
+        feeToken: feeToken.address,
+        sourceChainId: chainId,
+        timelockDurationSeconds: 0,
+      };
+
+      const relay = await deployRelayProxy(relayInitialConfig, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS);
+      expect(await relay.feeToken()).to.equal(feeToken.address);
+      // The deprecated wei-named getter fails closed in token mode; the primary getter serves it.
+      expect((await relay.protocolFee(17)).toString()).to.equal("1000");
+      await expectCustomError(relay.protocolFeeInWei(17), "FeeTokenActive");
+
+      // Finalize a root for protocol 17.
+      const makeHashes = (i: number, shiftSeed = 0) =>
+        new Array(i).fill(0).map((x, i) => ethers.keccak256(ethers.toBeHex(shiftSeed + i)));
+      const hashes = makeHashes(100);
+      const tree = new MerkleTree(hashes);
+      const specificHash = hashes[10];
+      const proof = tree.getProof(specificHash) ?? [];
+      const newMessageData = { ...messageData };
+      newMessageData.merkleRoot = tree.root!;
+      newMessageData.votingRoundId = newMessageData.votingRoundId + 5;
+      newMessageData.protocolId = 17;
+      const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
+      const signatures = await generateSignatures(accountPrivateKeys, messageHash, N / 2 + 1);
+      const fullData = RelayMessage.encode({
+        signingPolicy: signingPolicyData,
+        signatures,
+        protocolMessageMerkleRoot: newMessageData,
+      });
+      await web3.eth.sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData.slice(2),
+      });
+
+      // Without an allowance the token itself rejects the pull.
+      await feeToken.mintAmount(signers[0].address, "5000");
+      await expectCustomError(
+        relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof),
+        "ERC20InsufficientAllowance"
+      );
+
+      // Attached native value is rejected — the fee is paid exclusively in the token.
+      await feeToken.approve(relay.address, "1000");
+      await expectCustomError(
+        relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: "1" }),
+        "MsgValueNotAllowed"
+      );
+
+      // The exact fee lands at the collector in tokens; the caller pays exactly the fee.
+      await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof);
+      expect((await feeToken.balanceOf(BURN_ADDRESS)).toString()).to.equal("1000");
+      expect((await feeToken.balanceOf(signers[0].address)).toString()).to.equal("4000");
+      expect((await feeToken.balanceOf(relay.address)).toString()).to.equal("0");
     });
 
     it("Should reject verification against an unfinalized (zero) root", async () => {
@@ -2238,7 +2328,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
             feeConfigs: [
               {
                 protocolId: 17,
-                feeInWei: "1000",
+                fee: "1000",
               },
             ],
           },
@@ -2255,7 +2345,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
             feeConfigs: [
               {
                 protocolId: 1,
-                feeInWei: "1000",
+                fee: "1000",
               },
             ],
           },

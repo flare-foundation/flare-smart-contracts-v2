@@ -130,6 +130,10 @@ contract DeployRelayHome is RelayDeployBase {
             initialRewardEpochId: config.initialRewardEpochId,
             startingVotingRoundId: config.startingVotingRoundIdForInitialRewardEpochId,
             initialSigningPolicyHash: config.initialSigningPolicyHash,
+            feeCollectionAddress: address(0), // setter mode: no fee surface
+            feeToken: address(0),
+            feeConfigs: new IRelay.FeeConfig[](0),
+            feeExemptAddresses: new address[](0),
             deployer: deployer
         });
         _writeRelayManifest(string.concat(_configLabel(), "-home"), manifest);
@@ -180,9 +184,11 @@ contract DeployRelayHome is RelayDeployBase {
         _config.rewardEpochDurationInVotingEpochs = rewardEpochDurationInVotingEpochs;
         _config.thresholdIncreaseBIPS = thresholdIncreaseBIPS;
         _config.messageFinalizationWindowInRewardEpochs = messageFinalizationWindowInRewardEpochs;
-        // Setter mode: no fee collection address, no fee configs (Relay.initialize enforces both).
+        // Setter mode: no fee collection address, no fee configs, no fee token — there is no
+        // home config parameter for any of them (Relay.initialize enforces all three zero).
         _config.feeCollectionAddress = payable(address(0));
         _config.feeConfigs = new IRelay.FeeConfig[](0);
+        _config.feeToken = address(0);
         // A home deployment binds its own chain as the signing source.
         _config.sourceChainId = block.chainid;
         _config.timelockDurationSeconds = _timelockDurationSeconds;

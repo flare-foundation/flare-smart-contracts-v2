@@ -178,6 +178,39 @@ contract RelayOwnableWithTimelockTest is Test {
         assertTrue(relay.feeExemptAddress(address(0xDA0)), "exemption not applied after execute");
     }
 
+    function test_setProtocolFeesTimelockQueueAndExecuteTokenAtomically() public {
+        // Fee token and fee table travel in ONE queued call, so the token switch and the
+        // re-denominated fees become visible in the same executeTimelockedCall.
+        relay.setTimelockDuration(TIMELOCK);
+        IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
+        fees[0] = IRelay.FeeConfig(3, 5_000_000);
+        bytes memory encodedCall = abi.encodeCall(relay.setProtocolFees, (address(0x70CE2), fees));
+
+        // The owner's call only queues.
+        vm.expectEmit(true, true, true, true);
+        emit IOwnableWithTimelock.CallTimelocked(
+            encodedCall,
+            keccak256(encodedCall),
+            vm.getBlockTimestamp() + TIMELOCK
+        );
+        relay.setProtocolFees(address(0x70CE2), fees);
+        assertEq(relay.feeToken(), address(0), "token applied without delay");
+        assertEq(relay.protocolFee(3), 0, "fee applied without delay");
+
+        // After the delay anyone can execute; token + fee land together in one
+        // self-contained event carrying the complete new fee state.
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
+        vm.expectEmit(true, true, true, true);
+        emit IRelay.ProtocolFeesSet(address(0x70CE2), fees);
+        vm.expectEmit(true, true, true, true);
+        emit IOwnableWithTimelock.TimelockedCallExecuted(keccak256(encodedCall));
+        vm.prank(address(0xD00D));
+        relay.executeTimelockedCall(encodedCall);
+
+        assertEq(relay.feeToken(), address(0x70CE2), "token not applied after execute");
+        assertEq(relay.protocolFee(3), 5_000_000, "fee not applied after execute");
+    }
+
     function test_executeTimelockedCallRevertTooEarly() public {
         relay.setTimelockDuration(TIMELOCK);
         bytes memory encodedCall =
@@ -289,16 +322,32 @@ contract RelayOwnableWithTimelockTest is Test {
         IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
         fees[0] = IRelay.FeeConfig(3, 1234);
         vm.expectEmit(true, true, true, true);
-        emit IRelay.ProtocolFeeSet(3, 1234);
-        relay.setProtocolFees(fees);
+        emit IRelay.ProtocolFeesSet(address(0), fees);
+        relay.setProtocolFees(address(0), fees);
+        assertEq(relay.protocolFee(3), 1234);
         assertEq(relay.protocolFeeInWei(3), 1234);
+    }
+
+    function test_setProtocolFeesTokenAndFeesApplyAtomically() public {
+        // Token switch and fee re-denomination are one full-replace call: both are visible
+        // immediately after it, announced by one self-contained event, and the deprecated
+        // wei-named getter fails closed from that same moment.
+        IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
+        fees[0] = IRelay.FeeConfig(3, 5_000_000); // e.g. 5 tokens at 6 decimals
+        vm.expectEmit(true, true, true, true);
+        emit IRelay.ProtocolFeesSet(address(0x70CE2), fees);
+        relay.setProtocolFees(address(0x70CE2), fees);
+        assertEq(relay.feeToken(), address(0x70CE2));
+        assertEq(relay.protocolFee(3), 5_000_000);
+        vm.expectRevert(IRelay.FeeTokenActive.selector);
+        relay.protocolFeeInWei(3);
     }
 
     function test_setProtocolFeesRevertInvalidProtocolId() public {
         IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
         fees[0] = IRelay.FeeConfig(1, 1234);
         vm.expectRevert(IRelay.InvalidProtocolId.selector);
-        relay.setProtocolFees(fees);
+        relay.setProtocolFees(address(0), fees);
     }
 
     function test_setFeeCollectionAddressAppliesAndEmits() public {
@@ -329,7 +378,7 @@ contract RelayOwnableWithTimelockTest is Test {
         IRelay.FeeConfig[] memory fees = new IRelay.FeeConfig[](1);
         fees[0] = IRelay.FeeConfig(3, 1234);
         vm.expectRevert(IRelay.FeeConfigNotAllowed.selector);
-        home.setProtocolFees(fees);
+        home.setProtocolFees(address(0), fees);
 
         vm.expectRevert(IRelay.FeeExemptionsNotAllowed.selector);
         home.setFeeExemptions(_exemptions(address(0xDA0), true));

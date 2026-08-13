@@ -1,6 +1,6 @@
 # Relay Forge-deploy chain configs
 
-**One config per SOURCE chain** for the Safe-governed Relay Forge scripts in
+**One config per SOURCE chain** for the owner-timelock-governed Relay Forge scripts in
 [`deployment/scripts/relay/`](../../scripts/relay/): `flare.json`, `songbird.json`,
 `coston.json`, `coston2.json`. Each file holds that source's own **home** deployment plus a
 **`mirrors`** map listing every target chain that mirrors it — a single reviewed inventory, so a
@@ -37,7 +37,9 @@ never stored here — the deployer key is read from `DEPLOYER_PRIVATE_KEY`.
       "chainId": 42161,                    // asserted against block.chainid at deploy
       "relayOwner": "0x…",                 // the chain's multisig
       "feeCollectionAddress": "0x…",       // nonzero
-      "feeConfigs": [ { "protocolId": 100, "feeInWei": "0" } ],
+      "timelockDurationSeconds": 3600,     // owner-timelock for fee setters + upgrades
+      "feeConfigs": [ { "protocolId": 100, "fee": "1000000" } ],  // fee > 0; omit a protocol to make it free
+      "feeToken": "0x…",                   // REQUIRED: ERC-20 the fee is paid in (zero = native)
       "feeExemptAddresses": [ "0x…" ]      // e.g. DVN adapters, seeded fee-exempt (may be empty)
     }
   }
@@ -60,7 +62,7 @@ flag is a hard error, so a typo can never silently deploy.
 
 ```bash
 pnpm deploy_relay home     coston2               # DRY RUN (simulate)
-pnpm deploy_relay home     coston2 --broadcast   # real deployment (SafeInstructions + Relay)
+pnpm deploy_relay home     coston2 --broadcast   # real deployment
 pnpm deploy_relay factory  coston2 --broadcast   # canonical Create3Factory (idempotent)
 pnpm deploy_relay prepare-snapshot flare         # read-only, writes source-snapshot-flare.json
 pnpm deploy_relay mirror   flare arbitrum --broadcast  # flare mirror on arbitrum (uses ARBITRUM_RPC)
@@ -76,15 +78,16 @@ relay-specific manifest (governance generation, salts) is also written to
 
 ## Home vs mirror
 
-Each Flare-family network runs its own protocol instance (own FlareSystemsManager, own governance
-Safe), so **flare / songbird / coston / coston2 are each a home** (setter-mode) deployment binding
-`sourceChainId` to their own chain. Every home address (the governance Safe via
+Each Flare-family network runs its own protocol instance (own FlareSystemsManager, own
+governance), so **flare / songbird / coston / coston2 are each a home** (setter-mode) deployment
+binding `sourceChainId` to their own chain. Every home address (the Relay owner via
 `GovernanceSettings.getGovernanceAddress()`, `FlareSystemsManager`, the old `Relay`,
-`AddressUpdater`) is read from the registry; the Safe owner set/threshold/nonces are read live.
+`AddressUpdater`) is read from the registry.
 
 Every mirror target (USDT0 chains, DVN-test chains) has no local protocol and is a **mirror**
 (relay-mode) deployment from the source snapshot; its per-chain `relayOwner`,
-`feeCollectionAddress`, `feeConfigs` and `feeExemptAddresses` come from its `mirrors` entry, and its
+`feeCollectionAddress`, `timelockDurationSeconds`, `feeConfigs`, `feeToken` and
+`feeExemptAddresses` come from its `mirrors` entry, and its
 protocol parameters from the snapshot — so mirrors of one source cannot drift from each other. The
 CREATE3 salt is source-scoped, so a source's home + all its mirrors share one address, and a chain
 can host both its own home and a cross-source mirror (e.g. a Flare mirror on coston2).
@@ -120,15 +123,12 @@ constructor re-validates ranges authoritatively.
 | Field | Meaning |
 |-------|---------|
 | `chainId` | The target chain id; asserted against `block.chainid` at deploy. |
-| `relayOwner` | Per-chain UUPS upgrade owner (the chain's multisig). Nonzero. |
+| `relayOwner` | Per-chain owner: authorizes fee setters and UUPS upgrades through the owner-timelock (the chain's multisig). Nonzero. |
 | `feeCollectionAddress` | Recipient of collected `verify()` fees. Nonzero (a zero recipient burns fees). |
-| `feeConfigs` | `[{ "protocolId": <uint8 > 1>, "feeInWei": "<uint256>" }]`. |
+| `timelockDurationSeconds` | Initial owner-timelock duration (≤ 7 days; 0 = immediate owner calls). |
+| `feeConfigs` | `[{ "protocolId": <uint8 > 1>, "fee": "<uint256 > 0>" }]`. Native wei, or `feeToken` base units when one is set. A free protocol is expressed by omission (zero fees are rejected). |
+| `feeToken` | ERC-20 the `verify()` fee is paid in (allowance + `transferFrom`, pulled straight to `feeCollectionAddress`). For chains without a spendable native token (e.g. Tempo, where `msg.value` is always 0). Required — state the zero address explicitly for native-coin fees. Must be a standard exact-transfer ERC-20 — fee-on-transfer or rebasing tokens are unsupported. |
 | `feeExemptAddresses` | Accounts seeded fee-exempt at deploy (e.g. DVN adapters). May be empty. |
 
-The Safe governance config, epoch anchors and source-bound initial signing-policy hash are NOT in
+The epoch anchors and source-bound initial signing-policy hash are NOT in
 the mirror entry — they come from the live source snapshot written by `PrepareRelaySourceSnapshot`.
-
-There is no Safe-deployment script — all Flare-family networks already have a governance Safe; the
-Safe v1.3.0 fixture is exercised in
-[`SafeGovernanceProductionRehearsal.t.sol`](../../../test-forge/unit/governance/SafeGovernanceProductionRehearsal.t.sol),
-and full local rehearsal uses the Hardhat/TS simulation path.

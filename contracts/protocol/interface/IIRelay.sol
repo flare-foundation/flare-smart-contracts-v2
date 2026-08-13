@@ -46,12 +46,22 @@ interface IIRelay is IRelay, IOwnableWithTimelock {
     function setSigningPolicy(SigningPolicy memory _signingPolicy) external returns (bytes32);
 
     /**
-     * Sets the verify() fee for each listed protocol id. Relay mode only — a setter-mode
-     * (home) deployment charges no fee and reverts with `FeeConfigNotAllowed`.
-     * @param _feeConfigs The (protocolId, feeInWei) pairs to set; every protocol id must be
-     * greater than 1.
+     * Replaces the COMPLETE verify() fee configuration — the fee token and the entire fee
+     * table — in one atomic call. The previous table is cleared first, so a protocol not
+     * listed in `_feeConfigs` is free (fee 0) after the call; fees can never be silently
+     * carried over as amounts in a different denomination. The self-contained
+     * `ProtocolFeesSet(feeToken, feeConfigs)` event mirrors this: its latest occurrence fully
+     * describes the current fee state. Relay mode only — a setter-mode (home) deployment
+     * charges no fee and reverts with `FeeConfigNotAllowed`.
+     * @param _feeToken The ERC-20 the fee is paid in from now on; zero means native-coin
+     * fees. Must be a standard exact-transfer ERC-20 — fee-on-transfer or rebasing tokens are
+     * unsupported (verify() assumes the pull delivers exactly the fee).
+     * @param _feeConfigs The complete (protocolId, fee) table, denominated per `_feeToken`;
+     * every protocol id must be greater than 1 and unique (`DuplicateProtocolId`), and every
+     * fee nonzero (`ProtocolFeeZero` — a free protocol is expressed by omission).
      */
     function setProtocolFees(
+        address _feeToken,
         FeeConfig[] calldata _feeConfigs
     )
         external;

@@ -11,9 +11,11 @@ export interface RelayFeeConfig {
   protocolId: integer;
 
   /**
-   * Fee in wei charged for verify() of this protocol. Decimal string (may exceed 2^64).
+   * Fee charged for verify() of this protocol, in native wei — or in base units of `feeToken`
+   * when the mirror configures one. Decimal string (may exceed 2^64). Must be nonzero — a
+   * free protocol is expressed by omitting it from feeConfigs.
    */
-  feeInWei: string;
+  fee: string;
 }
 
 /**
@@ -50,6 +52,16 @@ export interface RelayMirrorConfig {
    * Per-protocol verify() fees seeded at deployment.
    */
   feeConfigs: RelayFeeConfig[];
+
+  /**
+   * ERC-20 token address the verify() fee is paid in (via allowance + transferFrom, pulled
+   * straight to feeCollectionAddress). For chains without a spendable native token (e.g.
+   * Tempo, where msg.value is always 0). Required — state the zero address explicitly for
+   * fees in the native coin. When nonzero, every `fee` in feeConfigs is denominated in this
+   * token's base units, and the token must be a standard exact-transfer ERC-20 —
+   * fee-on-transfer or rebasing tokens are unsupported.
+   */
+  feeToken: string;
 
   /**
    * Accounts exempt from the verify() fee, seeded at deployment (e.g. DVN adapters), so they

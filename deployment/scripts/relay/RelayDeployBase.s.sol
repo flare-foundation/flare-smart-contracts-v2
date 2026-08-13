@@ -60,6 +60,11 @@ abstract contract RelayDeployBase is Script {
     }
 
     /// Everything the deployment manifest records for one Relay deployment.
+    /// Human-facing deployment record written to deployment/deploys/relay/ — the artifact the
+    /// post-deployment checklist (docs/relay-governance.md §6) compares against on-chain
+    /// getters. Nothing reads it programmatically. It records the COMPLETE fee surface:
+    /// recipient, token, fee table and exemption list (the mirror deploy additionally asserts
+    /// each of these against the live contract before writing it).
     struct RelayManifest {
         string configName;
         address factory;
@@ -72,6 +77,10 @@ abstract contract RelayDeployBase is Script {
         uint32 initialRewardEpochId;
         uint32 startingVotingRoundId;
         bytes32 initialSigningPolicyHash;
+        address feeCollectionAddress;
+        address feeToken;
+        IRelay.FeeConfig[] feeConfigs;
+        address[] feeExemptAddresses;
         address deployer;
     }
 
@@ -188,6 +197,19 @@ abstract contract RelayDeployBase is Script {
         vm.serializeUint(key, "initialRewardEpochId", _manifest.initialRewardEpochId);
         vm.serializeUint(key, "startingVotingRoundId", _manifest.startingVotingRoundId);
         vm.serializeBytes32(key, "initialSigningPolicyHash", _manifest.initialSigningPolicyHash);
+        vm.serializeAddress(key, "feeCollectionAddress", _manifest.feeCollectionAddress);
+        vm.serializeAddress(key, "feeToken", _manifest.feeToken);
+        // Fee table as parallel arrays (forge's serializer has no struct-array support);
+        // amounts are native wei, or feeToken base units when a token is set.
+        uint256[] memory feeProtocolIds = new uint256[](_manifest.feeConfigs.length);
+        uint256[] memory feeAmounts = new uint256[](_manifest.feeConfigs.length);
+        for (uint256 i = 0; i < _manifest.feeConfigs.length; i++) {
+            feeProtocolIds[i] = _manifest.feeConfigs[i].protocolId;
+            feeAmounts[i] = _manifest.feeConfigs[i].fee;
+        }
+        vm.serializeUint(key, "feeProtocolIds", feeProtocolIds);
+        vm.serializeUint(key, "feeAmounts", feeAmounts);
+        vm.serializeAddress(key, "feeExemptAddresses", _manifest.feeExemptAddresses);
         vm.serializeBytes32(key, "relayProxySalt", _relayProxySalt(_manifest.sourceChainId));
         string memory json = vm.serializeAddress(key, "deployer", _manifest.deployer);
         string memory path = string.concat(MANIFEST_DIR, _fileStem, ".json");

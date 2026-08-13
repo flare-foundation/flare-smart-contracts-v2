@@ -184,7 +184,26 @@ contract RelayDeployFlowTest is Test {
         assertEq(Relay(mirrorRelay).sourceChainId(), SOURCE_CHAIN);
         assertEq(Relay(mirrorRelay).signingPolicySetter(), address(0));
         assertEq(Relay(mirrorRelay).feeCollectionAddress(), address(0xFEE));
+        assertEq(Relay(mirrorRelay).feeToken(), address(0), "feeToken defaults to native when unconfigured");
         assertEq(Relay(mirrorRelay).getTimelockDurationSeconds(), MIRROR_TIMELOCK);
+    }
+
+    function test_mirrorDeployWithFeeToken() public {
+        // A mirror on a chain without a spendable native token (e.g. Tempo) seeds an ERC-20
+        // fee token; the fee table is then denominated in that token's base units.
+        vm.chainId(MIRROR_CHAIN);
+        IRelay.RelayInitialConfig memory mirrorConfig = _baseConfig(SOURCE_CHAIN, MIRROR_TIMELOCK);
+        mirrorConfig.feeCollectionAddress = payable(address(0xFEE));
+        mirrorConfig.feeToken = address(0x70CE2);
+        mirrorConfig.feeConfigs = new IRelay.FeeConfig[](1);
+        mirrorConfig.feeConfigs[0] = IRelay.FeeConfig(100, 5_000_000);
+        address mirrorRelay = harness.deployRelayProxyViaFactory(
+            deployer, SOURCE_CHAIN, address(new Relay()), mirrorConfig, address(0), address(0), owner
+        );
+        assertEq(Relay(mirrorRelay).feeToken(), address(0x70CE2), "fee token seeded at deploy");
+        assertEq(Relay(mirrorRelay).protocolFee(100), 5_000_000);
+        vm.expectRevert(IRelay.FeeTokenActive.selector);
+        Relay(mirrorRelay).protocolFeeInWei(100);
     }
 
     function test_homeAndCrossSourceMirrorCoexistOnOneChain() public {

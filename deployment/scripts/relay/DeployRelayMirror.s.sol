@@ -98,6 +98,30 @@ contract DeployRelayMirror is RelayDeployBase {
             Relay(relay).feeCollectionAddress() == feeCollectionAddress,
             "verify: fee collection address mismatch"
         );
+        require(
+            Relay(relay).feeToken() == config.feeToken,
+            "verify: fee token mismatch"
+        );
+        // Every configured fee and exemption must be live on-chain — the post-deploy check
+        // covers the full documented fee surface, not just the recipient and token. Fees are
+        // nonzero by construction (initialize rejects zero fees), so the enumerated table
+        // must match the config list one-to-one.
+        for (uint256 i = 0; i < config.feeConfigs.length; i++) {
+            require(
+                Relay(relay).protocolFee(config.feeConfigs[i].protocolId) == config.feeConfigs[i].fee,
+                "verify: protocol fee mismatch"
+            );
+        }
+        require(
+            Relay(relay).getFeeConfigs().length == config.feeConfigs.length,
+            "verify: fee table size mismatch"
+        );
+        for (uint256 i = 0; i < config.feeExemptAddresses.length; i++) {
+            require(
+                Relay(relay).feeExemptAddress(config.feeExemptAddresses[i]),
+                "verify: fee exemption missing"
+            );
+        }
 
         RelayManifest memory manifest = RelayManifest({
             configName: mirrorName,
@@ -111,6 +135,10 @@ contract DeployRelayMirror is RelayDeployBase {
             initialRewardEpochId: config.initialRewardEpochId,
             startingVotingRoundId: config.startingVotingRoundIdForInitialRewardEpochId,
             initialSigningPolicyHash: config.initialSigningPolicyHash,
+            feeCollectionAddress: feeCollectionAddress,
+            feeToken: config.feeToken,
+            feeConfigs: config.feeConfigs,
+            feeExemptAddresses: config.feeExemptAddresses,
             deployer: deployer
         });
         _writeRelayManifest(string.concat(mirrorName, "-mirror"), manifest);
@@ -133,6 +161,7 @@ contract DeployRelayMirror is RelayDeployBase {
         _requireField(_cfg, string.concat(_base, ".chainId"));
         _requireField(_cfg, string.concat(_base, ".relayOwner"));
         _requireField(_cfg, string.concat(_base, ".feeCollectionAddress"));
+        _requireField(_cfg, string.concat(_base, ".feeToken"));
         _requireField(_cfg, string.concat(_base, ".timelockDurationSeconds"));
         require(
             vm.parseJsonAddress(_cfg, string.concat(_base, ".relayOwner")) != address(0),
@@ -166,13 +195,16 @@ contract DeployRelayMirror is RelayDeployBase {
         _config.messageFinalizationWindowInRewardEpochs = _snapshot.messageFinalizationWindowInRewardEpochs;
         _config.feeCollectionAddress = _feeCollectionAddress;
         _config.feeConfigs = _readFeeConfigs(_cfg, _base);
+        // ERC-20 the verify() fee is paid in (chains without a spendable native token,
+        // e.g. Tempo). Required field — an explicit zero address means native-coin fees.
+        _config.feeToken = vm.parseJsonAddress(_cfg, string.concat(_base, ".feeToken"));
         _config.feeExemptAddresses = _readFeeExemptAddresses(_cfg, _base);
         // The mirror binds to the snapshotted source, not to its own chain.
         _config.sourceChainId = _snapshot.sourceChainId;
         _config.timelockDurationSeconds = _timelockDurationSeconds;
     }
 
-    /// Per-chain protocol fee configs. Parsed element-by-element (feeInWei may exceed 64 bits, so
+    /// Per-chain protocol fee configs. Parsed element-by-element (the fee may exceed 64 bits, so
     /// abi.decode of the object array is unreliable — see DeployTeeContracts note).
     function _readFeeConfigs(
         string memory _cfg,
@@ -188,9 +220,17 @@ contract DeployRelayMirror is RelayDeployBase {
         _feeConfigs = new IRelay.FeeConfig[](count);
         for (uint256 i = 0; i < count; i++) {
             string memory entry = string.concat(_base, ".feeConfigs[", vm.toString(i), "]");
+            uint256 protocolId = vm.parseJsonUint(_cfg, string.concat(entry, ".protocolId"));
+            // Range-check BEFORE the uint8 cast — a config typo like 258 must fail fast, not
+            // silently truncate to protocol 2. The contract additionally enforces id > 1 and
+            // fee > 0 at initialize.
+            require(
+                protocolId > 1 && protocolId <= type(uint8).max,
+                "feeConfigs protocolId out of range (must be 2..255)"
+            );
             _feeConfigs[i] = IRelay.FeeConfig({
-                protocolId: uint8(vm.parseJsonUint(_cfg, string.concat(entry, ".protocolId"))),
-                feeInWei: vm.parseJsonUint(_cfg, string.concat(entry, ".feeInWei"))
+                protocolId: uint8(protocolId),
+                fee: vm.parseJsonUint(_cfg, string.concat(entry, ".fee"))
             });
         }
     }

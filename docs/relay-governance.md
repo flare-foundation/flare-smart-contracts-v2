@@ -38,11 +38,22 @@ The owner/timelock controls:
 
 | Method | Available mode | Effect |
 | --- | --- | --- |
-| `setProtocolFees(FeeConfig[])` | relay mode | sets per-protocol verification fees for protocol IDs greater than 1 |
+| `setProtocolFees(address,FeeConfig[])` | relay mode | replaces the complete fee configuration — the fee token (zero = native coin) and the entire per-protocol fee table — in one atomic call |
 | `setFeeExemptions(FeeExemption[])` | relay mode | grants or revokes account fee exemptions |
 | `setFeeCollectionAddress(address)` | relay mode | changes the nonzero fee recipient |
 | `setSigningPolicySetter(address)` | setter mode | changes the trusted nonzero signing-policy setter |
 | `upgradeToAndCall(address,bytes)` | both | upgrades the UUPS implementation and optionally runs migration calldata |
+
+`setProtocolFees` is a full replace: the previous fee table is cleared before the
+supplied one is applied, so a protocol not listed in the call is free (fee 0)
+afterwards, and fees can never be silently carried over as amounts in a different
+denomination after a token switch. Every listed protocol id must be unique
+(`DuplicateProtocolId`) and every fee nonzero (`ProtocolFeeZero`) — a free protocol
+is expressed by omission. Each call (and each
+relay-mode initialization) emits one self-contained `ProtocolFeesSet(feeToken,
+feeConfigs)` event whose latest occurrence fully describes the current fee state.
+The configured token must be a standard exact-transfer ERC-20 — fee-on-transfer or
+rebasing tokens are unsupported. The live table is enumerable via `getFeeConfigs()`.
 
 Deployment mode is immutable:
 
@@ -78,7 +89,7 @@ externally observable in an uninitialized state. Initialization fixes:
 - initial reward-epoch and voting-round anchors;
 - nonzero initial signing-policy hash;
 - setter or relay operating mode;
-- fee configuration and exemptions where permitted;
+- fee configuration, fee token, and exemptions where permitted;
 - owner and timelock duration; and
 - optional `oldRelay` migration configuration where permitted.
 
@@ -115,7 +126,8 @@ Relay deployment configuration is stored per source under
 [`deployment/chain-config/relay/`](../deployment/chain-config/relay/README.md).
 Each source entry defines home settings and a map of mirror targets. The scripts
 enforce the designated deployer, source identity, target chain ID, owner,
-timelock, fee settings, and deterministic address inputs.
+timelock, fee settings (including the per-mirror fee token), and
+deterministic address inputs.
 
 ### Home deployment
 
@@ -150,8 +162,12 @@ manifest and on-chain getters for:
 - source chain ID;
 - operating mode and signing-policy setter;
 - initial reward epoch, policy hash, and start round;
-- fee recipient, fees, and exemptions; and
+- fee recipient, fees, fee token, and exemptions; and
 - deterministic salt/factory/deployer inputs.
+
+The manifest records the complete fee surface — recipient, token, fee table and
+exemption list — and the mirror deploy script additionally asserts each of these
+against the live contract before writing it.
 
 Also reveal the complete initial policy off-chain and independently confirm:
 

@@ -40,6 +40,9 @@ contract RelayConfigParsingTest is Test {
         vm.parseJsonAddress(cfg, string.concat(base, ".feeCollectionAddress"));
         vm.parseJsonUint(cfg, string.concat(base, ".timelockDurationSeconds"));
         assertEq(vm.parseJsonAddressArray(cfg, string.concat(base, ".feeExemptAddresses")).length, 0);
+        // feeToken is REQUIRED — an explicit zero address means native-coin fees, so a
+        // missing key can never silently select a payment medium.
+        assertEq(vm.parseJsonAddress(cfg, string.concat(base, ".feeToken")), address(0));
     }
 
     function test_hyphenatedMirrorNameParsesViaBracketKey() public view {

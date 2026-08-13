@@ -6,8 +6,8 @@
             "additionalProperties": false,
             "description": "A single protocol-fee configuration for a mirror (relay-mode) Relay deployment.",
             "properties": {
-                "feeInWei": {
-                    "description": "Fee in wei charged for verify() of this protocol. Decimal string (may exceed 2^64).",
+                "fee": {
+                    "description": "Fee charged for verify() of this protocol, in native wei — or in base units of `feeToken`\nwhen the mirror configures one. Decimal string (may exceed 2^64). Must be nonzero — a\nfree protocol is expressed by omitting it from feeConfigs.",
                     "type": "string"
                 },
                 "protocolId": {
@@ -16,7 +16,7 @@
                 }
             },
             "required": [
-                "feeInWei",
+                "fee",
                 "protocolId"
             ],
             "type": "object"
@@ -61,6 +61,10 @@
                     },
                     "type": "array"
                 },
+                "feeToken": {
+                    "description": "ERC-20 token address the verify() fee is paid in (via allowance + transferFrom, pulled\nstraight to feeCollectionAddress). For chains without a spendable native token (e.g.\nTempo, where msg.value is always 0). Required — state the zero address explicitly for\nfees in the native coin. When nonzero, every `fee` in feeConfigs is denominated in this\ntoken's base units, and the token must be a standard exact-transfer ERC-20 —\nfee-on-transfer or rebasing tokens are unsupported.",
+                    "type": "string"
+                },
                 "relayOwner": {
                     "description": "The per-chain owner (Relay.owner()): the chain's designated multisig, authorizing the fee\nsetters and UUPS upgrades through the owner-timelock. Does not exist on the Flare\nregistry, so it is configured here.",
                     "type": "string"
@@ -75,6 +79,7 @@
                 "feeCollectionAddress",
                 "feeConfigs",
                 "feeExemptAddresses",
+                "feeToken",
                 "relayOwner",
                 "timelockDurationSeconds"
             ],

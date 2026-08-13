@@ -12,12 +12,17 @@ import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerklePr
 import { OwnableWithTimelock } from "../../utils/implementation/OwnableWithTimelock.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * Relay (finalization) contract.
  */
 contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     using MerkleProof for bytes32[];
+    using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.UintSet;
     /**
      * State variables for the relay contract.
      * IMPORTANT: if you change this, you have to adapt the assembly code interacting with
@@ -242,10 +247,24 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     /// The address of the signing policy setter (zero if disabled).
     address public signingPolicySetter;
 
-    /// Fees in wei per protocol.
-    mapping(uint256 => uint256) public protocolFeeInWei;
+    /// Fees per protocol, in native wei — or in base units of `feeToken` when one is set.
+    mapping(uint256 => uint256) public override protocolFee;
     /// fee collection address.
     address payable public feeCollectionAddress;
+    /// The ERC-20 the verify() fee is paid in; zero = native coin via msg.value. For mirror
+    /// deployments on chains without a (spendable) native token, e.g. Tempo, where msg.value
+    /// is always 0. Owner-set atomically with the fee table via setProtocolFees; relay mode
+    /// only (like every fee setting), so it can never be nonzero while oldRelay is configured.
+    /// Must be a standard exact-transfer ERC-20 — fee-on-transfer or rebasing tokens are
+    /// unsupported (the pull is assumed to deliver exactly the fee).
+    address public override feeToken;
+    /// Protocol ids with a nonzero fee — kept in lockstep with `protocolFee`
+    /// (id in set ⟺ protocolFee[id] != 0), so a fee-token switch can clear the whole table
+    /// instead of silently carrying stale amounts over in the wrong denomination.
+    EnumerableSet.UintSet private feeProtocolIdsPrivate;
+    /// Addresses allowed to call verify() without paying the protocol fee (e.g. DVN
+    /// adapters). Owner-set via setFeeExemptions.
+    mapping(address account => bool) public override feeExemptAddress;
 
     /// A map with bits indicating whether a random number is secure for
     /// historical purposes. For given votingRoundId, the bit vector is obtained
@@ -266,9 +285,6 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     uint32 public initialRewardEpochId;
     /// The starting voting round id for the initial
     uint32 public startingVotingRoundIdForInitialRewardEpochId;
-    /// Addresses allowed to call verify() without paying the protocol fee (e.g. DVN
-    /// adapters). Owner-set via setFeeExemptions.
-    mapping(address account => bool) public override feeExemptAddress;
     /// The source network id bound into every stored signing-policy hash and, via the analogous
     /// digest in relay(), every signed protocol-message digest —
     /// keccak256(sourceChainId ‖ raw content bytes), one keccak — so policies and messages minted
@@ -346,6 +362,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             require(_initialConfig.feeConfigs.length == 0, FeeConfigNotAllowed());
             require(_initialConfig.feeExemptAddresses.length == 0, FeeExemptionsNotAllowed());
             require(_initialConfig.feeCollectionAddress == address(0), FeeConfigNotAllowed());
+            require(_initialConfig.feeToken == address(0), FeeConfigNotAllowed());
             // A home deployment must bind policy and message digests to its own chain.
             require(
                 _initialConfig.sourceChainId == block.chainid,
@@ -359,12 +376,13 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             require(_initialConfig.feeCollectionAddress != address(0), FeeCollectionAddressZero());
             feeCollectionAddress = _initialConfig.feeCollectionAddress;
             emit FeeCollectionAddressSet(_initialConfig.feeCollectionAddress);
-        }
-        for (uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {
-            uint8 protocolId = _initialConfig.feeConfigs[i].protocolId;
-            require(protocolId > 1, InvalidProtocolId());
-            protocolFeeInWei[protocolId] = _initialConfig.feeConfigs[i].feeInWei;
-            emit ProtocolFeeSet(protocolId, _initialConfig.feeConfigs[i].feeInWei);
+            // Seed the fee token and fee table so a mirror on a chain without a native token
+            // charges in the right medium from block one. Relay mode only — the setter-mode
+            // branch above requires them empty/zero. The self-contained ProtocolFeesSet event
+            // is always emitted (like in setProtocolFees), so every relay-mode deployment
+            // announces its complete fee configuration exactly once at initialization
+            // (zero token = native fees; protocols not listed are free).
+            _setProtocolFees(_initialConfig.feeToken, _initialConfig.feeConfigs);
         }
         // Seed initial verify() fee exemptions (e.g. DVN adapters) so they are exempt from block
         // one, with no post-deploy governance round-trip. Relay mode only — the setter-mode branch
@@ -570,18 +588,14 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
      * with zero it applies immediately (see IOwnableWithTimelock).
      */
     function setProtocolFees(
+        address _feeToken,
         FeeConfig[] calldata _feeConfigs
     )
         external
         onlyOwnerWithTimelock
     {
         require(signingPolicySetter == address(0), FeeConfigNotAllowed());
-        for (uint256 i = 0; i < _feeConfigs.length; i++) {
-            uint8 protocolId = _feeConfigs[i].protocolId;
-            require(protocolId > 1, InvalidProtocolId());
-            protocolFeeInWei[protocolId] = _feeConfigs[i].feeInWei;
-            emit ProtocolFeeSet(protocolId, _feeConfigs[i].feeInWei);
-        }
+        _setProtocolFees(_feeToken, _feeConfigs);
     }
 
     /**
@@ -1756,7 +1770,8 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         if (address(oldRelay) != address(0) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
             // Fail closed if the old relay returns false rather than reverting.
             // Forward only the old relay's fee and refund any overpayment, so the fallback honors
-            // the same fee/refund contract as the new-relay path below.
+            // the same fee/refund contract as the new-relay path below. Always native: oldRelay
+            // is setter-mode (home) only, and a fee token can never be configured in that mode.
             uint256 oldFee = oldRelay.protocolFeeInWei(_protocolId);
             require(msg.value >= oldFee, TooLowFee());
             bool ok = oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof);
@@ -1771,34 +1786,78 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             return true;
         } else {
             require(_protocolId > 1, InvalidProtocolId());
-            // Safe-governed allowlist (e.g. DVN adapters): exempt callers pay no fee. The
+            // Owner-governed allowlist (e.g. DVN adapters): exempt callers pay no fee. The
             // exemption deliberately does NOT extend to the old-relay delegation path above,
             // which forwards the old relay's own fee schedule.
-            uint256 fee = feeExemptAddress[msg.sender] ? 0 : protocolFeeInWei[_protocolId];
-            require(msg.value >= fee, TooLowFee());
+            uint256 fee = feeExemptAddress[msg.sender] ? 0 : protocolFee[_protocolId];
+            address token = feeToken;
+            if (token == address(0)) {
+                require(msg.value >= fee, TooLowFee());
+            } else {
+                // Token mode (mirrors on chains without a spendable native token): the fee is
+                // paid exclusively in the configured ERC-20, so any attached value would strand.
+                require(msg.value == 0, MsgValueNotAllowed());
+            }
             // Never verify against an uninitialized (zero) Merkle root.
             bytes32 root = merkleRootsPrivate[_protocolId][_votingRoundId];
             require(root != bytes32(0), NotFinalized());
             require(_proof.verifyCalldata(root, _leaf), MerkleProofInvalid());
-            // Forward only the fee to the collection address and refund any overpayment.
-            // verify() performs no state writes, so these external calls cannot corrupt contract state.
-            if (fee > 0) {
-                /* solhint-disable avoid-low-level-calls */
-                //slither-disable-next-line arbitrary-send-eth
-                (bool feeOk, ) = feeCollectionAddress.call{value: fee}("");
-                /* solhint-enable avoid-low-level-calls */
-                require(feeOk, FeeTransferFailed());
-            }
-            uint256 refund = msg.value - fee;
-            if (refund > 0) {
-                /* solhint-disable avoid-low-level-calls */
-                (bool refundOk, ) = msg.sender.call{value: refund}("");
-                /* solhint-enable avoid-low-level-calls */
-                require(refundOk, RefundFailed());
+            // Native mode: forward only the fee to the collection address and refund any
+            // overpayment. Token mode: pull the exact fee straight to the collection address
+            // (no refund path). verify() performs no state writes, so these external calls
+            // cannot corrupt contract state.
+            if (token == address(0)) {
+                if (fee > 0) {
+                    /* solhint-disable avoid-low-level-calls */
+                    //slither-disable-next-line arbitrary-send-eth
+                    (bool feeOk, ) = feeCollectionAddress.call{value: fee}("");
+                    /* solhint-enable avoid-low-level-calls */
+                    require(feeOk, FeeTransferFailed());
+                }
+                uint256 refund = msg.value - fee;
+                if (refund > 0) {
+                    /* solhint-disable avoid-low-level-calls */
+                    (bool refundOk, ) = msg.sender.call{value: refund}("");
+                    /* solhint-enable avoid-low-level-calls */
+                    require(refundOk, RefundFailed());
+                }
+            } else if (fee > 0) {
+                IERC20(token).safeTransferFrom(msg.sender, feeCollectionAddress, fee);
             }
         }
 
         return true;
+    }
+
+    /**
+     * @inheritdoc IRelay
+     */
+    function protocolFeeInWei(
+        uint256 _protocolId
+    )
+        external view
+        returns (uint256)
+    {
+        // Deprecated pre-feeToken name of protocolFee(). Fail closed in token mode: the fee is
+        // then in token base units and reporting it as "wei" would misprice every caller that
+        // still uses this getter to size its msg.value.
+        require(feeToken == address(0), FeeTokenActive());
+        return protocolFee[_protocolId];
+    }
+
+    /**
+     * @inheritdoc IRelay
+     */
+    function getFeeConfigs()
+        external view
+        returns (FeeConfig[] memory _feeConfigs)
+    {
+        uint256 count = feeProtocolIdsPrivate.length();
+        _feeConfigs = new FeeConfig[](count);
+        for (uint256 i = 0; i < count; i++) {
+            uint256 protocolId = feeProtocolIdsPrivate.at(i);
+            _feeConfigs[i] = FeeConfig(uint8(protocolId), protocolFee[protocolId]);
+        }
     }
 
     /**
@@ -1911,6 +1970,41 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         _lastInitializedRewardEpoch = stateData.lastInitializedRewardEpoch;
         _startingVotingRoundIdForLastInitializedRewardEpoch =
             uint32(startingVotingRoundIds[_lastInitializedRewardEpoch]);
+    }
+
+    /**
+     * FULL REPLACE of the fee configuration — shared by initialize() seeding (where the
+     * clearing pass is a no-op) and setProtocolFees(): clears the previous table, sets the
+     * token, applies the supplied table, and emits the single self-contained ProtocolFeesSet
+     * event whose latest occurrence is therefore the whole fee state. Fees not restated read
+     * 0 afterwards, so amounts can never be silently carried over in a possibly different
+     * denomination. The enumeration set stays in lockstep with the mapping
+     * (id in set ⟺ protocolFee[id] != 0); a zero fee is rejected because "free" is expressed
+     * by omitting the protocol, and a duplicated protocol id is rejected so the emitted
+     * table is unambiguous — both keep the event canonical.
+     */
+    function _setProtocolFees(
+        address _feeToken,
+        FeeConfig[] memory _feeConfigs
+    )
+        internal
+    {
+        while (feeProtocolIdsPrivate.length() > 0) {
+            uint256 clearedId = feeProtocolIdsPrivate.at(feeProtocolIdsPrivate.length() - 1);
+            feeProtocolIdsPrivate.remove(clearedId);
+            delete protocolFee[clearedId];
+        }
+        feeToken = _feeToken;
+        for (uint256 i = 0; i < _feeConfigs.length; i++) {
+            uint8 protocolId = _feeConfigs[i].protocolId;
+            require(protocolId > 1, InvalidProtocolId());
+            require(_feeConfigs[i].fee > 0, ProtocolFeeZero());
+            protocolFee[protocolId] = _feeConfigs[i].fee;
+            // The table was cleared above, so add() returns false iff this call listed the
+            // same protocol id twice.
+            require(feeProtocolIdsPrivate.add(protocolId), DuplicateProtocolId());
+        }
+        emit ProtocolFeesSet(_feeToken, _feeConfigs);
     }
 
     function _verifyCustomSignature(
