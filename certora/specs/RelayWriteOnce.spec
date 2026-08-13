@@ -234,20 +234,23 @@ filtered { f -> f.selector == 0xc00dbe0c }
 /// The real fee setter has a reachable immediate relay-mode execution that
 /// changes the configured payment token. This is an explicit non-vacuity
 /// witness for the current ABI and the token/table update path.
-rule immediateProtocolFeeUpdateCanApply(method f)
-filtered { f -> f.selector == 0xc00dbe0c }
-{
+rule immediateProtocolFeeUpdateCanApply(
+    env e,
+    address nextToken,
+    IRelay.FeeConfig[] nextFees
+) {
     address currentOwner = owner();
     address preToken = feeToken();
     require currentOwner != 0;
     require signingPolicySetter() == 0;
     require getTimelockDurationSeconds() == 0;
     require !timelockExecuting();
+    require nextToken != preToken;
+    require nextFees.length == 0;
 
-    env e; calldataarg args;
     require e.msg.sender == currentOwner;
     require e.msg.value == 0;
-    currentContract.f@withrevert(e, args);
+    setProtocolFees@withrevert(e, nextToken, nextFees);
     satisfy !lastReverted && feeToken() != preToken,
         "an immediate relay-mode fee-token update must be reachable";
 }
