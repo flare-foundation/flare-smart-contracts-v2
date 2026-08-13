@@ -22,6 +22,7 @@ import { IECDSASignatureWithIndex } from "../../../../scripts/libs/protocol/ECDS
 const Relay: RelayContract = artifacts.require("Relay");
 
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+const COVERAGE = process.env.COVERAGE === "1" || process.env.COVERAGE === "true";
 
 interface StateDataRaw {
   [key: number]: BN | boolean;
@@ -102,6 +103,36 @@ function prepareDataWithRandom(messageData: IProtocolMessageMerkleRoot, randomNu
     merkleProof: proof!,
   };
   return { randomNumberResult, relayData, randomNumberLeaf: leaf };
+}
+
+function prepareDeterministicDataWithRandom(
+  messageData: IProtocolMessageMerkleRoot,
+  randomNumber: number,
+  numberOfLeaves: number
+) {
+  const randomNumberResult: RandomResult = {
+    votingRoundId: messageData.votingRoundId,
+    value: toHex32(randomNumber),
+    isSecure: messageData.isSecureRandom,
+  };
+  const randomNumberLeaf = hashRandomResult(randomNumberResult);
+  const leaves = [randomNumberLeaf];
+  for (let i = 1; i < numberOfLeaves; i++) {
+    leaves.push(ethers.keccak256(ethers.solidityPacked(["string", "uint256"], ["relay-gas-leaf", i])));
+  }
+  const merkleTree = new MerkleTree(leaves);
+  const merkleProof = merkleTree.getProof(randomNumberLeaf)!;
+  messageData.merkleRoot = merkleTree.root!;
+  return {
+    randomNumberResult,
+    randomNumberLeaf,
+    numberOfLeaves: merkleTree.hashCount,
+    relayData: {
+      isRandomNumberGeneratingProtocolMessage: true,
+      randomNumber: randomNumberResult.value,
+      merkleProof,
+    },
+  };
 }
 
 function generateForgedSignatures(voters: string[], count: number): IECDSASignatureWithIndex[] {
@@ -294,6 +325,83 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
     expect((await relay.getVotingRoundId(_randomTimestamp)).toNumber()).to.be.equal(
       toBN(messageData.votingRoundId + 1)
     );
+  });
+
+  it("Should finalize a 100-leaf random-number tree with 50 signatures within 390k gas", async () => {
+    const gasPolicy = defaultTestSigningPolicy(
+      signers.map((x) => x.address),
+      N,
+      100
+    );
+    gasPolicy.rewardEpochId = rewardEpochId;
+    gasPolicy.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
+    // relay() accepts only signedWeight > threshold. The first 49 signatures total 4,900;
+    // signature 50 adds 101 and is therefore the first one to cross the 5,000 threshold.
+    gasPolicy.weights[49] = 101;
+    gasPolicy.weights[99] = 99;
+    gasPolicy.threshold = 5_000;
+
+    const gasRelay = await deployRelayProxy(
+      {
+        initialRewardEpochId: gasPolicy.rewardEpochId,
+        startingVotingRoundIdForInitialRewardEpochId: gasPolicy.startVotingRoundId,
+        initialSigningPolicyHash: SigningPolicy.hash(gasPolicy, chainId),
+        randomNumberProtocolId,
+        firstVotingRoundStartTs: firstVotingRoundStartSec,
+        votingEpochDurationSeconds: votingRoundDurationSec,
+        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs,
+        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
+        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: BURN_ADDRESS,
+        feeConfigs: [],
+        sourceChainId: chainId,
+        timelockDurationSeconds: 0,
+      },
+      constants.ZERO_ADDRESS,
+      constants.ZERO_ADDRESS
+    );
+    const gasMessageData = {
+      protocolId: randomNumberProtocolId,
+      votingRoundId,
+      isSecureRandom: true,
+      merkleRoot: "",
+    } as IProtocolMessageMerkleRoot;
+    const { numberOfLeaves, relayData } = prepareDeterministicDataWithRandom(gasMessageData, 100, N);
+    const messageHash = ProtocolMessageMerkleRoot.hash(gasMessageData, chainId);
+    const signatures = await generateSignatures(accountPrivateKeys, messageHash, N / 2);
+    const fullData = RelayMessage.encode({
+      signingPolicy: gasPolicy,
+      signatures,
+      protocolMessageMerkleRoot: gasMessageData,
+      ...relayData,
+    });
+
+    const weightAfter49Signatures = gasPolicy.weights.slice(0, 49).reduce((sum, weight) => sum + weight, 0);
+    const weightAfter50Signatures = gasPolicy.weights.slice(0, 50).reduce((sum, weight) => sum + weight, 0);
+    expect(gasPolicy.weights.reduce((sum, weight) => sum + weight, 0)).to.equal(10_000);
+    expect(weightAfter49Signatures).to.equal(4_900).and.to.be.at.most(gasPolicy.threshold);
+    expect(weightAfter50Signatures).to.equal(5_001).and.to.be.greaterThan(gasPolicy.threshold);
+    expect(signatures).to.have.length(50);
+    expect(numberOfLeaves).to.equal(100);
+    expect(relayData.merkleProof).to.have.length(7);
+    expect(ethers.getBytes(selector + fullData.slice(2))).to.have.length(5_893);
+
+    const receipt = await web3.eth.sendTransaction({
+      from: signers[0].address,
+      to: gasRelay.address,
+      data: selector + fullData.slice(2),
+    });
+    const gasUsed = receipt.gasUsed;
+    // Solidity coverage instrumentation changes the deployed bytecode and invalidates this production-build baseline.
+    if (!COVERAGE) {
+      expect(gasUsed).to.be.lessThan(390_000);
+    }
+    expect(await gasRelay.isFinalized(randomNumberProtocolId, votingRoundId)).to.equal(true);
+    const finalizedRandom = await gasRelay.getRandomNumberHistorical(votingRoundId);
+    expect(finalizedRandom[0].toString()).to.equal(toBN(100).toString());
+    expect(finalizedRandom[1]).to.equal(true);
+    console.log(`Gas used for 100-voter, 50-signature random finalization: ${gasUsed}`);
   });
 
   it("Should relay a message for non random number generating protocol", async () => {
