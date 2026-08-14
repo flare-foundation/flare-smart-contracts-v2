@@ -413,9 +413,11 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             // charges fees, and serving pre-boundary rounds through an old relay would force the
             // fee and fee-exemption logic to consult that contract's schedule too — fragile fee
             // accounting with no mirror use case (a mirror seeds a fresh source snapshot instead).
-            // A compatible production home Relay maintains zero verification fees; verify() still
-            // queries the configured old Relay and forwards any fee it reports, so this is an
-            // operational compatibility requirement rather than an interface-level guarantee.
+            // Combined with the setter-mode check on the old relay below, this makes the old
+            // relay's fee zero by construction: both Relay generations reject fee configs at
+            // construction in setter mode, gate every fee setter on relay mode, and fix the mode
+            // for life. verify() relies on that invariant and forwards no value on the
+            // old-relay path.
             require(_signingPolicySetter != address(0), OldRelayNotAllowedInRelayMode());
             // The old relay must itself be a home (setter-mode) deployment.
             require(_oldRelay.signingPolicySetter() != address(0), OldRelayIncompatible());
@@ -1769,17 +1771,21 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         // finalization gap can be created at the cutover.
         if (address(oldRelay) != address(0) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
             // Fail closed if the old relay returns false rather than reverting.
-            // Forward only the old relay's fee and refund any overpayment, so the fallback honors
-            // the same fee/refund contract as the new-relay path below. Always native: oldRelay
-            // is setter-mode (home) only, and a fee token can never be configured in that mode.
-            uint256 oldFee = oldRelay.protocolFeeInWei(_protocolId);
-            require(msg.value >= oldFee, TooLowFee());
-            bool ok = oldRelay.verify{value: oldFee}(_protocolId, _votingRoundId, _leaf, _proof);
+            // For a genuine (supported) Relay deployment the fee is zero by construction, not
+            // merely by operation: oldRelay is accepted only in setter mode (home, see
+            // initialize), and neither Relay generation can ever hold a nonzero fee in setter
+            // mode — fee configs are rejected at construction, every fee setter requires relay
+            // mode, and the mode itself is immutable. So forward no value and refund the full
+            // msg.value, matching the zero-fee/refund contract of the new-relay path below.
+            // Should a genuine fee-enforcing Relay ever hold a nonzero fee here, its own fee
+            // gate reverts this zero-value call. An arbitrary non-Relay contract in this slot
+            // answers the delegated verify itself and is covered only by the migration trust
+            // assumption (see docs/relay-security-review.md), not by this fee argument.
+            bool ok = oldRelay.verify(_protocolId, _votingRoundId, _leaf, _proof);
             require(ok, OldRelayVerificationFailed());
-            uint256 oldRefund = msg.value - oldFee;
-            if (oldRefund > 0) {
+            if (msg.value > 0) {
                 /* solhint-disable avoid-low-level-calls */
-                (bool oldRefundOk, ) = msg.sender.call{value: oldRefund}("");
+                (bool oldRefundOk, ) = msg.sender.call{value: msg.value}("");
                 /* solhint-enable avoid-low-level-calls */
                 require(oldRefundOk, RefundFailed());
             }
@@ -1787,8 +1793,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         } else {
             require(_protocolId > 1, InvalidProtocolId());
             // Owner-governed allowlist (e.g. DVN adapters): exempt callers pay no fee. The
-            // exemption deliberately does NOT extend to the old-relay delegation path above,
-            // which forwards the old relay's own fee schedule.
+            // old-relay delegation path above needs no exemption — it is free for every caller.
             uint256 fee = feeExemptAddress[msg.sender] ? 0 : protocolFee[_protocolId];
             address token = feeToken;
             if (token == address(0)) {

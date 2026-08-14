@@ -439,7 +439,7 @@ contract RelayVerifyTest is RelayTestBase {
         assertTrue(relay.verify(pid, vrid, leaf, proof), "valid proof against finalized root should pass");
     }
 
-    // oldRelay fallback must fail closed if oldRelay.verify returns false (fee already forwarded).
+    // oldRelay fallback must fail closed if oldRelay.verify returns false.
     // Old-relay migration is home-only, so the new relay deploys in setter mode (no fees).
     function _deployWithOldRelay(bool oldReturns) internal returns (Relay r) {
         MockOldRelay mock = new MockOldRelay(
@@ -933,13 +933,13 @@ contract RelayVerifyTest is RelayTestBase {
         this.relayRaw(rm);
     }
 
-    // oldRelay fallback forwards only the old relay's fee and refunds the overpayment.
-    // (The NEW relay is fee-less setter mode — old-relay migration is home-only — but the OLD
-    // relay's own fee schedule is still honoured by the delegation path.)
-    function test_verify_oldRelayFallback_refundsOverpayment() public {
+    // oldRelay fallback forwards no value and refunds the caller in full: every relay reachable
+    // through the old-relay chain is setter-mode (home) and can never hold a nonzero fee, so the
+    // path is free by construction and the old relay's fee getter is not even consulted.
+    function test_verify_oldRelayFallback_forwardsNothingAndRefundsAll() public {
         MockOldRelay mock = new MockOldRelay(
             true, FIRST_VOTING_ROUND_TS, VOTING_EPOCH_DURATION,
-            FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID, REWARD_EPOCH_DURATION, 700
+            FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID, REWARD_EPOCH_DURATION, 0
         );
         IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
         cfg.feeCollectionAddress = payable(address(0)); // setter mode collects no fees
@@ -947,10 +947,10 @@ contract RelayVerifyTest is RelayTestBase {
         vm.deal(address(this), 1 ether);
         uint256 mockBefore = address(mock).balance;
         uint256 selfBefore = address(this).balance;
-        // votingRoundId 100 < START -> oldRelay fallback; oldFee = 700
+        // votingRoundId 100 < START -> oldRelay fallback; the attached value is fully refunded
         r.verify{value: 5000}(3, 100, keccak256("x"), new bytes32[](0));
-        assertEq(address(mock).balance - mockBefore, 700, "old relay received only its fee");
-        assertEq(selfBefore - address(this).balance, 700, "caller net cost is the old fee (overpayment refunded)");
+        assertEq(address(mock).balance - mockBefore, 0, "old relay received no value");
+        assertEq(selfBefore - address(this).balance, 0, "caller fully refunded");
     }
 
     // Weight == threshold must fail because acceptance is strict `>`; weight > threshold passes.
@@ -1064,8 +1064,8 @@ contract RelayVerifyTest is RelayTestBase {
 
     // ---- oldRelay fallback fee edges ----
 
-    // Old-relay migration is home-only, so the new relay deploys in setter mode (no own fees);
-    // the delegation path still honours the OLD relay's fee schedule.
+    // Old-relay migration is home-only, so the new relay deploys in setter mode (no own fees).
+    // feeWei configures the MOCK's own legacy-style fee gate; the new relay never consults it.
     function _oldRelayWithFee(uint256 feeWei) internal returns (MockOldRelay mock, Relay r) {
         mock = new MockOldRelay(
             true, FIRST_VOTING_ROUND_TS, VOTING_EPOCH_DURATION,
@@ -1076,35 +1076,32 @@ contract RelayVerifyTest is RelayTestBase {
         r = deployRelay(cfg, address(this), IRelay(address(mock)));
     }
 
-    // msg.value below the old relay's fee reverts with TooLowFee.
-    function test_verify_oldRelayFallback_tooLowFee_reverts() public {
+    // A misdeployed old relay with a nonzero fee schedule fails closed: the delegation always
+    // forwards zero value, so the old relay's own fee gate reverts no matter what the caller pays.
+    function test_verify_oldRelayFallback_nonzeroFeeOldRelay_failsClosed() public {
         (, Relay r) = _oldRelayWithFee(700);
         vm.deal(address(this), 1 ether);
-        vm.expectRevert(IRelay.TooLowFee.selector);
-        r.verify{value: 699}(3, 100, keccak256("x"), new bytes32[](0)); // round 100 < START -> fallback
+        vm.expectRevert("too low fee");
+        r.verify{value: 700}(3, 100, keccak256("x"), new bytes32[](0)); // round 100 < START -> fallback
     }
 
-    // Exact fee -> oldRefund == 0 -> the refund call is skipped. A refund-rejecting caller paying
-    // the exact fee must therefore NOT revert (proves the if(oldRefund > 0) false-branch).
-    function test_verify_oldRelayFallback_exactFee_skipsRefund() public {
-        (MockOldRelay mock, Relay r) = _oldRelayWithFee(700);
+    // Zero attached value -> the refund call is skipped. A refund-rejecting caller sending no
+    // value must therefore NOT revert (proves the if(msg.value > 0) false-branch).
+    function test_verify_oldRelayFallback_zeroValue_skipsRefund() public {
+        (MockOldRelay mock, Relay r) = _oldRelayWithFee(0);
+        RevertingReceiver rr = new RevertingReceiver();
+        uint256 mockBefore = address(mock).balance;
+        rr.callVerify{value: 0}(r, 3, 100, keccak256("x"), new bytes32[](0));
+        assertEq(address(mock).balance - mockBefore, 0, "old relay received no value, no refund attempted");
+    }
+
+    // A refund-rejecting caller that attaches value reverts with RefundFailed on the fallback path.
+    function test_verify_oldRelayFallback_refundReceiverReverts() public {
+        (, Relay r) = _oldRelayWithFee(0);
         RevertingReceiver rr = new RevertingReceiver();
         vm.deal(address(rr), 1 ether);
-        uint256 mockBefore = address(mock).balance;
-        rr.callVerify{value: 700}(r, 3, 100, keccak256("x"), new bytes32[](0));
-        assertEq(address(mock).balance - mockBefore, 700, "old relay received exactly its fee, no refund attempted");
-    }
-
-    // oldFee == 0 with overpayment -> full refund to caller.
-    function test_verify_oldRelayFallback_zeroFee_fullRefund() public {
-        (MockOldRelay mock, Relay r) = _oldRelayWithFee(0);
-        vm.deal(address(this), 1 ether);
-        uint256 mockBefore = address(mock).balance;
-        uint256 selfBefore = address(this).balance;
-        bool ok = r.verify{value: 1234}(3, 100, keccak256("x"), new bytes32[](0));
-        assertTrue(ok);
-        assertEq(address(mock).balance - mockBefore, 0, "old relay forwarded zero fee");
-        assertEq(selfBefore - address(this).balance, 0, "caller fully refunded");
+        vm.expectRevert(IRelay.RefundFailed.selector);
+        rr.callVerify{value: 1234}(r, 3, 100, keccak256("x"), new bytes32[](0));
     }
 
     // The four read paths delegate to oldRelay below the switchover boundary.
@@ -1584,7 +1581,11 @@ contract MockOldRelay {
         return (0, ts, vd, fre, red, 0, 0, false, 0, false, 0);
     }
 
+    // Faithful to the legacy relay's fee gate: reverts unless msg.value covers the fee schedule.
+    // The new relay always calls with zero value, so a nonzero feeWei models a misdeployed
+    // old relay and must make the delegation fail closed.
     function verify(uint256, uint256, bytes32, bytes32[] calldata) external payable returns (bool) {
+        require(msg.value >= feeWei, "too low fee");
         return verifyReturn;
     }
 

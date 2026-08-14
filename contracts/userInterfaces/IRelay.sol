@@ -309,6 +309,10 @@ interface IRelay is RandomNumberV2Interface {
      *   fee is pulled via the token's transferFrom to the fee-collection address, so the caller
      *   MUST approve at least the fee beforehand. msg.value MUST be zero (MsgValueNotAllowed);
      *   there is no refund path.
+     * Voting rounds delegated to a configured old relay (home deployments only, rounds below the
+     * migration boundary) are free: a genuine (supported) Relay deployment in setter mode can
+     * never hold a nonzero fee, so no value is forwarded and the caller's entire msg.value is
+     * refunded.
      * **NOTE:** A leaf equal to the (finalized, non-zero) root verifies with an empty proof —
      *           a standard Merkle property. Off-chain leaf encoding MUST be domain-separated from internal
      *           and root node hashes so an internal node cannot be presented as a differently-typed leaf.
