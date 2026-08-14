@@ -12,6 +12,12 @@ import {IOwnableWithTimelock} from "../../userInterfaces/IOwnableWithTimelock.so
  *      immediate; callers must validate the nonzero target because an incorrect target cannot be
  *      recovered by this contract. Its own state lives at a fixed ERC-7201 slot, independent
  *      of the inherited namespaced storage.
+ *
+ *      Queued calls are keyed by calldata hash alone: they carry no proposer and are not
+ *      cleared by `transferOwnership`, so a call queued by a previous owner stays executable
+ *      under the new owner - anyone can execute that exact operation, carrying its original
+ *      owner authorization. Cancel every outstanding queued call before transferring
+ *      ownership.
  */
 abstract contract OwnableWithTimelock is OwnableUpgradeable, IOwnableWithTimelock {
 
@@ -136,6 +142,15 @@ abstract contract OwnableWithTimelock is OwnableUpgradeable, IOwnableWithTimeloc
         }
     }
 
+    /// @dev An upsert keyed solely by `keccak256(_encodedCall)`: queuing
+    ///      calldata that is already pending replaces its ETA — including
+    ///      pushing a matured call's ETA forward — and emits a regular
+    ///      `CallTimelocked`, indistinguishable from a fresh queueing. The
+    ///      latest emitted (and stored) ETA is the authoritative one, and two
+    ///      identical calls can never be pending concurrently. Only the owner
+    ///      queues, so an overwrite is always governance's own act — a double
+    ///      submission or a deliberate re-schedule — never a third party's,
+    ///      and no normal workflow queues identical calldata twice.
     function _recordTimelockedCall(
         bytes calldata _encodedCall
     )

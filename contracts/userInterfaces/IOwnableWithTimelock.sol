@@ -4,7 +4,7 @@ pragma solidity >=0.8.4 <0.9;
 /**
  * @title IOwnableWithTimelock
  * @notice Generic interface for ownable timelocked call execution.
- * @dev Two properties callers must plan around, neither visible in the ABI.
+ * @dev Three properties callers must plan around, none visible in the ABI.
  *
  *      A guarded call **either applies or queues**, and both return success.
  *      A void guarded call returns empty ABI data in each case, so the return
@@ -18,11 +18,21 @@ pragma solidity >=0.8.4 <0.9;
  *      owner check. A zero duration takes the immediate branch instead, so the
  *      same data rehearses green on testnet and fails on a timelocked mainnet.
  *      Guard migration entry points on owner-or-self, not on the timelock.
+ *
+ *      **Queued calls survive `transferOwnership`.** They are keyed by
+ *      calldata hash alone, with no proposer, so a call queued by the
+ *      previous owner remains executable after the transfer unless
+ *      cancelled first: anyone can execute that exact operation, carrying
+ *      its original owner authorization.
  */
 interface IOwnableWithTimelock {
 
     /**
      * @notice Emitted when a call is timelocked and can be executed later.
+     *         An upsert keyed by `encodedCallHash`: re-queuing identical
+     *         calldata resets the pending ETA and emits this event again, so
+     *         the latest `allowedAfterTimestamp` per hash is authoritative
+     *         and two identical calls are never pending concurrently.
      * @param encodedCall ABI encoded call data.
      * @param encodedCallHash Hash of encoded call.
      * @param allowedAfterTimestamp Earliest timestamp when call is executable.
