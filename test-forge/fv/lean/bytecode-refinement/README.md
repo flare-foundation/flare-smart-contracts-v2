@@ -15,7 +15,7 @@ semantics. The exact EVMYulLean revision and Lean toolchain are pinned in
 | `RelayLoopLiteral.lean` | Defines a 17-statement hand transcription of the optimized-Yul signature-loop body and reusable interpreter lemmas. |
 | `RelayBodyEff.lean` | Composes the literal body, window reads, structural guards, mode dispatch, and protocol-1 threshold selection. |
 | `RelayStorageLayer.lean` | Proves persistent/transient storage round trips, clearing, account isolation, and accept-write effects. |
-| `RelayFeeLayer.lean` | Proves native-fee arithmetic and balance-transfer conservation under `feeToken == address(0)`. |
+| `RelayFeeLayer.lean` | Proves local native-fee arithmetic and balance-transfer conservation under `feeToken == address(0)` with no `oldRelay` delegation. |
 
 The proof sources contain no `sorry`, `admit`, or `native_decide`. `verify_lean.py` audits every
 `#print axioms` result against the manifest.
@@ -48,7 +48,7 @@ The proof set establishes the following within its stated models:
 - strict threshold comparison, including the protocol-1 BIPS arithmetic;
 - dispatch isolation between the custom-signature and ordinary verification paths;
 - persistent and transient storage primitives; and
-- native-fee and native-balance conservation primitives.
+- local native-fee and native-balance conservation primitives.
 
 The following are explicit boundaries, not proved deployment-wide guarantees:
 
@@ -61,8 +61,9 @@ The following are explicit boundaries, not proved deployment-wide guarantees:
   composition theorem;
 - the accept write is a separate theorem because the loop model represents acceptance as an immediate
   halt; and
-- native-fee call arithmetic and balance transfer are proved, but the complete `.CALL` dispatcher path is
-  not composed into a single `verify()` theorem; and
+- local native-fee call arithmetic and balance transfer are proved, but the complete `.CALL` dispatcher
+  path is not composed into a single `verify()` theorem;
+- pre-boundary `oldRelay` zero-value delegation and full-refund behavior are outside this Lean model; and
 - ERC-20 fee transfer, allowance, token return behavior, SafeERC20, and the enumerable fee table are not
   represented in the Lean model.
 

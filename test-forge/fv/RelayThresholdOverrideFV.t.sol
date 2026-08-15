@@ -137,7 +137,7 @@ contract RelayThresholdOverrideFV is RelayTestBase {
             .call(abi.encodeCall(IRelay.verifyCustomSignatureWithThreshold, (relayMessage, ROOT, thresholdBIPS)));
     }
 
-    function _callLegacy(bytes memory relayMessage) internal returns (bool ok, bytes memory returnData) {
+    function _callPolicyThreshold(bytes memory relayMessage) internal returns (bool ok, bytes memory returnData) {
         (ok, returnData) =
             address(thresholdRelay).call(abi.encodeCall(IRelay.verifyCustomSignature, (relayMessage, ROOT)));
     }
@@ -202,14 +202,14 @@ contract RelayThresholdOverrideFV is RelayTestBase {
 
     // Zero is the no-override sentinel: success/failure and successful return data match the baseline entrypoint.
     // EXPECT: PASS (proof).
-    function check_zeroOverride_matchesLegacy(Sig calldata a, Sig calldata b, Sig calldata c) external {
+    function check_zeroOverride_matchesPolicyThreshold(Sig calldata a, Sig calldata b, Sig calldata c) external {
         bytes memory relayMessage = _customRelayMessage(_threeSigs(a, b, c));
-        (bool legacyOk, bytes memory legacyData) = _callLegacy(relayMessage);
+        (bool policyThresholdOk, bytes memory policyThresholdData) = _callPolicyThreshold(relayMessage);
         (bool zeroOk, bytes memory zeroData) = _callOverride(relayMessage, 0);
-        assert(legacyOk == zeroOk);
-        if (legacyOk) {
-            assert(legacyData.length == zeroData.length);
-            assert(abi.decode(legacyData, (uint256)) == abi.decode(zeroData, (uint256)));
+        assert(policyThresholdOk == zeroOk);
+        if (policyThresholdOk) {
+            assert(policyThresholdData.length == zeroData.length);
+            assert(abi.decode(policyThresholdData, (uint256)) == abi.decode(zeroData, (uint256)));
         }
     }
 
@@ -238,11 +238,7 @@ contract RelayThresholdOverrideFV is RelayTestBase {
 
     // Mode-1 is not globally disabled in this fixture; three old-policy voters can install the valid policy.
     // EXPECT: COUNTEREXAMPLE (reachability control).
-    function check_reach_protocolIdZero_policyQuorumCanAccept(
-        Sig calldata a,
-        Sig calldata b,
-        Sig calldata c
-    ) external {
+    function check_reach_modeOne_policyQuorumCanAccept(Sig calldata a, Sig calldata b, Sig calldata c) external {
         thresholdRelay.fvStoreThresholdOverride(1);
         assert(!_callRelay(_modeOneRelayMessage(_threeSigs(a, b, c))));
     }
@@ -284,11 +280,11 @@ contract RelayThresholdOverrideFV is RelayTestBase {
     // The caught revert cannot weaken a following baseline verification in the same transaction: two voters
     // still fail the policy threshold, which would not hold if the 1-BIPS transient override leaked.
     // EXPECT: PASS (proof).
-    function check_caughtRevert_preservesLegacyThreshold(Sig calldata a, Sig calldata b) external {
+    function check_caughtRevert_preservesPolicyThreshold(Sig calldata a, Sig calldata b) external {
         (bool failedCallOk,) = _callOverride(bytes(""), 1);
         assert(!failedCallOk);
-        (bool legacyOk,) = _callLegacy(_customRelayMessage(_twoSigs(a, b)));
-        assert(!legacyOk);
+        (bool policyThresholdOk,) = _callPolicyThreshold(_customRelayMessage(_twoSigs(a, b)));
+        assert(!policyThresholdOk);
     }
 
     // The reachability/sensitivity control: manually placing 1 BIPS in the real slot can make the exact
@@ -296,7 +292,7 @@ contract RelayThresholdOverrideFV is RelayTestBase {
     // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_manualOverride_lowersProtocolIdOne(Sig calldata a, Sig calldata b) external {
         thresholdRelay.fvStoreThresholdOverride(1);
-        (bool ok,) = _callLegacy(_customRelayMessage(_twoSigs(a, b)));
+        (bool ok,) = _callPolicyThreshold(_customRelayMessage(_twoSigs(a, b)));
         assert(!ok);
     }
 

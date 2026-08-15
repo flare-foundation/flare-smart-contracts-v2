@@ -409,15 +409,13 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         getState().timelockDurationSeconds = _initialConfig.timelockDurationSeconds;
         emit TimelockDurationSet(_initialConfig.timelockDurationSeconds);
         if (address(_oldRelay) != address(0)) {
-            // Old-relay migration is HOME-ONLY (setter mode). In relay mode (mirrors) verify()
-            // charges fees, and serving pre-boundary rounds through an old relay would force the
-            // fee and fee-exemption logic to consult that contract's schedule too — fragile fee
-            // accounting with no mirror use case (a mirror seeds a fresh source snapshot instead).
-            // Combined with the setter-mode check on the old relay below, this makes the old
-            // relay's fee zero by construction: both Relay generations reject fee configs at
-            // construction in setter mode, gate every fee setter on relay mode, and fix the mode
-            // for life. verify() relies on that invariant and forwards no value on the
-            // old-relay path.
+            // Old-relay migration is HOME-ONLY (setter mode). Relay-mode mirrors use their local
+            // fee configuration and seed a source snapshot instead of delegating pre-boundary reads.
+            // Combined with the setter-mode check on the old relay below, this makes every
+            // supported Relay in the configured chain fee-free: setter-mode initialization
+            // rejects fee configs, fee mutators (where present) require relay mode, and setter
+            // mode cannot be cleared. verify() relies on that invariant and forwards no value
+            // on the old-relay path.
             require(_signingPolicySetter != address(0), OldRelayNotAllowedInRelayMode());
             // The old relay must itself be a home (setter-mode) deployment.
             require(_oldRelay.signingPolicySetter() != address(0), OldRelayIncompatible());
@@ -1771,16 +1769,14 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         // finalization gap can be created at the cutover.
         if (address(oldRelay) != address(0) && _votingRoundId < startingVotingRoundIdForInitialRewardEpochId) {
             // Fail closed if the old relay returns false rather than reverting.
-            // For a genuine (supported) Relay deployment the fee is zero by construction, not
-            // merely by operation: oldRelay is accepted only in setter mode (home, see
-            // initialize), and neither Relay generation can ever hold a nonzero fee in setter
-            // mode — fee configs are rejected at construction, every fee setter requires relay
-            // mode, and the mode itself is immutable. So forward no value and refund the full
-            // msg.value, matching the zero-fee/refund contract of the new-relay path below.
-            // Should a genuine fee-enforcing Relay ever hold a nonzero fee here, its own fee
-            // gate reverts this zero-value call. An arbitrary non-Relay contract in this slot
-            // answers the delegated verify itself and is covered only by the migration trust
-            // assumption (see docs/relay-security-review.md), not by this fee argument.
+            // For an intended supported Relay chain, every source is setter-mode and fee-free:
+            // setter-mode initialization rejects fee configs, fee mutators (where present)
+            // require relay mode, and setter mode cannot be cleared. Forward no value and refund
+            // the full msg.value, matching the zero-fee/refund contract of the local path below.
+            // Interface checks establish mode and timing, not implementation provenance. An
+            // arbitrary contract in this slot answers the delegated verify itself and is covered
+            // by the migration trust assumption (see docs/relay-security-review.md). A supported
+            // source that unexpectedly enforces a nonzero fee rejects this zero-value call.
             bool ok = oldRelay.verify(_protocolId, _votingRoundId, _leaf, _proof);
             require(ok, OldRelayVerificationFailed());
             if (msg.value > 0) {
@@ -1809,8 +1805,9 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             require(_proof.verifyCalldata(root, _leaf), MerkleProofInvalid());
             // Native mode: forward only the fee to the collection address and refund any
             // overpayment. Token mode: pull the exact fee straight to the collection address
-            // (no refund path). verify() performs no state writes, so these external calls
-            // cannot corrupt contract state.
+            // (no refund path). verify() performs no state writes itself. The configured token
+            // and value recipients remain external trust/availability boundaries, and their
+            // callbacks can enter other public Relay paths.
             if (token == address(0)) {
                 if (fee > 0) {
                     /* solhint-disable avoid-low-level-calls */

@@ -9,7 +9,7 @@ The exact manifest defines the Halmos proof and reachability inventories. It
 covers signing-policy admission and rotation, `relay()`, Merkle proofs,
 randomness, native/token fees and fee-table replacement, owner timelocks/UUPS,
 protocol-1 threshold overrides, source-domain policy hashing, and `oldRelay`
-mode restrictions. The reproducible gates below establish a verdict for the
+mode and value-flow behavior. The reproducible gates below establish a verdict for the
 checked-out source; durable prose does not duplicate mutable check counts.
 
 ---
@@ -154,10 +154,13 @@ formalization of EVM/Yul, itself validated against the standard `ethereum/tests`
 - [`lean/bytecode-refinement/`](lean/bytecode-refinement/) — the same soundness lifted onto a loop executed by
   the _validated EVM semantics_, for all N. See its [`README.md`](lean/bytecode-refinement/README.md).
 
-The Lean fee layer covers native coin under `feeToken == address(0)`. ERC-20
-`transferFrom`, SafeERC20 return behavior, allowances, and enumerable fee-table
-replacement are covered only by the bounded Solidity/CVL layers and retain the
-standard exact-transfer-token assumption.
+The Lean fee layer covers the local native-coin branch under
+`feeToken == address(0)`. Pre-boundary `oldRelay` delegation is covered by its
+bounded compiled-bytecode harness and, when a current complete cloud report is
+available, CVL external-call observations. ERC-20 `transferFrom`, SafeERC20
+return behavior, allowances, and enumerable fee-table replacement are covered
+only by the bounded Solidity/CVL layers and retain the standard
+exact-transfer-token assumption.
 
 **"[Hole-free](../../docs/relay-verification/CONCEPTS.md#hole-free-lean-proof-and-axiom-audit)" is a precise claim, and you can check it yourself.** Every declared audited result has a
 `#print axioms` directive. A proof is trusted when that list is a subset of
@@ -187,7 +190,10 @@ cp <repo>/test-forge/fv/lean/RelaySigLoop.lean . && lake env lean RelaySigLoop.l
   setter-mode exclusion, native-getter behavior, fee mapping/enumeration lockstep, reserved IDs,
   proof-before-token-call ordering, and the configured token call target. They do not model ERC-20
   balance deltas; the exact-transfer Halmos fixture covers that bounded behavior under the standard-token
-  assumption.
+  assumption. The write-once/timelock specification also observes zero-value
+  `oldRelay` delegation with a full-refund witness and preservation of sampled
+  queued-call state across ownership transfer. Those are cloud proof claims only
+  when the normalized report is current and complete.
   [`verify_certora_local.py`](verify_certora_local.py) fail-closes on compiler,
   CVL typecheck, config, toolchain, and munge drift. It is not a cloud-proof
   substitute.
@@ -236,6 +242,7 @@ The full trust base — every assumption, where it lives, and how it is discharg
 [`RelayMustUseNewPolicyFV.t.sol`](RelayMustUseNewPolicyFV.t.sol) ·
 [`RelayThresholdScalingFV.t.sol`](RelayThresholdScalingFV.t.sol) ·
 [`RelayThresholdConsistencyFV.t.sol`](RelayThresholdConsistencyFV.t.sol) ·
+[`RelayThresholdOverrideFV.t.sol`](RelayThresholdOverrideFV.t.sol) ·
 [`RelayModeOneFV.t.sol`](RelayModeOneFV.t.sol) · [`RelayEpochAdvanceFV.t.sol`](RelayEpochAdvanceFV.t.sol).
 
 **Randomness / Merkle / fees / misc.** [`RelayRandomMonotonicityFV.t.sol`](RelayRandomMonotonicityFV.t.sol) ·
@@ -244,6 +251,7 @@ The full trust base — every assumption, where it lives, and how it is discharg
 [`RelayMerkleProofFV.t.sol`](RelayMerkleProofFV.t.sol) · [`RelayMerkleFoldFV.t.sol`](RelayMerkleFoldFV.t.sol) ·
 [`RelayVerifyFeeFV.t.sol`](RelayVerifyFeeFV.t.sol) ·
 [`RelayFeeConservationFV.t.sol`](RelayFeeConservationFV.t.sol) ·
+[`RelayOldRelayFeeFV.t.sol`](RelayOldRelayFeeFV.t.sol) ·
 [`RelayFeeTokenFV.t.sol`](RelayFeeTokenFV.t.sol) ·
 [`RelayPolicyHashFV.t.sol`](RelayPolicyHashFV.t.sol) · [`RelaySigParamFV.t.sol`](RelaySigParamFV.t.sol) ·
 [`RelayReturnDiscriminatorFV.t.sol`](RelayReturnDiscriminatorFV.t.sol) ·
@@ -257,7 +265,7 @@ The full trust base — every assumption, where it lives, and how it is discharg
 
 Do not cite the Halmos inventory as a proof of ECDSA or arbitrary token
 semantics. Lean covers indexed accounting, the protocol-1 threshold seam, and
-native-fee balance primitives—not cryptography, token mode, or the complete
-self-call frame. Certora's local gate establishes compilation, munging, and CVL
+local native-fee balance primitives—not cryptography, delegated/token value
+flow, or the complete self-call frame. Certora's local gate establishes compilation, munging, and CVL
 typechecking; it is not a cloud prover verdict. Consult the current generated
 reports and the claims ledger for the exact evidence boundary.

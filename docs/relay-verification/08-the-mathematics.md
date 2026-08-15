@@ -87,19 +87,31 @@ signedWeight * 10000 > totalWeight * b
 The strict comparison matters when the product is not divisible by 10000. Any
 formal or off-chain specification must use the same rounding and strictness.
 
-## Native verification-fee conservation
+## Local native verification-fee conservation
 
-For the native branch, let `m = msg.value`, configured fee `f`, and assume
-`m >= f`. Relay forwards `f` and refunds `m - f`, so:
+For the local non-`oldRelay` native branch, let `m = msg.value`, configured fee
+`f`, and assume `m >= f`. Relay forwards `f` and refunds `m - f`, so:
 
 ```text
 f + (m - f) = m
 ```
 
 The Lean fee layer proves this over arbitrary 256-bit values under its stated
-balance premises and `feeToken == address(0)`. Token mode instead requires
-`msg.value == 0` and delegates value movement to ERC-20 `transferFrom`; it is not
-an instance of this native-balance theorem.
+balance premises, `feeToken == address(0)`, and local-path premise. Token mode
+instead requires `msg.value == 0` and delegates value movement to ERC-20
+`transferFrom`; it is not an instance of this native-balance theorem.
+
+For pre-boundary delegation, Relay forwards zero and refunds all of `m` after a
+successful trusted-source result:
+
+```text
+0 + m = m
+```
+
+That call/refund behavior is checked on compiled bytecode within the Halmos
+fixture bounds and, when current complete cloud evidence is available, the CVL
+empty-proof/external-call bounds. It is outside the Lean fee layer and does not
+prove that an arbitrary configured source is a supported Relay deployment.
 
 ## Random pointer
 

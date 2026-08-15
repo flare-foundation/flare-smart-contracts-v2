@@ -14,14 +14,14 @@ A sub-protocol round produces a Merkle root off-chain. **Finalization** is the a
 | `isSecureRandomMap[votingRoundId / 256] → bytes32` | One bit per voting round indicating whether a finalized FTSO round produced a secure random. |
 | `stateData` | A packed `StateData` struct with the active random-number protocol ID, voting-epoch parameters, the BIPS threshold-increase for cross-epoch relays, and the finalization window. |
 
-`stateData.lastInitializedRewardEpoch` advances when setter mode installs the sequential next policy or relay mode accepts a threshold-signed mode-1 policy. An admitted signing policy must satisfy:
+`stateData.lastInitializedRewardEpoch` advances when setter mode installs the sequential next policy or relay mode accepts a threshold-signed mode-1 policy. A complete policy admitted through either of those paths must satisfy:
 
 - `voters.length > 0` and `≤ MAX_VOTERS` (`300`),
 - weights sum below `2^16`,
 - threshold ≥ `5000` BIPS of total weight (50%),
 - threshold ≤ `6600` BIPS of total weight (66%).
 
-These bounds are enforced **by `Relay` itself** in `setSigningPolicy`, independent of whatever `signingPolicyThresholdPPM` `FlareSystemsManager` configured.
+Setter mode enforces these bounds in `setSigningPolicy`; relay mode enforces them in the mode-1 assembly path. They are independent of whatever `signingPolicyThresholdPPM` `FlareSystemsManager` configured. Initialization instead stores an opaque initial-policy hash and does not admission-validate the complete policy. Deployment validation must establish these bounds and the additional voter-identity, viability, and ordering obligations recorded in the [Relay security review](../../relay-security-review.md).
 
 ## The `relay()` flow
 
@@ -134,6 +134,6 @@ Other read-only views:
 
 The `oldRelay` path is **setter-mode only**: `initialize` rejects it on a relay-mode mirror (`OldRelayNotAllowedInRelayMode`), requires the configured source to be a setter-mode deployment (`OldRelayIncompatible`), and checks that the voting and reward-epoch timing parameters match. Relay-mode mirrors seed a source snapshot instead of delegating.
 
-Delegated `verify` is free by construction. Every relay reachable through the `oldRelay` chain is assumed to be a genuine, supported Relay deployment — the migration trust assumption recorded in [relay-security-review.md](../../relay-security-review.md), which already underpins every delegated read. Under it each chain member is setter-mode (home), and neither Relay generation can ever hold a nonzero fee in setter mode: fee configuration is rejected at construction, every fee setter requires relay mode, and the deployment mode is fixed for life. The delegation therefore does not consult the old relay's fee schedule at all — it calls `oldRelay.verify` with no value, requires the delegated call to return `true`, and refunds the caller's entire `msg.value` (so a contract caller attaching value must be able to receive the refund). Local fee and exemption settings are irrelevant on this path. Should a genuine fee-enforcing Relay ever hold a nonzero fee, its own fee gate reverts the zero-value delegated call, so that case fails closed rather than mis-splitting value.
+Delegated `verify` calls `oldRelay.verify` with no value, requires a `true` result, and refunds the caller's entire `msg.value`; a contract caller attaching value must therefore be able to receive the refund. Local fee and exemption settings are irrelevant on this path. The migration configuration must use an intended supported Relay chain in setter mode. Supported setter-mode initialization rejects fee configuration, fee mutators (where present) require relay mode, and setter mode cannot be cleared, so every successful delegated verification is fee-free. A source that enforces a nonzero fee rejects the zero-value call. Interface compatibility establishes mode and timing, not implementation provenance; the required trust in the configured chain is recorded in [relay-security-review.md](../../relay-security-review.md).
 
 The initial local policy's encoded start round must equal the read-delegation boundary. The contract stores the policy hash and boundary independently, so deployment validation must establish that equality. The live `getRandomNumber()` getter does not delegate; consumers must wait for a verified local current random or implement an explicit trusted fallback before cutover.

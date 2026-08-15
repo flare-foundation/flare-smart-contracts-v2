@@ -13,7 +13,7 @@ It contains an abstract proof and a refinement over EVMYulLean's validated Yul o
 | `bytecode-refinement/RelayLoopLiteral.lean` | hand-transliterated signature-loop body | statement-level semantics |
 | `bytecode-refinement/RelayBodyEff.lean` | literal-body, dispatch, and protocol-1 threshold composition | arbitrary loop count under explicit premises |
 | `bytecode-refinement/RelayStorageLayer.lean` | persistent and transient storage effects | arbitrary keys and values under stated account premises |
-| `bytecode-refinement/RelayFeeLayer.lean` | native-fee arithmetic and balance conservation | arbitrary values under stated balance premises and `feeToken == address(0)` |
+| `bytecode-refinement/RelayFeeLayer.lean` | local native-fee arithmetic and balance conservation | arbitrary values under stated balance premises, `feeToken == address(0)`, and no `oldRelay` delegation |
 
 ## Abstract accounting theorem
 
@@ -43,8 +43,9 @@ The model intentionally leaves these boundaries explicit:
 - the full compiler-generated program is provenance-gated, but equivalence between that program and the
   hand-transliterated loop body is not a proved AST refinement;
 - the complete setup path around transient storage, self-call behavior, rollback, and transaction-end
-  clearing is not extracted into the composition theorem; and
-- the accept write and native-fee call interpreter wiring are proved as separate components; and
+  clearing is not extracted into the composition theorem;
+- the accept write and local native-fee call interpreter wiring are proved as separate components;
+- pre-boundary `oldRelay` delegation and refund behavior are outside Lean's fee model; and
 - ERC-20 fee transfer, allowance, token return behavior, and fee-table enumeration are outside Lean's model.
 
 ## Assumptions and proof audit

@@ -1065,7 +1065,7 @@ contract RelayVerifyTest is RelayTestBase {
     // ---- oldRelay fallback fee edges ----
 
     // Old-relay migration is home-only, so the new relay deploys in setter mode (no own fees).
-    // feeWei configures the MOCK's own legacy-style fee gate; the new relay never consults it.
+    // feeWei configures the mock's own fee gate; the new relay never consults it.
     function _oldRelayWithFee(uint256 feeWei) internal returns (MockOldRelay mock, Relay r) {
         mock = new MockOldRelay(
             true, FIRST_VOTING_ROUND_TS, VOTING_EPOCH_DURATION,
@@ -1547,8 +1547,8 @@ contract RelayThresholdOverrideTest is RelayTestBase {
     }
 }
 
-// Minimal old-relay mock: satisfies the Relay constructor compatibility checks
-// (signingPolicySetter()==0 and matching stateData() timing fields) and returns a configurable verify().
+// Minimal old-relay mock: reports setter mode through a nonzero signingPolicySetter,
+// exposes matching stateData() timing fields, and returns a configurable verify() result.
 contract MockOldRelay {
     bool public verifyReturn;
     uint32 internal immutable ts;
@@ -1581,9 +1581,9 @@ contract MockOldRelay {
         return (0, ts, vd, fre, red, 0, 0, false, 0, false, 0);
     }
 
-    // Faithful to the legacy relay's fee gate: reverts unless msg.value covers the fee schedule.
-    // The new relay always calls with zero value, so a nonzero feeWei models a misdeployed
-    // old relay and must make the delegation fail closed.
+    // Models a fee-enforcing verify gate: reverts unless msg.value covers the fee schedule.
+    // The new relay always calls with zero value, so a nonzero feeWei models an unsupported
+    // old-relay fee state and must make the delegation fail closed.
     function verify(uint256, uint256, bytes32, bytes32[] calldata) external payable returns (bool) {
         require(msg.value >= feeWei, "too low fee");
         return verifyReturn;

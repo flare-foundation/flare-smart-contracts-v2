@@ -15,7 +15,7 @@ import {IOwnableWithTimelock} from "../../userInterfaces/IOwnableWithTimelock.so
  *
  *      Queued calls are keyed by calldata hash alone: they carry no proposer and are not
  *      cleared by `transferOwnership`, so a call queued by a previous owner stays executable
- *      under the new owner - anyone can execute that exact operation, carrying its original
+ *      under the new owner — anyone can execute that exact operation, carrying its original
  *      owner authorization. Cancel every outstanding queued call before transferring
  *      ownership.
  */
@@ -149,8 +149,7 @@ abstract contract OwnableWithTimelock is OwnableUpgradeable, IOwnableWithTimeloc
     ///      latest emitted (and stored) ETA is the authoritative one, and two
     ///      identical calls can never be pending concurrently. Only the owner
     ///      queues, so an overwrite is always governance's own act — a double
-    ///      submission or a deliberate re-schedule — never a third party's,
-    ///      and no normal workflow queues identical calldata twice.
+    ///      submission or a deliberate re-schedule — never a third party's.
     function _recordTimelockedCall(
         bytes calldata _encodedCall
     )

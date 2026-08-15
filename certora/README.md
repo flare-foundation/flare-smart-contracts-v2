@@ -4,13 +4,13 @@ This directory targets the current Relay architecture:
 
 - upgradeable `Relay` implementation compiled with Solidity 0.8.35;
 - per-chain `OwnableUpgradeable` owner;
-- exact-calldata owner timelock in an ERC-7201 namespace; and
+- exact-calldata owner timelock in an ERC-7201 namespace;
 - UUPS upgrades guarded by that same owner-timelock path; and
 - atomically replaceable native/ERC-20 verification-fee configuration.
 
 ## Evidence outputs
 
-The verification manifest binds three Certora configurations and 27 rules. The
+The verification manifest binds three Certora configurations and 30 rules. The
 local preparation gate compiles the Solidity scenes and type-checks every CVL
 rule with:
 
@@ -44,6 +44,7 @@ production implementation:
 | `timelockDurationBoundPreserved`                 | an in-range delay remains at most seven days                                                                 |
 | `feeCollectionAddressCannotBecomeZero`           | an established fee recipient cannot be cleared                                                               |
 | `feeTokenZeroInSetterMode`                       | ordinary current-implementation calls preserve the zero fee token required in setter mode                    |
+| `protocolFeeZeroInSetterMode`                    | ordinary current-implementation calls preserve a zero fee for every sampled protocol in setter mode          |
 | `protocolFeeInWeiMatchesNativeFee`               | in native mode the native-wei compatibility getter equals the canonical protocol fee                         |
 | `protocolFeeInWeiRejectsTokenMode`               | in token mode the native-wei compatibility getter reverts instead of exposing token units as wei             |
 
@@ -62,12 +63,14 @@ transitions against [`RelayHarness`](harness/RelayHarness.sol):
 | `tokenModeUnfinalizedVerificationDoesNotCallToken`     | a zero stored root reverts before an ERC-20 call                                                                                                                                 |
 | `tokenModeInvalidEmptyProofDoesNotCallToken`           | a nonmatching leaf with an empty proof reverts before an ERC-20 call                                                                                                              |
 | `tokenModeValidEmptyProofCallsConfiguredToken`         | a charged, valid empty-proof path calls the configured token with zero native value and has a successful witness                                                                 |
+| `oldRelayDelegationForwardsNoValueAndRefundsOnSuccess` | a pre-boundary empty-proof call sends no native value to the configured old Relay and, on success, attempts the full caller refund; a successful witness prevents vacuity         |
 | `onlyOwnerCanEnterGuardedSurface`                      | with the transient execution flag clear, a non-owner cannot enter any of the six guarded mutation entry points                                                                   |
 | `delayedOwnerCallDoesNotApply`                         | with a positive delay, a successful non-upgrade owner call cannot apply sampled Relay or fee-table state; concrete queue creation is covered by the manifest-bound `RelayOwnerTimelockFV` concrete/Halmos fixture within its stated bounds |
 | `successfulExecutionConsumesQueue`                     | a ready, successful execution of one of the five non-upgrade guarded calls deletes its exact entry and clears the transient flag; a real applied setter witness prevents vacuity |
 | `successfulNonUpgradeExecutionPreservesRelayInvariants` | a ready, successful allowlisted non-upgrade execution preserves scalar, write-once, fee-table, reserved-id, and setter-mode invariants                                           |
 | `successfulDurationUpdateIsBounded`                    | a successful duration update respects the seven-day cap; a clean-boundary owner witness proves a zero-delay update is actually applied rather than queued or reverted            |
 | `ownershipRenounceAlwaysReverts`                       | Relay cannot renounce ownership                                                                                                                                                  |
+| `ownershipTransferPreservesQueuedCall`                 | transferring ownership preserves every sampled pending calldata hash and its recorded ETA                                                                                       |
 
 [`Relay-threshold.conf`](Relay-threshold.conf) isolates the wrapper's fail-fast
 opcode checks and the threshold arithmetic lemma from the established
@@ -83,10 +86,10 @@ mapping/timelock job:
 Every configuration enables `rule_sanity=basic`. This checks that the end of a
 rule remains reachable after its assertions are removed; it does not by itself
 show that a conditional `reverted || property` reached the successful branch.
-Success-conditional timelock and fee-token rules therefore include explicit
-`satisfy` witnesses. `ownershipRenounceAlwaysReverts`, setter-mode fee rejection,
-native-value rejection, unfinalized verification, invalid-proof verification,
-and the threshold fail-fast rule
+Success-conditional timelock, fee-token, and old-Relay refund rules therefore
+include explicit `satisfy` witnesses. `ownershipRenounceAlwaysReverts`,
+setter-mode fee rejection, native-value rejection, unfinalized verification,
+invalid-proof verification, and the threshold fail-fast rule
 intentionally have no successful path: rejection is their property, so a generic
 non-revert witness is inapplicable. Sanity exclusions and SAT witnesses are
 recorded in the normalized cloud report and must be read per rule and method
@@ -128,6 +131,16 @@ the ERC-20 call arguments or establish recipient balance deltas. Correct
 `transferFrom(sender, feeCollectionAddress, fee)` behavior and exact-transfer
 balance semantics remain assumptions about the configured standard token; ECF
 also excludes reentrant effects on Relay state.
+
+The old-Relay value-flow rule covers the pre-boundary branch with an empty Merkle
+proof and nonzero attached value. Persistent target-specific `CALL` observations
+prove that Relay attempts the delegated `verify` call with zero value even when
+the operation later reverts, and that a successful operation attempts to return
+the full attached value to the caller. The rule does not validate the old
+Relay's code or proof decision; the configured contract's provenance and return
+value remain the migration trust boundary. The setter-mode scalar invariant,
+initialization checks, and delayed-execution preservation jointly cover the
+current Relay implementation's zero-fee behavior.
 
 The threshold fail-fast rule invokes the real
 `verifyCustomSignatureWithThreshold` method, with zero call value to exclude the

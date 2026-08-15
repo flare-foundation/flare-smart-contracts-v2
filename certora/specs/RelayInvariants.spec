@@ -139,6 +139,22 @@ filtered { f -> preservesCurrentImplementation(f) }
     assert feeToken() == 0, "setter mode must not configure a fee token";
 }
 
+/// Setter-mode (home) deployments do not charge a verification fee in either
+/// payment medium. Initialization establishes a zero fee for every protocol,
+/// and every ordinary current-implementation transition preserves that
+/// reachable-state relation. Successful allowlisted non-upgrade execution is
+/// covered by successfulNonUpgradeExecutionPreservesRelayInvariants.
+rule protocolFeeZeroInSetterMode(method f, uint256 protocolId)
+filtered { f -> preservesCurrentImplementation(f) }
+{
+    require signingPolicySetter() != 0;
+    require protocolFee(protocolId) == 0;
+    env e; calldataarg args;
+    currentContract.f@withrevert(e, args);
+    assert protocolFee(protocolId) == 0,
+        "setter mode must not configure a protocol fee";
+}
+
 /// In native-fee mode the native-wei compatibility getter returns exactly the
 /// canonical protocolFee value.
 rule protocolFeeInWeiMatchesNativeFee(uint256 protocolId) {

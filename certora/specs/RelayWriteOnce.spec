@@ -31,6 +31,16 @@ persistent ghost bool feeVerificationCallTouched;
 persistent ghost address feeVerificationCallTarget;
 persistent ghost uint256 feeVerificationCallValue;
 
+// Per-rule watch targets make the old-Relay value-flow property independent of
+// other external calls. Persistent observations remain available when the
+// delegated verification or refund reverts.
+persistent ghost address watchedOldRelayTarget;
+persistent ghost address watchedRefundTarget;
+persistent ghost uint256 watchedRefundValue;
+persistent ghost bool watchedOldRelayCallTouched;
+persistent ghost bool watchedOldRelayNonzeroValueTouched;
+persistent ghost bool watchedFullRefundCallTouched;
+
 hook CALL(
     uint256 gasAmount,
     address target,
@@ -44,6 +54,15 @@ hook CALL(
         feeVerificationCallTouched = true;
         feeVerificationCallTarget = target;
         feeVerificationCallValue = value;
+        if (target == watchedOldRelayTarget) {
+            watchedOldRelayCallTouched = true;
+            if (value != 0) {
+                watchedOldRelayNonzeroValueTouched = true;
+            }
+        }
+        if (target == watchedRefundTarget && value == watchedRefundValue) {
+            watchedFullRefundCallTouched = true;
+        }
     }
 }
 
@@ -54,6 +73,7 @@ methods {
     function owner() external returns (address) envfree;
     function getTimelockDurationSeconds() external returns (uint256) envfree;
     function timelockedCallTimestampAt(bytes) external returns (uint256) envfree;
+    function timelockedCallTimestampAtHash(bytes32) external returns (uint256) envfree;
     function timelockExecuting() external returns (bool) envfree;
     function signingPolicySetter() external returns (address) envfree;
     function feeCollectionAddress() external returns (address) envfree;
@@ -63,6 +83,7 @@ methods {
     function feeProtocolIdInSet(uint256) external returns (bool) envfree;
     function feeExemptAddress(address) external returns (bool) envfree;
     function oldRelay() external returns (address) envfree;
+    function startingVotingRoundIdForInitialRewardEpochId() external returns (uint32) envfree;
 
     unresolved external in RelayHarness.executeTimelockedCall(bytes) => DISPATCH [
         RelayHarness.setProtocolFees(address, IRelay.FeeConfig[]),
@@ -367,6 +388,49 @@ rule tokenModeValidEmptyProofCallsConfiguredToken(
         "the ERC-20 fee call must carry no native value";
 }
 
+/// A pre-boundary verification delegates exactly the proof decision to the
+/// configured old Relay without forwarding native value. If the delegated call
+/// and the caller's refund both succeed, the caller receives the full attached
+/// value. The old Relay's code provenance and return-value integrity remain the
+/// explicit migration trust boundary.
+rule oldRelayDelegationForwardsNoValueAndRefundsOnSuccess(
+    env e,
+    uint256 protocolId,
+    uint256 votingRoundId,
+    bytes32 leaf,
+    bytes32[] proof
+) {
+    address delegate = oldRelay();
+    uint32 boundary = startingVotingRoundIdForInitialRewardEpochId();
+    require delegate != 0;
+    require votingRoundId < boundary;
+    require proof.length == 0;
+    require e.msg.sender != delegate;
+    require e.msg.sender != currentContract;
+    require e.msg.value > 0;
+
+    watchedOldRelayTarget = delegate;
+    watchedRefundTarget = e.msg.sender;
+    watchedRefundValue = e.msg.value;
+    watchedOldRelayCallTouched = false;
+    watchedOldRelayNonzeroValueTouched = false;
+    watchedFullRefundCallTouched = false;
+
+    verify@withrevert(e, protocolId, votingRoundId, leaf, proof);
+    bool reverted = lastReverted;
+
+    satisfy !reverted
+        && watchedOldRelayCallTouched
+        && watchedFullRefundCallTouched,
+        "a delegated zero-fee verification and full refund must be reachable";
+    assert watchedOldRelayCallTouched,
+        "pre-boundary verification must call the configured old Relay";
+    assert !watchedOldRelayNonzeroValueTouched,
+        "pre-boundary verification must not forward native value to the old Relay";
+    assert reverted || watchedFullRefundCallTouched,
+        "successful pre-boundary verification must refund the full attached value";
+}
+
 /// At an external transaction boundary, no non-owner can enter any of Relay's
 /// six owner-timelocked mutation entry points. The `executing == false`
 /// assumption is the reachable-state boundary: it is only true transiently
@@ -480,6 +544,7 @@ rule successfulNonUpgradeExecutionPreservesRelayInvariants(
 
     require preDuration <= 604800;
     require preSetter == 0 || preToken == 0;
+    require preSetter == 0 || preFee == 0;
     require (preFee != 0) <=> preFeeMember;
     require protocolFee(0) == 0 && !feeProtocolIdInSet(0);
     require protocolFee(1) == 0 && !feeProtocolIdInSet(1);
@@ -519,6 +584,8 @@ rule successfulNonUpgradeExecutionPreservesRelayInvariants(
         "delayed non-upgrade execution must preserve signing-policy mode";
     assert reverted || postSetter == 0 || postToken == 0,
         "delayed non-upgrade execution must preserve zero fee token in setter mode";
+    assert reverted || postSetter == 0 || postFee == 0,
+        "delayed non-upgrade execution must preserve zero protocol fee in setter mode";
     assert reverted || ((postFee != 0) <=> postFeeMember),
         "delayed non-upgrade execution must preserve fee mapping/set lockstep";
     assert reverted || (protocolFee(0) == 0 && !feeProtocolIdInSet(0)),
@@ -553,4 +620,29 @@ rule successfulDurationUpdateIsBounded(env e, uint256 newDuration) {
 rule ownershipRenounceAlwaysReverts(env e) {
     renounceOwnership@withrevert(e);
     assert lastReverted, "renounceOwnership must always revert";
+}
+
+/// Ownership transfer changes the current owner but does not invalidate any
+/// queued calldata hash. Operational handover must therefore cancel unwanted
+/// entries before rotating the owner.
+rule ownershipTransferPreservesQueuedCall(
+    env e,
+    bytes32 encodedCallHash,
+    address newOwner
+) {
+    address preOwner = owner();
+    uint256 preTimestamp = timelockedCallTimestampAtHash(encodedCallHash);
+    require preOwner != 0;
+    require preTimestamp != 0;
+    require newOwner != 0;
+    require newOwner != preOwner;
+    require e.msg.sender == preOwner;
+    require e.msg.value == 0;
+
+    transferOwnership@withrevert(e, newOwner);
+
+    assert !lastReverted, "a valid ownership transfer must succeed";
+    assert owner() == newOwner, "ownership must move to the requested nonzero owner";
+    assert timelockedCallTimestampAtHash(encodedCallHash) == preTimestamp,
+        "ownership transfer must preserve every queued call and its ETA";
 }

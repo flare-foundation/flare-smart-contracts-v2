@@ -55,6 +55,12 @@ contract RelayHarness is Relay {
         return getState().timelockedCalls[keccak256(_encodedCall)];
     }
 
+    /// Raw read of the ERC-7201 timelock queue by its already-computed key. This lets CVL
+    /// quantify over every queue entry without introducing an unrelated calldata-hashing bound.
+    function timelockedCallTimestampAtHash(bytes32 _encodedCallHash) external view returns (uint256) {
+        return getState().timelockedCalls[_encodedCallHash];
+    }
+
     /// Exposes the single-use self-call authorization bit at transaction boundaries.
     function timelockExecuting() external view returns (bool) {
         return getState().executing;

@@ -15,8 +15,8 @@ The current files cover:
 - the literal signature-loop body and its accumulator update;
 - storage/transient-storage component semantics;
 - protocol-1 threshold selection and strict comparison; and
-- conditional dispatch, acceptance, storage composition, and native-fee balance
-  lemmas.
+- conditional dispatch, acceptance, storage composition, and local native-fee
+  balance lemmas.
 
 The exact file and exported-theorem inventory is declared by the verification
 manifest and checked by `verify_lean.py`.
@@ -39,6 +39,7 @@ premises or external bindings unless a current theorem says otherwise:
   policy admission;
 - complete self-call composition for protocol-1 transient threshold setup;
 - complete control-flow linkage from dispatch through state write and return;
+- pre-boundary `oldRelay` zero-value delegation and full-refund behavior;
 - ERC-20 fee transfer, allowance, token return behavior, SafeERC20, and the
   EnumerableSet-backed fee table;
 - solc's transformation from optimized Yul to bytecode; and

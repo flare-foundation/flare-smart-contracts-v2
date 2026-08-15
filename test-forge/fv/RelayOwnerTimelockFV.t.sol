@@ -160,6 +160,43 @@ contract RelayOwnerTimelockFV is RelayOwnerTimelockFVBase {
         assert(!substituteQueued);
     }
 
+    /// Re-queuing identical calldata replaces its single stored ETA. This also
+    /// applies after the first ETA matures: the replacement starts a full new
+    /// delay, cannot execute at the replaced ETA, and executes at the new ETA.
+    // EXPECT: PASS (proof).
+    function check_timelock_duplicateQueueReplacesEta(address recipient) external {
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != INITIAL_FEE_COLLECTION);
+        (Relay relay,) = _deployRelay(address(0));
+        bytes memory encodedCall = abi.encodeCall(relay.setFeeCollectionAddress, (recipient));
+
+        (bool firstQueueOk,) = address(relay).call(encodedCall);
+        assert(firstQueueOk);
+        uint256 firstEta = _recordedEta(relay, encodedCall);
+        vm.warp(firstEta);
+
+        // A direct guarded call queues; only executeTimelockedCall consumes a
+        // matured entry. The identical hash therefore receives a replacement ETA.
+        (bool replacementQueueOk,) = address(relay).call(encodedCall);
+        assert(replacementQueueOk);
+        uint256 replacementEta = _recordedEta(relay, encodedCall);
+        (bool replacedEtaOk,) = address(relay).call(abi.encodeCall(relay.executeTimelockedCall, (encodedCall)));
+        (bool queuedAfterEarlyAttempt, uint256 preservedEta) = _queuedAt(relay, encodedCall);
+
+        assert(replacementEta == firstEta + TIMELOCK);
+        assert(!replacedEtaOk);
+        assert(queuedAfterEarlyAttempt && preservedEta == replacementEta);
+        assert(relay.feeCollectionAddress() == INITIAL_FEE_COLLECTION);
+
+        vm.warp(replacementEta);
+        (bool replacementOk,) = address(relay).call(abi.encodeCall(relay.executeTimelockedCall, (encodedCall)));
+        (bool stillQueued,) = _queuedAt(relay, encodedCall);
+
+        assert(replacementOk);
+        assert(!stillQueued);
+        assert(relay.feeCollectionAddress() == recipient);
+    }
+
     /// The recorded ETA is inclusive: execution one second earlier fails and preserves the entry.
     // EXPECT: PASS (proof).
     function check_timelock_enforcesRecordedEta(address recipient) external {
@@ -222,6 +259,42 @@ contract RelayOwnerTimelockFV is RelayOwnerTimelockFVBase {
         assert(stillQueued && eta == recordedEta);
         assert(!queuedAfterCancel);
         assert(relay.feeCollectionAddress() == INITIAL_FEE_COLLECTION);
+    }
+
+    /// Ownership transfer does not alter calldata-keyed queue state. The old
+    /// owner loses cancellation authority, while any caller can still execute
+    /// the exact matured operation under the self-call authorization path.
+    // EXPECT: PASS (proof).
+    function check_timelock_queuedCallSurvivesOwnershipTransfer(address recipient) external {
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != INITIAL_FEE_COLLECTION);
+        (Relay relay,) = _deployRelay(address(0));
+        RelayTimelockCallerFV newOwner = new RelayTimelockCallerFV();
+        RelayTimelockCallerFV executor = new RelayTimelockCallerFV();
+        bytes memory encodedCall = abi.encodeCall(relay.setFeeCollectionAddress, (recipient));
+
+        (bool queueOk,) = address(relay).call(encodedCall);
+        assert(queueOk);
+        uint256 recordedEta = _recordedEta(relay, encodedCall);
+        (bool transferOk,) = address(relay).call(abi.encodeCall(relay.transferOwnership, (address(newOwner))));
+        assert(transferOk);
+
+        (bool oldOwnerCancelOk,) = address(relay).call(abi.encodeCall(relay.cancelTimelockedCall, (encodedCall)));
+        (bool queuedAfterTransfer, uint256 preservedEta) = _queuedAt(relay, encodedCall);
+
+        assert(relay.owner() == address(newOwner));
+        assert(!oldOwnerCancelOk);
+        assert(queuedAfterTransfer && preservedEta == recordedEta);
+
+        vm.warp(recordedEta);
+        (bool executeOk,) =
+            executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (encodedCall)));
+        (bool stillQueued,) = _queuedAt(relay, encodedCall);
+
+        assert(executeOk);
+        assert(!stillQueued);
+        assert(relay.owner() == address(newOwner));
+        assert(relay.feeCollectionAddress() == recipient);
     }
 
     /// A target revert rolls back the optimistic delete and the one-shot execution flag.

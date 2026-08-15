@@ -20,8 +20,9 @@ are in [`10-claims-ledger-trust-and-residual.md`](10-claims-ledger-trust-and-res
    getter before local random initialization.
 7. **First-round presence.** Zero-valued initialization state is not enough to
    distinguish absence from an accepted round-zero value/security flag.
-8. **Timelock generation binding.** Queued calls survive authority and
-   implementation changes and have no expiry.
+8. **Timelock generation binding.** Queued calls survive ownership transfer,
+   are not automatically invalidated by a compatible implementation change,
+   and have no expiry.
 
 ## Environmental and integration residuals
 
@@ -41,8 +42,9 @@ are in [`10-claims-ledger-trust-and-residual.md`](10-claims-ledger-trust-and-res
 
 - Halmos proofs cover manifest-declared bounded shapes.
 - Lean's distinct-signer interpretation depends on unique policy addresses.
-- Lean's fee layer covers native coin only; token transfer and fee-table claims
-  come from bounded compiled-bytecode/CVL evidence under the token assumption.
+- Lean's fee layer covers only local native-coin verification; delegated and
+  token value-flow claims come from bounded compiled-bytecode/CVL evidence
+  under their stated assumptions.
 - The EVM/Yul refinement is conditional on declared setup and composition
   premises and the pinned semantics.
 - solc's Yul-to-bytecode lowering is not verified unboundedly; artifact parity

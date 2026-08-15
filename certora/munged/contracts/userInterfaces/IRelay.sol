@@ -164,9 +164,8 @@ interface IRelay is RandomNumberV2Interface {
     error NotNextRewardEpoch();
     error NotWithLastInitialized();
     error OldRelayIncompatible();
-    /// Old-relay migration is home-only: a relay-mode (mirror) deployment charges verify() fees,
-    /// and delegating pre-boundary calls to an old relay would entangle its fee schedule with
-    /// this contract's fee and fee-exemption logic. Mirrors seed a fresh source snapshot instead.
+    /// Old-relay migration is home-only. A relay-mode mirror uses its local fee and exemption
+    /// configuration and seeds a fresh source snapshot instead of delegating pre-boundary reads.
     error OldRelayNotAllowedInRelayMode();
     error OldRelayVerificationFailed();
     error OldRelayWrongFirstRewardEpochStart();
@@ -309,6 +308,10 @@ interface IRelay is RandomNumberV2Interface {
      *   fee is pulled via the token's transferFrom to the fee-collection address, so the caller
      *   MUST approve at least the fee beforehand. msg.value MUST be zero (MsgValueNotAllowed);
      *   there is no refund path.
+     * A successful verification delegated to a configured old relay (home deployments only,
+     * rounds below the migration boundary) is free: no value is forwarded and the caller's
+     * entire msg.value is refunded. Migration configuration must use an intended supported
+     * setter-mode Relay chain, whose verification fees remain zero.
      * **NOTE:** A leaf equal to the (finalized, non-zero) root verifies with an empty proof —
      *           a standard Merkle property. Off-chain leaf encoding MUST be domain-separated from internal
      *           and root node hashes so an internal node cannot be presented as a differently-typed leaf.
@@ -400,7 +403,7 @@ interface IRelay is RandomNumberV2Interface {
     /**
      * Returns the ERC-20 token the verify() fee is paid in, or the zero address when fees
      * are paid in the native coin (all home deployments, default on mirrors). A configured
-     * token is always a standard exact-transfer ERC-20 — fee-on-transfer or rebasing tokens
+     * token must be a standard exact-transfer ERC-20; fee-on-transfer or rebasing tokens
      * are unsupported.
      */
     function feeToken() external view returns (address);

@@ -27,7 +27,7 @@ security boundary and must not be hidden by a passing formal-verification gate.
 | RLY-SEC-04 | Low | Current randomness is discontinuous across an `oldRelay` cutover | Consumers switch before a local random is finalized |
 | RLY-SEC-05 | Low | Zero-total-weight policies are accepted but cannot finalize | A malformed policy is admitted |
 | RLY-SEC-06 | Low | Nonmonotonic policy starts can preserve overlapping policy authority | A malformed policy sequence is admitted |
-| RLY-SEC-07 | Low | Queued privileged calls survive owner and implementation changes | A call was queued before the change |
+| RLY-SEC-07 | Low | Queued privileged calls are not automatically invalidated by owner or compatible implementation changes | A call was queued before the change |
 | RLY-SEC-08 | Informational | A secure random finalized at voting round zero is reported insecure by the live getter | The first valid round is zero |
 | RLY-SEC-09 | Informational | Token-fee accounting assumes exact-transfer ERC-20 semantics | The owner configures a fee-on-transfer, rebasing, callback-capable, or otherwise nonstandard token |
 
@@ -136,7 +136,10 @@ admission path.
 The timelock queue key binds calldata and its execution timestamp. It does not
 bind the owner generation, implementation generation, or an expiry. A call
 queued by the current owner remains permissionlessly executable after ownership
-transfer unless the new owner identifies and cancels it.
+transfer unless the new owner identifies and cancels it. A compatible upgrade
+that retains the timelock namespace and execution surface likewise does not
+invalidate an entry automatically; arbitrary replacement code may instead
+alter, ignore, or delete that state.
 
 Bind queued operations to an authority/implementation generation, invalidate
 the generation on transfer or upgrade, and give operations a finite execution
@@ -199,26 +202,21 @@ The current UUPS surface exposes no unguarded upgrade route: the public upgrade
 entry is timelocked and proxy-context checks remain active. This conclusion does
 not cover the semantics of a future implementation selected by the owner.
 
-The pre-boundary `oldRelay` delegation in `verify()` forwards no value and
-refunds the caller's entire `msg.value`. This is sound because the delegated fee
-is zero by construction, not merely by operation: an `oldRelay` is accepted only
-on setter-mode deployments, the configured source must itself report setter
-mode, and neither Relay generation can hold a nonzero fee in setter mode — fee
-configuration is rejected at construction, every fee mutator requires relay
-mode, and the deployment mode is immutable. An earlier revision queried
-`oldRelay.protocolFeeInWei` and forwarded the reported amount; with chained old
-relays that query reads the intermediate contract's own schedule rather than
-that of the relay actually serving the round, so the query was removed rather
-than kept as dead generality. The zero-fee argument holds for the known Relay
-implementations; the interface checks at initialization establish mode, not
-provenance, so the claim additionally assumes the configured `oldRelay` is a
-genuine Relay deployment — the same migration trust assumption that already
-covers every delegated read: an arbitrary contract in that slot answers
+A successful pre-boundary `oldRelay` verification receives no forwarded value,
+and the caller's entire `msg.value` is refunded. This path relies on the migration
+requirement that every source reachable through the configured chain is an
+intended supported Relay in setter mode. Supported setter-mode initialization
+rejects fee configuration, fee mutators (where present) require relay mode, and
+setter mode cannot be cleared, so verification fees remain zero throughout that
+chain.
+
+Initialization validates the immediate source's interface-reported mode and
+timing, not its implementation provenance or the provenance of a transitive
+chain. The zero-fee claim therefore shares the migration trust assumption with
+every other delegated read. An arbitrary contract in the `oldRelay` slot answers
 delegated `verify` calls itself and can return `true` for invalid proofs, which
-is an integrity failure, not an availability one. The fail-closed property is
-narrower and fee-specific: a genuine fee-enforcing Relay that unexpectedly holds
-a nonzero fee reverts the zero-value delegated call rather than mis-splitting
-value.
+is an integrity failure, not an availability failure. A supported source that
+unexpectedly enforces a nonzero fee rejects the zero-value delegated call.
 
 This version is the first-deployment sequential Solidity storage baseline and
 requires no proxy storage migration. The artifact gate compares the pinned

@@ -31,8 +31,8 @@ The current harness tree covers these implementation surfaces:
 | Policy/epoch selection | `RelayWrongEpochFV`, `RelayDelayedPolicyFV`, `RelayFinalizationWindowFV`, `RelayCrossEpochFV`, `RelayMustUseNewPolicyFV` |
 | Policy rotation and thresholds | `RelayModeOneFV`, `RelayEpochAdvanceFV`, `RelayThresholdScalingFV`, `RelayThresholdConsistencyFV`, `RelayThresholdOverrideFV` |
 | Randomness and Merkle binding | `RelayRandomBindingFV`, `RelayRandomMonotonicityFV`, `RelayIsSecureNormFV`, `RelayMerkleProofFV`, `RelayMerkleFoldFV` |
-| Fees, fee-table replacement, and return values | `RelayVerifyFeeFV`, `RelayFeeConservationFV`, `RelayFeeTokenFV`, `RelayReturnDiscriminatorFV` |
-| Initialization, access, owner/timelock/UUPS | `RelayConstructorFV`, `RelayAccessControlFV`, `RelayOwnerTimelockFV` |
+| Fees, fee-table replacement, delegation, and return values | `RelayVerifyFeeFV`, `RelayFeeConservationFV`, `RelayOldRelayFeeFV`, `RelayFeeTokenFV`, `RelayReturnDiscriminatorFV` |
+| Initialization, access, owner/timelock/UUPS | `RelayConstructorFV`, `RelayAccessControlFV`, `RelayOwnerTimelockFV`, including duplicate-queue replacement and queue survival across ownership transfer |
 | Policy digest encoding | `RelayPolicyHashFV`; message source-domain fixtures are supplementary Foundry tests |
 
 The manifest, not this table, is authoritative for the exact inventory.
@@ -56,6 +56,11 @@ The token-fee harness executes SafeERC20 against a deterministic standard
 exact-transfer ERC-20 fixture. Its claims do not generalize to fee-on-transfer,
 rebasing, callback-capable, adversarial, or independently upgradeable token
 semantics.
+
+The `oldRelay` value-flow harness bounds attached value to `uint128` and uses
+compatible observable source fixtures. It proves how the current Relay calls
+those fixtures; it does not establish the bytecode identity or proof integrity
+of an arbitrary configured migration source.
 
 For example, a harness that constructs distinct addresses proves a theorem under
 address uniqueness. It cannot detect duplicate-identity weight amplification.

@@ -74,7 +74,8 @@ assumptions.
 - Halmos is bounded by the manifest's loop and fixture shapes.
 - Lean refinement covers the modeled loop and declared composition seams; it is
   not an extraction proof of the complete optimized contract. Its fee layer is
-  conditional on native-fee mode and does not model ERC-20/SafeERC20 behavior.
+  conditional on the local native-fee path and does not model `oldRelay`
+  delegation or ERC-20/SafeERC20 behavior.
 - Token-fee conclusions assume a standard exact-transfer ERC-20; fee-on-transfer,
   rebasing, callback, and upgrade behavior of the configured token is outside
   Relay's internal proof model.

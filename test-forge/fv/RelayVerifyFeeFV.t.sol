@@ -3,29 +3,32 @@ pragma solidity ^0.8.13;
 
 // solhint-disable func-name-mixedcase
 
-// verify() fee-conservation arithmetic.
-// verify() requires msg.value >= fee, forwards exactly `fee` to the collection
-// address (or oldFee to the old relay), and refunds the remainder `msg.value - fee` to msg.sender:
+// Local native-mode verify() fee-conservation arithmetic.
+// On the non-oldRelay branch with feeToken == address(0), verify() requires
+// msg.value >= fee, forwards exactly `fee` to the collection address, and
+// refunds the remainder `msg.value - fee` to msg.sender:
 //   require(msg.value >= fee);  ... forward fee ...  refund = msg.value - fee;  if (refund>0) send refund.
 // SAFETY: no ETH is created or destroyed (forwarded + refunded == msg.value) and the refund cannot
 // underflow. This complements RelayFeeConservationFV (the REAL balance movements of a succeeding
-// verify() on the new-relay branch): here the conservation ARITHMETIC is pinned for both branches — the
-// new-relay branch (fee/feeCollection) and the old-relay delegation branch (oldFee/oldRelay) conserve.
-// Pure-arithmetic model of the value flow. The real-path harness separately checks balance movements.
-interface IVm { function assume(bool) external; }
+// local verify()): this file pins the underlying split arithmetic. RelayOldRelayFeeFV separately
+// executes the pre-boundary delegation branch, which forwards zero and refunds the full msg.value.
+// Pure-arithmetic model of the local value flow. The compiled-path harnesses check balance movements.
+interface IVm {
+    function assume(bool) external;
+}
 
 contract RelayVerifyFeeFV {
     // solhint-disable-next-line const-name-snakecase
     IVm internal constant vm = IVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    // models the value split: forwarded == fee, refund == msgValue - fee, under the require guard.
+    // Models the local value split under the native-fee require guard.
     function _split(uint256 msgValue, uint256 fee) internal pure returns (uint256 forwarded, uint256 refund) {
         // require(msg.value >= fee) — modeled as the precondition below
         forwarded = fee;
         refund = msgValue - fee; // safe: msgValue >= fee
     }
 
-    // AC-9a — conservation: forwarded + refund == msg.value (no ETH created or destroyed).
+    // Conservation: forwarded + refund == msg.value (no ETH created or destroyed).
     // EXPECT: PASS (proof).
     function check_fee_conserved(uint256 msgValue, uint256 fee) external {
         vm.assume(msgValue >= fee); // the require(msg.value >= fee) guard
@@ -33,7 +36,7 @@ contract RelayVerifyFeeFV {
         assert(forwarded + refund == msgValue);
     }
 
-    // AC-9b — the refund never exceeds msg.value and the fee is forwarded exactly (no over/under-pay).
+    // The refund never exceeds msg.value and the fee is forwarded exactly.
     // EXPECT: PASS (proof).
     function check_fee_noOverpayKept(uint256 msgValue, uint256 fee) external {
         vm.assume(msgValue >= fee);
@@ -41,7 +44,7 @@ contract RelayVerifyFeeFV {
         assert(forwarded == fee && refund <= msgValue);
     }
 
-    // AC-9c — underpayment is rejected: the require(msg.value >= fee) guard is the only acceptance gate,
+    // Underpayment is rejected: the require(msg.value >= fee) guard is the only acceptance gate,
     // so msg.value < fee can never proceed (modeled: the precondition is necessary for a well-defined split).
     // EXPECT: PASS (proof).
     function check_fee_underpaymentImpossible(uint256 msgValue, uint256 fee) external {

@@ -4,8 +4,8 @@
   The fee logic of Relay.sol `verify()` as a hole-free Lean lemma set, on
   NethermindEth's EVMYulLean semantics.
 
-  Models the native-coin fee branch of `verify()` under `feeToken == address(0)`
-  and a non-exempt caller:
+  Models the local (non-`oldRelay`) native-coin fee branch of `verify()` under
+  `feeToken == address(0)` and a non-exempt caller:
 
       uint256 fee = protocolFee[_protocolId];
       require(msg.value >= fee, "too low fee");
@@ -29,9 +29,11 @@
   subset of `{propext, Classical.choice, Quot.sound}` — no sorry/native_decide.
 
   The ERC-20 branch (`feeToken != address(0)`, zero `msg.value`, and SafeERC20
-  `transferFrom`) is outside this module. The remaining native-branch boundary (the
-  exec-level `.CALL` wiring through `primCall`/`callDispatcher`) is documented in
-  Section 4 — the fuel-carrying analogue of RelayStorageLayer's `sstore_eff`.
+  `transferFrom`) and the pre-boundary `oldRelay` branch (zero-value delegation
+  followed by a full refund) are outside this module. The remaining local
+  native-branch boundary (the exec-level `.CALL` wiring through
+  `primCall`/`callDispatcher`) is documented in Section 4 — the fuel-carrying
+  analogue of RelayStorageLayer's `sstore_eff`.
 -/
 import EvmYul
 open EvmYul
@@ -186,9 +188,9 @@ theorem transfer_conservation_toNat {τ} (σ : AccountMap τ) (A B : AccountAddr
     have hle' : amt.toNat ≤ accA.balance.toNat := hle
     omega
 
-/-! ## Section 3.  Two-transfer net-zero for the caller (native-fee composition)
+/-! ## Section 3.  Two-transfer net-zero for the caller (local native-fee composition)
 
-In native-fee mode, `verify()` forwards `fee` to `collector` and
+On the local native-fee path, `verify()` forwards `fee` to `collector` and
 `refund = msgValue - fee` to `sender`, both from the caller `codeOwner`.
 Composing two `transferBalance`s, the caller's balance drops by exactly
 `fee + refund = msgValue`. -/
@@ -276,9 +278,10 @@ Sections 2-3 anchor conservation at the **balance primitive** `AccountMap.transf
 which is precisely the value-movement the Yul `.CALL` primitive performs through
 `transferBalance .Yul codeOwner address value`.
 
-This module is conditional on the native-fee branch (`feeToken == address(0)`) and
-does not model ERC-20 balances, allowances, return conventions, SafeERC20, or the
-EnumerableSet-backed fee-table replacement logic.
+This module is conditional on the local (non-`oldRelay`) native-fee branch
+(`feeToken == address(0)`) and does not model pre-boundary delegation, ERC-20
+balances, allowances, return conventions, SafeERC20, or the EnumerableSet-backed
+fee-table replacement logic.
 
 Within the native branch, what is **not** covered here is wiring Relay.sol's
 `feeCollectionAddress.call{value: fee}("")` through the *full* exec-level `.CALL`
@@ -293,9 +296,10 @@ RelayStorageLayer's `sstore_eff`, but for `.CALL`) and is left as the remaining 
 The `transferBalance`-level facts above are the faithful balance-semantics core that any such
 exec-level result would ultimately reduce to.
 
-Native value conservation is also covered at bounded scope by the Halmos harnesses
-`RelayVerifyFeeFV` and `RelayFeeConservationFV`; this Lean layer adds the unbounded
-balance-primitive semantics.
+Local native value conservation is also covered at bounded scope by the Halmos
+harnesses `RelayVerifyFeeFV` and `RelayFeeConservationFV`; `RelayOldRelayFeeFV`
+covers the separate pre-boundary value flow. This Lean layer adds the unbounded
+balance-primitive semantics for the local branch.
 -/
 
 /-! ## Section 5.  Hole-freeness checks (each ⊆ {propext, Classical.choice, Quot.sound}) -/
