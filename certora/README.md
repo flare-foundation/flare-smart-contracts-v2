@@ -133,14 +133,16 @@ balance semantics remain assumptions about the configured standard token; ECF
 also excludes reentrant effects on Relay state.
 
 The old-Relay value-flow rule covers the pre-boundary branch with an empty Merkle
-proof and nonzero attached value. Persistent target-specific `CALL` observations
-prove that Relay attempts the delegated `verify` call with zero value even when
-the operation later reverts, and that a successful operation attempts to return
-the full attached value to the caller. The rule does not validate the old
-Relay's code or proof decision; the configured contract's provenance and return
-value remain the migration trust boundary. The setter-mode scalar invariant,
-initialization checks, and delayed-execution preservation jointly cover the
-current Relay implementation's zero-fee behavior.
+proof and nonzero attached value. It requires the modeled sender's native balance
+to fund that value, which is the reachable-call condition for entering a payable
+function. Persistent target-specific `CALL` observations prove that Relay attempts
+the delegated `verify` call with zero value even when the operation later reverts,
+and that a successful operation attempts to return the full attached value to the
+caller. The rule does not validate the old Relay's code or proof decision; the
+configured contract's provenance and return value remain the migration trust
+boundary. The setter-mode scalar invariant, initialization checks, and
+delayed-execution preservation jointly cover the current Relay implementation's
+zero-fee behavior.
 
 The threshold fail-fast rule invokes the real
 `verifyCustomSignatureWithThreshold` method, with zero call value to exclude the

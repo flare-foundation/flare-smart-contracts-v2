@@ -408,6 +408,10 @@ rule oldRelayDelegationForwardsNoValueAndRefundsOnSuccess(
     require e.msg.sender != delegate;
     require e.msg.sender != currentContract;
     require e.msg.value > 0;
+    // A payable external transaction can enter Relay only when the caller can
+    // fund its attached value. Without this reachable-call premise, CVL also
+    // considers pre-body insufficient-balance reverts that execute no CALL.
+    require e.msg.value <= nativeBalances[e.msg.sender];
 
     watchedOldRelayTarget = delegate;
     watchedRefundTarget = e.msg.sender;
