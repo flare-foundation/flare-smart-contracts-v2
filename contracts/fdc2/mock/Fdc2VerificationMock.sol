@@ -104,6 +104,29 @@ contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
     /**
      * @inheritdoc IFdc2Verification
      */
+    function verifyTeeSignature(
+        uint256 _extensionId,
+        Signature calldata /*_signature*/,
+        bytes32 /*_messageHash*/
+    )
+        external view
+        returns (address _signingTeeId)
+    {
+        address[] memory teeIds;
+        // no verification
+        if (returnActiveTeeIds) {
+            (teeIds,) = flareTeeManager.getActiveTeeMachines(_extensionId);
+        } else {
+            teeIds = signingTeeIds.list;
+        }
+        if (teeIds.length > 0) {
+            _signingTeeId = teeIds[0];
+        }
+    }
+
+    /**
+     * @inheritdoc IFdc2Verification
+     */
     function verifyTeeSignatures(
         Signature[] calldata /*_signatures*/,
         bytes32 /*_messageHash*/
@@ -114,6 +137,25 @@ contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
         // no verification
         if (returnActiveTeeIds) {
             (_signingTeeIds,) = flareTeeManager.getActiveTeeMachines(0);
+        } else {
+            _signingTeeIds = signingTeeIds.list;
+        }
+    }
+
+    /**
+     * @inheritdoc IFdc2Verification
+     */
+    function verifyTeeSignatures(
+        uint256 _extensionId,
+        Signature[] calldata /*_signatures*/,
+        bytes32 /*_messageHash*/
+    )
+        external view
+        returns (address[] memory _signingTeeIds)
+    {
+        // no verification
+        if (returnActiveTeeIds) {
+            (_signingTeeIds,) = flareTeeManager.getActiveTeeMachines(_extensionId);
         } else {
             _signingTeeIds = signingTeeIds.list;
         }

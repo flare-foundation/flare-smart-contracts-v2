@@ -84,7 +84,25 @@ contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
             !flareTeeManager.isExtensionEmergencyPaused(0),
             SystemExtensionEmergencyPaused()
         );
-        _signingTeeId = _verifyTeeSignature(flareTeeManager, _signature, _messageHash);
+        _signingTeeId = _verifyTeeSignature(flareTeeManager, 0, _signature, _messageHash);
+    }
+
+    /**
+     * @inheritdoc IFdc2Verification
+     */
+    function verifyTeeSignature(
+        uint256 _extensionId,
+        Signature calldata _signature,
+        bytes32 _messageHash
+    )
+        external view
+        returns (address _signingTeeId)
+    {
+        require(
+            !flareTeeManager.isExtensionEmergencyPaused(_extensionId),
+            ExtensionEmergencyPaused(_extensionId)
+        );
+        _signingTeeId = _verifyTeeSignature(flareTeeManager, _extensionId, _signature, _messageHash);
     }
 
     /**
@@ -98,19 +116,32 @@ contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
         returns (address[] memory _signingTeeIds)
     {
         require(_signatures.length > 0, NoTeeSignatures());
-        _signingTeeIds = new address[](_signatures.length);
         IFlareTeeManager flareTeeManagerTmp = flareTeeManager; // used in loop
         require(
             !flareTeeManagerTmp.isExtensionEmergencyPaused(0),
             SystemExtensionEmergencyPaused()
         );
-        for (uint256 i = 0; i < _signatures.length; i++) {
-            address teeId = _verifyTeeSignature(flareTeeManagerTmp, _signatures[i], _messageHash);
-            for (uint256 j = 0; j < i; j++) {
-                require(_signingTeeIds[j] != teeId, DuplicatedTeeId(teeId));
-            }
-            _signingTeeIds[i] = teeId;
-        }
+        _signingTeeIds = _verifyTeeSignatures(flareTeeManagerTmp, 0, _signatures, _messageHash);
+    }
+
+    /**
+     * @inheritdoc IFdc2Verification
+     */
+    function verifyTeeSignatures(
+        uint256 _extensionId,
+        Signature[] calldata _signatures,
+        bytes32 _messageHash
+    )
+        external view
+        returns (address[] memory _signingTeeIds)
+    {
+        require(_signatures.length > 0, NoTeeSignatures());
+        IFlareTeeManager flareTeeManagerTmp = flareTeeManager; // used in loop
+        require(
+            !flareTeeManagerTmp.isExtensionEmergencyPaused(_extensionId),
+            ExtensionEmergencyPaused(_extensionId)
+        );
+        _signingTeeIds = _verifyTeeSignatures(flareTeeManagerTmp, _extensionId, _signatures, _messageHash);
     }
 
     /**
@@ -154,8 +185,28 @@ contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
+    function _verifyTeeSignatures(
+        IFlareTeeManager _flareTeeManager,
+        uint256 _extensionId,
+        Signature[] calldata _signatures,
+        bytes32 _messageHash
+    )
+        internal view
+        returns (address[] memory _signingTeeIds)
+    {
+        _signingTeeIds = new address[](_signatures.length);
+        for (uint256 i = 0; i < _signatures.length; i++) {
+            address teeId = _verifyTeeSignature(_flareTeeManager, _extensionId, _signatures[i], _messageHash);
+            for (uint256 j = 0; j < i; j++) {
+                require(_signingTeeIds[j] != teeId, DuplicatedTeeId(teeId));
+            }
+            _signingTeeIds[i] = teeId;
+        }
+    }
+
     function _verifyTeeSignature(
         IFlareTeeManager _flareTeeManager,
+        uint256 _extensionId,
         Signature calldata _signature,
         bytes32 _messageHash
     )
@@ -169,7 +220,7 @@ contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
             _signature.s
         );
         require(
-            _flareTeeManager.getExtensionId(_signingTeeId) == 0,
+            _flareTeeManager.getExtensionId(_signingTeeId) == _extensionId,
             InvalidTeeMachineExtensionId()
         );
         require(

@@ -121,6 +121,10 @@ Same verification, but against a caller-chosen signature-weight threshold instea
 ```solidity
 function verifyTeeSignature(Signature calldata, bytes32) external view returns (address teeId);
 function verifyTeeSignatures(Signature[] calldata, bytes32) external view returns (address[] memory teeIds);
+function verifyTeeSignature(uint256 extensionId, Signature calldata, bytes32)
+    external view returns (address teeId);
+function verifyTeeSignatures(uint256 extensionId, Signature[] calldata, bytes32)
+    external view returns (address[] memory teeIds);
 ```
 
 ECDSA-recovers the signer of `_messageHash`, then checks via `flareTeeManager`:
@@ -128,7 +132,9 @@ ECDSA-recovers the signer of `_messageHash`, then checks via `flareTeeManager`:
 - `getExtensionId(signingTeeId) == 0` — must be the system extension.
 - `getTeeMachineStatus(signingTeeId) == PRODUCTION` — must be live.
 
-The plural variant additionally rejects duplicate signers. Used for direct on-Flare verification when the consumer's threshold is some N-of-M of TEE machines.
+The plural variants additionally reject duplicate signers. Used for direct on-Flare verification when the consumer's threshold is some N-of-M of TEE machines.
+
+The overloads taking `extensionId` as the first parameter apply the same acceptance rule against a caller-chosen extension instead of the system extension: the signer must belong to that extension, and the emergency-pause check applies to it (reverting with `ExtensionEmergencyPaused(extensionId)` rather than `SystemExtensionEmergencyPaused`). Non-system TEE extensions — for example a TEE oracle on a reserved extension id — reuse these instead of replicating the recovery-and-status check.
 
 ### `recoverCosigners`
 

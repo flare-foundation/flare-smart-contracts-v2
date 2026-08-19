@@ -28,6 +28,7 @@ interface IFdc2Verification {
     error CosignersThresholdNotMet();
     error InvalidCosigner(address cosigner);
     error SystemExtensionEmergencyPaused();
+    error ExtensionEmergencyPaused(uint256 extensionId);
     error NoTeeSignatures();
 
     /**
@@ -82,6 +83,25 @@ interface IFdc2Verification {
         returns (address _signingTeeId);
 
     /**
+     * Verifies a TEE signature for a caller-chosen extension.
+     * Same acceptance rule as the two-argument overload, but the recovered signer must be a
+     * PRODUCTION-status TEE machine on the given extension instead of the system extension (id 0).
+     * Reverts with ExtensionEmergencyPaused if that extension is emergency paused, and with
+     * InvalidTeeMachineExtensionId or TeeMachineNotAvailable if the signer does not qualify.
+     * @param _extensionId The extension id the signing TEE machine must belong to.
+     * @param _signature The TEE signature to verify.
+     * @param _messageHash The message hash to verify.
+     * @return _signingTeeId The TEE id of the signing TEE machine.
+     */
+    function verifyTeeSignature(
+        uint256 _extensionId,
+        Signature calldata _signature,
+        bytes32 _messageHash
+    )
+        external view
+        returns (address _signingTeeId);
+
+    /**
      * Verifies the TEE signatures.
      * Reverts with NoTeeSignatures if the array is empty (guarantees at least one verified signer on return).
      * Does not enforce any threshold beyond non-emptiness - callers must check that the number of signatures
@@ -94,6 +114,24 @@ interface IFdc2Verification {
      * @return _signingTeeIds The TEE ids of the signing TEE machines.
      */
     function verifyTeeSignatures(
+        Signature[] calldata _signatures,
+        bytes32 _messageHash
+    )
+        external view
+        returns (address[] memory _signingTeeIds);
+
+    /**
+     * Verifies the TEE signatures for a caller-chosen extension.
+     * Same acceptance rule as the two-argument overload, but each recovered signer must be a
+     * PRODUCTION-status TEE machine on the given extension instead of the system extension (id 0),
+     * and the emergency-pause check applies to that extension (ExtensionEmergencyPaused).
+     * @param _extensionId The extension id the signing TEE machines must belong to.
+     * @param _signatures The TEE signatures to verify.
+     * @param _messageHash The message hash to verify.
+     * @return _signingTeeIds The TEE ids of the signing TEE machines.
+     */
+    function verifyTeeSignatures(
+        uint256 _extensionId,
         Signature[] calldata _signatures,
         bytes32 _messageHash
     )

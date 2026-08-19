@@ -199,6 +199,86 @@ contract Fdc2VerificationTest is Test {
     }
 
 
+    // verifyTeeSignature (explicit extension id)
+    function testVerifyTeeSignatureWithExtensionId() public {
+        _mockGetExtensionId(5);
+        address returnedTeeId = fdc2Verification.verifyTeeSignature(5, signature, messageHash);
+        assertEq(returnedTeeId, teeId);
+    }
+
+    function testVerifyTeeSignatureWithExtensionIdRevertInvalidTeeMachineExtensionId() public {
+        // signer registered on the system extension, caller requires extension 5
+        _mockGetExtensionId(0);
+        vm.expectRevert(IFdc2Verification.InvalidTeeMachineExtensionId.selector);
+        fdc2Verification.verifyTeeSignature(5, signature, messageHash);
+    }
+
+    function testVerifyTeeSignatureWithExtensionIdRevertTeeMachineNotAvailable() public {
+        _mockGetExtensionId(5);
+        _mockGetTeeMachineStatus(IMachineManager.TeeStatus.SUSPENDED);
+        vm.expectRevert(IFdc2Verification.TeeMachineNotAvailable.selector);
+        fdc2Verification.verifyTeeSignature(5, signature, messageHash);
+    }
+
+    function testVerifyTeeSignatureWithExtensionIdRevertExtensionEmergencyPaused() public {
+        _mockGetExtensionId(5);
+        _mockIsExtensionEmergencyPaused(true);
+        vm.expectRevert(
+            abi.encodeWithSelector(IFdc2Verification.ExtensionEmergencyPaused.selector, 5)
+        );
+        fdc2Verification.verifyTeeSignature(5, signature, messageHash);
+    }
+
+    // verifyTeeSignatures (explicit extension id)
+    function testVerifyTeeSignaturesWithExtensionId() public {
+        _mockGetExtensionId(5);
+        Signature[] memory signatures = new Signature[](2);
+        signatures[0] = signature;
+        signatures[1] = _createSignature(newPrivateKey);
+        address[] memory teeIds = fdc2Verification.verifyTeeSignatures(5, signatures, messageHash);
+        assertEq(teeIds.length, 2);
+        assertEq(teeIds[0], teeId);
+        assertEq(teeIds[1], newTeeId);
+    }
+
+    function testVerifyTeeSignaturesWithExtensionIdRevertInvalidTeeMachineExtensionId() public {
+        _mockGetExtensionId(0);
+        Signature[] memory signatures = new Signature[](1);
+        signatures[0] = signature;
+        vm.expectRevert(IFdc2Verification.InvalidTeeMachineExtensionId.selector);
+        fdc2Verification.verifyTeeSignatures(5, signatures, messageHash);
+    }
+
+    function testVerifyTeeSignaturesWithExtensionIdRevertDuplicatedTeeId() public {
+        _mockGetExtensionId(5);
+        Signature[] memory signatures = new Signature[](2);
+        signatures[0] = signature;
+        signatures[1] = signatures[0];
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFdc2Verification.DuplicatedTeeId.selector,
+                teeId
+            )
+        );
+        fdc2Verification.verifyTeeSignatures(5, signatures, messageHash);
+    }
+
+    function testVerifyTeeSignaturesWithExtensionIdRevertNoTeeSignatures() public {
+        Signature[] memory signatures = new Signature[](0);
+        vm.expectRevert(IFdc2Verification.NoTeeSignatures.selector);
+        fdc2Verification.verifyTeeSignatures(5, signatures, messageHash);
+    }
+
+    function testVerifyTeeSignaturesWithExtensionIdRevertExtensionEmergencyPaused() public {
+        Signature[] memory signatures = new Signature[](1);
+        signatures[0] = signature;
+        _mockIsExtensionEmergencyPaused(true);
+        vm.expectRevert(
+            abi.encodeWithSelector(IFdc2Verification.ExtensionEmergencyPaused.selector, 5)
+        );
+        fdc2Verification.verifyTeeSignatures(5, signatures, messageHash);
+    }
+
     // recoverCosigners
     function testRecoverCosignersRevertDuplicatedCosigner() public {
         Signature[] memory signatures = new Signature[](2);

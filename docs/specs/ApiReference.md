@@ -77,7 +77,7 @@ Per-attestation-type interfaces under [`userInterfaces/fdc/`](../../contracts/us
 | Interface | Role |
 |-----------|------|
 | [`IFdc2Hub`](../../contracts/userInterfaces/fdc2/IFdc2Hub.sol) | `requestAttestation` with TEE selection, cosigner threshold, `claimBackAddress`. |
-| [`IFdc2Verification`](../../contracts/userInterfaces/fdc2/IFdc2Verification.sol) | `verifySigningPolicySignatures`, `verifyTeeSignature(s)`, `recoverCosigners`. |
+| [`IFdc2Verification`](../../contracts/userInterfaces/fdc2/IFdc2Verification.sol) | `verifySigningPolicySignatures`, `verifyTeeSignature(s)` (system extension, plus per-extension-id overloads), `recoverCosigners`. |
 | [`IFdc2RequestFeeConfigurations`](../../contracts/userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol) | Per-(type, source) fee table for FDC2. |
 | [`IFdc2InflationConfigurations`](../../contracts/userInterfaces/fdc2/IFdc2InflationConfigurations.sol) | Per-attestation-type inflation share configurations for FDC2. |
 | [`IFdc2RewardOffersManager`](../../contracts/userInterfaces/fdc2/IFdc2RewardOffersManager.sol) | FDC2 inflation receiver and reward-offers emitter. |

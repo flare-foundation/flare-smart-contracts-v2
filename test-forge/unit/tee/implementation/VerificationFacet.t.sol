@@ -849,7 +849,8 @@ contract VerificationFacetTest is Test {
         vm.mockCall(
             fdc2Verification,
             abi.encodeWithSelector(
-                IFdc2Verification.verifyTeeSignatures.selector
+                // explicit signature: verifyTeeSignatures is overloaded (system + per-extension-id)
+                bytes4(keccak256("verifyTeeSignatures((uint8,bytes32,bytes32)[],bytes32)"))
             ),
             abi.encode(_signingTeeIds)
         );
