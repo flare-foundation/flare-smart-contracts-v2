@@ -404,7 +404,8 @@
     "name": "FtsoV2Implementation",
     "contractName": "FtsoV2.sol",
     "addresses": [
-      "0x05cd506C97f067aA219BfA7240EF2316Cc6cCadD"
+      "0x05cd506C97f067aA219BfA7240EF2316Cc6cCadD",
+      "0x36E6c6d2d49007d57CE80975afE9049C65a6bcFF"
     ]
   },
   {
