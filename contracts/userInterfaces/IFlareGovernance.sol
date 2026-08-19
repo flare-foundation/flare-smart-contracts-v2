@@ -57,20 +57,24 @@ interface IFlareGovernance {
     error OnlyGovernance();
     error TimelockCallNotFound();
     error TimelockNotAllowedYet();
+    error TimelockValueNotAllowed();
     error AlreadyInProductionMode();
     error GovernedAlreadyInitialized();
     error GovernedAddressZero();
 
     /**
      * @notice Execute the timelocked governance calls once the timelock period expires.
-     * @dev Only executor can call this method.
+     * @dev Only executor can call this method. Any attached value is forwarded into the
+     *      executed call, so `payable` governance methods can receive funds at execution
+     *      time (the value is not part of the stored call hash); a non-payable target
+     *      rejects attached value, reverting the execution.
      * @param _encodedCall ABI encoded call data (signature and parameters).
      *      You should use `encodedCall` parameter from `GovernanceCallTimelocked` event.
      */
     function executeGovernanceCall(
         bytes calldata _encodedCall
     )
-        external;
+        external payable;
 
     /**
      * Returns the current effective governance address.

@@ -26,7 +26,7 @@ abstract contract FlareGovernedBase is IIFlareGovernance, FlareGovernedAccess {
     function executeGovernanceCall(
         bytes calldata _encodedCall
     )
-        external
+        external payable
     {
         FlareGovernance.executeGovernanceCall(_encodedCall);
     }

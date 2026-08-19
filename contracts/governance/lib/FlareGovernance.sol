@@ -91,8 +91,10 @@ library FlareGovernance {
         require(block.timestamp >= allowedAfterTimestamp, IFlareGovernance.TimelockNotAllowedYet());
         delete state.timelockedCalls[callHash];
         state.executing = true;
+        // Forward any attached value so payable governance methods can receive funds at
+        // execution time; a non-payable target rejects it, reverting the execution.
         //solhint-disable-next-line avoid-low-level-calls
-        (bool success,) = address(this).call(_encodedCall);
+        (bool success,) = address(this).call{value: msg.value}(_encodedCall);
         state.executing = false;
         emit IFlareGovernance.TimelockedGovernanceCallExecuted(callHash);
         _passReturnOrRevert(success);
@@ -210,6 +212,9 @@ library FlareGovernance {
         private
     {
         checkOnlyGovernance();
+        // The recording call does not execute the body, so value sent when recording would be
+        // trapped on the contract; executors attach value at execution time instead.
+        require(msg.value == 0, IFlareGovernance.TimelockValueNotAllowed());
         uint256 timelock = _state.governanceSettings.getTimelock();
         uint256 allowedAt = block.timestamp + timelock;
         bytes32 callHash = keccak256(_data);

@@ -17,6 +17,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 contract FlareGovernedBaseTestHarness is FlareUpgradeableBase {
 
     uint256 public value;
+    uint256 public receivedValue;
 
     function initialize(
         IGovernanceSettings _governanceSettings,
@@ -35,6 +36,13 @@ contract FlareGovernedBaseTestHarness is FlareUpgradeableBase {
         onlyGovernance
     {
         value = _value;
+    }
+
+    function deposit()
+        external payable
+        onlyGovernance
+    {
+        receivedValue += msg.value;
     }
 
     function _updateContractAddresses(
@@ -228,6 +236,65 @@ contract FlareGovernedBaseTest is Test {
         vm.expectRevert(IFlareGovernance.TimelockCallNotFound.selector);
         vm.prank(productionGovernance);
         IIFlareGovernance(address(harness)).cancelGovernanceCall(call);
+    }
+
+    // -------------------------------------------------------------------------
+    // Value handling (payable executeGovernanceCall)
+    // -------------------------------------------------------------------------
+
+    function testPayableCallExecutesImmediatelyWithValueBeforeProduction() public {
+        vm.deal(initialGovernance, 1 ether);
+        vm.prank(initialGovernance);
+        harness.deposit{value: 1 ether}();
+        assertEq(harness.receivedValue(), 1 ether);
+        assertEq(address(harness).balance, 1 ether);
+    }
+
+    function testRecordingRevertsWithValue() public {
+        _switchToProduction();
+        vm.deal(productionGovernance, 1 ether);
+        vm.expectRevert(IFlareGovernance.TimelockValueNotAllowed.selector);
+        vm.prank(productionGovernance);
+        harness.deposit{value: 1 ether}();
+    }
+
+    function testExecuteForwardsValueToPayableCall() public {
+        _switchToProduction();
+        bytes memory call = abi.encodeCall(harness.deposit, ());
+        vm.prank(productionGovernance);
+        (bool ok,) = address(harness).call(call);
+        assertTrue(ok);
+        assertEq(harness.receivedValue(), 0, "must not execute immediately");
+
+        _mockIsExecutor(executor, true);
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
+        vm.deal(executor, 1 ether);
+        vm.prank(executor);
+        IFlareGovernance(address(harness)).executeGovernanceCall{value: 1 ether}(call);
+        assertEq(harness.receivedValue(), 1 ether);
+        assertEq(address(harness).balance, 1 ether);
+    }
+
+    function testExecuteWithValueToNonPayableCallRevertsAndKeepsCallPending() public {
+        _switchToProduction();
+        bytes memory call = abi.encodeCall(harness.setValue, (5));
+        vm.prank(productionGovernance);
+        (bool ok,) = address(harness).call(call);
+        assertTrue(ok);
+
+        // A non-payable target rejects the attached value; the whole execution reverts.
+        _mockIsExecutor(executor, true);
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
+        vm.deal(executor, 1 ether);
+        vm.expectRevert();
+        vm.prank(executor);
+        IFlareGovernance(address(harness)).executeGovernanceCall{value: 1 ether}(call);
+
+        // The failed execution rolled back, so the pending call survives and
+        // executes normally without value.
+        vm.prank(executor);
+        IFlareGovernance(address(harness)).executeGovernanceCall(call);
+        assertEq(harness.value(), 5);
     }
 
     // -------------------------------------------------------------------------
