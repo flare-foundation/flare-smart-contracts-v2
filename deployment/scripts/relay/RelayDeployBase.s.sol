@@ -3,6 +3,7 @@ pragma solidity ^0.8.35;
 // solhint-disable no-console
 
 import {Script, console2} from "forge-std/Script.sol";
+import {Create3} from "@openzeppelin/contracts/utils/Create3.sol";
 import {IRelay} from "../../../contracts/userInterfaces/IRelay.sol";
 import {Create3Factory} from "../../../contracts/utils/implementation/Create3Factory.sol";
 import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
@@ -88,6 +89,19 @@ abstract contract RelayDeployBase is Script {
     /// and on Flare, Songbird, Coston and Coston2.
     address internal constant ARACHNID_CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
+    /// keccak256 of the Arachnid deployer's runtime code — a chain that carries DIFFERENT code at
+    /// that well-known address is not a genuine keyless deployment and must not receive the
+    /// factory. Verified live on Flare, Songbird, Coston, Coston2, Ethereum and Arbitrum
+    /// (2026-08-19): cast keccak "$(cast code 0x4e59...56C --rpc-url $RPC)".
+    bytes32 internal constant ARACHNID_DEPLOYER_CODEHASH =
+        0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989;
+
+    /// keccak256 of the RUNTIME code the frozen factory initcode deploys (Create3Factory has no
+    /// constructor args or immutables, so this is a pure function of the frozen bytes). Guards
+    /// every deploy against unexpected code squatting at the canonical factory address.
+    bytes32 internal constant FACTORY_RUNTIME_CODEHASH =
+        0x0a117137c9c565cf27bc0aa3041fdac794f8dd6590d76119899ae80b8eae52b4;
+
     /// Fixed CREATE2 salt for the Create3Factory deployment through the Arachnid deployer.
     /// Changing it changes the factory address on every not-yet-deployed chain.
     bytes32 internal constant FACTORY_CREATE2_SALT = keccak256("flare.create3-factory.v1");
@@ -120,6 +134,23 @@ abstract contract RelayDeployBase is Script {
     IFlareContractRegistry internal constant FLARE_CONTRACT_REGISTRY =
         IFlareContractRegistry(0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019);
 
+    /// Per-SOURCE pinned Relay proxy addresses. Keyed by SOURCE chain id, not target chain: a
+    /// mirror deploy on any chain passes its snapshot's sourceChainId into
+    /// _deployRelayProxyViaFactory, so e.g. a flare mirror on Arbitrum is checked against
+    /// EXPECTED_RELAY_FLARE — the same pin as the flare home deploy. One pin per source covers
+    /// the home chain AND every mirror of that source (CREATE3: same deployer + source-scoped
+    /// salt + canonical factory => identical address on all chains).
+    ///
+    /// address(0) means NOT ACTIVATED: deployments of that source are refused (dry runs
+    /// included) until the designated deployer EOA is chosen and the pins are computed from it.
+    /// Activate all four pins, the configs' `expectedDeployer` and the canonical-deployer
+    /// constant in RelayDeployAddress.t.sol together, in one reviewed commit — the test binds
+    /// them to each other (see deployment/create3/README.md, "Relay proxy pins").
+    address internal constant EXPECTED_RELAY_FLARE = address(0); // source 14
+    address internal constant EXPECTED_RELAY_SONGBIRD = address(0); // source 19
+    address internal constant EXPECTED_RELAY_COSTON = address(0); // source 16
+    address internal constant EXPECTED_RELAY_COSTON2 = address(0); // source 114
+
     /**
      * The deployer-scoped CREATE3 salt for a Relay of the given source chain. All deployments
      * that mirror the same source share this salt (hence one address); a network's own home has
@@ -136,7 +167,14 @@ abstract contract RelayDeployBase is Script {
     }
 
     /**
-     * Deploys the Relay proxy through the Create3Factory under the source-scoped salt.
+     * Deploys the Relay proxy through the Create3Factory under the source-scoped salt, enforcing
+     * the per-source address pin first:
+     *   1. a canonical source with an unset (zero) pin is refused outright — no deployment of
+     *      flare/songbird/coston/coston2 is possible until the pins are activated;
+     *   2. the locally computed CREATE3 prediction must equal the pin (wrong deployer account or
+     *      a drifted pin fails BEFORE any state change);
+     *   3. the on-chain factory's own prediction must agree with the local one;
+     *   4. the deployed address must land exactly on the prediction (and thus on the pin).
      * Aborts if the predicted address already has code: upgrades go through the owner's
      * `upgradeToAndCall`, never through a redeploy.
      */
@@ -153,8 +191,25 @@ abstract contract RelayDeployBase is Script {
         returns (address _relay)
     {
         bytes32 salt = _relayProxySalt(_sourceChainId);
+        address predicted = _predictedRelayAddress(_deployer, _sourceChainId);
+        address pin = _expectedRelayAddress(_sourceChainId);
+        if (pin != address(0)) {
+            require(
+                predicted == pin,
+                "predicted Relay address != pinned address (wrong deployer account or drifted pin)"
+            );
+        } else {
+            require(
+                !_isCanonicalSource(_sourceChainId),
+                "Relay proxy pin not set for this source; activate the pins + expectedDeployer before deploying"
+            );
+            console2.log("PIN UNENFORCED (non-canonical source):", _sourceChainId);
+        }
         Create3Factory factory = Create3Factory(_factoryAddress());
-        address predicted = factory.computeAddress(_deployer, salt);
+        require(
+            factory.computeAddress(_deployer, salt) == predicted,
+            "on-chain factory disagrees with the local CREATE3 prediction"
+        );
         require(
             predicted.code.length == 0,
             "Relay proxy already deployed at the predicted address; upgrades go through upgradeToAndCall"
@@ -165,6 +220,57 @@ abstract contract RelayDeployBase is Script {
         );
         _relay = factory.deploy(salt, initCode);
         require(_relay == predicted, "CREATE3 address prediction mismatch");
+    }
+
+    /**
+     * The pinned Relay proxy address for a source, address(0) when unpinned. Virtual (and view,
+     * so an override may read test-harness storage) so the deploy-flow tests can substitute
+     * their own pins; production scripts always use the compiled-in constants (deliberately NOT
+     * config — the config path can be redirected via the RELAY_CONFIG env override, a
+     * compile-time pin cannot).
+     */
+    function _expectedRelayAddress(
+        uint256 _sourceChainId
+    )
+        internal view virtual
+        returns (address)
+    {
+        if (_sourceChainId == 14) return EXPECTED_RELAY_FLARE;
+        if (_sourceChainId == 19) return EXPECTED_RELAY_SONGBIRD;
+        if (_sourceChainId == 16) return EXPECTED_RELAY_COSTON;
+        if (_sourceChainId == 114) return EXPECTED_RELAY_COSTON2;
+        return address(0);
+    }
+
+    /**
+     * Whether the source chain id is one of the four canonical production sources — the ones
+     * whose deployments are refused while their pin is still address(0).
+     */
+    function _isCanonicalSource(
+        uint256 _sourceChainId
+    )
+        internal pure
+        returns (bool)
+    {
+        return _sourceChainId == 14 || _sourceChainId == 19 || _sourceChainId == 16 || _sourceChainId == 114;
+    }
+
+    /**
+     * Fully local (pure) CREATE3 prediction of the Relay proxy address for a (deployer, source)
+     * pair — replicates the factory's deployer-scoped guarded salt, so the address is computable
+     * before the factory exists on a chain and is cross-checked against the factory's own
+     * computeAddress() at deploy time.
+     */
+    function _predictedRelayAddress(
+        address _deployer,
+        uint256 _sourceChainId
+    )
+        internal pure
+        returns (address)
+    {
+        return Create3.computeAddress(
+            keccak256(abi.encode(_deployer, _relayProxySalt(_sourceChainId))), _factoryAddress()
+        );
     }
 
     /**
@@ -353,7 +459,9 @@ abstract contract RelayDeployBase is Script {
     }
 
     /**
-     * Requires the canonical Create3Factory to be present (run DeployCreate3Factory first).
+     * Requires the canonical Create3Factory to be present (run DeployCreate3Factory first) AND
+     * to carry exactly the runtime code the frozen initcode deploys — unexpected code at the
+     * canonical address must never receive a deployment.
      */
     function _requireFactory()
         internal view
@@ -363,6 +471,10 @@ abstract contract RelayDeployBase is Script {
         require(
             _factory.code.length > 0,
             "Create3Factory not deployed on this chain - run DeployCreate3Factory first"
+        );
+        require(
+            _factory.codehash == FACTORY_RUNTIME_CODEHASH,
+            "code at the canonical Create3Factory address does not match the pinned runtime codehash"
         );
     }
 
@@ -379,7 +491,11 @@ abstract contract RelayDeployBase is Script {
         internal pure
     {
         require(_expected != address(0), "expectedDeployer is required in the config (nonzero)");
-        require(_deployer == _expected, "deployer key does not match the config's expectedDeployer");
+        require(
+            _deployer == _expected,
+            "deployer does not match the config's expectedDeployer"
+            " (signerless dry run? pass --sender <expectedDeployer>)"
+        );
     }
 
     /**

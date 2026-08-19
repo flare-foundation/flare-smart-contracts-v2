@@ -23,15 +23,17 @@ import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 // name; dry run unless --broadcast):
 //   pnpm deploy_relay prepare-snapshot flare              # once per source (needs FLARE_RPC)
 //   pnpm deploy_relay mirror flare arbitrum               # DRY RUN (needs ARBITRUM_RPC in .env)
-//   pnpm deploy_relay mirror flare arbitrum --broadcast   # real deployment
+//   pnpm deploy_relay mirror flare arbitrum --broadcast   # real deployment (key fallback)
+//   pnpm deploy_relay mirror flare arbitrum --ledger --sender 0x... --broadcast
 // Raw equivalent:
 //   RELAY_SOURCE=flare RELAY_MIRROR=arbitrum forge script .../DeployRelayMirror.s.sol:DeployRelayMirror \
-//     --rpc-url $ARBITRUM_RPC --broadcast
+//     --rpc-url $ARBITRUM_RPC --ledger --sender 0x... --broadcast
 contract DeployRelayMirror is RelayDeployBase {
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
+        // Whatever forge signs with (see DeployRelayHome) — checked against expectedDeployer and
+        // the pinned Relay address before anything is broadcast.
+        address deployer = msg.sender;
         // Both ends are explicit: RELAY_SOURCE names which source this mirrors (selects the
         // source-snapshot-<source>.json + <source>.json config), RELAY_MIRROR names the entry.
         string memory sourceName = vm.envString("RELAY_SOURCE");
@@ -73,7 +75,7 @@ contract DeployRelayMirror is RelayDeployBase {
         IRelay.RelayInitialConfig memory config =
             _buildMirrorConfig(cfg, base, snapshot, feeCollectionAddress, timelockDurationSeconds);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast(deployer);
         address relayImpl = address(new Relay());
         _logDeployed("RelayImplementation", "Relay.sol", relayImpl);
         // Mirror: salt (and address) is scoped to the SOURCE chain, so every mirror of the same

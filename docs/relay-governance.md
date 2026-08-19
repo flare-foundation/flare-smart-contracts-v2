@@ -142,6 +142,38 @@ The designated deployer controls the official address on chains where the proxy
 has not yet been deployed. Protect that key and verify it against the source
 configuration before broadcast.
 
+### Pinned addresses and code hashes
+
+The deploy scripts do not merely compute the address — they enforce it against
+compiled-in pins in
+[`RelayDeployBase`](../deployment/scripts/relay/RelayDeployBase.s.sol):
+
+- **Per-source Relay proxy pins** (`EXPECTED_RELAY_FLARE/SONGBIRD/COSTON/COSTON2`),
+  keyed by *source* chain ID, so one pin covers the home chain and every mirror
+  of that source. Enforcement is layered: a canonical source with an unset
+  (zero) pin refuses to deploy at all; a set pin must equal the locally computed
+  CREATE3 prediction for the broadcasting deployer; the on-chain factory's own
+  prediction must agree with the local one; and the deployed address must land
+  exactly on the prediction. Pins are constants rather than configuration
+  because the config path can be redirected via the `RELAY_CONFIG` environment
+  override — a compile-time pin cannot.
+- **Runtime code-hash pins**: the Arachnid keyless CREATE2 deployer's runtime
+  code hash (a chain carrying different code at that well-known address never
+  receives the factory) and the runtime code the frozen factory initcode
+  deploys (checked by `DeployCreate3Factory` on both the fresh and
+  already-deployed paths, and by every home/mirror deploy via
+  `_requireFactory`).
+
+**Activation rule:** the four proxy pins, the configs' `expectedDeployer` and
+the `CANONICAL_DEPLOYER` constant in
+[`RelayDeployAddress.t.sol`](../test-forge/unit/deployment/RelayDeployAddress.t.sol)
+start as `address(0)` and must be filled together, in one reviewed commit, once
+the designated deployer EOA is chosen. The test binds them to each other in both
+states: while the deployer is unset every pin must be zero, and once set every
+pin must derive from it. Until activation, no home or mirror deployment of a
+canonical source (flare, songbird, coston, coston2) is possible — dry runs
+included.
+
 ## 6. Deployment and migration procedure
 
 ### Configuration
@@ -152,6 +184,28 @@ Each source entry defines home settings and a map of mirror targets. The scripts
 enforce the designated deployer, source identity, target chain ID, owner,
 timelock, fee settings (including the per-mirror fee token), and
 deterministic address inputs.
+
+### Signing the deployment
+
+The wrapper (`pnpm deploy_relay`) accepts any forge signer for the home and
+mirror steps and forwards signer flags verbatim: `--ledger`, `--trezor`,
+`--account <keystore name>`, `--gcp` (Google Cloud KMS), `--aws`, and the
+keystore environment variables (`ETH_KEYSTORE` / `ETH_KEYSTORE_ACCOUNT` /
+`ETH_PASSWORD`). Only when no signer is supplied does it fall back to appending
+`--private-key "$DEPLOYER_PRIVATE_KEY"`; the key is required only for a
+broadcast, and is unset again before any post-processing runs. The scripts take
+`msg.sender` as the deployer, so pair hardware/keystore/KMS signers with
+`--sender <expectedDeployer>` — the address is checked against the config's
+`expectedDeployer` and the per-source pin before anything signs, and a dry run
+can simulate as the real deployer with `--sender` alone.
+
+One deliberate restriction: `--resume` is rejected (it would skip the scripts'
+pre-flight checks and the address recorder — re-run instead; the scripts abort
+by themselves if the Relay already has code). The `factory` step accepts the
+same signers; since its address is deployer-independent, any funded account
+works and no deployer-identity check applies there. Broadcasts always add
+`--slow` so transactions are sent serially and an on-chain revert stops the
+sequence.
 
 ### Home deployment
 

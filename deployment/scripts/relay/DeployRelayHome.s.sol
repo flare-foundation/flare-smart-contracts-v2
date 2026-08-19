@@ -55,14 +55,21 @@ interface IEntityManagerRead {
 // (four are handshake-enforced to match it, the rest are preserved on redeploy), so the home
 // config holds no duplicated protocol parameters.
 //
-// Usage:
+// Usage — prefer the wrapper (any forge signer: --ledger/--trezor/--account/--gcp/…, or the
+// DEPLOYER_PRIVATE_KEY fallback; dry run unless --broadcast):
+//   pnpm deploy_relay home flare [--ledger --sender 0x...] [--broadcast]
+// Raw equivalent:
 //   forge script deployment/scripts/relay/DeployRelayHome.s.sol:DeployRelayHome \
-//     --rpc-url $FLARE_RPC --broadcast
+//     --rpc-url $FLARE_RPC --ledger --sender 0x... --broadcast
 contract DeployRelayHome is RelayDeployBase {
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
+        // Whatever forge signs with — --private-key, --account, --ledger, --gcp, … — so keystore,
+        // hardware-wallet and KMS paths all work. The address matters (it scopes the CREATE3
+        // salt), so it is checked against the config's expectedDeployer and the pinned Relay
+        // address before anything is broadcast. Forge's unsigned default sender fails those
+        // checks on real networks.
+        address deployer = msg.sender;
         (string memory cfg, string memory network) = _readSourceConfig(block.chainid);
         // Exact "NETWORK: <label>" line consumed by save-deployed-addresses.ts.
         console2.log(string.concat("NETWORK: ", network));
@@ -88,7 +95,9 @@ contract DeployRelayHome is RelayDeployBase {
 
         uint256 timelockDurationSeconds = vm.parseJsonUint(cfg, ".home.timelockDurationSeconds");
 
-        vm.startBroadcast(deployerPrivateKey);
+        // Explicit, so the broadcast signer is provably the checked account rather than
+        // aligning with it by default.
+        vm.startBroadcast(deployer);
 
         // Relay implementation + proxy (setter mode) through the factory.
         IRelay.RelayInitialConfig memory config =

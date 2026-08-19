@@ -37,6 +37,26 @@ contract RelayDeployBaseHarness is RelayDeployBase {
         return _relayProxySalt(_sourceChainId);
     }
 
+    function arachnidCodehash() external pure returns (bytes32) {
+        return ARACHNID_DEPLOYER_CODEHASH;
+    }
+
+    function factoryRuntimeCodehash() external pure returns (bytes32) {
+        return FACTORY_RUNTIME_CODEHASH;
+    }
+
+    function expectedRelayAddress(uint256 _sourceChainId) external view returns (address) {
+        return _expectedRelayAddress(_sourceChainId);
+    }
+
+    function predictedRelayAddress(address _deployer, uint256 _sourceChainId) external pure returns (address) {
+        return _predictedRelayAddress(_deployer, _sourceChainId);
+    }
+
+    function isCanonicalSource(uint256 _sourceChainId) external pure returns (bool) {
+        return _isCanonicalSource(_sourceChainId);
+    }
+
     function readDeployedAddress(string calldata _network, string calldata _name)
         external view
         returns (address)
@@ -56,6 +76,14 @@ contract RelayDeployAddressTest is Test {
     address internal constant CANONICAL_FACTORY = 0x51a24B38b2a5793F65258Fd37EE92706FadeFE96;
     bytes32 internal constant CANONICAL_INITCODE_KECCAK =
         0x527b93054ed37ffa9db40d5b403b0c72aa7b5c50cd28a0e344a25684fbe0f567;
+    bytes32 internal constant CANONICAL_ARACHNID_CODEHASH =
+        0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989;
+
+    /// The designated deployer EOA — the permanent address authority for the Relay proxy salt.
+    /// address(0) until chosen; ACTIVATE TOGETHER with the four EXPECTED_RELAY_* pins in
+    /// RelayDeployBase.s.sol and the configs' expectedDeployer, in one reviewed commit —
+    /// test_relayAddressPinsConsistent binds this constant to those pins in both states.
+    address internal constant CANONICAL_DEPLOYER = address(0);
 
     RelayDeployBaseHarness internal harness;
 
@@ -113,6 +141,76 @@ contract RelayDeployAddressTest is Test {
         assertEq(harness.relayProxySalt(19), keccak256(abi.encode(base, uint256(19))));
         // Different sources ⇒ different salts ⇒ a chain can host a home + cross-source mirror.
         assertTrue(harness.relayProxySalt(14) != harness.relayProxySalt(19));
+    }
+
+    function test_factoryRuntimeCodehashPinned() public {
+        // Deploy the FROZEN initcode and hash the runtime it produces — the pin guards what the
+        // canonical factory address must actually carry on every chain.
+        bytes memory initCode = harness.frozenInitCode();
+        address deployed;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            deployed := create(0, add(initCode, 0x20), mload(initCode))
+        }
+        assertTrue(deployed != address(0), "frozen initcode failed to deploy");
+        assertEq(
+            deployed.codehash,
+            harness.factoryRuntimeCodehash(),
+            "runtime code of the frozen factory drifted from FACTORY_RUNTIME_CODEHASH"
+        );
+        // The freshly compiled factory still produces identical runtime code (no-metadata
+        // profile) — same invariant as test_frozenInitCodeMatchesCompiledFactory, runtime side.
+        assertEq(keccak256(address(new Create3Factory()).code), harness.factoryRuntimeCodehash());
+    }
+
+    function test_arachnidCodehashPinned() public view {
+        // Restated literal: drift between the script constant and the documented canonical value
+        // fails here. Live verification against real chains is a release-checklist item
+        // (cast keccak "$(cast code 0x4e59...56C --rpc-url $RPC)").
+        assertEq(harness.arachnidCodehash(), CANONICAL_ARACHNID_CODEHASH);
+    }
+
+    function test_canonicalSourcesPinned() public view {
+        assertTrue(harness.isCanonicalSource(14), "flare");
+        assertTrue(harness.isCanonicalSource(19), "songbird");
+        assertTrue(harness.isCanonicalSource(16), "coston");
+        assertTrue(harness.isCanonicalSource(114), "coston2");
+        assertFalse(harness.isCanonicalSource(31337), "scdev is not canonical");
+        assertFalse(harness.isCanonicalSource(1), "mirror targets are not sources");
+    }
+
+    function test_relayAddressPinsConsistent() public view {
+        // Binds the four per-source pins to the canonical deployer in BOTH states:
+        //  - not yet activated: everything must still be address(0) (activate the deployer, the
+        //    pins and the configs' expectedDeployer together, in one reviewed commit);
+        //  - activated: every pin must equal the local CREATE3 prediction for its source under
+        //    the canonical deployer, and the four pins must be pairwise distinct.
+        uint256[4] memory sources = [uint256(14), 19, 16, 114];
+        if (CANONICAL_DEPLOYER == address(0)) {
+            for (uint256 i = 0; i < sources.length; i++) {
+                assertEq(
+                    harness.expectedRelayAddress(sources[i]),
+                    address(0),
+                    "a Relay pin is set but CANONICAL_DEPLOYER is not - activate them together"
+                );
+            }
+        } else {
+            for (uint256 i = 0; i < sources.length; i++) {
+                address pin = harness.expectedRelayAddress(sources[i]);
+                assertTrue(pin != address(0), "canonical source left unpinned after activation");
+                assertEq(
+                    pin,
+                    harness.predictedRelayAddress(CANONICAL_DEPLOYER, sources[i]),
+                    "pin does not derive from the canonical deployer and source-scoped salt"
+                );
+                for (uint256 j = 0; j < i; j++) {
+                    assertTrue(
+                        pin != harness.expectedRelayAddress(sources[j]),
+                        "two sources share a pinned address"
+                    );
+                }
+            }
+        }
     }
 
     function test_create3AddressIsInitcodeIndependent() public {

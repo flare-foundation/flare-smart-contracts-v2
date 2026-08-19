@@ -26,6 +26,10 @@ contract FlowHarness is RelayDeployBase {
         return _relayProxySalt(_sourceChainId);
     }
 
+    function predictedRelayAddress(address _deployer, uint256 _sourceChainId) external pure returns (address) {
+        return _predictedRelayAddress(_deployer, _sourceChainId);
+    }
+
     function deployRelayProxyViaFactory(
         address _deployer,
         uint256 _sourceChainId,
@@ -89,6 +93,38 @@ contract FlowHarness is RelayDeployBase {
 
     function signingPolicyHash(bytes memory _encodedPolicy, uint256 _sourceChainId) external pure returns (bytes32) {
         return _signingPolicyHash(_encodedPolicy, _sourceChainId);
+    }
+
+    /// Pins are neutralized to the SELF-CONSISTENT prediction for this harness (the harness is
+    /// the factory's msg.sender in tests, so it is the deployer of record): every flow test then
+    /// exercises the full pin path — activation gate, pre-flight equality and landing check —
+    /// and keeps passing after the real per-source constants are activated.
+    function _expectedRelayAddress(
+        uint256 _sourceChainId
+    )
+        internal view virtual override
+        returns (address)
+    {
+        return _predictedRelayAddress(address(this), _sourceChainId);
+    }
+}
+
+/// A FlowHarness whose pins are test-settable — used to exercise the pin enforcement itself
+/// (the plain FlowHarness neutralizes it with self-consistent pins).
+contract PinnedFlowHarness is FlowHarness {
+    mapping(uint256 sourceChainId => address pin) private pins;
+
+    function setPin(uint256 _sourceChainId, address _pin) external {
+        pins[_sourceChainId] = _pin;
+    }
+
+    function _expectedRelayAddress(
+        uint256 _sourceChainId
+    )
+        internal view override
+        returns (address)
+    {
+        return pins[_sourceChainId];
     }
 }
 
@@ -258,7 +294,12 @@ contract RelayDeployFlowTest is Test {
     }
 
     function test_expectedDeployerMustMatchBroadcastKey() public {
-        vm.expectRevert(bytes("deployer key does not match the config's expectedDeployer"));
+        vm.expectRevert(
+            bytes(
+                "deployer does not match the config's expectedDeployer"
+                " (signerless dry run? pass --sender <expectedDeployer>)"
+            )
+        );
         harness.requireExpectedDeployer(address(0xBEEF), address(0xCAFE));
         // Matching passes.
         harness.requireExpectedDeployer(address(0xCAFE), address(0xCAFE));
@@ -269,6 +310,79 @@ contract RelayDeployFlowTest is Test {
         harness.requireField(cfg, ".present");
         vm.expectRevert(bytes("required config field missing: .absent"));
         harness.requireField(cfg, ".absent");
+    }
+
+    // ---- per-source Relay address pins ----
+
+    function test_zeroPinBlocksCanonicalSource() public {
+        // A canonical source (flare/songbird/coston/coston2) with an unset pin must refuse to
+        // deploy — activation (pins + expectedDeployer, one reviewed commit) is a precondition.
+        PinnedFlowHarness pinned = new PinnedFlowHarness();
+        vm.chainId(SOURCE_CHAIN);
+        IRelay.RelayInitialConfig memory config = _baseConfig(SOURCE_CHAIN, 0);
+        config.feeCollectionAddress = payable(address(0));
+        Relay impl = new Relay();
+        vm.expectRevert(
+            bytes("Relay proxy pin not set for this source; activate the pins + expectedDeployer before deploying")
+        );
+        pinned.deployRelayProxyViaFactory(
+            address(pinned), SOURCE_CHAIN, address(impl), config, fsm, address(0), owner
+        );
+    }
+
+    function test_zeroPinAllowsNonCanonicalSource() public {
+        // Dev/rehearsal sources (e.g. scdev 31337) stay deployable without a pin.
+        PinnedFlowHarness pinned = new PinnedFlowHarness();
+        uint256 devSource = 31337;
+        vm.chainId(devSource);
+        IRelay.RelayInitialConfig memory config = _baseConfig(devSource, 0);
+        config.feeCollectionAddress = payable(address(0));
+        address relay = pinned.deployRelayProxyViaFactory(
+            address(pinned), devSource, address(new Relay()), config, fsm, address(0), owner
+        );
+        assertGt(relay.code.length, 0, "dev-source deploy must succeed without a pin");
+    }
+
+    function test_wrongPinReverts() public {
+        // A pin that does not match the (deployer, source) prediction aborts before any deploy —
+        // the wrong-account and drifted-pin failure modes.
+        PinnedFlowHarness pinned = new PinnedFlowHarness();
+        pinned.setPin(SOURCE_CHAIN, address(0xBAD));
+        vm.chainId(SOURCE_CHAIN);
+        IRelay.RelayInitialConfig memory config = _baseConfig(SOURCE_CHAIN, 0);
+        config.feeCollectionAddress = payable(address(0));
+        Relay impl = new Relay();
+        vm.expectRevert(
+            bytes("predicted Relay address != pinned address (wrong deployer account or drifted pin)")
+        );
+        pinned.deployRelayProxyViaFactory(
+            address(pinned), SOURCE_CHAIN, address(impl), config, fsm, address(0), owner
+        );
+    }
+
+    function test_correctPinDeploysAndLandsOnIt() public {
+        PinnedFlowHarness pinned = new PinnedFlowHarness();
+        vm.chainId(SOURCE_CHAIN);
+        address pin = pinned.predictedRelayAddress(address(pinned), SOURCE_CHAIN);
+        pinned.setPin(SOURCE_CHAIN, pin);
+        IRelay.RelayInitialConfig memory config = _baseConfig(SOURCE_CHAIN, 0);
+        config.feeCollectionAddress = payable(address(0));
+        address relay = pinned.deployRelayProxyViaFactory(
+            address(pinned), SOURCE_CHAIN, address(new Relay()), config, fsm, address(0), owner
+        );
+        assertEq(relay, pin, "deploy must land exactly on the pinned address");
+    }
+
+    function test_localPredictionMatchesFactory() public view {
+        // The base's fully local (pure) CREATE3 prediction agrees with the on-chain factory's
+        // own computeAddress — the deploy-time cross-check can therefore never fail spuriously.
+        assertEq(
+            harness.predictedRelayAddress(deployer, SOURCE_CHAIN),
+            Create3Factory(harness.factoryAddress()).computeAddress(
+                deployer, harness.relayProxySalt(SOURCE_CHAIN)
+            ),
+            "local CREATE3 prediction must equal the factory's computeAddress"
+        );
     }
 
     // ---- signing-policy migration (reconstruction) ----
