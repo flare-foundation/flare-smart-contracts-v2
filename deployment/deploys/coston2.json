@@ -513,5 +513,10 @@
     "name": "VrfVerifier",
     "contractName": "VrfVerifier.sol",
     "address": "0x7214D4c13aaFE0e26F5EC5Fc625a6b60AfF99533"
+  },
+  {
+    "name": "Create3Factory",
+    "contractName": "Create3Factory.sol",
+    "address": "0x51a24B38b2a5793F65258Fd37EE92706FadeFE96"
   }
 ]
