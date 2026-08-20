@@ -13,8 +13,7 @@ import {
     TEE_ORACLE_OP_TYPE,
     GET_FEED_COMMAND,
     SET_ENDPOINTS_COMMAND,
-    SET_ADMINS_COMMAND,
-    GET_FEED_REQUEST_V1
+    SET_ADMINS_COMMAND
 } from "../../../../../../contracts/userInterfaces/tee/ITeeOracleInstructionsSender.sol";
 import { IInstructions } from "../../../../../../contracts/userInterfaces/tee/IInstructions.sol";
 import { IMachineManager } from "../../../../../../contracts/userInterfaces/tee/IMachineManager.sol";
@@ -25,6 +24,8 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 contract TeeOracleInstructionsSenderTest is Test {
 
     uint256 private constant EXTENSION_ID = 1;
+    bytes21 private constant FEED_ID = bytes21(bytes.concat(bytes1(uint8(0x20)), bytes("USDX/USD")));
+    bytes21 private constant OTHER_FEED_ID = bytes21(bytes.concat(bytes1(uint8(0x21)), bytes("RAIN/MM")));
     bytes32 private constant INSTRUCTION_ID = keccak256("instructionId");
     uint256 private constant TIMELOCK = 3600;
 
@@ -85,8 +86,8 @@ contract TeeOracleInstructionsSenderTest is Test {
 
     function testInitialState() public {
         assertEq(sender.extensionId(), EXTENSION_ID);
-        assertEq(sender.endpointsVersion(), 0);
-        assertEq(sender.adminsVersion(), 0);
+        assertEq(sender.endpointsVersion(FEED_ID), 0);
+        assertEq(sender.adminsVersion(FEED_ID), 0);
         assertEq(sender.governance(), governance);
         assertEq(sender.implementation(), address(senderImpl));
     }
@@ -129,33 +130,65 @@ contract TeeOracleInstructionsSenderTest is Test {
     // -------------------------------------------------------------------------
 
     function testRequestFeedUpdate() public {
-        address[] memory teeIds = new address[](1);
-        teeIds[0] = teeId1;
-        _mockGetRandomTeeIds(teeIds);
+        _configureFeed(FEED_ID, _oneTee());
 
-        // the entire msg.value is forwarded and the caller is the claim-back address
+        // the entire msg.value is forwarded, the caller is the claim-back address and
+        // the instruction message carries the feed id
         vm.expectCall(
             flareTeeManager,
             42,
             abi.encodeCall(
                 IInstructions.sendInstructions,
-                (teeIds, _params(GET_FEED_COMMAND, GET_FEED_REQUEST_V1, address(this)))
+                (
+                    _oneTee(),
+                    _params(
+                        GET_FEED_COMMAND,
+                        abi.encode(ITeeOracleInstructionsSender.FeedUpdateRequest(FEED_ID)),
+                        address(this)
+                    )
+                )
             )
         );
         vm.expectEmit();
-        emit ITeeOracleInstructionsSender.FeedUpdateRequested(address(this), INSTRUCTION_ID);
-        bytes32 instructionId = sender.requestFeedUpdate{value: 42}();
+        emit ITeeOracleInstructionsSender.FeedUpdateRequested(address(this), FEED_ID, INSTRUCTION_ID);
+        bytes32 instructionId = sender.requestFeedUpdate{value: 42}(FEED_ID, _oneTee());
         assertEq(instructionId, INSTRUCTION_ID);
     }
 
     function testRequestFeedUpdateIsPermissionless() public {
-        address[] memory teeIds = new address[](1);
-        teeIds[0] = teeId1;
-        _mockGetRandomTeeIds(teeIds);
+        _configureFeed(FEED_ID, _oneTee());
         address anyone = makeAddr("anyone");
         vm.deal(anyone, 1 ether);
         vm.prank(anyone);
-        sender.requestFeedUpdate{value: 1}();
+        sender.requestFeedUpdate{value: 1}(FEED_ID, _oneTee());
+    }
+
+    function testRequestFeedUpdateRevertInvalidFeedId() public {
+        vm.expectRevert(ITeeOracleInstructionsSender.InvalidFeedId.selector);
+        sender.requestFeedUpdate(bytes21(0), _oneTee());
+    }
+
+    function testRequestFeedUpdateRevertTeeIdNotConfigured() public {
+        // endpoints alone are not enough - the admins must be published too
+        vm.prank(governance);
+        sender.setEndpoints(FEED_ID, _oneTee(), _makeGroups(1, 1), claimBack);
+        vm.expectRevert(ITeeOracleInstructionsSender.TeeIdNotConfigured.selector);
+        sender.requestFeedUpdate(FEED_ID, _oneTee());
+    }
+
+    function testRequestFeedUpdateRevertNotConfiguredForOtherFeed() public {
+        // configuration is per feed - a machine configured for one feed is not
+        // askable for another
+        _configureFeed(FEED_ID, _oneTee());
+        vm.expectRevert(ITeeOracleInstructionsSender.TeeIdNotConfigured.selector);
+        sender.requestFeedUpdate(OTHER_FEED_ID, _oneTee());
+    }
+
+    function testRequestFeedUpdateRevertPartlyConfiguredFleet() public {
+        // every targeted machine must be configured for the feed
+        _configureFeed(FEED_ID, _oneTee());
+        vm.expectRevert(ITeeOracleInstructionsSender.TeeIdNotConfigured.selector);
+        sender.requestFeedUpdate(FEED_ID, _bothTees());
     }
 
     // -------------------------------------------------------------------------
@@ -165,14 +198,14 @@ contract TeeOracleInstructionsSenderTest is Test {
     function testSetEndpoints() public {
         ITeeOracleInstructionsSender.EndpointGroup[] memory groups = _makeGroups(2, 3);
         bytes memory message = abi.encode(
-            ITeeOracleInstructionsSender.Endpoints({version: 1, groups: groups})
+            ITeeOracleInstructionsSender.Endpoints({version: 1, feedId: FEED_ID, groups: groups})
         );
         bytes32 endpointsHash = keccak256(message);
 
         vm.expectEmit();
-        emit ITeeOracleInstructionsSender.EndpointsSet(teeId1, 1, endpointsHash);
+        emit ITeeOracleInstructionsSender.EndpointsSet(FEED_ID, teeId1, 1, endpointsHash);
         vm.expectEmit();
-        emit ITeeOracleInstructionsSender.EndpointsSet(teeId2, 1, endpointsHash);
+        emit ITeeOracleInstructionsSender.EndpointsSet(FEED_ID, teeId2, 1, endpointsHash);
         // one instruction to all targeted machines, full msg.value forwarded
         vm.expectCall(
             flareTeeManager,
@@ -184,49 +217,69 @@ contract TeeOracleInstructionsSenderTest is Test {
         );
         vm.deal(governance, 7);
         vm.prank(governance);
-        sender.setEndpoints{value: 7}(_bothTees(), groups, claimBack);
+        sender.setEndpoints{value: 7}(FEED_ID, _bothTees(), groups, claimBack);
 
         // one version and hash per publication, shared by every targeted machine
-        assertEq(sender.endpointsVersion(), 1);
-        assertEq(sender.expectedEndpointsHash(teeId1), endpointsHash);
-        assertEq(sender.expectedEndpointsHash(teeId2), endpointsHash);
-        assertEq(sender.expectedEndpointsVersion(teeId1), 1);
-        assertEq(sender.expectedEndpointsVersion(teeId2), 1);
+        assertEq(sender.endpointsVersion(FEED_ID), 1);
+        assertEq(sender.expectedEndpointsHash(FEED_ID, teeId1), endpointsHash);
+        assertEq(sender.expectedEndpointsHash(FEED_ID, teeId2), endpointsHash);
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId1), 1);
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId2), 1);
+    }
+
+    function testSetEndpointsPerFeedIsolation() public {
+        // versions, hashes and commitments are independent per feed
+        vm.startPrank(governance);
+        sender.setEndpoints(FEED_ID, _oneTee(), _makeGroups(1, 1), claimBack);
+        sender.setEndpoints(OTHER_FEED_ID, _oneTee(), _makeGroups(1, 2), claimBack);
+        vm.stopPrank();
+        assertEq(sender.endpointsVersion(FEED_ID), 1);
+        assertEq(sender.endpointsVersion(OTHER_FEED_ID), 1);
+        assertNotEq(
+            sender.expectedEndpointsHash(FEED_ID, teeId1),
+            sender.expectedEndpointsHash(OTHER_FEED_ID, teeId1)
+        );
+    }
+
+    function testSetEndpointsRevertInvalidFeedId() public {
+        vm.expectRevert(ITeeOracleInstructionsSender.InvalidFeedId.selector);
+        vm.prank(governance);
+        sender.setEndpoints(bytes21(0), _oneTee(), _makeGroups(1, 1), claimBack);
     }
 
     function testSetEndpointsIdenticalContentGetsNewVersionAndHash() public {
         ITeeOracleInstructionsSender.EndpointGroup[] memory groups = _makeGroups(1, 1);
         vm.startPrank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
-        bytes32 firstHash = sender.expectedEndpointsHash(teeId1);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
+        bytes32 firstHash = sender.expectedEndpointsHash(FEED_ID, teeId1);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
         vm.stopPrank();
-        assertEq(sender.endpointsVersion(), 2);
-        assertEq(sender.expectedEndpointsVersion(teeId1), 2);
+        assertEq(sender.endpointsVersion(FEED_ID), 2);
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId1), 2);
         // the version is inside the encoded payload, so the hash moves too
-        assertNotEq(sender.expectedEndpointsHash(teeId1), firstHash);
+        assertNotEq(sender.expectedEndpointsHash(FEED_ID, teeId1), firstHash);
     }
 
     function testSetEndpointsPartialRollout() public {
         ITeeOracleInstructionsSender.EndpointGroup[] memory groups = _makeGroups(1, 1);
         vm.startPrank(governance);
-        sender.setEndpoints(_bothTees(), groups, claimBack);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _bothTees(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
         vm.stopPrank();
         // only the re-published machine moves to the new generation
-        assertEq(sender.expectedEndpointsVersion(teeId1), 2);
-        assertEq(sender.expectedEndpointsVersion(teeId2), 1);
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId1), 2);
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId2), 1);
     }
 
     function testSetEndpointsRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
-        sender.setEndpoints(_oneTee(), _makeGroups(1, 1), claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), _makeGroups(1, 1), claimBack);
     }
 
     function testSetEndpointsRevertNoTeeIds() public {
         vm.expectRevert(ITeeOracleInstructionsSender.NoTeeIds.selector);
         vm.prank(governance);
-        sender.setEndpoints(new address[](0), _makeGroups(1, 1), claimBack);
+        sender.setEndpoints(FEED_ID, new address[](0), _makeGroups(1, 1), claimBack);
     }
 
     function testSetEndpointsRevertZeroTeeId() public {
@@ -235,7 +288,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         teeIds[1] = address(0);
         vm.expectRevert(ITeeOracleInstructionsSender.ZeroTeeId.selector);
         vm.prank(governance);
-        sender.setEndpoints(teeIds, _makeGroups(1, 1), claimBack);
+        sender.setEndpoints(FEED_ID, teeIds, _makeGroups(1, 1), claimBack);
     }
 
     function testSetEndpointsRevertDuplicateTeeId() public {
@@ -244,7 +297,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         teeIds[1] = teeId1;
         vm.expectRevert(ITeeOracleInstructionsSender.DuplicateTeeId.selector);
         vm.prank(governance);
-        sender.setEndpoints(teeIds, _makeGroups(1, 1), claimBack);
+        sender.setEndpoints(FEED_ID, teeIds, _makeGroups(1, 1), claimBack);
     }
 
     function testSetEndpointsRevertTeeIdNotInExtension() public {
@@ -253,13 +306,13 @@ contract TeeOracleInstructionsSenderTest is Test {
         _mockGetExtensionId(teeId1, EXTENSION_ID + 1);
         vm.expectRevert(ITeeOracleInstructionsSender.TeeIdNotInExtension.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), _makeGroups(1, 1), claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), _makeGroups(1, 1), claimBack);
     }
 
     function testSetEndpointsRevertNoGroups() public {
         vm.expectRevert(ITeeOracleInstructionsSender.NoGroups.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), new ITeeOracleInstructionsSender.EndpointGroup[](0), claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), new ITeeOracleInstructionsSender.EndpointGroup[](0), claimBack);
     }
 
     function testSetEndpointsRevertEmptyGroup() public {
@@ -267,7 +320,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         groups[0].group = bytes32(0);
         vm.expectRevert(ITeeOracleInstructionsSender.EmptyGroup.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
     }
 
     function testSetEndpointsRevertDuplicateGroup() public {
@@ -275,7 +328,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         groups[1].group = groups[0].group;
         vm.expectRevert(ITeeOracleInstructionsSender.DuplicateGroup.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
     }
 
     function testSetEndpointsRevertNoEndpoints() public {
@@ -283,7 +336,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         groups[0].endpoints = new ITeeOracleInstructionsSender.Endpoint[](0);
         vm.expectRevert(ITeeOracleInstructionsSender.NoEndpoints.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
     }
 
     function testSetEndpointsRevertZeroThreshold() public {
@@ -291,7 +344,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         groups[0].threshold = 0;
         vm.expectRevert(ITeeOracleInstructionsSender.InvalidThreshold.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
     }
 
     function testSetEndpointsRevertThresholdAboveEndpointCount() public {
@@ -299,7 +352,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         groups[0].threshold = 3;
         vm.expectRevert(ITeeOracleInstructionsSender.InvalidThreshold.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
     }
 
     function testSetEndpointsRevertPublicEndpointWithoutUrl() public {
@@ -307,7 +360,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         groups[0].endpoints[0].url = "";
         vm.expectRevert(ITeeOracleInstructionsSender.InvalidEndpoint.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
     }
 
     function testSetEndpointsRevertPublicEndpointWithUrlHash() public {
@@ -315,7 +368,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         groups[0].endpoints[0].urlHash = keccak256("hash");
         vm.expectRevert(ITeeOracleInstructionsSender.InvalidEndpoint.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
     }
 
     function testSetEndpointsRevertPrivateEndpointWithUrl() public {
@@ -325,7 +378,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         // url still set - inconsistent
         vm.expectRevert(ITeeOracleInstructionsSender.InvalidEndpoint.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
     }
 
     function testSetEndpointsRevertPrivateEndpointWithoutUrlHash() public {
@@ -334,7 +387,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         groups[0].endpoints[0].url = "";
         vm.expectRevert(ITeeOracleInstructionsSender.InvalidEndpoint.selector);
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
     }
 
     function testSetEndpointsAcceptsPrivateEndpoint() public {
@@ -346,8 +399,8 @@ contract TeeOracleInstructionsSenderTest is Test {
             secretRef: "hex_cash_url"
         });
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), groups, claimBack);
-        assertEq(sender.endpointsVersion(), 1);
+        sender.setEndpoints(FEED_ID, _oneTee(), groups, claimBack);
+        assertEq(sender.endpointsVersion(FEED_ID), 1);
     }
 
     // -------------------------------------------------------------------------
@@ -357,12 +410,12 @@ contract TeeOracleInstructionsSenderTest is Test {
     function testSetAdmins() public {
         ITeeOracleInstructionsSender.AdminRole[] memory roles = _makeRoles(2, 3);
         bytes memory message = abi.encode(
-            ITeeOracleInstructionsSender.Admins({version: 1, roles: roles})
+            ITeeOracleInstructionsSender.Admins({version: 1, feedId: FEED_ID, roles: roles})
         );
         bytes32 adminsHash = keccak256(message);
 
         vm.expectEmit();
-        emit ITeeOracleInstructionsSender.AdminsSet(teeId1, 1, adminsHash);
+        emit ITeeOracleInstructionsSender.AdminsSet(FEED_ID, teeId1, 1, adminsHash);
         vm.expectCall(
             flareTeeManager,
             0,
@@ -372,24 +425,24 @@ contract TeeOracleInstructionsSenderTest is Test {
             )
         );
         vm.prank(governance);
-        sender.setAdmins(_oneTee(), roles, claimBack);
+        sender.setAdmins(FEED_ID, _oneTee(), roles, claimBack);
 
-        assertEq(sender.adminsVersion(), 1);
-        assertEq(sender.expectedAdminsHash(teeId1), adminsHash);
-        assertEq(sender.expectedAdminsVersion(teeId1), 1);
+        assertEq(sender.adminsVersion(FEED_ID), 1);
+        assertEq(sender.expectedAdminsHash(FEED_ID, teeId1), adminsHash);
+        assertEq(sender.expectedAdminsVersion(FEED_ID, teeId1), 1);
         // endpoints and admins version independently
-        assertEq(sender.endpointsVersion(), 0);
+        assertEq(sender.endpointsVersion(FEED_ID), 0);
     }
 
     function testSetAdminsRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
-        sender.setAdmins(_oneTee(), _makeRoles(1, 1), claimBack);
+        sender.setAdmins(FEED_ID, _oneTee(), _makeRoles(1, 1), claimBack);
     }
 
     function testSetAdminsRevertNoRoles() public {
         vm.expectRevert(ITeeOracleInstructionsSender.NoRoles.selector);
         vm.prank(governance);
-        sender.setAdmins(_oneTee(), new ITeeOracleInstructionsSender.AdminRole[](0), claimBack);
+        sender.setAdmins(FEED_ID, _oneTee(), new ITeeOracleInstructionsSender.AdminRole[](0), claimBack);
     }
 
     function testSetAdminsRevertEmptyRole() public {
@@ -397,7 +450,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         roles[0].role = bytes32(0);
         vm.expectRevert(ITeeOracleInstructionsSender.EmptyRole.selector);
         vm.prank(governance);
-        sender.setAdmins(_oneTee(), roles, claimBack);
+        sender.setAdmins(FEED_ID, _oneTee(), roles, claimBack);
     }
 
     function testSetAdminsRevertDuplicateRole() public {
@@ -405,7 +458,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         roles[1].role = roles[0].role;
         vm.expectRevert(ITeeOracleInstructionsSender.DuplicateRole.selector);
         vm.prank(governance);
-        sender.setAdmins(_oneTee(), roles, claimBack);
+        sender.setAdmins(FEED_ID, _oneTee(), roles, claimBack);
     }
 
     function testSetAdminsRevertNoAdmins() public {
@@ -413,7 +466,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         roles[0].admins = new address[](0);
         vm.expectRevert(ITeeOracleInstructionsSender.NoAdmins.selector);
         vm.prank(governance);
-        sender.setAdmins(_oneTee(), roles, claimBack);
+        sender.setAdmins(FEED_ID, _oneTee(), roles, claimBack);
     }
 
     function testSetAdminsRevertZeroThreshold() public {
@@ -421,7 +474,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         roles[0].threshold = 0;
         vm.expectRevert(ITeeOracleInstructionsSender.InvalidThreshold.selector);
         vm.prank(governance);
-        sender.setAdmins(_oneTee(), roles, claimBack);
+        sender.setAdmins(FEED_ID, _oneTee(), roles, claimBack);
     }
 
     function testSetAdminsRevertThresholdAboveAdminCount() public {
@@ -429,7 +482,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         roles[0].threshold = 3;
         vm.expectRevert(ITeeOracleInstructionsSender.InvalidThreshold.selector);
         vm.prank(governance);
-        sender.setAdmins(_oneTee(), roles, claimBack);
+        sender.setAdmins(FEED_ID, _oneTee(), roles, claimBack);
     }
 
     function testSetAdminsRevertZeroAdmin() public {
@@ -437,7 +490,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         roles[0].admins[1] = address(0);
         vm.expectRevert(ITeeOracleInstructionsSender.ZeroAdmin.selector);
         vm.prank(governance);
-        sender.setAdmins(_oneTee(), roles, claimBack);
+        sender.setAdmins(FEED_ID, _oneTee(), roles, claimBack);
     }
 
     function testSetAdminsRevertDuplicateAdmin() public {
@@ -445,7 +498,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         roles[0].admins[1] = roles[0].admins[0];
         vm.expectRevert(ITeeOracleInstructionsSender.DuplicateAdmin.selector);
         vm.prank(governance);
-        sender.setAdmins(_oneTee(), roles, claimBack);
+        sender.setAdmins(FEED_ID, _oneTee(), roles, claimBack);
     }
 
     function testSetAdminsAllowsOverlappingRoles() public {
@@ -453,8 +506,48 @@ contract TeeOracleInstructionsSenderTest is Test {
         ITeeOracleInstructionsSender.AdminRole[] memory roles = _makeRoles(2, 1);
         roles[1].admins[0] = roles[0].admins[0];
         vm.prank(governance);
-        sender.setAdmins(_oneTee(), roles, claimBack);
-        assertEq(sender.adminsVersion(), 1);
+        sender.setAdmins(FEED_ID, _oneTee(), roles, claimBack);
+        assertEq(sender.adminsVersion(FEED_ID), 1);
+    }
+
+    // -------------------------------------------------------------------------
+    // feed discovery
+    // -------------------------------------------------------------------------
+
+    function testGetFeedIds() public {
+        assertEq(sender.getFeedIds().length, 0);
+        vm.startPrank(governance);
+        // one kind alone does not list the feed
+        sender.setAdmins(FEED_ID, _oneTee(), _makeRoles(1, 1), claimBack);
+        assertEq(sender.getFeedIds().length, 0);
+        // the feed appears once both kinds are published, regardless of order
+        sender.setEndpoints(FEED_ID, _oneTee(), _makeGroups(1, 1), claimBack);
+        assertEq(sender.getFeedIds().length, 1);
+        sender.setEndpoints(OTHER_FEED_ID, _oneTee(), _makeGroups(1, 1), claimBack);
+        assertEq(sender.getFeedIds().length, 1);
+        sender.setAdmins(OTHER_FEED_ID, _oneTee(), _makeRoles(1, 1), claimBack);
+        // repeat publications must not duplicate entries
+        sender.setEndpoints(OTHER_FEED_ID, _oneTee(), _makeGroups(1, 1), claimBack);
+        sender.setAdmins(OTHER_FEED_ID, _oneTee(), _makeRoles(1, 1), claimBack);
+        vm.stopPrank();
+        bytes21[] memory ids = sender.getFeedIds();
+        assertEq(ids.length, 2);
+        assertEq(ids[0], FEED_ID);
+        assertEq(ids[1], OTHER_FEED_ID);
+    }
+
+    function testIsTeeIdConfigured() public {
+        assertFalse(sender.isTeeIdConfigured(FEED_ID, teeId1));
+        vm.prank(governance);
+        sender.setEndpoints(FEED_ID, _oneTee(), _makeGroups(1, 1), claimBack);
+        // endpoints alone are not enough
+        assertFalse(sender.isTeeIdConfigured(FEED_ID, teeId1));
+        vm.prank(governance);
+        sender.setAdmins(FEED_ID, _oneTee(), _makeRoles(1, 1), claimBack);
+        assertTrue(sender.isTeeIdConfigured(FEED_ID, teeId1));
+        // per feed and per machine
+        assertFalse(sender.isTeeIdConfigured(OTHER_FEED_ID, teeId1));
+        assertFalse(sender.isTeeIdConfigured(FEED_ID, teeId2));
     }
 
     // -------------------------------------------------------------------------
@@ -465,13 +558,14 @@ contract TeeOracleInstructionsSenderTest is Test {
         _switchToProduction();
 
         ITeeOracleInstructionsSender.EndpointGroup[] memory groups = _makeGroups(1, 1);
-        bytes memory call = abi.encodeCall(sender.setEndpoints, (_oneTee(), groups, claimBack));
+        bytes memory call =
+            abi.encodeCall(sender.setEndpoints, (FEED_ID, _oneTee(), groups, claimBack));
 
         // recording does not execute the body
         vm.prank(productionGovernance);
         (bool ok,) = address(sender).call(call);
         assertTrue(ok);
-        assertEq(sender.endpointsVersion(), 0, "must not execute immediately");
+        assertEq(sender.endpointsVersion(FEED_ID), 0, "must not execute immediately");
 
         // the executor attaches the fee at execution time; it is forwarded to the dispatch
         vm.warp(vm.getBlockTimestamp() + TIMELOCK);
@@ -483,7 +577,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         );
         vm.prank(executor);
         IFlareGovernance(address(sender)).executeGovernanceCall{value: 13}(call);
-        assertEq(sender.endpointsVersion(), 1);
+        assertEq(sender.endpointsVersion(FEED_ID), 1);
     }
 
     function testSetEndpointsRecordingRevertsWithValue() public {
@@ -491,7 +585,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         vm.deal(productionGovernance, 1);
         vm.expectRevert(IFlareGovernance.TimelockValueNotAllowed.selector);
         vm.prank(productionGovernance);
-        sender.setEndpoints{value: 1}(_oneTee(), _makeGroups(1, 1), claimBack);
+        sender.setEndpoints{value: 1}(FEED_ID, _oneTee(), _makeGroups(1, 1), claimBack);
     }
 
     // -------------------------------------------------------------------------
@@ -500,16 +594,16 @@ contract TeeOracleInstructionsSenderTest is Test {
 
     function testUpgradeToAndCallPreservesState() public {
         vm.prank(governance);
-        sender.setEndpoints(_oneTee(), _makeGroups(1, 1), claimBack);
-        bytes32 endpointsHash = sender.expectedEndpointsHash(teeId1);
+        sender.setEndpoints(FEED_ID, _oneTee(), _makeGroups(1, 1), claimBack);
+        bytes32 endpointsHash = sender.expectedEndpointsHash(FEED_ID, teeId1);
 
         TeeOracleInstructionsSender newImpl = new TeeOracleInstructionsSender();
         vm.prank(governance);
         sender.upgradeToAndCall(address(newImpl), "");
         assertEq(sender.implementation(), address(newImpl));
         assertEq(sender.extensionId(), EXTENSION_ID);
-        assertEq(sender.endpointsVersion(), 1);
-        assertEq(sender.expectedEndpointsHash(teeId1), endpointsHash);
+        assertEq(sender.endpointsVersion(FEED_ID), 1);
+        assertEq(sender.expectedEndpointsHash(FEED_ID, teeId1), endpointsHash);
     }
 
     function testUpgradeToAndCallRevertOnlyGovernance() public {
@@ -614,12 +708,11 @@ contract TeeOracleInstructionsSenderTest is Test {
         );
     }
 
-    function _mockGetRandomTeeIds(address[] memory _teeIds) private {
-        vm.mockCall(
-            flareTeeManager,
-            abi.encodeWithSelector(IMachineManager.getRandomTeeIds.selector, EXTENSION_ID, 1),
-            abi.encode(_teeIds)
-        );
+    function _configureFeed(bytes21 _feedId, address[] memory _teeIds) private {
+        vm.startPrank(governance);
+        sender.setEndpoints(_feedId, _teeIds, _makeGroups(1, 1), claimBack);
+        sender.setAdmins(_feedId, _teeIds, _makeRoles(1, 1), claimBack);
+        vm.stopPrank();
     }
 
     function _mockGetExtensionId(address _teeId, uint256 _extensionId) private {

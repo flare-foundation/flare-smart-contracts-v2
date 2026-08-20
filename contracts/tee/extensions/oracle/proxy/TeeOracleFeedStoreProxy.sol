@@ -16,8 +16,6 @@ contract TeeOracleFeedStoreProxy is ERC1967Proxy {
         address _addressUpdater,
         ITeeOracleInstructionsSender _instructionsSender,
         bytes21 _feedId,
-        uint64 _maxAge,
-        uint64 _maxFutureSkew,
         address _feeDestination,
         address _implementationAddress
     )
@@ -30,8 +28,6 @@ contract TeeOracleFeedStoreProxy is ERC1967Proxy {
                     _addressUpdater,
                     _instructionsSender,
                     _feedId,
-                    _maxAge,
-                    _maxFutureSkew,
                     _feeDestination
                 )
             )

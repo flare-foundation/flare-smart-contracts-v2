@@ -30,8 +30,6 @@ contract TeeOracleFeedStoreTest is Test {
 
     uint256 private constant EXTENSION_ID = 1;
     bytes21 private constant FEED_ID = bytes21(bytes.concat(bytes1(uint8(0x20)), bytes("USDX/USD")));
-    uint64 private constant MAX_AGE = 1 hours;
-    uint64 private constant MAX_FUTURE_SKEW = 2 minutes;
     uint256 private constant FEE = 5;
     bytes32 private constant ENDPOINTS_HASH = keccak256("endpoints");
     bytes32 private constant ADMINS_HASH = keccak256("admins");
@@ -78,8 +76,6 @@ contract TeeOracleFeedStoreTest is Test {
             addressUpdater,
             ITeeOracleInstructionsSender(instructionsSender),
             FEED_ID,
-            MAX_AGE,
-            MAX_FUTURE_SKEW,
             feeDestination,
             address(feedStoreImpl)
         );
@@ -113,8 +109,6 @@ contract TeeOracleFeedStoreTest is Test {
         assertEq(feedStore.extensionId(), EXTENSION_ID);
         assertEq(address(feedStore.instructionsSender()), instructionsSender);
         assertEq(feedStore.feedId(), FEED_ID);
-        assertEq(feedStore.maxAge(), MAX_AGE);
-        assertEq(feedStore.maxFutureSkew(), MAX_FUTURE_SKEW);
         assertEq(feedStore.feeDestination(), feeDestination);
         assertEq(feedStore.observedAt(), 0);
         assertEq(feedStore.governance(), governance);
@@ -125,8 +119,6 @@ contract TeeOracleFeedStoreTest is Test {
         vm.expectEmit();
         emit ITeeOracleFeedStore.FeedStoreInitialised(instructionsSender, EXTENSION_ID, FEED_ID);
         vm.expectEmit();
-        emit ITeeOracleFeedStore.AcceptanceWindowSet(MAX_AGE, MAX_FUTURE_SKEW);
-        vm.expectEmit();
         emit ITeeOracleFeedStore.FeeDestinationSet(feeDestination);
         new TeeOracleFeedStoreProxy(
             governanceSettings,
@@ -134,8 +126,6 @@ contract TeeOracleFeedStoreTest is Test {
             addressUpdater,
             ITeeOracleInstructionsSender(instructionsSender),
             FEED_ID,
-            MAX_AGE,
-            MAX_FUTURE_SKEW,
             feeDestination,
             address(feedStoreImpl)
         );
@@ -149,8 +139,6 @@ contract TeeOracleFeedStoreTest is Test {
             addressUpdater,
             ITeeOracleInstructionsSender(address(0)),
             FEED_ID,
-            MAX_AGE,
-            MAX_FUTURE_SKEW,
             feeDestination,
             address(feedStoreImpl)
         );
@@ -166,8 +154,6 @@ contract TeeOracleFeedStoreTest is Test {
             addressUpdater,
             ITeeOracleInstructionsSender(instructionsSender),
             badFeedId,
-            MAX_AGE,
-            MAX_FUTURE_SKEW,
             feeDestination,
             address(feedStoreImpl)
         );
@@ -181,8 +167,6 @@ contract TeeOracleFeedStoreTest is Test {
             addressUpdater,
             ITeeOracleInstructionsSender(instructionsSender),
             FEED_ID,
-            MAX_AGE,
-            MAX_FUTURE_SKEW,
             address(0),
             address(feedStoreImpl)
         );
@@ -198,8 +182,6 @@ contract TeeOracleFeedStoreTest is Test {
             addressUpdater,
             ITeeOracleInstructionsSender(instructionsSender),
             FEED_ID,
-            MAX_AGE,
-            MAX_FUTURE_SKEW,
             feeDestination,
             address(feedStoreImpl)
         );
@@ -213,8 +195,6 @@ contract TeeOracleFeedStoreTest is Test {
             addressUpdater,
             ITeeOracleInstructionsSender(instructionsSender),
             FEED_ID,
-            MAX_AGE,
-            MAX_FUTURE_SKEW,
             feeDestination
         );
     }
@@ -227,8 +207,6 @@ contract TeeOracleFeedStoreTest is Test {
             addressUpdater,
             ITeeOracleInstructionsSender(instructionsSender),
             FEED_ID,
-            MAX_AGE,
-            MAX_FUTURE_SKEW,
             feeDestination
         );
     }
@@ -238,7 +216,7 @@ contract TeeOracleFeedStoreTest is Test {
     // -------------------------------------------------------------------------
 
     function testSubmitFeedUpdate() public {
-        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = _makeFeedUpdate(123456, 4, _now());
+        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = _makeFeedUpdate(123456, 4, _now() - 1);
 
         // the store must verify against the exact SignedPayload digest of the update
         vm.expectCall(
@@ -251,40 +229,40 @@ contract TeeOracleFeedStoreTest is Test {
             )
         );
         vm.expectEmit();
-        emit ITeeOracleFeedStore.FeedUpdated(123456, 4, _now(), teeId);
+        emit ITeeOracleFeedStore.FeedUpdated(123456, 4, _now() - 1, teeId);
         feedStore.submitFeedUpdate(feedUpdate, signature);
 
-        assertEq(feedStore.observedAt(), _now());
+        assertEq(feedStore.observedAt(), _now() - 1);
         (int256 value, int8 decimals, uint64 timestamp) = feedStore.getCurrentFeed{value: FEE}();
         assertEq(value, 123456);
         assertEq(decimals, 4);
-        assertEq(timestamp, _now());
+        assertEq(timestamp, _now() - 1);
     }
 
     function testSubmitFeedUpdateNegativeValue() public {
-        _submit(-42, -3, _now());
+        _submit(-42, -3, _now() - 1);
         (int256 value, int8 decimals,) = feedStore.getCurrentFeed{value: FEE}();
         assertEq(value, -42);
         assertEq(decimals, -3);
     }
 
     function testSubmitFeedUpdateDynamicDecimals() public {
-        _submit(123456, 4, _now());
-        _submit(1234567, 5, _now() + 1);
+        _submit(123456, 4, _now() - 2);
+        _submit(1234567, 5, _now() - 1);
         (int256 value, int8 decimals,) = feedStore.getCurrentFeed{value: FEE}();
         assertEq(value, 1234567);
         assertEq(decimals, 5);
     }
 
     function testSubmitFeedUpdateRevertWrongExtensionId() public {
-        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = _makeFeedUpdate(1, 0, _now());
+        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = _makeFeedUpdate(1, 0, _now() - 1);
         feedUpdate.extensionId = EXTENSION_ID + 1;
         vm.expectRevert(ITeeOracleFeedStore.WrongExtensionId.selector);
         feedStore.submitFeedUpdate(feedUpdate, signature);
     }
 
     function testSubmitFeedUpdateRevertWrongFeedId() public {
-        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = _makeFeedUpdate(1, 0, _now());
+        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = _makeFeedUpdate(1, 0, _now() - 1);
         feedUpdate.feedId = bytes21(bytes.concat(bytes1(uint8(0x21)), bytes("OTHER")));
         vm.expectRevert(ITeeOracleFeedStore.WrongFeedId.selector);
         feedStore.submitFeedUpdate(feedUpdate, signature);
@@ -293,25 +271,25 @@ contract TeeOracleFeedStoreTest is Test {
     function testSubmitFeedUpdateRevertNoEndpointsPublished() public {
         _mockExpectedEndpointsHash(teeId, bytes32(0));
         vm.expectRevert(ITeeOracleFeedStore.NoEndpointsPublished.selector);
-        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now()), signature);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
     }
 
     function testSubmitFeedUpdateRevertStaleEndpoints() public {
         _mockExpectedEndpointsHash(teeId, keccak256("newer endpoints"));
         vm.expectRevert(ITeeOracleFeedStore.StaleEndpoints.selector);
-        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now()), signature);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
     }
 
     function testSubmitFeedUpdateRevertNoAdminsPublished() public {
         _mockExpectedAdminsHash(teeId, bytes32(0));
         vm.expectRevert(ITeeOracleFeedStore.NoAdminsPublished.selector);
-        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now()), signature);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
     }
 
     function testSubmitFeedUpdateRevertStaleAdmins() public {
         _mockExpectedAdminsHash(teeId, keccak256("newer admins"));
         vm.expectRevert(ITeeOracleFeedStore.StaleAdmins.selector);
-        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now()), signature);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
     }
 
     function testSubmitFeedUpdatePerMachineCommitments() public {
@@ -322,47 +300,55 @@ contract TeeOracleFeedStoreTest is Test {
         _mockExpectedEndpointsHash(otherTeeId, keccak256("newer endpoints"));
         _mockExpectedAdminsHash(otherTeeId, ADMINS_HASH);
         vm.expectRevert(ITeeOracleFeedStore.StaleEndpoints.selector);
-        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now()), signature);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
     }
 
     function testSubmitFeedUpdateRevertNotNewerSameTimestamp() public {
-        _submit(1, 0, _now());
-        vm.expectRevert(ITeeOracleFeedStore.NotNewer.selector);
-        feedStore.submitFeedUpdate(_makeFeedUpdate(2, 0, _now()), signature);
-    }
-
-    function testSubmitFeedUpdateRevertNotNewerOlderTimestamp() public {
-        _submit(1, 0, _now());
+        _submit(1, 0, _now() - 1);
         vm.expectRevert(ITeeOracleFeedStore.NotNewer.selector);
         feedStore.submitFeedUpdate(_makeFeedUpdate(2, 0, _now() - 1), signature);
     }
 
-    function testSubmitFeedUpdateAcceptsAtFutureSkewBoundary() public {
-        _submit(1, 0, _now() + MAX_FUTURE_SKEW);
-        assertEq(feedStore.observedAt(), _now() + MAX_FUTURE_SKEW);
+    function testSubmitFeedUpdateRevertNotNewerOlderTimestamp() public {
+        _submit(1, 0, _now() - 1);
+        vm.expectRevert(ITeeOracleFeedStore.NotNewer.selector);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(2, 0, _now() - 2), signature);
+    }
+
+    function testSubmitFeedUpdateAcceptsFreshestObservation() public {
+        // the freshest acceptable observation is one second old - the observation event
+        // and the update submission cannot land in the same block
+        _submit(1, 0, _now() - 1);
+        assertEq(feedStore.observedAt(), _now() - 1);
+    }
+
+    function testSubmitFeedUpdateRevertAtChainTime() public {
+        // an observation stamped at (or after) chain time is invalid input — the round
+        // trip through the machine cannot complete within one block, and a future-dated
+        // update would freeze the feed irreversibly (observedAt ratchet)
+        vm.expectRevert(ITeeOracleFeedStore.TooFarAhead.selector);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now()), signature);
     }
 
     function testSubmitFeedUpdateRevertTooFarAhead() public {
         vm.expectRevert(ITeeOracleFeedStore.TooFarAhead.selector);
-        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() + MAX_FUTURE_SKEW + 1), signature);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() + 1), signature);
     }
 
-    function testSubmitFeedUpdateAcceptsAtMaxAgeBoundary() public {
-        _submit(1, 0, _now() - MAX_AGE);
-        assertEq(feedStore.observedAt(), _now() - MAX_AGE);
+    function testSubmitFeedUpdateAcceptsOldObservation() public {
+        // any increasing timestamp is acceptable - staleness is the consumer's check
+        _submit(1, 0, _now() - 30 days);
+        assertEq(feedStore.observedAt(), _now() - 30 days);
     }
 
-    function testSubmitFeedUpdateRevertTooOld() public {
-        vm.expectRevert(ITeeOracleFeedStore.TooOld.selector);
-        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - MAX_AGE - 1), signature);
-    }
-
-    function testSubmitFeedUpdateHeldBackUpdateExpires() public {
-        // an update signed now but withheld past maxAge is no longer submittable
-        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = _makeFeedUpdate(1, 0, _now());
-        vm.warp(_now() + MAX_AGE + 1);
-        vm.expectRevert(ITeeOracleFeedStore.TooOld.selector);
+    function testSubmitFeedUpdateHeldBackUpdateStaysSubmittable() public {
+        // a withheld update stays submittable; consumers see its true (old) timestamp
+        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = _makeFeedUpdate(1, 0, _now() - 1);
+        uint64 signedAt = _now() - 1;
+        vm.warp(_now() + 30 days);
         feedStore.submitFeedUpdate(feedUpdate, signature);
+        (,, uint64 timestamp) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(timestamp, signedAt);
     }
 
     function testSubmitFeedUpdateVerifierRevertBubbles() public {
@@ -373,13 +359,13 @@ contract TeeOracleFeedStoreTest is Test {
             abi.encodeWithSignature("InvalidTeeMachineExtensionId()")
         );
         vm.expectRevert(abi.encodeWithSignature("InvalidTeeMachineExtensionId()"));
-        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now()), signature);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
     }
 
     function testSubmitFeedUpdateRejectedUpdateStoresNothing() public {
-        _submit(1, 0, _now());
+        _submit(1, 0, _now() - 1);
         vm.expectRevert(ITeeOracleFeedStore.NotNewer.selector);
-        feedStore.submitFeedUpdate(_makeFeedUpdate(999, 9, _now()), signature);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(999, 9, _now() - 1), signature);
         (int256 value, int8 decimals,) = feedStore.getCurrentFeed{value: FEE}();
         assertEq(value, 1);
         assertEq(decimals, 0);
@@ -395,13 +381,13 @@ contract TeeOracleFeedStoreTest is Test {
     }
 
     function testGetCurrentFeedRevertFeeTooLow() public {
-        _submit(1, 0, _now());
+        _submit(1, 0, _now() - 1);
         vm.expectRevert(ITeeOracleFeedStore.FeeTooLow.selector);
         feedStore.getCurrentFeed{value: FEE - 1}();
     }
 
     function testGetCurrentFeedForwardsEntireValue() public {
-        _submit(1, 0, _now());
+        _submit(1, 0, _now() - 1);
         feedStore.getCurrentFeed{value: FEE + 7}();
         // no refund of overpayment - nothing accumulates on the store
         assertEq(feeDestination.balance, FEE + 7);
@@ -410,29 +396,19 @@ contract TeeOracleFeedStoreTest is Test {
 
     function testGetCurrentFeedZeroFeeZeroValue() public {
         _mockCalculateFee(0);
-        _submit(1, 0, _now());
+        _submit(1, 0, _now() - 1);
         (int256 value,,) = feedStore.getCurrentFeed();
         assertEq(value, 1);
         assertEq(feeDestination.balance, 0);
     }
 
     function testGetCurrentFeedRevertFeeTransferFailed() public {
-        _submit(1, 0, _now());
+        _submit(1, 0, _now() - 1);
         address rejecting = address(new RejectingReceiver());
         vm.prank(governance);
         feedStore.setFeeDestination(rejecting);
         vm.expectRevert(ITeeOracleFeedStore.FeeTransferFailed.selector);
         feedStore.getCurrentFeed{value: FEE}();
-    }
-
-    function testGetCurrentFeedClampsFutureTimestamp() public {
-        _submit(1, 0, _now() + MAX_FUTURE_SKEW);
-        (,, uint64 timestamp) = feedStore.getCurrentFeed{value: FEE}();
-        assertEq(timestamp, _now());
-        // once chain time catches up, the true timestamp is served
-        vm.warp(_now() + MAX_FUTURE_SKEW + 10);
-        (,, timestamp) = feedStore.getCurrentFeed{value: FEE}();
-        assertEq(timestamp, 1_700_000_000 + MAX_FUTURE_SKEW);
     }
 
     function testCalculateFee() public {
@@ -448,20 +424,6 @@ contract TeeOracleFeedStoreTest is Test {
     // -------------------------------------------------------------------------
     // governance setters
     // -------------------------------------------------------------------------
-
-    function testSetAcceptanceWindow() public {
-        vm.expectEmit();
-        emit ITeeOracleFeedStore.AcceptanceWindowSet(2 hours, 5 minutes);
-        vm.prank(governance);
-        feedStore.setAcceptanceWindow(2 hours, 5 minutes);
-        assertEq(feedStore.maxAge(), 2 hours);
-        assertEq(feedStore.maxFutureSkew(), 5 minutes);
-    }
-
-    function testSetAcceptanceWindowRevertOnlyGovernance() public {
-        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
-        feedStore.setAcceptanceWindow(2 hours, 5 minutes);
-    }
 
     function testSetFeeDestination() public {
         address newDestination = makeAddr("newDestination");
@@ -487,20 +449,20 @@ contract TeeOracleFeedStoreTest is Test {
     // governance timelock (production mode)
     // -------------------------------------------------------------------------
 
-    function testSetAcceptanceWindowTimelocked() public {
+    function testSetFeeDestinationTimelocked() public {
         _switchToProduction();
 
-        bytes memory call = abi.encodeCall(feedStore.setAcceptanceWindow, (2 hours, 5 minutes));
+        address newDestination = makeAddr("newDestination");
+        bytes memory call = abi.encodeCall(feedStore.setFeeDestination, (newDestination));
         vm.prank(productionGovernance);
         (bool ok,) = address(feedStore).call(call);
         assertTrue(ok);
-        assertEq(feedStore.maxAge(), MAX_AGE, "must not execute immediately");
+        assertEq(feedStore.feeDestination(), feeDestination, "must not execute immediately");
 
         vm.warp(vm.getBlockTimestamp() + TIMELOCK);
         vm.prank(executor);
         IFlareGovernance(address(feedStore)).executeGovernanceCall(call);
-        assertEq(feedStore.maxAge(), 2 hours);
-        assertEq(feedStore.maxFutureSkew(), 5 minutes);
+        assertEq(feedStore.feeDestination(), newDestination);
     }
 
     // -------------------------------------------------------------------------
@@ -508,7 +470,7 @@ contract TeeOracleFeedStoreTest is Test {
     // -------------------------------------------------------------------------
 
     function testUpgradeToAndCallPreservesState() public {
-        _submit(77, 2, _now());
+        _submit(77, 2, _now() - 1);
         TeeOracleFeedStore newImpl = new TeeOracleFeedStore();
         vm.prank(governance);
         feedStore.upgradeToAndCall(address(newImpl), "");
@@ -582,7 +544,9 @@ contract TeeOracleFeedStoreTest is Test {
     function _mockExpectedEndpointsHash(address _teeId, bytes32 _hash) private {
         vm.mockCall(
             instructionsSender,
-            abi.encodeWithSelector(ITeeOracleInstructionsSender.expectedEndpointsHash.selector, _teeId),
+            abi.encodeWithSelector(
+                ITeeOracleInstructionsSender.expectedEndpointsHash.selector, FEED_ID, _teeId
+            ),
             abi.encode(_hash)
         );
     }
@@ -590,7 +554,9 @@ contract TeeOracleFeedStoreTest is Test {
     function _mockExpectedAdminsHash(address _teeId, bytes32 _hash) private {
         vm.mockCall(
             instructionsSender,
-            abi.encodeWithSelector(ITeeOracleInstructionsSender.expectedAdminsHash.selector, _teeId),
+            abi.encodeWithSelector(
+                ITeeOracleInstructionsSender.expectedAdminsHash.selector, FEED_ID, _teeId
+            ),
             abi.encode(_hash)
         );
     }

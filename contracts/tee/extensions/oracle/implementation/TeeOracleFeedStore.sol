@@ -24,7 +24,8 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * is open; trust is the TEE signature (verified through `Fdc2Verification` against the
  * extension id read from the instructions sender — PRODUCTION status and the extension
  * emergency pause included) plus the configuration commitments the sender publishes.
- * Strictly increasing `observedAt` covers replay and out-of-order delivery, and the
+ * Strictly increasing, never-future `observedAt` covers replay and out-of-order delivery
+ * (observations are stamped with an on-chain event timestamp inside the enclave), and the
  * signed feed update is bound to this exact feed via its `extensionId` and `feedId` fields.
  *
  * The store itself implements the FTSO custom feed interface (`IICustomFeed`), so it is
@@ -51,7 +52,7 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
     /// cannot diverge, and a local read is cheaper than an external call per update.
     uint256 public extensionId;
 
-    // The feed state below packs into a single storage slot (29 bytes), so an accepted
+    // The feed state below packs into a single storage slot (13 bytes), so an accepted
     // update is a single storage write. The value and decimals are internal — reading
     // the feed is paid, through getCurrentFeed (the fee gates on-chain consumers;
     // off-chain readers can always inspect storage directly).
@@ -60,14 +61,9 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
     /// Fixed-point decimal scale of the latest accepted value; dynamic per update —
     /// the enclave picks it so the value fits int32.
     int8 internal decimals;
-    /// Timestamp of the latest accepted observation; must strictly increase.
+    /// Timestamp of the latest accepted observation; strictly increasing and always
+    /// strictly in the past.
     uint64 public observedAt;
-    /// Maximum update age at submission time (past direction of the acceptance window).
-    uint64 public maxAge;
-    /// Max clock drift allowed for future-dated updates. Kept tight: a future-dated
-    /// observation freezes the feed (nothing can beat it) and reads as fresh until
-    /// chain time catches up.
-    uint64 public maxFutureSkew;
 
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
@@ -85,8 +81,6 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
      * @param _feedId The FTSO feed id; the category (first byte) must be in the custom
      * range [0x20, 0x40), checked here so a bad id fails at deploy time rather than inside
      * a timelocked `FtsoV2.addCustomFeeds` execution.
-     * @param _maxAge The maximum update age at submission time, in seconds.
-     * @param _maxFutureSkew The max clock drift allowed for future-dated updates, in seconds.
      * @param _feeDestination The destination address collected read fees are forwarded to.
      */
     function initialize(
@@ -95,8 +89,6 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         address _addressUpdater,
         ITeeOracleInstructionsSender _instructionsSender,
         bytes21 _feedId,
-        uint64 _maxAge,
-        uint64 _maxFutureSkew,
         address _feeDestination
     )
         external
@@ -114,11 +106,8 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         extensionId = senderExtensionId;
         instructionsSender = _instructionsSender;
         feedId = _feedId;
-        maxAge = _maxAge;
-        maxFutureSkew = _maxFutureSkew;
         feeDestination = _feeDestination;
         emit FeedStoreInitialised(address(_instructionsSender), senderExtensionId, _feedId);
-        emit AcceptanceWindowSet(_maxAge, _maxFutureSkew);
         emit FeeDestinationSet(_feeDestination);
     }
 
@@ -142,31 +131,31 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
 
         // The signed update must name this exact feed — the feed id binding prevents
         // replaying an update onto another feed served by the same extension.
+        bytes21 feedId_ = feedId;
         require(_feedUpdate.extensionId == extensionId, WrongExtensionId());
-        require(_feedUpdate.feedId == feedId, WrongFeedId());
+        require(_feedUpdate.feedId == feedId_, WrongFeedId());
 
-        // The machine must prove it runs the latest published configuration and admin sets.
-        // The admin sets decide who may install credentials in the enclave, so they are
-        // checked on the same terms as the endpoints.
+        // The machine must prove it runs this feed's latest published configuration and
+        // admin sets. The admin sets decide who may install credentials in the enclave,
+        // so they are checked on the same terms as the endpoints.
         ITeeOracleInstructionsSender sender = instructionsSender; // used more than once
-        bytes32 expected = sender.expectedEndpointsHash(teeId);
+        bytes32 expected = sender.expectedEndpointsHash(feedId_, teeId);
         require(expected != bytes32(0), NoEndpointsPublished());
         require(_feedUpdate.endpointsHash == expected, StaleEndpoints());
 
-        bytes32 expectedAdmins = sender.expectedAdminsHash(teeId);
+        bytes32 expectedAdmins = sender.expectedAdminsHash(feedId_, teeId);
         require(expectedAdmins != bytes32(0), NoAdminsPublished());
         require(_feedUpdate.adminsHash == expectedAdmins, StaleAdmins());
 
         // Strictly increasing observedAt covers replay and out-of-order delivery.
         require(_feedUpdate.observedAt > observedAt, NotNewer());
 
-        // Reject updates too far in the future; observedAt only ratchets up.
-        require(_feedUpdate.observedAt <= block.timestamp + maxFutureSkew, TooFarAhead());
-
-        // Inside the skew window, age is zero; also prevents subtraction underflow.
-        if (_feedUpdate.observedAt < block.timestamp) {
-            require(block.timestamp - _feedUpdate.observedAt <= maxAge, TooOld());
-        }
+        // Observations are stamped with the timestamp of an emitted on-chain event, and
+        // the round trip to the machine and back cannot complete within one block, so an
+        // acceptable observation is always strictly older than the accepting block.
+        // observedAt only ratchets up, so without this check a future-dated update would
+        // freeze the feed irreversibly.
+        require(_feedUpdate.observedAt < block.timestamp, TooFarAhead());
 
         value = _feedUpdate.value;
         decimals = _feedUpdate.decimals;
@@ -182,9 +171,9 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
      * so nothing ever accumulates on this contract (same semantics as the TEE
      * instructions fee). Reverts with `NoValuePublished` until the first feed update lands —
      * an unpublished store must not read as "value 0" to consumers that skip staleness
-     * checks. Stale values are returned with their true timestamp (staleness is the
-     * consumer's check, as with every FTSO feed), clamped to `block.timestamp` so consumer
-     * staleness checks cannot underflow. The value is signed — negative values flow through
+     * checks. Stale values are returned with their true timestamp — staleness is the
+     * consumer's check, as with every FTSO feed, and the timestamp is always strictly
+     * below `block.timestamp` (enforced at submission). The value is signed — negative values flow through
      * `FtsoV2.getCurrentFeeds`; FtsoV2's unsigned read paths reject them there.
      */
     function getCurrentFeed()
@@ -202,22 +191,7 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         require(observedAt_ != 0, NoValuePublished());
         _value = value;
         _decimals = decimals;
-        _timestamp = observedAt_ > block.timestamp ? uint64(block.timestamp) : observedAt_;
-    }
-
-    /**
-     * @inheritdoc IITeeOracleFeedStore
-     */
-    function setAcceptanceWindow(
-        uint64 _maxAge,
-        uint64 _maxFutureSkew
-    )
-        external
-        onlyGovernance
-    {
-        maxAge = _maxAge;
-        maxFutureSkew = _maxFutureSkew;
-        emit AcceptanceWindowSet(_maxAge, _maxFutureSkew);
+        _timestamp = observedAt_;
     }
 
     /**

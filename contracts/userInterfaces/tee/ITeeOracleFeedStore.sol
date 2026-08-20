@@ -15,9 +15,10 @@ bytes32 constant TEE_ORACLE_FEED = bytes32("TEE_ORACLE_FEED");
  * @dev Accepts TEE-signed feed updates and stores the latest one. Submission is open;
  *      trust is the TEE signature (verified through `IFdc2Verification` against the
  *      extension id read from the instructions sender) plus the configuration
- *      commitments the sender publishes. Strictly increasing `observedAt` covers replay
- *      and out-of-order delivery, and the signed feed update is bound to this exact feed via
- *      its `extensionId` and `feedId` fields. The concrete store also implements the
+ *      commitments the sender publishes. Strictly increasing, never-future `observedAt`
+ *      covers replay and out-of-order delivery (observations are stamped with an on-chain
+ *      event timestamp inside the enclave), and the signed feed update is bound to this
+ *      exact feed via its `extensionId` and `feedId` fields. The concrete store also implements the
  *      FTSO custom feed interface (`IICustomFeed`: `getCurrentFeed` / `feedId` /
  *      `calculateFee`), so it is registered with FtsoV2 directly — no separate adapter
  *      contract. Reading is payable like every other feed: `calculateFee` resolves
@@ -39,7 +40,8 @@ interface ITeeOracleFeedStore {
      * representation — the enclave picks `decimals` so the value fits).
      * @param decimals The update's fixed-point decimal scale; stored alongside the value,
      * so the scale is dynamic per update.
-     * @param observedAt The observation timestamp, from inside the enclave; must strictly increase.
+     * @param observedAt The observation timestamp — the timestamp of an emitted on-chain
+     * event, so always strictly in the past at submission; must strictly increase.
      * @param endpointsHash The endpoints payload hash the machine was running.
      * @param adminsHash The admin-sets hash the machine was running.
      */
@@ -64,9 +66,6 @@ interface ITeeOracleFeedStore {
     /// Emitted when a feed update is accepted and the stored value updates.
     event FeedUpdated(int32 indexed value, int8 decimals, uint64 indexed observedAt, address indexed teeId);
 
-    /// Emitted when the acceptance window changes.
-    event AcceptanceWindowSet(uint64 maxAge, uint64 maxFutureSkew);
-
     /// Emitted when the fee destination changes.
     event FeeDestinationSet(address feeDestination);
 
@@ -75,7 +74,6 @@ interface ITeeOracleFeedStore {
     error ZeroExtensionId();
     error NotNewer();
     error TooFarAhead();
-    error TooOld();
     error FeeTooLow();
     error FeeTransferFailed();
     error ZeroAddress();
@@ -91,8 +89,9 @@ interface ITeeOracleFeedStore {
      * The signer must be a PRODUCTION-status TEE machine on the store's extension
      * (verified through `IFdc2Verification.verifyTeeSignature`, which also rejects
      * submissions while the extension is emergency paused), the update must name this
-     * store's extension id and feed id, and it must carry the configuration commitments
-     * currently published for that machine.
+     * store's extension id and feed id, it must carry the configuration commitments
+     * currently published for that machine, and its observation timestamp must strictly
+     * increase and be strictly older than the accepting block.
      * @param _feedUpdate The feed update, exactly as signed.
      * @param _signature The TEE signature over the update.
      */
@@ -135,20 +134,4 @@ interface ITeeOracleFeedStore {
         external view
         returns (uint64);
 
-    /**
-     * Returns the maximum update age at submission time — bounds how long a withheld
-     * signed update stays submittable (selective-submission window).
-     */
-    function maxAge()
-        external view
-        returns (uint64);
-
-    /**
-     * Returns the max clock drift allowed for future-dated updates. Kept tight: a
-     * future-dated observation freezes the feed (nothing can beat it) and reads as
-     * fresh until chain time catches up.
-     */
-    function maxFutureSkew()
-        external view
-        returns (uint64);
 }

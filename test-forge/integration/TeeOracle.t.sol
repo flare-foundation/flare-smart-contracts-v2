@@ -90,8 +90,6 @@ contract TeeOracleIntegrationTest is Test {
 
     uint256 private constant EXTENSION_ID = 1;
     bytes21 private constant FEED_ID = bytes21(bytes.concat(bytes1(uint8(0x20)), bytes("USDX/USD")));
-    uint64 private constant MAX_AGE = 1 hours;
-    uint64 private constant MAX_FUTURE_SKEW = 2 minutes;
     uint256 private constant INSTRUCTION_FEE = 1000; // diamond default fee
     uint256 private constant READ_FEE = 3;
 
@@ -233,8 +231,6 @@ contract TeeOracleIntegrationTest is Test {
             addressUpdater,
             ITeeOracleInstructionsSender(address(sender)),
             FEED_ID,
-            MAX_AGE,
-            MAX_FUTURE_SKEW,
             feeDestination,
             address(feedStoreImpl)
         )));
@@ -270,19 +266,20 @@ contract TeeOracleIntegrationTest is Test {
         teeIds[0] = teeId;
         vm.deal(initialGovernance, 2 * INSTRUCTION_FEE);
         vm.startPrank(initialGovernance);
-        sender.setEndpoints{value: INSTRUCTION_FEE}(teeIds, _makeGroups(), claimBack);
-        sender.setAdmins{value: INSTRUCTION_FEE}(teeIds, _makeRoles(), claimBack);
+        sender.setEndpoints{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeGroups(), claimBack);
+        sender.setAdmins{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeRoles(), claimBack);
         vm.stopPrank();
-        assertEq(sender.expectedEndpointsVersion(teeId), 1);
-        assertEq(sender.expectedAdminsVersion(teeId), 1);
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId), 1);
+        assertEq(sender.expectedAdminsVersion(FEED_ID, teeId), 1);
         // the whole instruction fee reached the reward manager
         assertEq(rewardManager.balance, 2 * INSTRUCTION_FEE);
 
-        // 2. anyone requests a feed update; the diamond selects the machine
+        // 2. anyone requests a feed update from the configured machine
         address requester = makeAddr("requester");
         vm.deal(requester, INSTRUCTION_FEE);
         vm.prank(requester);
-        bytes32 instructionId = sender.requestFeedUpdate{value: INSTRUCTION_FEE}();
+        bytes32 instructionId =
+            sender.requestFeedUpdate{value: INSTRUCTION_FEE}(FEED_ID, teeIds);
         assertNotEq(instructionId, bytes32(0));
 
         // 3. the machine answers with a signed feed update carrying its current commitments
@@ -291,9 +288,9 @@ contract TeeOracleIntegrationTest is Test {
             feedId: FEED_ID,
             value: 99954321,
             decimals: 8,
-            observedAt: uint64(vm.getBlockTimestamp()),
-            endpointsHash: sender.expectedEndpointsHash(teeId),
-            adminsHash: sender.expectedAdminsHash(teeId)
+            observedAt: uint64(vm.getBlockTimestamp()) - 1,
+            endpointsHash: sender.expectedEndpointsHash(FEED_ID, teeId),
+            adminsHash: sender.expectedAdminsHash(FEED_ID, teeId)
         });
         feedStore.submitFeedUpdate(feedUpdate, _sign(feedUpdate));
 
@@ -301,7 +298,7 @@ contract TeeOracleIntegrationTest is Test {
         (int256 value, int8 decimals, uint64 timestamp) = feedStore.getCurrentFeed{value: READ_FEE}();
         assertEq(value, 99954321);
         assertEq(decimals, 8);
-        assertEq(timestamp, uint64(vm.getBlockTimestamp()));
+        assertEq(timestamp, uint64(vm.getBlockTimestamp()) - 1);
         assertEq(feeDestination.balance, READ_FEE);
     }
 
@@ -314,7 +311,7 @@ contract TeeOracleIntegrationTest is Test {
             feedId: FEED_ID,
             value: 1,
             decimals: 0,
-            observedAt: uint64(vm.getBlockTimestamp()),
+            observedAt: uint64(vm.getBlockTimestamp()) - 1,
             endpointsHash: keccak256("endpoints"),
             adminsHash: keccak256("admins")
         });
@@ -332,8 +329,8 @@ contract TeeOracleIntegrationTest is Test {
         teeIds[0] = teeId;
         vm.deal(initialGovernance, 2 * INSTRUCTION_FEE);
         vm.startPrank(initialGovernance);
-        sender.setEndpoints{value: INSTRUCTION_FEE}(teeIds, _makeGroups(), claimBack);
-        sender.setAdmins{value: INSTRUCTION_FEE}(teeIds, _makeRoles(), claimBack);
+        sender.setEndpoints{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeGroups(), claimBack);
+        sender.setAdmins{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeRoles(), claimBack);
         vm.stopPrank();
 
         ITeeOracleFeedStore.FeedUpdate memory feedUpdate = ITeeOracleFeedStore.FeedUpdate({
@@ -341,9 +338,9 @@ contract TeeOracleIntegrationTest is Test {
             feedId: FEED_ID,
             value: 99954321,
             decimals: 8,
-            observedAt: uint64(vm.getBlockTimestamp()),
-            endpointsHash: sender.expectedEndpointsHash(teeId),
-            adminsHash: sender.expectedAdminsHash(teeId)
+            observedAt: uint64(vm.getBlockTimestamp()) - 1,
+            endpointsHash: sender.expectedEndpointsHash(FEED_ID, teeId),
+            adminsHash: sender.expectedAdminsHash(FEED_ID, teeId)
         });
         Signature memory signature = _sign(feedUpdate);
 

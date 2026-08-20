@@ -16,6 +16,8 @@ interface TeeOracleStructs {
 
     function feedUpdateStruct(ITeeOracleFeedStore.FeedUpdate calldata) external;
 
+    function feedUpdateRequestStruct(ITeeOracleInstructionsSender.FeedUpdateRequest calldata) external;
+
     function endpointsStruct(ITeeOracleInstructionsSender.Endpoints calldata) external;
 
     function endpointGroupStruct(ITeeOracleInstructionsSender.EndpointGroup calldata) external;

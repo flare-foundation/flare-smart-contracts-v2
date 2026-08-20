@@ -12,8 +12,7 @@ import {
     TEE_ORACLE_OP_TYPE,
     GET_FEED_COMMAND,
     SET_ENDPOINTS_COMMAND,
-    SET_ADMINS_COMMAND,
-    GET_FEED_REQUEST_V1
+    SET_ADMINS_COMMAND
 } from "../../../../userInterfaces/tee/ITeeOracleInstructionsSender.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
@@ -21,10 +20,11 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * TeeOracleInstructionsSender contract.
  *
  * On-chain entry point for one TEE oracle extension's instructions: permissionless feed
- * observation requests plus governance-published endpoint and admin configuration. The
- * published configuration is committed on-chain (hash + contract-assigned version) BEFORE
- * dispatch, so the matching `TeeOracleFeedStore` only accepts feed updates from machines that
- * prove they run the latest published configuration.
+ * observation requests plus governance-published endpoint and admin configuration, both
+ * kept per feed — one sender serves every feed of the extension, so one machine fleet can
+ * serve multiple oracles. The published configuration is committed on-chain (hash +
+ * contract-assigned version) BEFORE dispatch, so a feed's `TeeOracleFeedStore` only accepts
+ * feed updates from machines that prove they run the feed's latest published configuration.
  */
 contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgradeableBase {
 
@@ -34,19 +34,26 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
     /// The extension this sender dispatches instructions for.
     uint256 public extensionId;
 
-    /// Version assigned to the most recently published endpoint configuration.
-    uint64 public endpointsVersion;
-    /// Version assigned to the most recently published admin sets.
-    uint64 public adminsVersion;
+    /// Version assigned to a feed's most recently published endpoint configuration.
+    mapping(bytes21 feedId => uint64) public endpointsVersion;
+    /// Version assigned to a feed's most recently published admin sets.
+    mapping(bytes21 feedId => uint64) public adminsVersion;
 
-    /// keccak256 of the last endpoints payload published per machine; the feed store enforces this.
-    mapping(address teeId => bytes32) public expectedEndpointsHash;
-    /// keccak256 of the last admins payload published per machine; the feed store enforces this.
-    mapping(address teeId => bytes32) public expectedAdminsHash;
-    /// Endpoints version last published per machine.
-    mapping(address teeId => uint64) public expectedEndpointsVersion;
-    /// Admins version last published per machine.
-    mapping(address teeId => uint64) public expectedAdminsVersion;
+    /// keccak256 of the last endpoints payload published per feed and machine; the feed's
+    /// store enforces this.
+    mapping(bytes21 feedId => mapping(address teeId => bytes32)) public expectedEndpointsHash;
+    /// keccak256 of the last admins payload published per feed and machine; the feed's
+    /// store enforces this.
+    mapping(bytes21 feedId => mapping(address teeId => bytes32)) public expectedAdminsHash;
+    /// Endpoints version last published per feed and machine.
+    mapping(bytes21 feedId => mapping(address teeId => uint64)) public expectedEndpointsVersion;
+    /// Admins version last published per feed and machine.
+    mapping(bytes21 feedId => mapping(address teeId => uint64)) public expectedAdminsVersion;
+
+    /// Every feed id with both configuration kinds (endpoints and admins) published,
+    /// append-only. Enumerable so a dashboard can list the extension's feeds without
+    /// an indexer.
+    bytes21[] internal feedIds;
 
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
@@ -79,19 +86,30 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
     /**
      * @inheritdoc ITeeOracleInstructionsSender
      */
-    function requestFeedUpdate()
+    function requestFeedUpdate(
+        bytes21 _feedId,
+        address[] calldata _teeIds
+    )
         external payable
         returns (bytes32 _instructionId)
     {
-        address[] memory teeIds = flareTeeManager.getRandomTeeIds(extensionId, 1);
-        _instructionId = _sendInstructions(teeIds, GET_FEED_COMMAND, GET_FEED_REQUEST_V1, msg.sender);
-        emit FeedUpdateRequested(msg.sender, _instructionId);
+        require(_feedId != bytes21(0), InvalidFeedId());
+        _validateTeeIds(_teeIds);
+        // Only machines that received the feed's current configuration are asked —
+        // a not-yet-configured machine could not produce an acceptable feed update anyway.
+        for (uint256 i = 0; i < _teeIds.length; i++) {
+            require(isTeeIdConfigured(_feedId, _teeIds[i]), TeeIdNotConfigured());
+        }
+        _instructionId = _sendInstructions(
+            _teeIds, GET_FEED_COMMAND, abi.encode(FeedUpdateRequest(_feedId)), msg.sender);
+        emit FeedUpdateRequested(msg.sender, _feedId, _instructionId);
     }
 
     /**
      * @inheritdoc IITeeOracleInstructionsSender
      */
     function setEndpoints(
+        bytes21 _feedId,
         address[] calldata _teeIds,
         EndpointGroup[] calldata _groups,
         address _claimBackAddress
@@ -99,21 +117,23 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         external payable
         onlyGovernance
     {
+        require(_feedId != bytes21(0), InvalidFeedId());
         _validateTeeIds(_teeIds);
         _validateEndpoints(_groups);
 
         // One version per publication: every targeted machine shares the same
-        // version and payload hash, so the fleet's generations stay comparable.
-        endpointsVersion++;
-        uint64 version = endpointsVersion;
-        bytes memory message = abi.encode(Endpoints({version: version, groups: _groups}));
+        // version and payload hash, so the feed's fleet generations stay comparable.
+        uint64 version = ++endpointsVersion[_feedId];
+        _recordFeedId(_feedId, version, adminsVersion[_feedId]);
+        bytes memory message =
+            abi.encode(Endpoints({version: version, feedId: _feedId, groups: _groups}));
         bytes32 endpointsHash = keccak256(message);
 
         // Record the commitments before dispatch so undelivered instructions block stale submissions.
         for (uint256 i = 0; i < _teeIds.length; i++) {
-            expectedEndpointsHash[_teeIds[i]] = endpointsHash;
-            expectedEndpointsVersion[_teeIds[i]] = version;
-            emit EndpointsSet(_teeIds[i], version, endpointsHash);
+            expectedEndpointsHash[_feedId][_teeIds[i]] = endpointsHash;
+            expectedEndpointsVersion[_feedId][_teeIds[i]] = version;
+            emit EndpointsSet(_feedId, _teeIds[i], version, endpointsHash);
         }
 
         _sendInstructions(_teeIds, SET_ENDPOINTS_COMMAND, message, _claimBackAddress);
@@ -123,6 +143,7 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
      * @inheritdoc IITeeOracleInstructionsSender
      */
     function setAdmins(
+        bytes21 _feedId,
         address[] calldata _teeIds,
         AdminRole[] calldata _roles,
         address _claimBackAddress
@@ -130,23 +151,67 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         external payable
         onlyGovernance
     {
+        require(_feedId != bytes21(0), InvalidFeedId());
         _validateTeeIds(_teeIds);
         _validateAdminRoles(_roles);
 
         // One version per publication — see setEndpoints.
-        adminsVersion++;
-        uint64 version = adminsVersion;
-        bytes memory message = abi.encode(Admins({version: version, roles: _roles}));
+        uint64 version = ++adminsVersion[_feedId];
+        _recordFeedId(_feedId, version, endpointsVersion[_feedId]);
+        bytes memory message =
+            abi.encode(Admins({version: version, feedId: _feedId, roles: _roles}));
         bytes32 adminsHash = keccak256(message);
 
         // Record the commitments before dispatch so undelivered instructions block stale submissions.
         for (uint256 i = 0; i < _teeIds.length; i++) {
-            expectedAdminsHash[_teeIds[i]] = adminsHash;
-            expectedAdminsVersion[_teeIds[i]] = version;
-            emit AdminsSet(_teeIds[i], version, adminsHash);
+            expectedAdminsHash[_feedId][_teeIds[i]] = adminsHash;
+            expectedAdminsVersion[_feedId][_teeIds[i]] = version;
+            emit AdminsSet(_feedId, _teeIds[i], version, adminsHash);
         }
 
         _sendInstructions(_teeIds, SET_ADMINS_COMMAND, message, _claimBackAddress);
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function getFeedIds()
+        external view
+        returns (bytes21[] memory)
+    {
+        return feedIds;
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function isTeeIdConfigured(
+        bytes21 _feedId,
+        address _teeId
+    )
+        public view
+        returns (bool)
+    {
+        return expectedEndpointsHash[_feedId][_teeId] != bytes32(0) &&
+            expectedAdminsHash[_feedId][_teeId] != bytes32(0);
+    }
+
+    /**
+     * Appends a feed id once BOTH configuration kinds are published — the same condition
+     * `requestFeedUpdate` checks per machine. Triggered when the kind just published
+     * reached its first version and the other kind already exists, which happens exactly
+     * once per feed.
+     */
+    function _recordFeedId(
+        bytes21 _feedId,
+        uint64 _publishedVersion,
+        uint64 _otherVersion
+    )
+        internal
+    {
+        if (_publishedVersion == 1 && _otherVersion != 0) {
+            feedIds.push(_feedId);
+        }
     }
 
     /**

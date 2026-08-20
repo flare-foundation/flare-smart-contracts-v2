@@ -15,16 +15,14 @@ bytes32 constant SET_ENDPOINTS_COMMAND = bytes32("SET_ENDPOINTS");
 // Command for publishing the admin signer sets to a TEE machine.
 bytes32 constant SET_ADMINS_COMMAND = bytes32("SET_ADMINS");
 
-// Request envelope version carried by every GET_FEED instruction. The instructions facet
-// rejects an empty `message`, so a request must carry something; the extension pins this
-// same constant and rejects anything else.
-bytes constant GET_FEED_REQUEST_V1 = hex"01";
-
 /**
  * @title ITeeOracleInstructionsSender
  * @notice Public interface for a TEE oracle extension's on-chain instructions entry point.
- * @dev One deployed instance serves one extension (one feed); the operation type and
- *      commands are constants shared by all instances (see above).
+ * @dev One deployed instance serves one extension and any number of its feeds — every
+ *      feed gets its own `TeeOracleFeedStore`, all reading this sender, so one machine
+ *      fleet can serve multiple oracles. Configuration commitments and versions are kept
+ *      per feed and per machine. The operation type and commands are constants shared by
+ *      all instances (see above).
  *      Payload sizes are not artificially capped — transaction size and gas are the limit.
  */
 interface ITeeOracleInstructionsSender {
@@ -82,12 +80,23 @@ interface ITeeOracleInstructionsSender {
     }
 
     /**
+     * Feed observation request payload, as ABI-encoded into the GET_FEED instruction message.
+     * @param feedId The feed to observe.
+     */
+    struct FeedUpdateRequest {
+        bytes21 feedId;
+    }
+
+    /**
      * Full endpoint configuration payload, as ABI-encoded into the instruction message.
      * @param version Contract-assigned monotonic version (see `endpointsVersion`).
+     * @param feedId The feed this configuration serves — one machine may serve several
+     * feeds, each with its own configuration.
      * @param groups The tagged endpoint groups.
      */
     struct Endpoints {
         uint64 version;
+        bytes21 feedId;
         EndpointGroup[] groups;
     }
 
@@ -108,10 +117,12 @@ interface ITeeOracleInstructionsSender {
     /**
      * Full admin signer sets payload, as ABI-encoded into the instruction message.
      * @param version Contract-assigned monotonic version (see `adminsVersion`).
+     * @param feedId The feed these admin sets serve.
      * @param roles The role-tagged admin sets.
      */
     struct Admins {
         uint64 version;
+        bytes21 feedId;
         AdminRole[] roles;
     }
 
@@ -119,19 +130,21 @@ interface ITeeOracleInstructionsSender {
     event InstructionsSenderInitialised(uint256 indexed extensionId);
 
     /// Emitted when a feed update is requested; the id lets a keeper fetch the result.
-    event FeedUpdateRequested(address indexed requester, bytes32 indexed instructionId);
+    event FeedUpdateRequested(address indexed requester, bytes21 indexed feedId, bytes32 indexed instructionId);
 
     /// Emitted when endpoint configuration is sent to a TEE machine.
-    event EndpointsSet(address indexed teeId, uint64 indexed version, bytes32 indexed endpointsHash);
+    event EndpointsSet(bytes21 indexed feedId, address indexed teeId, uint64 indexed version, bytes32 endpointsHash);
 
     /// Emitted when admin signer sets are sent to a TEE machine.
-    event AdminsSet(address indexed teeId, uint64 indexed version, bytes32 indexed adminsHash);
+    event AdminsSet(bytes21 indexed feedId, address indexed teeId, uint64 indexed version, bytes32 adminsHash);
 
     error NoTeeIds();
     error ZeroTeeId();
     error DuplicateTeeId();
     error TeeIdNotInExtension();
+    error TeeIdNotConfigured();
     error InvalidExtensionId();
+    error InvalidFeedId();
     error NoGroups();
     error EmptyGroup();
     error DuplicateGroup();
@@ -146,12 +159,20 @@ interface ITeeOracleInstructionsSender {
     error DuplicateAdmin();
 
     /**
-     * Requests a fresh feed observation from a random registered TEE machine.
+     * Requests a fresh feed observation from the given TEE machines.
      * Open to anyone; the instruction fee (msg.value) bounds spam and the feed store
-     * verifies the TEE signature on the resulting feed update.
+     * verifies the TEE signature on the resulting feed update. Every targeted machine
+     * must have endpoints and admins published for the feed, and the instruction message
+     * carries the ABI-encoded `FeedUpdateRequest` so the machine knows which feed to observe.
+     * @param _feedId The feed to observe.
+     * @param _teeIds The TEE machines to ask (non-empty, unique, non-zero, on this
+     * extension, configured for the feed).
      * @return _instructionId Id of the dispatched instruction, also emitted in `FeedUpdateRequested`.
      */
-    function requestFeedUpdate()
+    function requestFeedUpdate(
+        bytes21 _feedId,
+        address[] calldata _teeIds
+    )
         external payable
         returns (bytes32 _instructionId);
 
@@ -164,60 +185,99 @@ interface ITeeOracleInstructionsSender {
         returns (uint256);
 
     /**
-     * Returns the hash of the last endpoints payload published to a TEE machine.
-     * The matching feed store enforces this commitment on submitted feed updates.
+     * Returns every feed id with both configuration kinds (endpoints and admins)
+     * published, in first-completed order. Enumerable so a dashboard can list the
+     * extension's feeds without an indexer.
+     */
+    function getFeedIds()
+        external view
+        returns (bytes21[] memory);
+
+    /**
+     * Whether a TEE machine has both configuration commitments (endpoints and admins)
+     * published for a feed — the precondition `requestFeedUpdate` enforces per target.
+     * Publication, not proof: whether the machine actually runs the configuration shows
+     * up when its feed updates pass the store's commitment checks.
+     * @param _feedId The feed id.
+     * @param _teeId The TEE machine id.
+     */
+    function isTeeIdConfigured(
+        bytes21 _feedId,
+        address _teeId
+    )
+        external view
+        returns (bool);
+
+    /**
+     * Returns the hash of the last endpoints payload published to a TEE machine for a feed.
+     * The feed's store enforces this commitment on submitted feed updates.
+     * @param _feedId The feed id.
      * @param _teeId The TEE machine id.
      * @return The keccak256 hash of the encoded payload, or zero if none was published.
      */
     function expectedEndpointsHash(
+        bytes21 _feedId,
         address _teeId
     )
         external view
         returns (bytes32);
 
     /**
-     * Returns the hash of the last admins payload published to a TEE machine.
-     * The matching feed store enforces this commitment on submitted feed updates.
+     * Returns the hash of the last admins payload published to a TEE machine for a feed.
+     * The feed's store enforces this commitment on submitted feed updates.
+     * @param _feedId The feed id.
      * @param _teeId The TEE machine id.
      * @return The keccak256 hash of the encoded payload, or zero if none was published.
      */
     function expectedAdminsHash(
+        bytes21 _feedId,
         address _teeId
     )
         external view
         returns (bytes32);
 
     /**
-     * Returns the version assigned to the most recently published endpoint configuration.
-     * Incremented by the contract on every `setEndpoints` publish (any machine).
+     * Returns the version assigned to a feed's most recently published endpoint
+     * configuration. Incremented by the contract on every `setEndpoints` publish for
+     * the feed (any machine).
+     * @param _feedId The feed id.
      */
-    function endpointsVersion()
+    function endpointsVersion(
+        bytes21 _feedId
+    )
         external view
         returns (uint64);
 
     /**
-     * Returns the version assigned to the most recently published admin sets.
-     * Incremented by the contract on every `setAdmins` publish (any machine).
+     * Returns the version assigned to a feed's most recently published admin sets.
+     * Incremented by the contract on every `setAdmins` publish for the feed (any machine).
+     * @param _feedId The feed id.
      */
-    function adminsVersion()
+    function adminsVersion(
+        bytes21 _feedId
+    )
         external view
         returns (uint64);
 
     /**
-     * Returns the endpoints version last published to a TEE machine (zero if none).
+     * Returns the endpoints version last published to a TEE machine for a feed (zero if none).
+     * @param _feedId The feed id.
      * @param _teeId The TEE machine id.
      */
     function expectedEndpointsVersion(
+        bytes21 _feedId,
         address _teeId
     )
         external view
         returns (uint64);
 
     /**
-     * Returns the admins version last published to a TEE machine (zero if none).
+     * Returns the admins version last published to a TEE machine for a feed (zero if none).
+     * @param _feedId The feed id.
      * @param _teeId The TEE machine id.
      */
     function expectedAdminsVersion(
+        bytes21 _feedId,
         address _teeId
     )
         external view
