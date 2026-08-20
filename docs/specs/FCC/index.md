@@ -18,6 +18,7 @@ The FCC contracts live under [`contracts/tee/`](../../../contracts/tee/) and are
 - [Payments](./Payments.md) — PMW (Protocol Managed Wallet) payment instructing: account vs UTXO models, anchors, batches, reissue (`TeePayments`, `TeePaymentsUtxo`, `TeePaymentsConfigVerifier`)
 - [Verification](./Verification.md) — `VerificationFacet`, `VrfFacet`, `SystemStateVerifier` (library), `VrfVerifier`
 - [Extensions](./Extensions.md) — `ExtensionManagerFacet` + the system extension's currently-hosted applications (FDC2, PMW)
+- [TEE oracle](./TeeOracle.md) — the generic feed-oracle extension (`TeeOracleInstructionsSender`, `TeeOracleFeedStore`); USDX/USD is the first instance
 - [Governance](./Governance.md) — `DiamondGovernanceFacet`, `OwnerAllowlistFacet`, `MachinePathManagerFacet`, `ExternalAddressesFacet`, `MachineEmergencyPauseFacet`
 - [Rewarding](./Rewarding.md) — `TeeRewardOffersManager`
 

@@ -112,6 +112,8 @@ Around 30 public interfaces under [`userInterfaces/tee/`](../../contracts/userIn
 | [`IAddressValidator`](../../contracts/userInterfaces/tee/IAddressValidator.sol) | Validates a payment's recipient address against the chain/network configured (by governance) for its `sourceId`. `isValidAddress(sourceId, address)` is called from `TeePayments`/`TeePaymentsUtxo` `pay`; fail-closed for unconfigured sources. Backed by stateless per-chain validation libraries (Bitcoin Base58Check + Bech32/Bech32m, Dogecoin Base58Check, XRPL classic/X-address, EVM EIP-55). |
 | [`ITeeRewardOffersManager`](../../contracts/userInterfaces/tee/ITeeRewardOffersManager.sol) | FCC inflation receiver. |
 | [`ITeeExtensionStateVerifier`](../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol) | Extension-specific state verification interface. |
+| [`ITeeOracleInstructionsSender`](../../contracts/userInterfaces/tee/ITeeOracleInstructionsSender.sol) | The TEE oracle extension's instructions entry point (outside the diamond, one per extension): permissionless per-feed `requestFeedUpdate`, governance-published per-feed-and-machine endpoint/admin configuration with hash + version commitments, and the `getFeedIds` / `isTeeIdConfigured` discovery views. See [FCC / TEE oracle](./FCC/TeeOracle.md). |
+| [`ITeeOracleFeedStore`](../../contracts/userInterfaces/tee/ITeeOracleFeedStore.sol) | One TEE oracle feed (outside the diamond, one per feed): accepts `SignedPayload`-signed feed updates bound to the feed and its configuration commitments, and implements `IICustomFeed` so it registers with FtsoV2 directly (paid, signed reads). |
 
 ## Staking, RNat, Inflation
 

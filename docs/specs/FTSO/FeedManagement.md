@@ -101,6 +101,10 @@ FastUpdater's `freeFetchAddresses` allowlist requires its immediate caller to se
 
 [`StXrpCustomFeed`](../../../contracts/customFeeds/implementation/StXrpCustomFeed.sol) follows the same pattern for staked XRP.
 
+### Custom feed: `TeeOracleFeedStore` (TEE oracle feeds)
+
+[`TeeOracleFeedStore`](../../../contracts/tee/extensions/oracle/implementation/TeeOracleFeedStore.sol) is a **primary** custom feed with no underlying FTSO source: TEE machines of an FCC extension observe the value inside the enclave and land signed feed updates on-chain, and the store itself implements `IICustomFeed` — its own timestamp per feed, a possibly signed (negative) value, and `calculateFee` resolved through `FeeCalculator` with collected fees forwarded to a governance-set fee destination. One store is deployed per feed (USDX/USD is the first); see [FCC / TEE oracle](../FCC/TeeOracle.md).
+
 The custom-feed pattern is open-ended: anyone can write an `IICustomFeed` implementation that combines / synthesizes / rate-converts FTSO feeds, and governance can register it in `FtsoV2`. Examples a future custom feed might compute: weighted basket prices, USD-denominated stake, cross-asset implied rates.
 
 ## Per-reward-epoch settings: `FtsoInflationConfigurations`
