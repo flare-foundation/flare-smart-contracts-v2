@@ -62,7 +62,7 @@ contract StXrpCustomFeedTest is Test {
             )
         );
 
-        (uint256 returnValue, int8 returnDecimals, uint64 returnTimestamp) = stXrpCustomFeed.getCurrentFeed();
+        (int256 returnValue, int8 returnDecimals, uint64 returnTimestamp) = stXrpCustomFeed.getCurrentFeed();
         assertEq(returnValue, 100 * 2);
         assertEq(returnDecimals, 5);
         assertEq(returnTimestamp, 987654321);

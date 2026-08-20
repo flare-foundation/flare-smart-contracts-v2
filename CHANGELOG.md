@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * ECDSA (P-256) signature support in `NodePossessionVerifier` (alongside existing RSA/PKCS1-v1.5)
 * Chain id included in Voter(Pre)Registry registration message (cross-chain replay protection)
 * `IVoterPreRegistry.getVoterSignature` view to retrieve a pre-registered voter's signature
+* `FtsoV2.getCurrentFeed(s)` / `getCurrentFeed(s)InWei` read family with **signed** (`int256`)
+  values, the batch variants returning a timestamp **per feed** — for custom feeds that have their
+  own timestamp source and/or a signed value source
 
 ### Changed
 
@@ -43,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `FlareSystemsCalculator` and `WNatDelegationFee` improvements: added setter events,
   governance setter for signing policy sign durations, and revert strings replaced with custom errors
 * USDX/USD feed delisted on Flare and Coston2
+* `IICustomFeed.getCurrentFeed` return type changed from `uint256` to `int256` — the selector and
+  the return ABI encoding are unchanged for non-negative values, so custom feeds deployed against
+  the unsigned declaration remain compatible; the published unsigned FtsoV2 read paths
+  (`getFeedsById` family) revert with `"value negative"` for negative custom feed values
 
 ### Fixed
 

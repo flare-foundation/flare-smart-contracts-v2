@@ -791,7 +791,7 @@ contract FtsoV2Test is Test {
         feedIds[2] = bytes21("BTC");
         feedIds[3] = bytes21("ETH");
         feedIds[4] = sflrFeedId;
-        (uint256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
+        (int256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
             ftsoV2.getCurrentFeeds{value: 12 * 2 + 9 + 8 * 2} (feedIds);
         assertEq(values.length, 5);
         assertEq(timestamps.length, 5);
@@ -818,7 +818,7 @@ contract FtsoV2Test is Test {
         bytes21[] memory feedIds = new bytes21[](2);
         feedIds[0] = flrFeedId;
         feedIds[1] = bytes21("SGB");
-        (uint256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
+        (int256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
             ftsoV2.getCurrentFeeds{value: 12 + 9} (feedIds);
         assertEq(values[0], 123456);
         assertEq(decimals[0], 4);
@@ -837,7 +837,7 @@ contract FtsoV2Test is Test {
         bytes21[] memory feedIds = new bytes21[](2);
         feedIds[0] = flrFeedId;
         feedIds[1] = sflrFeedId;
-        (uint256[] memory values, uint64[] memory timestamps) =
+        (int256[] memory values, uint64[] memory timestamps) =
             ftsoV2.getCurrentFeedsInWei{value: 12 * 2} (feedIds);
         assertEq(values.length, 2);
         assertEq(values[0], 123456 * 10 ** (18 - 4));
@@ -879,7 +879,7 @@ contract FtsoV2Test is Test {
         vm.deal(address(ftsoV2), 100);
         // send only fee for custom feed
         // fee for FU feeds will be paid from the contract balance
-        (uint256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
+        (int256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
             ftsoV2.getCurrentFeeds{value: 12} (feedIds);
         assertEq(values.length, 5);
         assertEq(values[4], 123456 * 2);
@@ -892,6 +892,85 @@ contract FtsoV2Test is Test {
         assertEq(address(ftsoV2).balance, 0);
         // remaining fee remains on the FastUpdater contract
         assertEq(address(fastUpdater).balance, 100 - totalFee + 12);
+    }
+
+    // signed single-feed reads
+    function testGetCurrentFeed() public {
+        _addFeeds();
+        (int256 value, int8 decimals, uint64 timestamp) = ftsoV2.getCurrentFeed{value: 12} (flrFeedId);
+        assertEq(value, 123456);
+        assertEq(decimals, 4);
+        assertEq(timestamp, 0);
+        assertEq(feeDestination.balance, 12);
+    }
+
+    function testGetCurrentFeedCustom() public {
+        _addSFlrCustomFeed();
+        _addFeeds();
+        _mockGetPooledFlrByShares(123456);
+        _mockGetContractAddressByName("FastUpdatesConfiguration", address(fastUpdatesConfiguration));
+        _mockGetContractAddressByName("FastUpdater", address(fastUpdater));
+        _mockGetContractAddressByName("FeeCalculator", address(feeCalculator));
+
+        (int256 value, int8 decimals, uint64 timestamp) = ftsoV2.getCurrentFeed{value: 12} (sflrFeedId);
+        assertEq(value, 123456 * 2);
+        assertEq(decimals, 4);
+        assertEq(timestamp, 0);
+    }
+
+    function testGetCurrentFeedRevert() public {
+        vm.expectRevert("custom feed id not supported");
+        ftsoV2.getCurrentFeed(sflrFeedId);
+    }
+
+    function testGetCurrentFeedInWei() public {
+        _addFeeds();
+        (int256 value, uint64 timestamp) = ftsoV2.getCurrentFeedInWei{value: 12} (flrFeedId);
+        assertEq(value, int256(uint256(123456 * 10 ** (18 - 4))));
+        assertEq(timestamp, 0);
+    }
+
+    // negative custom feed values
+    function testNegativeCustomFeedValue() public {
+        bytes21 negFeedId = bytes21(bytes.concat(bytes1(uint8(40)), bytes("NEG")));
+        NegativeValueCustomFeed negFeed = new NegativeValueCustomFeed(negFeedId, -123456, 20, 5);
+        IICustomFeed[] memory customFeeds_ = new IICustomFeed[](1);
+        customFeeds_[0] = negFeed;
+        vm.prank(governance);
+        ftsoV2.addCustomFeeds(customFeeds_);
+
+        // signed reads pass the negative value through
+        (int256 value, int8 decimals, uint64 timestamp) = ftsoV2.getCurrentFeed(negFeedId);
+        assertEq(value, -123456);
+        assertEq(decimals, 20);
+        assertEq(timestamp, 5);
+
+        // wei conversion truncates toward zero when scaling down (18 - 20 = -2)
+        (int256 valueWei, uint64 timestampWei) = ftsoV2.getCurrentFeedInWei(negFeedId);
+        assertEq(valueWei, -1234);
+        assertEq(timestampWei, 5);
+
+        bytes21[] memory feedIds = new bytes21[](1);
+        feedIds[0] = negFeedId;
+        (int256[] memory values, int8[] memory decimalsArr, uint64[] memory timestamps) =
+            ftsoV2.getCurrentFeeds(feedIds);
+        assertEq(values[0], -123456);
+        assertEq(decimalsArr[0], 20);
+        assertEq(timestamps[0], 5);
+
+        (int256[] memory valuesWei, uint64[] memory timestampsWei) = ftsoV2.getCurrentFeedsInWei(feedIds);
+        assertEq(valuesWei[0], -1234);
+        assertEq(timestampsWei[0], 5);
+
+        // the unsigned read paths reject negative values
+        vm.expectRevert("value negative");
+        ftsoV2.getFeedById(negFeedId);
+        vm.expectRevert("value negative");
+        ftsoV2.getFeedByIdInWei(negFeedId);
+        vm.expectRevert("value negative");
+        ftsoV2.getFeedsById(feedIds);
+        vm.expectRevert("value negative");
+        ftsoV2.getFeedsByIdInWei(feedIds);
     }
 
     // calculate fee
@@ -1338,5 +1417,31 @@ contract FtsoV2Test is Test {
 
     function _hashPair(bytes32 a, bytes32 b) private pure returns (bytes32) {
         return a < b ? keccak256(abi.encode(a, b)) : keccak256(abi.encode(b, a));
+    }
+}
+
+/**
+ * Minimal custom feed returning a fixed (possibly negative) value with its own timestamp.
+ */
+contract NegativeValueCustomFeed is IICustomFeed {
+
+    bytes21 public feedId;
+    int256 public value;
+    int8 public decimals;
+    uint64 public timestamp;
+
+    constructor(bytes21 _feedId, int256 _value, int8 _decimals, uint64 _timestamp) {
+        feedId = _feedId;
+        value = _value;
+        decimals = _decimals;
+        timestamp = _timestamp;
+    }
+
+    function getCurrentFeed() external payable returns (int256 _value, int8 _decimals, uint64 _timestamp) {
+        return (value, decimals, timestamp);
+    }
+
+    function calculateFee() external view returns (uint256 _fee) {
+        return 0;
     }
 }

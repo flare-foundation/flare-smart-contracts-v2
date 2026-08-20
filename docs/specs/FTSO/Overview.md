@@ -25,7 +25,7 @@ In normal operation the block-latency feed is what consumers read; the anchor fe
 
 - `getFeedById(feedId)` / `getFeedByIdInWei(feedId)` — current value, decimals, timestamp; either from `FastUpdater` or from a registered custom feed contract (see [Feed Management](./FeedManagement.md)).
 - `getFeedsById(feedIds[])` / `getFeedsByIdInWei(feedIds[])` — batched reads with a single shared timestamp; revert if the feeds report different timestamps (only possible with custom feeds — see [Feed Management](./FeedManagement.md)).
-- `getCurrentFeeds(feedIds[])` / `getCurrentFeedsInWei(feedIds[])` — batched reads returning a timestamp per feed, for batches mixing custom feeds with their own timestamp source.
+- `getCurrentFeed(feedId)` / `getCurrentFeedInWei(feedId)` / `getCurrentFeeds(feedIds[])` / `getCurrentFeedsInWei(feedIds[])` — the **signed** read family (`int256` values), with the batched variants returning a timestamp per feed for batches mixing custom feeds with their own timestamp source. Fast-update feeds are always non-negative, but a custom feed with a signed source may report negative values (in the wei variants, negative values truncate toward zero when scaling down); the `getFeedsById` family stays unsigned and reverts with `"value negative"` for those.
 - `getFeedByIndex(index)` / `getFeedByIndexInWei(index)` — the same, looked up by `FastUpdatesConfiguration` index (fast-update feeds only, so a single timestamp always applies).
 - `verifyFeedData(FeedDataWithProof)` — Merkle-prove an FTSO anchor leaf against `Relay.merkleRoots(100, votingRoundId)`.
 - `getSupportedFeedIds()`, `getFeedIdChanges()` — discovery.

@@ -187,10 +187,39 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     /**
      * @inheritdoc FtsoV2Interface
      */
+    function getCurrentFeed(bytes21 _feedId)
+        external payable
+        returns (
+            int256,
+            int8,
+            uint64
+        )
+    {
+        return _getCurrentFeed(_feedId);
+    }
+
+    /**
+     * @inheritdoc FtsoV2Interface
+     */
+    function getCurrentFeedInWei(bytes21 _feedId)
+        external payable
+        returns (
+            int256 _value,
+            uint64 _timestamp
+        )
+    {
+        int8 decimals;
+        (_value, decimals, _timestamp) = _getCurrentFeed(_feedId);
+        _value = _convertToWei(_value, decimals);
+    }
+
+    /**
+     * @inheritdoc FtsoV2Interface
+     */
     function getCurrentFeeds(bytes21[] memory _feedIds)
         external payable
         returns (
-            uint256[] memory,
+            int256[] memory,
             int8[] memory,
             uint64[] memory
         )
@@ -204,7 +233,7 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     function getCurrentFeedsInWei(bytes21[] memory _feedIds)
         external payable
         returns (
-            uint256[] memory _values,
+            int256[] memory _values,
             uint64[] memory _timestamps
         )
     {
@@ -558,8 +587,10 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
             uint64 _timestamp
         )
     {
+        int256[] memory values;
         uint64[] memory timestamps;
-        (_values, _decimals, timestamps) = _getCurrentFeeds(_feedIds);
+        (values, _decimals, timestamps) = _getCurrentFeeds(_feedIds);
+        _values = _toUnsigned(values);
         for (uint256 i = 0; i < timestamps.length; i++) {
             if (i == 0) {
                 _timestamp = timestamps[0];
@@ -571,10 +602,12 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
 
     // Returns the feed data for all feed ids, with the timestamp of each feed.
     // All fast update feeds share the same timestamp; custom feeds report their own.
+    // Values are signed - fast update feeds are always non-negative, but a custom feed
+    // with a signed source may report negative values.
     function _getCurrentFeeds(bytes21[] memory _feedIds)
         internal
         returns(
-            uint256[] memory _values,
+            int256[] memory _values,
             int8[] memory _decimals,
             uint64[] memory _timestamps
         )
@@ -587,12 +620,14 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         uint256[] memory indices = _getFastUpdateIndices(_feedIds);
         if (_feedIds.length == indices.length) { // all feeds are fast update feeds
             uint64 timestamp;
-            (_values, _decimals, timestamp) = fastUpdater.fetchCurrentFeeds{value: msg.value} (indices);
+            uint256[] memory values;
+            (values, _decimals, timestamp) = fastUpdater.fetchCurrentFeeds{value: msg.value} (indices);
+            _values = _toSigned(values);
             for (uint256 i = 0; i < _timestamps.length; i++) {
                 _timestamps[i] = timestamp;
             }
         } else {
-            _values = new uint256[](_feedIds.length);
+            _values = new int256[](_feedIds.length);
             _decimals = new int8[](_feedIds.length);
             // set custom feeds data first
             for (uint256 i = 0; i < _feedIds.length; i++) {
@@ -613,7 +648,8 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
                 uint256 index = 0;
                 for (uint256 i = 0; i < _feedIds.length; i++) {
                     if (!_isCustomFeedId(_feedIds[i])) {
-                        _values[i] = values[index];
+                        // fast update values are far below 2^255, so the cast cannot wrap
+                        _values[i] = int256(values[index]);
                         _decimals[i] = decimals[index];
                         _timestamps[i] = timestamp;
                         index++;
@@ -623,11 +659,26 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         }
     }
 
-    // Returns the feed data for a feed id.
+    // Returns the feed data for a feed id, unsigned - reverts for negative custom feed values.
     function _getFeedById(bytes21 _feedId)
         internal
         returns(
             uint256,
+            int8,
+            uint64
+        )
+    {
+        (int256 value, int8 decimals, uint64 timestamp) = _getCurrentFeed(_feedId);
+        require(value >= 0, "value negative");
+        return (uint256(value), decimals, timestamp);
+    }
+
+    // Returns the feed data for a feed id, signed - a custom feed with a signed source
+    // may report negative values.
+    function _getCurrentFeed(bytes21 _feedId)
+        internal
+        returns(
+            int256,
             int8,
             uint64
         )
@@ -639,7 +690,10 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
             require(address(customFeed) != address(0), "custom feed id not supported");
             return customFeed.getCurrentFeed{value: msg.value} ();
         } else {
-            return _getFeedByIndex(fastUpdatesConfiguration.getFeedIndex(_feedId));
+            (uint256 value, int8 decimals, uint64 timestamp) =
+                _getFeedByIndex(fastUpdatesConfiguration.getFeedIndex(_feedId));
+            // fast update values are far below 2^255, so the cast cannot wrap
+            return (int256(value), decimals, timestamp);
         }
     }
 
@@ -682,6 +736,40 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         }
     }
 
+    // Reinterprets fast update values as signed; they are far below 2^255, so the casts cannot wrap.
+    function _toSigned(uint256[] memory _values)
+        internal pure
+        returns (int256[] memory _signedValues)
+    {
+        _signedValues = new int256[](_values.length);
+        for (uint256 i = 0; i < _values.length; i++) {
+            _signedValues[i] = int256(_values[i]);
+        }
+    }
+
+    // Converts signed values to unsigned for the unsigned read paths; a custom feed with a
+    // signed source may report negative values, which are not representable there.
+    function _toUnsigned(int256[] memory _values)
+        internal pure
+        returns (uint256[] memory _unsignedValues)
+    {
+        _unsignedValues = new uint256[](_values.length);
+        for (uint256 i = 0; i < _values.length; i++) {
+            require(_values[i] >= 0, "value negative");
+            _unsignedValues[i] = uint256(_values[i]);
+        }
+    }
+
+    // Converts signed values to wei in place.
+    function _convertToWei(int256[] memory _values, int8[] memory _decimals)
+        internal pure
+    {
+        assert(_values.length == _decimals.length);
+        for (uint256 i = 0; i < _values.length; i++) {
+            _values[i] = _convertToWei(_values[i], _decimals[i]);
+        }
+    }
+
     // Converts a value to wei.
     function _convertToWei(uint256 _value, int8 _decimals)
         internal pure
@@ -693,6 +781,20 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
             return _value / (10 ** uint256(-decimalsDiff));
         } else {
             return _value * (10 ** uint256(decimalsDiff));
+        }
+    }
+
+    // Converts a signed value to wei; negative values truncate toward zero when scaling down.
+    function _convertToWei(int256 _value, int8 _decimals)
+        internal pure
+        returns (int256)
+    {
+        int256 decimalsDiff = 18 - _decimals;
+        // value in wei (18 decimals)
+        if (decimalsDiff < 0) {
+            return _value / int256(10 ** uint256(-decimalsDiff));
+        } else {
+            return _value * int256(10 ** uint256(decimalsDiff));
         }
     }
 

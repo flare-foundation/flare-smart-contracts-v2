@@ -45,7 +45,7 @@ contract StXrpCustomFeed is IICustomFeed {
     /**
      * @inheritdoc IICustomFeed
      */
-    function getCurrentFeed() external payable returns (uint256 _value, int8 _decimals, uint64 _timestamp) {
+    function getCurrentFeed() external payable returns (int256 _value, int8 _decimals, uint64 _timestamp) {
         IFastUpdatesConfiguration fastUpdatesConfiguration =
             IFastUpdatesConfiguration(flareContractRegistry.getContractAddressByName("FastUpdatesConfiguration"));
         IFastUpdater fastUpdater = IFastUpdater(flareContractRegistry.getContractAddressByName("FastUpdater"));
@@ -54,7 +54,10 @@ contract StXrpCustomFeed is IICustomFeed {
         indices[0] = fastUpdatesConfiguration.getFeedIndex(referenceFeedId);
         (uint256[] memory values, int8[] memory decimals, uint64 timestamp) =
             fastUpdater.fetchCurrentFeeds{value: msg.value} (indices);
-        _value = stXrp.convertToAssets(values[0]);
+        // IICustomFeed is signed for feeds with signed sources; this feed's value is inherently
+        // non-negative, and an asset conversion of an FTSO price sits far below 2^255, so the
+        // reinterpreting cast cannot wrap into a negative number.
+        _value = int256(stXrp.convertToAssets(values[0]));
         _decimals = decimals[0];
         _timestamp = timestamp;
     }

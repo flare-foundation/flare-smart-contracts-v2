@@ -9,11 +9,15 @@ interface IICustomFeed {
 
     /**
      * Returns the current feed.
-     * @return _value The value of the feed.
+     * @return _value The value of the feed; may be negative for feeds with a signed source.
+     * NOTE: the return type changed from uint256 to int256 while `getCurrentFeeds` was still
+     * unpublished — the selector and the return ABI encoding are unchanged (non-negative values
+     * encode identically), so custom feeds deployed against the unsigned declaration remain
+     * compatible.
      * @return _decimals The decimals of the feed.
      * @return _timestamp The timestamp of the feed.
      */
-    function getCurrentFeed() external payable returns (uint256 _value, int8 _decimals, uint64 _timestamp);
+    function getCurrentFeed() external payable returns (int256 _value, int8 _decimals, uint64 _timestamp);
 
 
     /**
