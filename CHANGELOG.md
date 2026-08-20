@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `FtsoV2.getCurrentFeed(s)` / `getCurrentFeed(s)InWei` read family with **signed** (`int256`)
   values, the batch variants returning a timestamp **per feed** — for custom feeds that have their
   own timestamp source and/or a signed value source
+* Generic TEE oracle extension contracts (`TeeOracleInstructionsSender`, `TeeOracleFeedStore` —
+  UUPS proxies on the `FlareGovernance` stack): governance publishes versioned, hash-committed
+  endpoint and admin-role configuration to the extension's TEE machines, machines answer
+  permissionless feed-update requests with `SignedPayload`-signed values verified through
+  `Fdc2Verification`, and the store implements `IICustomFeed` so it registers with FtsoV2
+  directly as a (possibly signed) custom feed with its own timestamp
 
 ### Changed
 
