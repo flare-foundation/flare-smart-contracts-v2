@@ -419,8 +419,16 @@
     "teeOwnersPPM": 100000,
     "teeOperationFees": [],
     "teePaymentsConfigurations": [
-        {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "XRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}]}
+        {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "XRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}]},
+        {"opType": "TEE_ORACLE", "opCommand": "GET_FEED", "feeWei": "1"},
+        {"opType": "TEE_ORACLE", "opCommand": "SET_ENDPOINTS", "feeWei": "1"},
+        {"opType": "TEE_ORACLE", "opCommand": "SET_ADMINS", "feeWei": "1"}
     ],
+    "teeOracleExtensionId": 1,
+    "teeOracleFeeds": [
+        {"registryName": "UsdxFeedStore", "feedCategory": 32, "feedName": "USDX/USD"}
+    ],
+    "teeOracleFeeDestinationAddress": "0x000000000000000000000000000000000000dEaD",
     "teePaymentsUtxoConfigurations": [],
     "fdc2MinThresholdBIPS": 4000,
     "fdc2DefaultNumberOfTees": 1,

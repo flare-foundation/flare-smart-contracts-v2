@@ -361,6 +361,29 @@
             ],
             "type": "object"
         },
+        "TeeOracleFeed": {
+            "additionalProperties": false,
+            "properties": {
+                "feedCategory": {
+                    "description": "The feed category (first byte of the feed id). Must be in the FTSO custom feed\nrange [32, 64).",
+                    "type": "integer"
+                },
+                "feedName": {
+                    "description": "The feed name (up to 20 ASCII characters), e.g. \"USDX/USD\". The feed id is\n`bytes21(category byte || name || zero padding)`.",
+                    "type": "string"
+                },
+                "registryName": {
+                    "description": "The registry name for this feed's TeeOracleFeedStore instance (e.g. \"UsdxFeedStore\").",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "feedCategory",
+                "feedName",
+                "registryName"
+            ],
+            "type": "object"
+        },
         "TeePaymentsConfiguration": {
             "additionalProperties": false,
             "properties": {
@@ -878,6 +901,21 @@
             },
             "type": "array"
         },
+        "teeOracleExtensionId": {
+            "description": "The reserved TEE extension id serving the TEE oracle feeds. Minted by governance via\n`IExtensionManager.registerReserved`.",
+            "type": "integer"
+        },
+        "teeOracleFeeDestinationAddress": {
+            "description": "The destination address the TEE oracle feed stores forward collected read fees to.\nMatches FastUpdater's live fee destination (the burn address) on all networks.",
+            "type": "string"
+        },
+        "teeOracleFeeds": {
+            "description": "The TEE oracle feeds. One `TeeOracleFeedStore` is deployed per entry, all served by\na single `TeeOracleInstructionsSender` on `teeOracleExtensionId` — one machine fleet\ncan serve multiple oracles.",
+            "items": {
+                "$ref": "#/definitions/TeeOracleFeed"
+            },
+            "type": "array"
+        },
         "teeOwnersPPM": {
             "description": "The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).",
             "type": "integer"
@@ -1043,6 +1081,9 @@
         "teeDefaultFeeWei",
         "teeEmergencyUnpauseGracePeriodSeconds",
         "teeOperationFees",
+        "teeOracleExtensionId",
+        "teeOracleFeeDestinationAddress",
+        "teeOracleFeeds",
         "teeOwnersPPM",
         "teePaymentsConfigurations",
         "teePaymentsUtxoConfigurations",

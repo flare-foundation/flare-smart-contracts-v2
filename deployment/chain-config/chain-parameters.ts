@@ -558,6 +558,27 @@ export interface ChainParameters {
    */
   teeOperationFees: TeeOperationFee[];
 
+  // TEE oracle settings
+
+  /**
+   * The reserved TEE extension id serving the TEE oracle feeds. Minted by governance via
+   * `IExtensionManager.registerReserved`.
+   */
+  teeOracleExtensionId: integer;
+
+  /**
+   * The TEE oracle feeds. One `TeeOracleFeedStore` is deployed per entry, all served by
+   * a single `TeeOracleInstructionsSender` on `teeOracleExtensionId` — one machine fleet
+   * can serve multiple oracles.
+   */
+  teeOracleFeeds: TeeOracleFeed[];
+
+  /**
+   * The destination address the TEE oracle feed stores forward collected read fees to.
+   * Matches FastUpdater's live fee destination (the burn address) on all networks.
+   */
+  teeOracleFeeDestinationAddress: string;
+
   /**
    * The account-based TEE payment configurations.
    */
@@ -882,6 +903,25 @@ export interface TeeOperationFee {
    * The fee per operation type + command. In Wei.
    */
   feeWei: string;
+}
+
+export interface TeeOracleFeed {
+  /**
+   * The registry name for this feed's TeeOracleFeedStore instance (e.g. "UsdxFeedStore").
+   */
+  registryName: string;
+
+  /**
+   * The feed category (first byte of the feed id). Must be in the FTSO custom feed
+   * range [32, 64).
+   */
+  feedCategory: integer;
+
+  /**
+   * The feed name (up to 20 ASCII characters), e.g. "USDX/USD". The feed id is
+   * `bytes21(category byte || name || zero padding)`.
+   */
+  feedName: string;
 }
 
 export interface Fdc2RequestFee {
