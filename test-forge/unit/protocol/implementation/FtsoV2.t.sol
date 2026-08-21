@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import { Test } from "forge-std/Test.sol";
+import { Test, stdError } from "forge-std/Test.sol";
 import { FtsoV2 } from "../../../../contracts/protocol/implementation/FtsoV2.sol";
 import { IFtsoFeedPublisher } from "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
 import { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
@@ -33,6 +33,8 @@ contract FtsoV2Test is Test {
     uint256 constant private RANGE_INCREASE_PRICE = 10 ** 24;
     uint256 constant private SAMPLE_SIZE_INCREASE_PRICE = 1425;
     uint256 constant private DURATION = 8;
+    address payable constant private BURN_ADDRESS =
+        payable(0x000000000000000000000000000000000000dEaD);
 
     FtsoV2 private ftsoV2;
     FtsoV2 private ftsoV2Implementation;
@@ -295,6 +297,32 @@ contract FtsoV2Test is Test {
         assertEq(timestamp, 0);
 
         assertEq(feeDestination.balance, 12 + 9 + 8);
+    }
+
+    function testFeedIdBatchesRevertEmpty() public {
+        bytes21[] memory feedIds = new bytes21[](0);
+
+        vm.expectRevert("feed ids empty");
+        ftsoV2.getFeedsById(feedIds);
+
+        vm.expectRevert("feed ids empty");
+        ftsoV2.getFeedsByIdInWei(feedIds);
+
+        vm.expectRevert("feed ids empty");
+        ftsoV2.getCurrentFeeds(feedIds);
+
+        vm.expectRevert("feed ids empty");
+        ftsoV2.getCurrentFeedsInWei(feedIds);
+    }
+
+    function testFeedIndexBatchesRevertEmpty() public {
+        uint256[] memory indices = new uint256[](0);
+
+        vm.expectRevert("feed indices empty");
+        ftsoV2.getFeedsByIndex(indices);
+
+        vm.expectRevert("feed indices empty");
+        ftsoV2.getFeedsByIndexInWei(indices);
     }
 
     function testGetFeedByIndexInWei() public {
@@ -610,6 +638,253 @@ contract FtsoV2Test is Test {
         assertEq(timestamp, 0);
     }
 
+    function testPaymentRoutingBurnsOnlyCallerExcess() public {
+        _addSFlrCustomFeed();
+        _addFeeds();
+        _mockGetPooledFlrByShares(123456);
+        _mockGetContractAddressByName("FastUpdatesConfiguration", address(fastUpdatesConfiguration));
+        _mockGetContractAddressByName("FastUpdater", address(fastUpdater));
+        _mockGetContractAddressByName("FeeCalculator", address(feeCalculator));
+
+        vm.deal(address(ftsoV2), 7);
+        bytes21[] memory feedIds = new bytes21[](1);
+        feedIds[0] = flrFeedId;
+        ftsoV2.getCurrentFeeds{value: 17} (feedIds);
+        assertEq(feeDestination.balance, 12);
+        assertEq(address(fastUpdater).balance, 0);
+        assertEq(address(ftsoV2).balance, 7);
+        assertEq(BURN_ADDRESS.balance, 5);
+
+        ftsoV2.getCurrentFeed{value: 17} (sflrFeedId);
+        assertEq(feeDestination.balance, 24);
+        assertEq(address(fastUpdater).balance, 0);
+        assertEq(address(sFlrCustomFeed).balance, 0);
+        assertEq(address(ftsoV2).balance, 7);
+        assertEq(BURN_ADDRESS.balance, 10);
+
+        feedIds[0] = sflrFeedId;
+        ftsoV2.getCurrentFeeds{value: 17} (feedIds);
+        assertEq(feeDestination.balance, 36);
+        assertEq(address(fastUpdater).balance, 0);
+        assertEq(address(sFlrCustomFeed).balance, 0);
+        assertEq(address(ftsoV2).balance, 7);
+        assertEq(BURN_ADDRESS.balance, 15);
+
+        feedIds = new bytes21[](2);
+        feedIds[0] = flrFeedId;
+        feedIds[1] = sflrFeedId;
+        ftsoV2.getCurrentFeeds{value: 29} (feedIds);
+        assertEq(feeDestination.balance, 60);
+        assertEq(address(fastUpdater).balance, 0);
+        assertEq(address(sFlrCustomFeed).balance, 0);
+        assertEq(address(ftsoV2).balance, 7);
+        assertEq(BURN_ADDRESS.balance, 20);
+    }
+
+    function testGetFeedByIdInWeiStaticCallWithPreExistingBalance() public {
+        _addFeeds();
+        bytes21[] memory feedIds = new bytes21[](1);
+        feedIds[0] = flrFeedId;
+        uint256[] memory fees = new uint256[](1);
+        vm.prank(governance);
+        feeCalculator.setFeedsFees(feedIds, fees);
+
+        vm.deal(address(ftsoV2), 1);
+        uint256 burnBalance = BURN_ADDRESS.balance;
+        (bool success, bytes memory result) = address(ftsoV2).staticcall(
+            abi.encodeCall(FtsoV2.getFeedByIdInWei, (flrFeedId))
+        );
+
+        assertTrue(success);
+        (uint256 value, uint64 timestamp) = abi.decode(result, (uint256, uint64));
+        assertEq(value, 123456 * 10 ** (18 - 4));
+        assertEq(timestamp, 0);
+        assertEq(address(ftsoV2).balance, 1);
+        assertEq(BURN_ADDRESS.balance, burnBalance);
+    }
+
+    function testCustomFeedWithIndependentPositiveFee() public {
+        bytes21 customFeedId = bytes21(bytes.concat(bytes1(uint8(45)), bytes("OWN_FEE")));
+        IndependentFeeCustomFeed customFeed = new IndependentFeeCustomFeed(customFeedId, 7, -123, 5, 9);
+        IICustomFeed[] memory customFeeds_ = new IICustomFeed[](1);
+        customFeeds_[0] = customFeed;
+        vm.prank(governance);
+        ftsoV2.addCustomFeeds(customFeeds_);
+
+        uint256 burnBalance = BURN_ADDRESS.balance;
+        (int256 value, int8 decimals, uint64 timestamp) = ftsoV2.getCurrentFeed{value: 12} (customFeedId);
+
+        assertEq(value, -123);
+        assertEq(decimals, 5);
+        assertEq(timestamp, 9);
+        assertEq(address(customFeed).balance, 7);
+        assertEq(address(ftsoV2).balance, 0);
+        assertEq(BURN_ADDRESS.balance, burnBalance + 5);
+    }
+
+    function testNestedFtsoCustomFeedPreservesOuterBatchValue() public {
+        _addFeeds();
+        bytes21 customFeedId = bytes21(bytes.concat(bytes1(uint8(46)), bytes("NESTED")));
+        NestedFtsoCustomFeed customFeed = new NestedFtsoCustomFeed(customFeedId, ftsoV2, flrFeedId, 12);
+        IICustomFeed[] memory customFeeds_ = new IICustomFeed[](1);
+        customFeeds_[0] = customFeed;
+        vm.prank(governance);
+        ftsoV2.addCustomFeeds(customFeeds_);
+
+        bytes21[] memory feedIds = new bytes21[](2);
+        feedIds[0] = customFeedId;
+        feedIds[1] = bytes21("SGB");
+        uint256 burnBalance = BURN_ADDRESS.balance;
+        (int256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
+            ftsoV2.getCurrentFeeds{value: 22} (feedIds);
+
+        assertEq(values[0], 123456);
+        assertEq(decimals[0], 4);
+        assertEq(timestamps[0], 0);
+        assertEq(values[1], 1234567);
+        assertEq(decimals[1], 6);
+        assertEq(timestamps[1], 0);
+        assertEq(feeDestination.balance, 21);
+        assertEq(address(customFeed).balance, 0);
+        assertEq(address(ftsoV2).balance, 0);
+        assertEq(BURN_ADDRESS.balance, burnBalance + 1);
+    }
+
+    function testAllFeedReadMethodsBurnCallerExcess() public {
+        _addFeeds();
+        bytes21[] memory feedIds = new bytes21[](1);
+        feedIds[0] = flrFeedId;
+        uint256[] memory indices = new uint256[](1);
+        indices[0] = 0;
+        uint256 burnBalance = BURN_ADDRESS.balance;
+
+        ftsoV2.getFeedById{value: 13} (flrFeedId);
+        ftsoV2.getFeedsById{value: 13} (feedIds);
+        ftsoV2.getFeedByIdInWei{value: 13} (flrFeedId);
+        ftsoV2.getFeedsByIdInWei{value: 13} (feedIds);
+        ftsoV2.getCurrentFeed{value: 13} (flrFeedId);
+        ftsoV2.getCurrentFeedInWei{value: 13} (flrFeedId);
+        ftsoV2.getCurrentFeeds{value: 13} (feedIds);
+        ftsoV2.getCurrentFeedsInWei{value: 13} (feedIds);
+        ftsoV2.getFeedByIndex{value: 13} (0);
+        ftsoV2.getFeedsByIndex{value: 13} (indices);
+        ftsoV2.getFeedByIndexInWei{value: 13} (0);
+        ftsoV2.getFeedsByIndexInWei{value: 13} (indices);
+
+        assertEq(address(ftsoV2).balance, 0);
+        assertEq(BURN_ADDRESS.balance, burnBalance + 12);
+        assertEq(feeDestination.balance, 12 * 12);
+    }
+
+    function testZeroFeeCheckedByFtsoV2AndFastUpdater() public {
+        _addFeeds();
+        bytes21[] memory feedIds = new bytes21[](1);
+        feedIds[0] = flrFeedId;
+        uint256[] memory fees = new uint256[](1);
+        vm.prank(governance);
+        feeCalculator.setFeedsFees(feedIds, fees);
+
+        uint256[] memory indices = new uint256[](1);
+        indices[0] = 0;
+        vm.expectCall(
+            address(feeCalculator),
+            abi.encodeCall(FeeCalculator.calculateFeeByIndices, (indices)),
+            2
+        );
+        ftsoV2.getFeedsByIndex(indices);
+        assertEq(feeDestination.balance, 0);
+        assertEq(address(fastUpdater).balance, 0);
+        assertEq(address(ftsoV2).balance, 0);
+    }
+
+    function testPositiveFeeCalculatedByFtsoV2AndFastUpdater() public {
+        _addFeeds();
+        uint256[] memory indices = new uint256[](1);
+        indices[0] = 0;
+        vm.expectCall(
+            address(feeCalculator),
+            abi.encodeCall(FeeCalculator.calculateFeeByIndices, (indices)),
+            2
+        );
+        ftsoV2.getFeedsByIndex{value: 12} (indices);
+        assertEq(feeDestination.balance, 12);
+        assertEq(address(fastUpdater).balance, 0);
+        assertEq(address(ftsoV2).balance, 0);
+    }
+
+    function testFastUpdateInsufficientFeeRevertsBeforeCall() public {
+        _addFeeds();
+        uint256[] memory indices = new uint256[](1);
+        indices[0] = 0;
+        vm.mockCallRevert(
+            address(fastUpdater),
+            abi.encodeWithSelector(FastUpdater.fetchCurrentFeeds.selector, indices),
+            "unexpected FastUpdater call"
+        );
+
+        vm.expectRevert("too low fee");
+        ftsoV2.getFeedsByIndex(indices);
+    }
+
+    function testZeroFeeCustomFeedFeeCheckedByFtsoV2() public {
+        _addSFlrCustomFeed();
+        _addFeeds();
+        _mockGetPooledFlrByShares(123456);
+        _mockGetContractAddressByName("FastUpdatesConfiguration", address(fastUpdatesConfiguration));
+        _mockGetContractAddressByName("FastUpdater", address(fastUpdater));
+        _mockGetContractAddressByName("FeeCalculator", address(feeCalculator));
+        bytes21[] memory feedIds = new bytes21[](1);
+        feedIds[0] = flrFeedId;
+        uint256[] memory fees = new uint256[](1);
+        vm.prank(governance);
+        feeCalculator.setFeedsFees(feedIds, fees);
+        vm.expectCall(
+            address(sFlrCustomFeed),
+            abi.encodeWithSelector(IICustomFeed.calculateFee.selector),
+            1
+        );
+
+        (int256 value, , ) = ftsoV2.getCurrentFeed(sflrFeedId);
+        assertEq(value, 123456 * 2);
+        assertEq(feeDestination.balance, 0);
+        assertEq(address(fastUpdater).balance, 0);
+        assertEq(address(ftsoV2).balance, 0);
+    }
+
+    function testSingleCustomFeedInsufficientFeeRevertsBeforeCall() public {
+        _addSFlrCustomFeed();
+        _addFeeds();
+        _mockGetContractAddressByName("FeeCalculator", address(feeCalculator));
+        vm.mockCallRevert(
+            address(sFlrCustomFeed),
+            abi.encodeWithSelector(IICustomFeed.getCurrentFeed.selector),
+            "unexpected custom feed call"
+        );
+
+        vm.expectRevert("too low fee");
+        ftsoV2.getCurrentFeed(sflrFeedId);
+    }
+
+    function testGetCurrentFeedsRevertCustomFeeAfterRemainingValueConsumed() public {
+        SFlrCustomFeed customFeed2 = _addSecondCustomFeed();
+        _addFeeds();
+        _mockGetPooledFlrByShares(123456);
+        _mockGetContractAddressByName("FastUpdatesConfiguration", address(fastUpdatesConfiguration));
+        _mockGetContractAddressByName("FastUpdater", address(fastUpdater));
+        _mockGetContractAddressByName("FeeCalculator", address(feeCalculator));
+        vm.mockCallRevert(
+            address(customFeed2),
+            abi.encodeWithSelector(IICustomFeed.getCurrentFeed.selector),
+            "unexpected custom feed call"
+        );
+
+        bytes21[] memory feedIds = new bytes21[](2);
+        feedIds[0] = sflrFeedId;
+        feedIds[1] = customFeed2.feedId();
+        vm.expectRevert("too low fee");
+        ftsoV2.getCurrentFeeds{value: 12} (feedIds);
+    }
+
     function testGetFeedByIdRevert() public {
         vm.expectRevert("custom feed id not supported");
         ftsoV2.getFeedById(sflrFeedId);
@@ -681,7 +956,7 @@ contract FtsoV2Test is Test {
     }
 
 
-    function testGetFeedsByIdUseContractFunds() public {
+    function testGetFeedsByIdDoesNotUseContractFunds() public {
         _addFeeds();
         _addSFlrCustomFeed();
         _mockGetPooledFlrByShares(123456);
@@ -697,10 +972,16 @@ contract FtsoV2Test is Test {
         vm.deal(address(ftsoV2), 100);
         assertEq(address(ftsoV2).balance, 100);
         assertEq(address(fastUpdater).balance, 0);
-        // send only fee for custom feed
-        // fee for FU feeds will be paid from the contract balance
+        // Sending only the custom feed fee does not let the caller use FtsoV2's existing balance.
+        vm.expectRevert("too low fee");
+        ftsoV2.getFeedsById{value: 12} (feedIds);
+        assertEq(feeDestination.balance, 0);
+        assertEq(address(ftsoV2).balance, 100);
+        assertEq(address(fastUpdater).balance, 0);
+
+        uint256 totalFee = 12 * 2 + 9 + 8 * 2;
         (uint256[] memory values, int8[] memory decimals, uint64 timestamp) =
-            ftsoV2.getFeedsById{value: 12} (feedIds);
+            ftsoV2.getFeedsById{value: totalFee} (feedIds);
         assertEq(values.length, 5);
         assertEq(values[0], 123456);
         assertEq(decimals[0], 4);
@@ -713,12 +994,10 @@ contract FtsoV2Test is Test {
         assertEq(decimals[3], 20);
         assertEq(values[4], 123456 * 2);
         assertEq(decimals[4], 4);
-        // whole FtsoV2 balance is used to pay for FU feeds
-        uint256 totalFee = 12 * 2 + 9 + 8 * 2;
         assertEq(feeDestination.balance, totalFee);
-        assertEq(address(ftsoV2).balance, 0);
-        // remaining fee remains on the FastUpdater contract
-        assertEq(address(fastUpdater).balance, 100 - totalFee + 12);
+        assertEq(address(ftsoV2).balance, 100);
+        assertEq(address(fastUpdater).balance, 0);
+        assertEq(BURN_ADDRESS.balance, 0);
     }
 
     // custom feed reports a different timestamp than the fast update feed
@@ -863,7 +1142,7 @@ contract FtsoV2Test is Test {
         ftsoV2.getCurrentFeeds(feedIds);
     }
 
-    function testGetCurrentFeedsUseContractFunds() public {
+    function testGetCurrentFeedsDoesNotUseContractFunds() public {
         _addFeeds();
         _addSFlrCustomFeed();
         _mockGetPooledFlrByShares(123456);
@@ -877,21 +1156,25 @@ contract FtsoV2Test is Test {
         feedIds[3] = bytes21("ETH");
         feedIds[4] = sflrFeedId;
         vm.deal(address(ftsoV2), 100);
-        // send only fee for custom feed
-        // fee for FU feeds will be paid from the contract balance
+        // Sending only the custom feed fee does not let the caller use FtsoV2's existing balance.
+        vm.expectRevert("too low fee");
+        ftsoV2.getCurrentFeeds{value: 12} (feedIds);
+        assertEq(feeDestination.balance, 0);
+        assertEq(address(ftsoV2).balance, 100);
+        assertEq(address(fastUpdater).balance, 0);
+
+        uint256 totalFee = 12 * 2 + 9 + 8 * 2;
         (int256[] memory values, int8[] memory decimals, uint64[] memory timestamps) =
-            ftsoV2.getCurrentFeeds{value: 12} (feedIds);
+            ftsoV2.getCurrentFeeds{value: totalFee} (feedIds);
         assertEq(values.length, 5);
         assertEq(values[4], 123456 * 2);
         assertEq(decimals[4], 4);
         assertEq(timestamps[0], 0);
         assertEq(timestamps[4], 0);
-        // whole FtsoV2 balance is used to pay for FU feeds
-        uint256 totalFee = 12 * 2 + 9 + 8 * 2;
         assertEq(feeDestination.balance, totalFee);
-        assertEq(address(ftsoV2).balance, 0);
-        // remaining fee remains on the FastUpdater contract
-        assertEq(address(fastUpdater).balance, 100 - totalFee + 12);
+        assertEq(address(ftsoV2).balance, 100);
+        assertEq(address(fastUpdater).balance, 0);
+        assertEq(BURN_ADDRESS.balance, 0);
     }
 
     // signed single-feed reads
@@ -971,6 +1254,32 @@ contract FtsoV2Test is Test {
         ftsoV2.getFeedsById(feedIds);
         vm.expectRevert("value negative");
         ftsoV2.getFeedsByIdInWei(feedIds);
+    }
+
+    function testGetCurrentFeedInWeiRevertExtremeDecimals() public {
+        bytes21 scaleDownFeedId = bytes21(bytes.concat(bytes1(uint8(40)), bytes("SCALE_DOWN")));
+        bytes21 scaleUpFeedId = bytes21(bytes.concat(bytes1(uint8(41)), bytes("SCALE_UP")));
+        bytes21 zeroFeedId = bytes21(bytes.concat(bytes1(uint8(42)), bytes("ZERO")));
+        bytes21 checkedOverflowFeedId = bytes21(bytes.concat(bytes1(uint8(43)), bytes("OVERFLOW")));
+        IICustomFeed[] memory customFeeds_ = new IICustomFeed[](4);
+        customFeeds_[0] = new NegativeValueCustomFeed(scaleDownFeedId, type(int256).max, 95, 5);
+        customFeeds_[1] = new NegativeValueCustomFeed(scaleUpFeedId, 1, -59, 5);
+        customFeeds_[2] = new NegativeValueCustomFeed(zeroFeedId, 0, type(int8).min, 5);
+        customFeeds_[3] = new NegativeValueCustomFeed(checkedOverflowFeedId, type(int256).max, 17, 5);
+        vm.prank(governance);
+        ftsoV2.addCustomFeeds(customFeeds_);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2.getCurrentFeedInWei(scaleDownFeedId);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2.getCurrentFeedInWei(scaleUpFeedId);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2.getCurrentFeedInWei(zeroFeedId);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2.getCurrentFeedInWei(checkedOverflowFeedId);
     }
 
     // calculate fee
@@ -1420,6 +1729,56 @@ contract FtsoV2Test is Test {
     }
 }
 
+contract IndependentFeeCustomFeed is IICustomFeed {
+
+    bytes21 public feedId;
+    uint256 public fee;
+    int256 public value;
+    int8 public decimals;
+    uint64 public timestamp;
+
+    constructor(bytes21 _feedId, uint256 _fee, int256 _value, int8 _decimals, uint64 _timestamp) {
+        feedId = _feedId;
+        fee = _fee;
+        value = _value;
+        decimals = _decimals;
+        timestamp = _timestamp;
+    }
+
+    function getCurrentFeed() external payable returns (int256 _value, int8 _decimals, uint64 _timestamp) {
+        require(msg.value == fee, "incorrect fee");
+        return (value, decimals, timestamp);
+    }
+
+    function calculateFee() external view returns (uint256 _fee) {
+        return fee;
+    }
+}
+
+contract NestedFtsoCustomFeed is IICustomFeed {
+
+    bytes21 public feedId;
+    FtsoV2 private ftsoV2;
+    bytes21 private referenceFeedId;
+    uint256 private fee;
+
+    constructor(bytes21 _feedId, FtsoV2 _ftsoV2, bytes21 _referenceFeedId, uint256 _fee) {
+        feedId = _feedId;
+        ftsoV2 = _ftsoV2;
+        referenceFeedId = _referenceFeedId;
+        fee = _fee;
+    }
+
+    function getCurrentFeed() external payable returns (int256 _value, int8 _decimals, uint64 _timestamp) {
+        require(msg.value == fee, "incorrect fee");
+        return ftsoV2.getCurrentFeed{value: msg.value} (referenceFeedId);
+    }
+
+    function calculateFee() external view returns (uint256 _fee) {
+        return fee;
+    }
+}
+
 /**
  * Minimal custom feed returning a fixed (possibly negative) value with its own timestamp.
  */
@@ -1443,5 +1802,35 @@ contract NegativeValueCustomFeed is IICustomFeed {
 
     function calculateFee() external view returns (uint256 _fee) {
         return 0;
+    }
+}
+
+contract FtsoV2ConversionHarness is FtsoV2 {
+
+    function convertToWei(uint256 _value, int8 _decimals) external pure returns (uint256) {
+        return _convertToWei(_value, _decimals);
+    }
+}
+
+contract FtsoV2ConversionTest is Test {
+
+    FtsoV2ConversionHarness private ftsoV2ConversionHarness;
+
+    function setUp() public {
+        ftsoV2ConversionHarness = new FtsoV2ConversionHarness();
+    }
+
+    function testConvertToWeiRevertExtremeDecimals() public {
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2ConversionHarness.convertToWei(type(uint256).max, type(int8).max);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2ConversionHarness.convertToWei(1, type(int8).min);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2ConversionHarness.convertToWei(0, type(int8).min);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2ConversionHarness.convertToWei(type(uint256).max, 17);
     }
 }

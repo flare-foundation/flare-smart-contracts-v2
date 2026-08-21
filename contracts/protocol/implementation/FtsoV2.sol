@@ -36,6 +36,9 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
 
     /// The FTSO protocol id.
     uint256 public constant FTSO_PROTOCOL_ID = 100;
+    /// Address used for burning native tokens.
+    address payable constant internal BURN_ADDRESS =
+        payable(0x000000000000000000000000000000000000dEaD);
 
     /// The FastUpdater contract.
     IFastUpdater public fastUpdater;
@@ -57,6 +60,13 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     event CustomFeedReplaced(bytes21 indexed feedId, IICustomFeed oldCustomFeed, IICustomFeed newCustomFeed);
     /// Event emitted when a custom feed is removed.
     event CustomFeedRemoved(bytes21 indexed feedId);
+
+    /// Burns the current call's excess native-token value after a successful feed read.
+    modifier burnExcessValue {
+        uint256 balanceBefore = address(this).balance - msg.value;
+        _;
+        _burnExcessValue(balanceBefore);
+    }
 
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
@@ -136,16 +146,29 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     /**
      * @inheritdoc FtsoV2Interface
      */
-    function getFeedById(bytes21 _feedId) external payable returns (uint256, int8, uint64) {
+    function getFeedById(
+        bytes21 _feedId
+    )
+        external payable
+        burnExcessValue
+        returns (
+            uint256,
+            int8,
+            uint64
+        )
+    {
         return _getFeedById(_feedId);
     }
 
     /**
      * @inheritdoc FtsoV2Interface
      */
-    function getFeedsById(bytes21[] memory _feedIds)
+    function getFeedsById(
+        bytes21[] memory _feedIds
+    )
         external payable
-        returns(
+        burnExcessValue
+        returns (
             uint256[] memory,
             int8[] memory,
             uint64
@@ -157,8 +180,11 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     /**
      * @inheritdoc FtsoV2Interface
      */
-    function getFeedByIdInWei(bytes21 _feedId)
+    function getFeedByIdInWei(
+        bytes21 _feedId
+    )
         external payable
+        burnExcessValue
         returns (
             uint256 _value,
             uint64 _timestamp
@@ -172,8 +198,11 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     /**
      * @inheritdoc FtsoV2Interface
      */
-    function getFeedsByIdInWei(bytes21[] memory _feedIds)
+    function getFeedsByIdInWei(
+        bytes21[] memory _feedIds
+    )
         external payable
+        burnExcessValue
         returns (
             uint256[] memory _values,
             uint64 _timestamp
@@ -187,8 +216,11 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     /**
      * @inheritdoc FtsoV2Interface
      */
-    function getCurrentFeed(bytes21 _feedId)
+    function getCurrentFeed(
+        bytes21 _feedId
+    )
         external payable
+        burnExcessValue
         returns (
             int256,
             int8,
@@ -201,8 +233,11 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     /**
      * @inheritdoc FtsoV2Interface
      */
-    function getCurrentFeedInWei(bytes21 _feedId)
+    function getCurrentFeedInWei(
+        bytes21 _feedId
+    )
         external payable
+        burnExcessValue
         returns (
             int256 _value,
             uint64 _timestamp
@@ -216,8 +251,11 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     /**
      * @inheritdoc FtsoV2Interface
      */
-    function getCurrentFeeds(bytes21[] memory _feedIds)
+    function getCurrentFeeds(
+        bytes21[] memory _feedIds
+    )
         external payable
+        burnExcessValue
         returns (
             int256[] memory,
             int8[] memory,
@@ -230,8 +268,11 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     /**
      * @inheritdoc FtsoV2Interface
      */
-    function getCurrentFeedsInWei(bytes21[] memory _feedIds)
+    function getCurrentFeedsInWei(
+        bytes21[] memory _feedIds
+    )
         external payable
+        burnExcessValue
         returns (
             int256[] memory _values,
             uint64[] memory _timestamps
@@ -311,45 +352,66 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
     /**
      * Returns stored data of a feed.
      * A fee (calculated by the FeeCalculator contract) may need to be paid.
+     * NOTE: Overpayment is not refunded; FtsoV2 forwards only the required fee and burns the caller's excess.
      * @param _index The index of the feed, corresponding to feed id in
      * the FastUpdatesConfiguration contract.
      * @return _value The value for the requested feed.
      * @return _decimals The decimal places for the requested feed.
      * @return _timestamp The timestamp of the last update.
      */
-    function getFeedByIndex(uint256 _index) external payable returns (uint256, int8, uint64) {
+    function getFeedByIndex(
+        uint256 _index
+    )
+        external payable
+        burnExcessValue
+        returns (
+            uint256,
+            int8,
+            uint64
+        )
+    {
         return _getFeedByIndex(_index);
     }
 
     /**
      * Returns stored data of each feed.
      * A fee (calculated by the FeeCalculator contract) may need to be paid.
+     * NOTE: Overpayment is not refunded; FtsoV2 forwards only the required fee and burns the caller's excess.
+     * Reverts if `_indices` is empty.
      * @param _indices Indices of the feeds, corresponding to feed ids in
      * the FastUpdatesConfiguration contract.
      * @return _values The list of values for the requested feeds.
      * @return _decimals The list of decimal places for the requested feeds.
      * @return _timestamp The timestamp of the last update.
      */
-    function getFeedsByIndex(uint256[] memory _indices)
+    function getFeedsByIndex(
+        uint256[] memory _indices
+    )
         external payable
+        burnExcessValue
         returns (
             uint256[] memory,
             int8[] memory,
             uint64
         )
     {
-        return fastUpdater.fetchCurrentFeeds{value: msg.value} (_indices);
+        return _fetchCurrentFeeds(_indices, msg.value);
     }
 
     /**
      * Returns value in wei and timestamp of a feed.
      * A fee (calculated by the FeeCalculator contract) may need to be paid.
+     * NOTE: Overpayment is not refunded; FtsoV2 forwards only the required fee and burns the caller's excess.
      * @param _index The index of the feed, corresponding to feed id in
      * the FastUpdatesConfiguration contract.
      * @return _value The value for the requested feed in wei (i.e. with 18 decimal places).
      * @return _timestamp The timestamp of the last update.
      */
-    function getFeedByIndexInWei(uint256 _index) external payable
+    function getFeedByIndexInWei(
+        uint256 _index
+    )
+        external payable
+        burnExcessValue
         returns (
             uint256 _value,
             uint64 _timestamp
@@ -362,20 +424,25 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
 
     /** Returns value in wei of each feed and a timestamp.
      * For some feeds, a fee (calculated by the FeeCalculator contract) may need to be paid.
+     * NOTE: Overpayment is not refunded; FtsoV2 forwards only the required fee and burns the caller's excess.
+     * Reverts if `_indices` is empty.
      * @param _indices Indices of the feeds, corresponding to feed ids in
      * the FastUpdatesConfiguration contract.
      * @return _values The list of values for the requested feeds in wei (i.e. with 18 decimal places).
      * @return _timestamp The timestamp of the last update.
      */
-    function getFeedsByIndexInWei(uint256[] memory _indices)
+    function getFeedsByIndexInWei(
+        uint256[] memory _indices
+    )
         external payable
+        burnExcessValue
         returns (
             uint256[] memory _values,
             uint64 _timestamp
         )
     {
         int8[] memory decimals;
-        (_values, decimals, _timestamp) = fastUpdater.fetchCurrentFeeds{value: msg.value} (_indices);
+        (_values, decimals, _timestamp) = _fetchCurrentFeeds(_indices, msg.value);
         _convertToWei(_values, decimals);
     }
 
@@ -540,6 +607,18 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
 
     /////////////////////////////// INTERNAL FUNCTIONS ///////////////////////////////
 
+    // Burns the current call's excess native-token value without consuming a pre-existing balance.
+    function _burnExcessValue(
+        uint256 _balanceBefore
+    )
+        internal
+    {
+        uint256 currentBalance = address(this).balance;
+        if (currentBalance > _balanceBefore) {
+            BURN_ADDRESS.transfer(currentBalance - _balanceBefore);
+        }
+    }
+
     // Valid categories are 32 (0x20) - 63 (0x3F).
     function _isCustomFeedId(bytes21 _feedId) internal pure returns (bool) {
         uint8 category = uint8(bytes1(_feedId[0]));
@@ -612,6 +691,7 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
             uint64[] memory _timestamps
         )
     {
+        require(_feedIds.length > 0, "feed ids empty");
         // first check for feed id changes
         for (uint256 i = 0; i < _feedIds.length; i++) {
             _feedIds[i] = _getCurrentFeedId(_feedIds[i]);
@@ -621,7 +701,7 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         if (_feedIds.length == indices.length) { // all feeds are fast update feeds
             uint64 timestamp;
             uint256[] memory values;
-            (values, _decimals, timestamp) = fastUpdater.fetchCurrentFeeds{value: msg.value} (indices);
+            (values, _decimals, timestamp) = _fetchCurrentFeeds(indices, msg.value);
             _values = _toSigned(values);
             for (uint256 i = 0; i < _timestamps.length; i++) {
                 _timestamps[i] = timestamp;
@@ -629,12 +709,15 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         } else {
             _values = new int256[](_feedIds.length);
             _decimals = new int8[](_feedIds.length);
+            uint256 remainingValue = msg.value;
             // set custom feeds data first
             for (uint256 i = 0; i < _feedIds.length; i++) {
                 if (_isCustomFeedId(_feedIds[i])) {
                     IICustomFeed customFeed = customFeeds[_feedIds[i]].customFeed;
                     require(address(customFeed) != address(0), "custom feed id not supported");
                     uint256 fee = customFeed.calculateFee();
+                    require(remainingValue >= fee, "too low fee");
+                    remainingValue -= fee;
                     (_values[i], _decimals[i], _timestamps[i]) = customFeed.getCurrentFeed{value: fee} ();
                 }
             }
@@ -642,13 +725,12 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
                 uint256[] memory values;
                 int8[] memory decimals;
                 uint64 timestamp;
-                // set fast update feeds data - use all remaining balance for fees
-                //slither-disable-next-line arbitrary-send-eth
-                (values, decimals, timestamp) = fastUpdater.fetchCurrentFeeds{value: address(this).balance} (indices);
+                // set fast update feeds data using only the remaining value supplied by this call
+                (values, decimals, timestamp) = _fetchCurrentFeeds(indices, remainingValue);
                 uint256 index = 0;
                 for (uint256 i = 0; i < _feedIds.length; i++) {
                     if (!_isCustomFeedId(_feedIds[i])) {
-                        // fast update values are far below 2^255, so the cast cannot wrap
+                        // FastUpdater feed values originate from its packed 32-bit representation.
                         _values[i] = int256(values[index]);
                         _decimals[i] = decimals[index];
                         _timestamps[i] = timestamp;
@@ -688,11 +770,13 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         if (_isCustomFeedId(_feedId)) {
             IICustomFeed customFeed = customFeeds[_feedId].customFeed;
             require(address(customFeed) != address(0), "custom feed id not supported");
-            return customFeed.getCurrentFeed{value: msg.value} ();
+            uint256 fee = customFeed.calculateFee();
+            require(msg.value >= fee, "too low fee");
+            return customFeed.getCurrentFeed{value: fee} ();
         } else {
             (uint256 value, int8 decimals, uint64 timestamp) =
                 _getFeedByIndex(fastUpdatesConfiguration.getFeedIndex(_feedId));
-            // fast update values are far below 2^255, so the cast cannot wrap
+            // FastUpdater feed values originate from its packed 32-bit representation.
             return (int256(value), decimals, timestamp);
         }
     }
@@ -709,8 +793,28 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         uint256[] memory indices = new uint256[](1);
         indices[0] = _index;
         (uint256[] memory values, int8[] memory decimals, uint64 timestamp) =
-            fastUpdater.fetchCurrentFeeds{value: msg.value} (indices);
+            _fetchCurrentFeeds(indices, msg.value);
         return (values[0], decimals[0], timestamp);
+    }
+
+    // Fetches fast update feeds using at most the value supplied by the current call.
+    // Only the required fee is forwarded; the external feed-read modifier burns the caller's excess.
+    function _fetchCurrentFeeds(
+        uint256[] memory _indices,
+        uint256 _availableValue
+    )
+        internal
+        returns (
+            uint256[] memory,
+            int8[] memory,
+            uint64
+        )
+    {
+        require(_indices.length > 0, "feed indices empty");
+        uint256 fee = feeCalculator.calculateFeeByIndices(_indices);
+        require(_availableValue >= fee, "too low fee");
+        //slither-disable-next-line arbitrary-send-eth
+        return fastUpdater.fetchCurrentFeeds{value: fee} (_indices);
     }
 
     // Returns the current feed id if it has been changed.
@@ -736,7 +840,7 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         }
     }
 
-    // Reinterprets fast update values as signed; they are far below 2^255, so the casts cannot wrap.
+    // Converts FastUpdater values, which originate from its packed 32-bit feed representation, to signed values.
     function _toSigned(uint256[] memory _values)
         internal pure
         returns (int256[] memory _signedValues)
@@ -770,7 +874,7 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         }
     }
 
-    // Converts a value to wei.
+    // Converts an unsigned value to wei.
     function _convertToWei(uint256 _value, int8 _decimals)
         internal pure
         returns (uint256)
@@ -792,9 +896,9 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
         int256 decimalsDiff = 18 - _decimals;
         // value in wei (18 decimals)
         if (decimalsDiff < 0) {
-            return _value / int256(10 ** uint256(-decimalsDiff));
+            return _value / (int256(10) ** uint256(-decimalsDiff));
         } else {
-            return _value * int256(10 ** uint256(decimalsDiff));
+            return _value * (int256(10) ** uint256(decimalsDiff));
         }
     }
 
