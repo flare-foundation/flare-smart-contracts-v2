@@ -30,6 +30,8 @@ abstract contract OwnableWithTimelock is OwnableUpgradeable, IOwnableWithTimeloc
 
     uint256 internal constant MAX_TIMELOCK_DURATION_SECONDS = 7 days;
 
+    // erc7201 builtin not recognized by slither's parser; the constant is initialized at declaration
+    //slither-disable-next-line uninitialized-state
     bytes32 internal constant STATE_POSITION = bytes32(erc7201("utils.OwnableWithTimelock.State"));
 
     modifier onlyOwnerWithTimelock() {

@@ -78,6 +78,9 @@ library FlareGovernance {
      * Execute a timelocked governance call.
      * @param _encodedCall The full encoded call data (hash verified against stored hash).
      */
+    // False positive: slither sees the library alone, not its one caller,
+    // `FlareGovernedBase.executeGovernanceCall`, which is `external payable`.
+    //slither-disable-next-line msg-value-in-nonpayable
     function executeGovernanceCall(
         bytes calldata _encodedCall
     )
@@ -205,6 +208,9 @@ library FlareGovernance {
         }
     }
 
+    // False positive: `msg.value` is read only to REJECT attached value when recording; on
+    // non-payable call paths it is trivially zero and the check degrades correctly.
+    //slither-disable-next-line msg-value-in-nonpayable
     function _recordTimelockedCall(
         State storage _state,
         bytes calldata _data
