@@ -127,7 +127,7 @@ library ExtensionGovernance {
         uint256 stillOwners = 0;
         uint256 signerCount = teeGov.signers.length();
         for (uint256 i = 0; i < signerCount; i++) {
-            if (_safe.isOwner(teeGov.signers.at(i))) {
+            if (_safe.isOwner(teeGov.signers.pos(i))) {
                 stillOwners++;
                 if (stillOwners >= snapshotThreshold) {
                     return true;

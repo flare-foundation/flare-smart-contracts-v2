@@ -322,7 +322,7 @@ contract MachineManagerFacet is IMachineManager {
 
         _teeIds = new address[](_count);
         for (uint256 i = 0; i < _count; i++) {
-            _teeIds[i] = set.at(indices[i]);
+            _teeIds[i] = set.pos(indices[i]);
         }
     }
 
@@ -346,7 +346,7 @@ contract MachineManagerFacet is IMachineManager {
         _urls = new string[](_end - _start);
         for (uint256 i = _start; i < _end; i++) {
             uint256 index = i - _start;
-            _teeIds[index] = s.activeTeeIds.at(i);
+            _teeIds[index] = s.activeTeeIds.pos(i);
             _urls[index] = s.teeMachineStates[_teeIds[index]].url;
         }
     }

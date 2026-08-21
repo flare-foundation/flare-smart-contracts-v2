@@ -1856,7 +1856,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         uint256 count = feeProtocolIdsPrivate.length();
         _feeConfigs = new FeeConfig[](count);
         for (uint256 i = 0; i < count; i++) {
-            uint256 protocolId = feeProtocolIdsPrivate.at(i);
+            uint256 protocolId = feeProtocolIdsPrivate.pos(i);
             _feeConfigs[i] = FeeConfig(uint8(protocolId), protocolFee[protocolId]);
         }
     }
@@ -1991,7 +1991,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         internal
     {
         while (feeProtocolIdsPrivate.length() > 0) {
-            uint256 clearedId = feeProtocolIdsPrivate.at(feeProtocolIdsPrivate.length() - 1);
+            uint256 clearedId = feeProtocolIdsPrivate.pos(feeProtocolIdsPrivate.length() - 1);
             feeProtocolIdsPrivate.remove(clearedId);
             delete protocolFee[clearedId];
         }
