@@ -799,6 +799,8 @@ contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation
 
     // Fetches fast update feeds using at most the value supplied by the current call.
     // Only the required fee is forwarded; the external feed-read modifier burns the caller's excess.
+    // NOTE: FtsoV2 must never be added to FastUpdater's freeFetchAddresses allowlist - allowlisted
+    // callers must send zero value, while this function always forwards the calculated fee.
     function _fetchCurrentFeeds(
         uint256[] memory _indices,
         uint256 _availableValue
