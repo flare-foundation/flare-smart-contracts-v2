@@ -818,5 +818,12 @@
       "0x9eD7C4cC8c87f3961Ae27224C6CDabCeD29a0450",
       "0x66918C0ea1e3aD88a6a91bf6e54Fcce545aF1496"
     ]
+  },
+  {
+    "name": "Create3Factory",
+    "contractName": "Create3Factory.sol",
+    "addresses": [
+      "0x51a24B38b2a5793F65258Fd37EE92706FadeFE96"
+    ]
   }
 ]
