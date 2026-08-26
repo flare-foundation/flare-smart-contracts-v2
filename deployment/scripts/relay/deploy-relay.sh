@@ -31,7 +31,9 @@ set -euo pipefail
 # msg.sender as the deployer and check it against the config's expectedDeployer and the pinned
 # Relay address BEFORE anything signs. A DRY RUN needs no signing material at all — to simulate
 # as the real deployer without the device attached, pass just `--sender <expectedDeployer>`
-# (the key fallback is only mandatory for --broadcast).
+# (the key fallback is only mandatory for --broadcast; on a dry run an explicit --sender also
+# SUPPRESSES the fallback, so a DEPLOYER_PRIVATE_KEY sitting in .env can never override the
+# sender you asked to simulate as).
 #
 # The `factory` step accepts the same signers, but note its checks differ: the Create3Factory is
 # a keyless CREATE2 deployment (Arachnid deployer, frozen initcode), so its address is
@@ -105,12 +107,16 @@ SCRIPT="deployment/scripts/relay/${CONTRACT}.s.sol:${CONTRACT}"
 # silently appended next to another signer.
 BROADCAST=0
 SIGNER_SUPPLIED=0
+SENDER_SUPPLIED=0
 EXTRA_ARGS=()
 for arg in "$@"; do
   case "$arg" in
     --broadcast)
       BROADCAST=1
       continue
+      ;;
+    --sender|--sender=*)
+      SENDER_SUPPLIED=1
       ;;
     --resume|--resume=*)
       echo "--resume is not supported: it skips the scripts' pre-flight checks and the address recorder." >&2
@@ -160,7 +166,11 @@ if [[ "$STEP" != "prepare-snapshot" ]]; then
     SIGNER_SUPPLIED=1
   fi
   if [[ "$SIGNER_SUPPLIED" == "0" ]]; then
-    if [[ -n "${DEPLOYER_PRIVATE_KEY:-}" ]]; then
+    if [[ "$BROADCAST" == "0" && "$SENDER_SUPPLIED" == "1" ]]; then
+      # Signerless dry run as an explicit sender: never append the fallback key — forge would
+      # simulate as the KEY'S address, silently overriding the requested --sender.
+      :
+    elif [[ -n "${DEPLOYER_PRIVATE_KEY:-}" ]]; then
       EXTRA_ARGS+=(--private-key "$DEPLOYER_PRIVATE_KEY")
     elif [[ "$BROADCAST" == "1" ]]; then
       echo "DEPLOYER_PRIVATE_KEY is required unless a signer is supplied" >&2
