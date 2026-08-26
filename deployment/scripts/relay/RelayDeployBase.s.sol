@@ -142,14 +142,20 @@ abstract contract RelayDeployBase is Script {
     /// salt + canonical factory => identical address on all chains).
     ///
     /// address(0) means NOT ACTIVATED: deployments of that source are refused (dry runs
-    /// included) until the designated deployer EOA is chosen and the pins are computed from it.
-    /// Activate all four pins, the configs' `expectedDeployer` and the canonical-deployer
-    /// constant in RelayDeployAddress.t.sol together, in one reviewed commit — the test binds
+    /// included) until the source's designated deployer EOA is chosen and its pin is computed
+    /// from it. Each source has its OWN deployer (a per-source Google Cloud KMS key); a pin, its
+    /// source's `expectedDeployer` in the config and the per-source canonical-deployer constant
+    /// in RelayDeployAddress.t.sol activate together, in one reviewed commit — the test binds
     /// them to each other (see deployment/create3/README.md, "Relay proxy pins").
-    address internal constant EXPECTED_RELAY_FLARE = address(0); // source 14
-    address internal constant EXPECTED_RELAY_SONGBIRD = address(0); // source 19
-    address internal constant EXPECTED_RELAY_COSTON = address(0); // source 16
-    address internal constant EXPECTED_RELAY_COSTON2 = address(0); // source 114
+    /// Activated 2026-08-26 from the per-source deployers listed in RelayDeployAddress.t.sol.
+    address internal constant EXPECTED_RELAY_FLARE =
+        0x5A2Eb0cdB4Aa8253924a488A77EdfD24Bb64407f; // source 14
+    address internal constant EXPECTED_RELAY_SONGBIRD =
+        0xc1BC89b717Af42AE27497C9FFb996002D3AC5031; // source 19
+    address internal constant EXPECTED_RELAY_COSTON =
+        0xEcD0B60Ea5E01e4D0bFd621c8920B40A32389b83; // source 16
+    address internal constant EXPECTED_RELAY_COSTON2 =
+        0x5017728F117501A24EF9C3756C07f0d564598596; // source 114
 
     /**
      * The deployer-scoped CREATE3 salt for a Relay of the given source chain. All deployments

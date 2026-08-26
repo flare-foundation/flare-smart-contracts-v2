@@ -164,15 +164,17 @@ compiled-in pins in
   already-deployed paths, and by every home/mirror deploy via
   `_requireFactory`).
 
-**Activation rule:** the four proxy pins, the configs' `expectedDeployer` and
-the `CANONICAL_DEPLOYER` constant in
+**Activation rule:** each source has its own designated deployer EOA (a
+per-source Google Cloud KMS key), shared by the source's home chain and every
+mirror of that source. A source's proxy pin, its config's `expectedDeployer`
+and the `CANONICAL_DEPLOYER_<SOURCE>` constant in
 [`RelayDeployAddress.t.sol`](../test-forge/unit/deployment/RelayDeployAddress.t.sol)
 start as `address(0)` and must be filled together, in one reviewed commit, once
-the designated deployer EOA is chosen. The test binds them to each other in both
-states: while the deployer is unset every pin must be zero, and once set every
-pin must derive from it. Until activation, no home or mirror deployment of a
-canonical source (flare, songbird, coston, coston2) is possible — dry runs
-included.
+that source's deployer is chosen. The test binds them to each other in both
+states: while a source's deployer is unset its pin must be zero, and once set
+the pin must derive from it. Until activation, no home or mirror deployment of
+that canonical source (flare, songbird, coston, coston2) is possible — dry runs
+included. All four sources were activated on 2026-08-26.
 
 ## 6. Deployment and migration procedure
 

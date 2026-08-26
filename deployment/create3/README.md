@@ -59,21 +59,24 @@ The expected Relay proxy address is pinned **per source** in
 source's home chain and every mirror of that source (same deployer + source-scoped salt +
 canonical factory ⇒ identical address on all chains).
 
-| Source | Pin |
-|--------|-----|
-| flare (14) | `0x0` — not activated |
-| songbird (19) | `0x0` — not activated |
-| coston (16) | `0x0` — not activated |
-| coston2 (114) | `0x0` — not activated |
+Each source has its **own designated deployer EOA** (a per-source Google Cloud KMS key) — the
+source's home chain and every mirror of that source share it. Activated 2026-08-26:
 
-While a pin is `address(0)` its source is **not deployable** (dry runs included). Activation —
-once the designated deployer EOA is chosen — fills, in ONE reviewed commit:
+| Source | Deployer | Pin |
+|--------|----------|-----|
+| flare (14) | `0xE5dF05a88d575BB5c86005e1A67C6Af50Ec3a7c1` | `0x5A2Eb0cdB4Aa8253924a488A77EdfD24Bb64407f` |
+| songbird (19) | `0x698c017F8bF62d39F450887E4d2072Fbc72F7595` | `0xc1BC89b717Af42AE27497C9FFb996002D3AC5031` |
+| coston (16) | `0x209FDc31024BfC55a4293c40678aF9D4443e5A63` | `0xEcD0B60Ea5E01e4D0bFd621c8920B40A32389b83` |
+| coston2 (114) | `0x0952Db7ea2dF3EFA545326cC33443AFe00419981` | `0x5017728F117501A24EF9C3756C07f0d564598596` |
 
-1. the four `EXPECTED_RELAY_*` constants (`pin = Create3.computeAddress(keccak256(abi.encode(
+While a pin is `address(0)` its source is **not deployable** (dry runs included). Activating a
+source — once its designated deployer EOA is chosen — fills, in ONE reviewed commit:
+
+1. the source's `EXPECTED_RELAY_*` constant (`pin = Create3.computeAddress(keccak256(abi.encode(
    deployer, relayProxySalt(sourceChainId))), factory)` — the base's `_predictedRelayAddress`);
-2. `expectedDeployer` in all four `deployment/chain-config/relay/*.json`;
-3. `CANONICAL_DEPLOYER` in `test-forge/unit/deployment/RelayDeployAddress.t.sol` — its
-   `test_relayAddressPinsConsistent` binds the pins to the deployer in both states;
+2. `expectedDeployer` in the source's `deployment/chain-config/relay/<source>.json`;
+3. `CANONICAL_DEPLOYER_<SOURCE>` in `test-forge/unit/deployment/RelayDeployAddress.t.sol` — its
+   `test_relayAddressPinsConsistent` binds each pin to its source's deployer in both states;
 4. this table.
 
 The Relay proxy salt is **source-chain-scoped**: `keccak256(abi.encode(base, sourceChainId))`.

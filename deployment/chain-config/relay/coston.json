@@ -1,6 +1,6 @@
 {
   "$schema": "./relay-parameters.json",
-  "expectedDeployer": "0x0000000000000000000000000000000000000000",
+  "expectedDeployer": "0x209FDc31024BfC55a4293c40678aF9D4443e5A63",
   "home": {
     "timelockDurationSeconds": 3600
   }

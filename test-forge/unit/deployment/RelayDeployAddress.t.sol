@@ -79,11 +79,16 @@ contract RelayDeployAddressTest is Test {
     bytes32 internal constant CANONICAL_ARACHNID_CODEHASH =
         0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989;
 
-    /// The designated deployer EOA — the permanent address authority for the Relay proxy salt.
-    /// address(0) until chosen; ACTIVATE TOGETHER with the four EXPECTED_RELAY_* pins in
-    /// RelayDeployBase.s.sol and the configs' expectedDeployer, in one reviewed commit —
-    /// test_relayAddressPinsConsistent binds this constant to those pins in both states.
-    address internal constant CANONICAL_DEPLOYER = address(0);
+    /// The designated PER-SOURCE deployer EOAs (Google Cloud KMS keys) — each is the permanent
+    /// address authority for its source's Relay proxy salt, shared by that source's home chain
+    /// and every mirror of the source. address(0) until chosen; a deployer ACTIVATES TOGETHER
+    /// with its source's EXPECTED_RELAY_* pin in RelayDeployBase.s.sol and the config's
+    /// expectedDeployer, in one reviewed commit — test_relayAddressPinsConsistent binds each
+    /// deployer to its pin in both states.
+    address internal constant CANONICAL_DEPLOYER_FLARE = 0xE5dF05a88d575BB5c86005e1A67C6Af50Ec3a7c1;
+    address internal constant CANONICAL_DEPLOYER_SONGBIRD = 0x698c017F8bF62d39F450887E4d2072Fbc72F7595;
+    address internal constant CANONICAL_DEPLOYER_COSTON = 0x209FDc31024BfC55a4293c40678aF9D4443e5A63;
+    address internal constant CANONICAL_DEPLOYER_COSTON2 = 0x0952Db7ea2dF3EFA545326cC33443AFe00419981;
 
     RelayDeployBaseHarness internal harness;
 
@@ -180,35 +185,38 @@ contract RelayDeployAddressTest is Test {
     }
 
     function test_relayAddressPinsConsistent() public view {
-        // Binds the four per-source pins to the canonical deployer in BOTH states:
-        //  - not yet activated: everything must still be address(0) (activate the deployer, the
-        //    pins and the configs' expectedDeployer together, in one reviewed commit);
-        //  - activated: every pin must equal the local CREATE3 prediction for its source under
-        //    the canonical deployer, and the four pins must be pairwise distinct.
+        // Binds each per-source pin to ITS source's canonical deployer in BOTH states:
+        //  - not yet activated: the deployer and the pin must both be address(0) (activate a
+        //    source's deployer, its pin and the config's expectedDeployer together, in one
+        //    reviewed commit);
+        //  - activated: the pin must equal the local CREATE3 prediction for the source under
+        //    its own deployer, and all activated pins must be pairwise distinct.
         uint256[4] memory sources = [uint256(14), 19, 16, 114];
-        if (CANONICAL_DEPLOYER == address(0)) {
-            for (uint256 i = 0; i < sources.length; i++) {
-                assertEq(
-                    harness.expectedRelayAddress(sources[i]),
-                    address(0),
-                    "a Relay pin is set but CANONICAL_DEPLOYER is not - activate them together"
-                );
-            }
-        } else {
-            for (uint256 i = 0; i < sources.length; i++) {
-                address pin = harness.expectedRelayAddress(sources[i]);
-                assertTrue(pin != address(0), "canonical source left unpinned after activation");
+        address[4] memory deployers = [
+            CANONICAL_DEPLOYER_FLARE,
+            CANONICAL_DEPLOYER_SONGBIRD,
+            CANONICAL_DEPLOYER_COSTON,
+            CANONICAL_DEPLOYER_COSTON2
+        ];
+        for (uint256 i = 0; i < sources.length; i++) {
+            address pin = harness.expectedRelayAddress(sources[i]);
+            if (deployers[i] == address(0)) {
                 assertEq(
                     pin,
-                    harness.predictedRelayAddress(CANONICAL_DEPLOYER, sources[i]),
-                    "pin does not derive from the canonical deployer and source-scoped salt"
+                    address(0),
+                    "a Relay pin is set but its source's canonical deployer is not - activate them together"
                 );
-                for (uint256 j = 0; j < i; j++) {
-                    assertTrue(
-                        pin != harness.expectedRelayAddress(sources[j]),
-                        "two sources share a pinned address"
-                    );
-                }
+                continue;
+            }
+            assertTrue(pin != address(0), "canonical source left unpinned after its deployer was chosen");
+            assertEq(
+                pin,
+                harness.predictedRelayAddress(deployers[i], sources[i]),
+                "pin does not derive from the source's canonical deployer and source-scoped salt"
+            );
+            for (uint256 j = 0; j < i; j++) {
+                address other = harness.expectedRelayAddress(sources[j]);
+                assertTrue(other == address(0) || pin != other, "two sources share a pinned address");
             }
         }
     }
