@@ -34,6 +34,8 @@ FlareGovernance.initialise(_governanceSettings, _initialGovernance);
 
 The governance settings contract (`IGovernanceSettings`) provides the timelock and the executor list; the diamond's governance respects it just like any other `Governed` contract.
 
+Since the value attached to `executeGovernanceCall` is chosen at execution time (it is not part of the stored call hash), any `payable onlyGovernance` facet method must treat `msg.value` strictly as fee funding — never branch on it, store it, or let it select behavior; otherwise the executor would control an untimelocked governance parameter. See the design rule in [Governance.md](../Governance.md#flaregovernance-library--the-erc-7201-variant).
+
 ## Extension governance
 
 Each extension can configure a set of **governance signers** authorized to approve TEE upgrades for that extension. The set has:

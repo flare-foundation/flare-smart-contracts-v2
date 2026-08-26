@@ -68,6 +68,12 @@ interface IFlareGovernance {
      *      executed call, so `payable` governance methods can receive funds at execution
      *      time (the value is not part of the stored call hash); a non-payable target
      *      rejects attached value, reverting the execution.
+     *
+     *      Because the attached value is chosen at execution time, it is the one input
+     *      that escapes the timelock's public-commitment guarantee. Design rule for
+     *      `payable onlyGovernance` methods: treat `msg.value` strictly as fee funding —
+     *      never branch on it, store it, or let it select behavior. Otherwise the
+     *      executor gains an untimelocked governance parameter.
      * @param _encodedCall ABI encoded call data (signature and parameters).
      *      You should use `encodedCall` parameter from `GovernanceCallTimelocked` event.
      */
