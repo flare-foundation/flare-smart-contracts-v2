@@ -5,7 +5,11 @@ pragma solidity ^0.8.35;
 import {Script, console2} from "forge-std/Script.sol";
 import {Create3} from "@openzeppelin/contracts/utils/Create3.sol";
 import {IRelay} from "../../../contracts/userInterfaces/IRelay.sol";
-import {Create3Factory} from "../../../contracts/utils/implementation/Create3Factory.sol";
+// The factory is reached ONLY through this call interface — never import Create3Factory.sol
+// here: it is pinned to bytecode_hash "None" and would strip the metadata hash from everything
+// compiled alongside these scripts, including the deployed Relay/RelayProxy artifacts (see the
+// interface's @dev note).
+import {ICreate3Factory} from "../ICreate3Factory.sol";
 import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 import {RelayProxy} from "../../../contracts/protocol/implementation/RelayProxy.sol";
 import {IFlareContractRegistry} from
@@ -211,7 +215,7 @@ abstract contract RelayDeployBase is Script {
             );
             console2.log("PIN UNENFORCED (non-canonical source):", _sourceChainId);
         }
-        Create3Factory factory = Create3Factory(_factoryAddress());
+        ICreate3Factory factory = ICreate3Factory(_factoryAddress());
         require(
             factory.computeAddress(_deployer, salt) == predicted,
             "on-chain factory disagrees with the local CREATE3 prediction"
