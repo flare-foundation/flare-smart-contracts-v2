@@ -134,7 +134,7 @@ recursive_deps = true
 flare = "${FLARE_RPC}"
 songbird = "${SONGBIRD_RPC}"
 coston2 = "${COSTON2_RPC}"
-coston = "${COSTON2_RPC}"
+coston = "${COSTON_RPC}"
 staging = "${STAGING_RPC}"
 
 [profile.coverage]
