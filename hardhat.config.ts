@@ -39,9 +39,17 @@ dotenv.config();
 const COVERAGE = process.env.COVERAGE === "1" || process.env.COVERAGE === "true";
 console.log(`COVERAGE mode: ${COVERAGE}`);
 
+// The hardhat/coverage test suites assume the fixed, well-known account list below — the first
+// account is Truffle's default signer, and several tests sign with its known private key. Keys
+// from .env would reshape the list (DEPLOYER_PRIVATE_KEY is prepended AND filtered out of the
+// 1020-account file, shifting every index), failing the suites in ways that look like signature
+// bugs (e.g. Relay WrongSignature). So every .env-derived account is ignored for `hardhat test` /
+// `hardhat coverage` invocations; deploy and simulation tasks still get them.
+const IS_TEST_RUN = process.argv.includes("test") || process.argv.includes("coverage");
+
 const accounts = [
   // In Truffle, default account is always the first one.
-  ...(process.env.DEPLOYER_PRIVATE_KEY
+  ...(process.env.DEPLOYER_PRIVATE_KEY && !IS_TEST_RUN
     ? [{ privateKey: process.env.DEPLOYER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
     : []),
   // First 20 accounts with 10^14 NAT each
@@ -68,23 +76,26 @@ const accounts = [
   //   0x26c43a1d431a4e5ee86cd55ed7ef9edf3641e901
   ...(JSON.parse(fs.readFileSync("deployment/test-1020-accounts.json").toString()) as HardhatNetworkAccountUserConfig[])
     .slice(0, process.env.TENDERLY === "true" ? 150 : 2000)
-    .filter((x) => x.privateKey !== process.env.DEPLOYER_PRIVATE_KEY),
-  ...(process.env.GENESIS_GOVERNANCE_PRIVATE_KEY
+    // Deduplicate against the prepended deployer key. Only when it actually was prepended:
+    // under test runs nothing is prepended, and filtering here would itself shift the indexes
+    // whenever the .env deployer key equals one of these well-known accounts.
+    .filter((x) => IS_TEST_RUN || x.privateKey !== process.env.DEPLOYER_PRIVATE_KEY),
+  ...(process.env.GENESIS_GOVERNANCE_PRIVATE_KEY && !IS_TEST_RUN
     ? [{ privateKey: process.env.GENESIS_GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
     : []),
-  ...(process.env.GOVERNANCE_PRIVATE_KEY
+  ...(process.env.GOVERNANCE_PRIVATE_KEY && !IS_TEST_RUN
     ? [{ privateKey: process.env.GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
     : []),
-  ...(process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY
+  ...(process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY && !IS_TEST_RUN
     ? [{ privateKey: process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
     : []),
-  ...(process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY
+  ...(process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY && !IS_TEST_RUN
     ? [{ privateKey: process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
     : []),
-  ...(process.env.INITIAL_VOTER_PRIVATE_KEY
+  ...(process.env.INITIAL_VOTER_PRIVATE_KEY && !IS_TEST_RUN
     ? [{ privateKey: process.env.INITIAL_VOTER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
     : []),
-  ...(process.env.ENTITIES_FILE_PATH ? getEntityAccounts(process.env.ENTITIES_FILE_PATH) : []),
+  ...(process.env.ENTITIES_FILE_PATH && !IS_TEST_RUN ? getEntityAccounts(process.env.ENTITIES_FILE_PATH) : []),
 ];
 
 function getChainConfigParameters(chainConfig: string | undefined) {
