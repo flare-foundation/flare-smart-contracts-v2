@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: scripts/deploy-tee-contracts.sh <network> [--dry-run]
-# Example: scripts/deploy-tee-contracts.sh coston2
-# Example: scripts/deploy-tee-contracts.sh coston2 --dry-run
+# Usage: scripts/deploy-tee-contracts.sh <network> [--broadcast]
+# Example: scripts/deploy-tee-contracts.sh coston2               # DRY RUN (simulation only)
+# Example: scripts/deploy-tee-contracts.sh coston2 --broadcast   # real deployment
 #
 # Deploys FlareTeeManager diamond, FDC2 contracts, TeePayments proxies,
 # TeeRewardOffersManager, VrfVerifier, and wires them all up.
-# Use --dry-run to simulate against a forked network without broadcasting.
+#
+# SAFE BY DEFAULT: a run is a DRY RUN (simulation against a fork of the network, no
+# transactions) unless you pass an explicit --broadcast — same convention as deploy-relay.sh.
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <network> [--dry-run]" >&2
+  echo "Usage: $0 <network> [--broadcast]" >&2
   exit 2
 fi
 
 NETWORK="$1"
-DRY_RUN="${2:-}"
+MODE="${2:-}"
 
 # Convert network to uppercase and build env var name
 NETWORK_UPPER=$(echo "$NETWORK" | tr '[:lower:]' '[:upper:]')
@@ -49,10 +51,13 @@ FORGE_CMD=(forge script deployment/scripts/DeployTeeContracts.s.sol:DeployTeeCon
   --private-key "$DEPLOYER_PRIVATE_KEY"
   --sig "run()")
 
-if [[ "$DRY_RUN" == "--dry-run" ]]; then
-  echo "Running in dry-run mode (no broadcast)"
-  "${FORGE_CMD[@]}"
-else
+if [[ "$MODE" == "--broadcast" ]]; then
   "${FORGE_CMD[@]}" --broadcast | tee forge-deploy-output.txt
   npx tsx deployment/scripts/save-deployed-addresses.ts
+elif [[ -z "$MODE" ]]; then
+  echo "DRY RUN (no transactions; pass --broadcast to deploy for real)"
+  "${FORGE_CMD[@]}"
+else
+  echo "Unknown option: $MODE (expected --broadcast)" >&2
+  exit 2
 fi

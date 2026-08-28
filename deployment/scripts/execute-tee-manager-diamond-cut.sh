@@ -1,25 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: scripts/execute-tee-manager-diamond-cut.sh <network> <cut-json-file-name-without-extension> [--dry-run]
-# Example: scripts/execute-tee-manager-diamond-cut.sh coston2 2026-07-23
-# Example: scripts/execute-tee-manager-diamond-cut.sh coston2 2026-07-23 --dry-run
+# Usage: scripts/execute-tee-manager-diamond-cut.sh <network> <cut-json-file-name-without-extension> [--broadcast]
+# Example: scripts/execute-tee-manager-diamond-cut.sh coston2 2026-07-23               # DRY RUN
+# Example: scripts/execute-tee-manager-diamond-cut.sh coston2 2026-07-23 --broadcast   # real cut
 #
-# Use --dry-run to simulate against a forked network without broadcasting: no facets are deployed
-# and no diamondCut is sent. Combine with "execute": false in the cut JSON to just compute and print
-# the cut (the encoded calldata + decoded JSON are written to deployment/output-internal/<network>/).
+# SAFE BY DEFAULT: a run is a DRY RUN (simulation against a fork of the network — no facets
+# deployed, no diamondCut sent) unless you pass an explicit --broadcast — same convention as
+# deploy-relay.sh. Combine the dry run with "execute": false in the cut JSON to just compute and
+# print the cut (the encoded calldata + decoded JSON are written to deployment/output-internal/<network>/).
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
-  echo "Usage: $0 <network> <cut-json-file-name-without-extension> [--dry-run]" >&2
+  echo "Usage: $0 <network> <cut-json-file-name-without-extension> [--broadcast]" >&2
   exit 2
 fi
 
 NETWORK="$1"
 CUT_JSON="$2"
-DRY_RUN="${3:-}"
+MODE="${3:-}"
 
-if [[ -n "$DRY_RUN" && "$DRY_RUN" != "--dry-run" ]]; then
-  echo "Unknown argument '$DRY_RUN' (expected --dry-run)" >&2
+if [[ -n "$MODE" && "$MODE" != "--broadcast" ]]; then
+  echo "Unknown argument '$MODE' (expected --broadcast)" >&2
   exit 2
 fi
 
@@ -55,9 +56,9 @@ FORGE_CMD=(forge script deployment/scripts/ExecuteTeeManagerDiamondCut.s.sol:Exe
   --private-key "$DEPLOYER_PRIVATE_KEY"
   --sig "run(string)" "$CUT_JSON")
 
-if [[ "$DRY_RUN" == "--dry-run" ]]; then
-  echo "Running in dry-run mode (no broadcast)"
-  "${FORGE_CMD[@]}"
-else
+if [[ "$MODE" == "--broadcast" ]]; then
   "${FORGE_CMD[@]}" --broadcast
+else
+  echo "DRY RUN (no transactions; pass --broadcast to execute the cut for real)"
+  "${FORGE_CMD[@]}"
 fi
