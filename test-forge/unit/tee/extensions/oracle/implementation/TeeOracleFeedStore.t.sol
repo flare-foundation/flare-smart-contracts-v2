@@ -96,8 +96,8 @@ contract TeeOracleFeedStoreTest is Test {
         feeCalculator = address(feedStore.feeCalculator());
 
         _mockVerifyTeeSignature(teeId);
-        _mockExpectedEndpointsHash(teeId, ENDPOINTS_HASH);
-        _mockExpectedAdminsHash(teeId, ADMINS_HASH);
+        _mockLatestEndpointsHash(ENDPOINTS_HASH);
+        _mockLatestAdminsHash(ADMINS_HASH);
         _mockCalculateFee(FEE);
     }
 
@@ -269,38 +269,86 @@ contract TeeOracleFeedStoreTest is Test {
     }
 
     function testSubmitFeedUpdateRevertNoEndpointsPublished() public {
-        _mockExpectedEndpointsHash(teeId, bytes32(0));
+        _mockLatestEndpointsHash(bytes32(0));
         vm.expectRevert(ITeeOracleFeedStore.NoEndpointsPublished.selector);
         feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
     }
 
     function testSubmitFeedUpdateRevertStaleEndpoints() public {
-        _mockExpectedEndpointsHash(teeId, keccak256("newer endpoints"));
+        _mockLatestEndpointsHash(keccak256("newer endpoints"));
         vm.expectRevert(ITeeOracleFeedStore.StaleEndpoints.selector);
         feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
     }
 
     function testSubmitFeedUpdateRevertNoAdminsPublished() public {
-        _mockExpectedAdminsHash(teeId, bytes32(0));
+        _mockLatestAdminsHash(bytes32(0));
         vm.expectRevert(ITeeOracleFeedStore.NoAdminsPublished.selector);
         feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
     }
 
     function testSubmitFeedUpdateRevertStaleAdmins() public {
-        _mockExpectedAdminsHash(teeId, keccak256("newer admins"));
+        _mockLatestAdminsHash(keccak256("newer admins"));
         vm.expectRevert(ITeeOracleFeedStore.StaleAdmins.selector);
         feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
     }
 
-    function testSubmitFeedUpdatePerMachineCommitments() public {
-        // a machine still running an older configuration is rejected even
-        // while another machine's commitments are current
+    function testSubmitFeedUpdateCommitmentsAreFeedLevelNotPerMachine() public {
+        // the check does not depend on WHICH machine signed: every machine of the extension
+        // is held to the feed's single latest published generation
         address otherTeeId = makeAddr("otherTeeId");
         _mockVerifyTeeSignature(otherTeeId);
-        _mockExpectedEndpointsHash(otherTeeId, keccak256("newer endpoints"));
-        _mockExpectedAdminsHash(otherTeeId, ADMINS_HASH);
+        _submit(1, 0, _now() - 2);
+        (int256 value,,) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(value, 1);
+
+        _mockLatestEndpointsHash(keccak256("newer endpoints"));
+        _mockVerifyTeeSignature(teeId);
         vm.expectRevert(ITeeOracleFeedStore.StaleEndpoints.selector);
-        feedStore.submitFeedUpdate(_makeFeedUpdate(1, 0, _now() - 1), signature);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(2, 0, _now() - 1), signature);
+        _mockVerifyTeeSignature(otherTeeId);
+        vm.expectRevert(ITeeOracleFeedStore.StaleEndpoints.selector);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(2, 0, _now() - 1), signature);
+    }
+
+    function testSubmitFeedUpdateUndispatchedPublicationInvalidatesMachine() public {
+        // Regression guard for the feed-level commitment model (the inverse of the per-machine
+        // model it replaced): the store reads the FEED-level `latestEndpointsHash`, never a
+        // per-machine record. So a publication that has not reached this machine yet
+        // invalidates it immediately - which is the point: a configuration change takes effect
+        // at once, instead of machine by machine, and no machine keeps serving a superseded
+        // configuration just because its instruction is still in flight.
+        _submit(111, 0, _now() - 3);
+        (int256 value,,) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(value, 111);
+
+        // governance publishes a new generation; nothing was pushed to this machine, and it is
+        // already rejected while it keeps running the old one
+        bytes32 newerHash = keccak256("endpoints v2");
+        _mockLatestEndpointsHash(newerHash);
+        vm.expectRevert(ITeeOracleFeedStore.StaleEndpoints.selector);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(222, 0, _now() - 2), signature);
+
+        // it is accepted again only once it actually runs the new configuration
+        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = _makeFeedUpdate(333, 0, _now() - 1);
+        feedUpdate.endpointsHash = newerHash;
+        feedStore.submitFeedUpdate(feedUpdate, signature);
+        (value,,) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(value, 333);
+    }
+
+    function testSubmitFeedUpdateUndispatchedAdminsPublicationInvalidatesMachine() public {
+        // same for the admin sets - the two kinds are checked on identical terms
+        _submit(111, 0, _now() - 3);
+        bytes32 newerHash = keccak256("admins v2");
+        _mockLatestAdminsHash(newerHash);
+        vm.expectRevert(ITeeOracleFeedStore.StaleAdmins.selector);
+        feedStore.submitFeedUpdate(_makeFeedUpdate(222, 0, _now() - 2), signature);
+
+        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = _makeFeedUpdate(333, 0, _now() - 1);
+        feedUpdate.adminsHash = newerHash;
+        feedStore.submitFeedUpdate(feedUpdate, signature);
+        (int256 value,,) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(value, 333);
     }
 
     function testSubmitFeedUpdateRevertNotNewerSameTimestamp() public {
@@ -541,22 +589,18 @@ contract TeeOracleFeedStoreTest is Test {
         );
     }
 
-    function _mockExpectedEndpointsHash(address _teeId, bytes32 _hash) private {
+    function _mockLatestEndpointsHash(bytes32 _hash) private {
         vm.mockCall(
             instructionsSender,
-            abi.encodeWithSelector(
-                ITeeOracleInstructionsSender.expectedEndpointsHash.selector, FEED_ID, _teeId
-            ),
+            abi.encodeCall(ITeeOracleInstructionsSender.latestEndpointsHash, (FEED_ID)),
             abi.encode(_hash)
         );
     }
 
-    function _mockExpectedAdminsHash(address _teeId, bytes32 _hash) private {
+    function _mockLatestAdminsHash(bytes32 _hash) private {
         vm.mockCall(
             instructionsSender,
-            abi.encodeWithSelector(
-                ITeeOracleInstructionsSender.expectedAdminsHash.selector, FEED_ID, _teeId
-            ),
+            abi.encodeCall(ITeeOracleInstructionsSender.latestAdminsHash, (FEED_ID)),
             abi.encode(_hash)
         );
     }

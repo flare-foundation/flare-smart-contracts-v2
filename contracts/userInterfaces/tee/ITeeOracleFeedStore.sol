@@ -14,8 +14,8 @@ bytes32 constant TEE_ORACLE_FEED = bytes32("TEE_ORACLE_FEED");
  * @notice Public interface for a TEE oracle feed value store.
  * @dev Accepts TEE-signed feed updates and stores the latest one. Submission is open;
  *      trust is the TEE signature (verified through `IFdc2Verification` against the
- *      extension id read from the instructions sender) plus the configuration
- *      commitments the sender publishes. Strictly increasing, never-future `observedAt`
+ *      extension id read from the instructions sender) plus the feed's latest published
+ *      configuration generation. Strictly increasing, never-future `observedAt`
  *      covers replay and out-of-order delivery (observations are stamped with an on-chain
  *      event timestamp inside the enclave), and the signed feed update is bound to this
  *      exact feed via its `extensionId` and `feedId` fields. The concrete store also implements the
@@ -42,8 +42,10 @@ interface ITeeOracleFeedStore {
      * so the scale is dynamic per update.
      * @param observedAt The observation timestamp — the timestamp of an emitted on-chain
      * event, so always strictly in the past at submission; must strictly increase.
-     * @param endpointsHash The endpoints payload hash the machine was running.
-     * @param adminsHash The admin-sets hash the machine was running.
+     * @param endpointsHash The endpoints payload hash the machine was running; must equal the
+     * sender's `latestEndpointsHash(feedId)`.
+     * @param adminsHash The admin-sets hash the machine was running; must equal the sender's
+     * `latestAdminsHash(feedId)`.
      */
     struct FeedUpdate {
         uint256 extensionId;
@@ -89,9 +91,17 @@ interface ITeeOracleFeedStore {
      * The signer must be a PRODUCTION-status TEE machine on the store's extension
      * (verified through `IFdc2Verification.verifyTeeSignature`, which also rejects
      * submissions while the extension is emergency paused), the update must name this
-     * store's extension id and feed id, it must carry the configuration commitments
-     * currently published for that machine, and its observation timestamp must strictly
-     * increase and be strictly older than the accepting block.
+     * store's extension id and feed id, and its observation timestamp must strictly increase and
+     * be strictly older than the accepting block.
+     * It must also carry the FEED's latest published configuration generation: `endpointsHash`
+     * and `adminsHash` are checked against the sender's `latestEndpointsHash` /
+     * `latestAdminsHash` (`NoEndpointsPublished` / `NoAdminsPublished` when the feed has no
+     * publication of that kind, `StaleEndpoints` / `StaleAdmins` on a mismatch). This is
+     * deliberately the feed-level generation and not the version the machine was last dispatched:
+     * a publication therefore invalidates every machine still running the previous configuration
+     * until it adopts the new one. The rollout gap that opens is bounded — a feed publishes at
+     * most hourly and a publication auto-dispatches to the live active set — and it is what
+     * makes a configuration change take effect at once instead of machine by machine.
      * @param _feedUpdate The feed update, exactly as signed.
      * @param _signature The TEE signature over the update.
      */

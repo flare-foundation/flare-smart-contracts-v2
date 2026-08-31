@@ -135,15 +135,18 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         require(_feedUpdate.extensionId == extensionId, WrongExtensionId());
         require(_feedUpdate.feedId == feedId_, WrongFeedId());
 
-        // The machine must prove it runs this feed's latest published configuration and
-        // admin sets. The admin sets decide who may install credentials in the enclave,
-        // so they are checked on the same terms as the endpoints.
+        // The machine must prove it runs the feed's LATEST published configuration and admin
+        // sets - the feed-level generation, not whatever this machine was last dispatched. The
+        // admin sets decide who may install credentials in the enclave, so they are checked on
+        // the same terms as the endpoints. Publishing is therefore an immediate invalidation of
+        // every machine still running the previous generation: acceptable because a feed
+        // publishes at most hourly, and it is the property a per-machine record cannot give.
         ITeeOracleInstructionsSender sender = instructionsSender; // used more than once
-        bytes32 expected = sender.expectedEndpointsHash(feedId_, teeId);
+        bytes32 expected = sender.latestEndpointsHash(feedId_);
         require(expected != bytes32(0), NoEndpointsPublished());
         require(_feedUpdate.endpointsHash == expected, StaleEndpoints());
 
-        bytes32 expectedAdmins = sender.expectedAdminsHash(feedId_, teeId);
+        bytes32 expectedAdmins = sender.latestAdminsHash(feedId_);
         require(expectedAdmins != bytes32(0), NoAdminsPublished());
         require(_feedUpdate.adminsHash == expectedAdmins, StaleAdmins());
 

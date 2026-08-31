@@ -31,12 +31,74 @@ import {ITeeOracleInstructionsSender} from
  * Steps that CANNOT be scripted here (governance / extension owner, see docs/specs/FCC/TeeOracle.md):
  * - FlareTeeManager.registerReserved(extensionId, owner)          - Flare governance (timelocked)
  * - FlareTeeManager.setExtensionContracts(extensionId, 0, sender) - extension owner (direct)
- * - addTeeVersion / addAllowedTeeMachineOwners / setNewTeeGovernance - extension owner (direct)
+ * - addTeeVersion / addAllowedTeeMachineOwners                      - extension owner (direct)
  * - OperationFeesFacet.setOperationFees TEE_ORACLE rows           - Flare governance (timelocked)
  *   NOTE: until the fee rows are executed, the default fee applies
  * - FtsoV2.addCustomFeeds([feed stores])                          - Flare governance (timelocked)
- * - sender.setEndpoints / setAdmins per feed and machine          - Flare governance (timelocked)
- *   NOTE: the executor attaches the instruction fee to executeGovernanceCall
+ * - sender.setEndpoints / setAdmins per feed + VERSION + claim-back address
+ *                                                                  - Flare governance (timelocked)
+ *   NOTE: no machines are named - the call resolves the extension's active set itself and
+ *   dispatches to it. The EXECUTOR MUST ATTACH THE INSTRUCTION FEE to executeGovernanceCall.
+ *   GOVERNANCE SIGNS THE VERSION. The second argument must be EXACTLY the feed's next consecutive
+ *   version for that kind - endpointsVersion(feedId) + 1 / adminsVersion(feedId) + 1 - or the
+ *   execution reverts UnexpectedConfigVersion(signed, expected). Two rules follow:
+ *   (a) read the current version when PROPOSING and sign the next one; for two deliberately
+ *       sequential publications sign n+1 and n+2, and the second cannot execute before the first;
+ *   (b) a pending call that a later proposal SUPERSEDES must be CANCELLED (cancelGovernanceCall),
+ *       not left queued. A timelocked call is keyed by the hash of its whole calldata, so two
+ *       publications for one feed and kind can be pending at once; the signed version is what
+ *       stops the superseded one executing after its replacement and restoring stale values -
+ *       the worst case being a removed administrator re-authorised under a higher version. The
+ *       loser of that race becomes unexecutable, so leaving it queued only clutters the timelock.
+ *   TOOLING should therefore display the signed version and ALL pending calls per feed and kind,
+ *   and refuse to schedule a second publication for the same feed and kind by default.
+ *   The publication stores only the payload's HASH and emits the published EndpointGroup[] /
+ *   AdminRole[] in EndpointsPublished / AdminsPublished. KEEP THAT LOG: it is the only record of
+ *   the configuration, and the push step below takes exactly what it carries. An indexer, an
+ *   archive query or simply the execution receipt all work; if it is lost, governance must
+ *   republish.
+ *   The claim-back argument is where the fee of an instruction that never executes goes; it
+ *   must be non-zero (ZeroClaimBackAddress). Pre-production, when governance calls execute
+ *   immediately, that is the caller itself - the deployer / initial governance address below.
+ *   For a PRODUCTION timelocked publication governance must name THE WALLET THAT WILL FUND THE
+ *   EXECUTION: the executed body's msg.sender is the sender contract and FlareGovernance does
+ *   not record who called executeGovernanceCall, so the payer cannot be identified on chain.
+ *   Freezing that address at proposal time is safe - unlike a machine list it cannot make the
+ *   execution revert; if the named wallet is retired in the meantime, cancel and re-propose.
+ *   Size it with sender.getEndpointsPublicationFee() / getAdminsPublicationFee(), read in the
+ *   block the execution lands in (NOT get*PushTargets - a fresh version targets every eligible
+ *   machine, including those at the current latest version). Recording the timelocked call must
+ *   still send NO value.
+ *   READ THE VIEW IN THE BLOCK THE EXECUTION LANDS IN. The sender applies no fee rule of its own:
+ *   it forwards the whole msg.value and the diamond enforces only a FLOOR (FeeTooLow), then hands
+ *   the entire value to RewardManager.receiveRewards in the same transaction, holding no balance.
+ *   So too little REVERTS, while a surplus is NOT refunded: if the instruction is never executed
+ *   the whole recorded value, surplus included, is claimable to the claim-back address, but once it
+ *   executes the value has been distributed as that epoch's rewards and nothing separates fee from
+ *   surplus. A value quoted for a fleet that shrank in the meantime - a machine paused or
+ *   suspended, or a changed fee row - therefore donates the difference to the reward pool.
+ *   A short fee, an unset/wrong FlareTeeManager or a lost instructions-sender registration
+ *   REVERT the execution; that is retryable - executeGovernanceCall's revert rolls back its own
+ *   deletion of the timelock entry, so just re-execute with the right fee, no re-proposal.
+ *   The dispatch is skipped (and the values published anyway) ONLY when the extension is
+ *   emergency paused or its active set is empty. In those two cases attach NO value - a skipped
+ *   dispatch cannot refund the executor and reverts ValueNotNeeded - and use the push step below
+ *   to deliver the configuration. get*PublicationFee reports no machines and no fee in both
+ *   cases, which is exactly that signal (the get*PushTargets views, by contrast, are NOT
+ *   pause-aware and keep reporting who is behind - check the pause state separately).
+ * - sender.pushEndpoints / pushAdmins per feed                    - ANYONE (pays the fee)
+ *   NOTE: needed for machines registered after a publication, for a publication whose dispatch
+ *   was skipped, and to retry an instruction that never reached its enclave.
+ *   A KEEPER NEEDS THE CONFIGURATION VALUES, passed as the third argument (EndpointGroup[] /
+ *   AdminRole[]): they are the `groups` / `roles` field of the feed's latest EndpointsPublished /
+ *   AdminsPublished event, passed straight through. The contract re-encodes them with the
+ *   version it holds in storage and requires the hash to match, else WrongConfigPayload - so the
+ *   values of a superseded publication are refused and no version is ever supplied by the caller.
+ *   The list is dispatched AS GIVEN and a target the push cannot deliver to REVERTS the whole
+ *   call (empty / zero / duplicate id, foreign extension; a non-PRODUCTION target is refused by
+ *   the diamond with TeeMachineNotAvailable). A keeper therefore builds the list from
+ *   getEndpointsPushTargets / getAdminsPushTargets and prices it with the diamond's
+ *   calculateFeeByTeeIds(TEE_ORACLE, SET_ENDPOINTS|SET_ADMINS, teeIds).
  */
 contract DeployTeeOracle is Script {
     using stdJson for string;
@@ -354,7 +416,7 @@ contract DeployTeeOracle is Script {
             vm.toString(address(sender)), ")"
         ));
         console2.log(
-            "3. extension owner: addTeeVersion / addAllowedTeeMachineOwners / setNewTeeGovernance"
+            "3. extension owner: addTeeVersion / addAllowedTeeMachineOwners"
         );
         for (uint256 i = 0; i < feedStores.length; i++) {
             console2.log(string.concat(
@@ -364,8 +426,48 @@ contract DeployTeeOracle is Script {
             ));
         }
         console2.log(
-            "5. governance: sender.setEndpoints / setAdmins per feed and machine "
-            "(executor attaches the fee)"
+            "5. governance: sender.setEndpoints / setAdmins per feed "
+            "(no machines named; the EXECUTOR ATTACHES THE FEE from "
+            "sender.getEndpointsPublicationFee() / getAdminsPublicationFee(), READ IN THE BLOCK "
+            "THE EXECUTION LANDS IN, to executeGovernanceCall - too little reverts in the diamond "
+            "(FeeTooLow) and a surplus is NOT refunded, it joins that epoch's rewards; recording "
+            "must send no value; attach nothing if that view reports an empty machine list or the "
+            "extension is paused)"
+        );
+        console2.log(
+            "   VERSION argument: exactly the feed's NEXT CONSECUTIVE version for that kind, "
+            "endpointsVersion(feedId) + 1 / adminsVersion(feedId) + 1, else the execution reverts "
+            "UnexpectedConfigVersion(signed, expected). Governance SIGNS it, so a superseded "
+            "pending call cannot execute after its replacement and restore stale configuration"
+        );
+        console2.log(
+            "   CANCEL a superseded pending call (cancelGovernanceCall) instead of leaving it "
+            "queued - it is unexecutable once its replacement has consumed the version. Tooling "
+            "should show the signed version and ALL pending calls per feed and kind"
+        );
+        console2.log(
+            "   claim-back address argument (non-zero): pre-production the caller itself,",
+            deployer
+        );
+        console2.log(
+            "   in production name the wallet that will FUND the executeGovernanceCall - the "
+            "payer cannot be identified on chain"
+        );
+        console2.log(
+            "   the publication stores only the payload HASH and logs the published groups / roles "
+            "in EndpointsPublished / AdminsPublished - KEEP THAT LOG, the push below needs them"
+        );
+        console2.log(
+            "6. anyone: sender.pushEndpoints / pushAdmins per feed "
+            "(for machines added later or a skipped dispatch - build the list from "
+            "get*PushTargets; the push dispatches it as given and REVERTS on a target it cannot "
+            "deliver to, and the diamond's calculateFeeByTeeIds prices it)"
+        );
+        console2.log(
+            "   the push also takes the CONFIGURATION VALUES (EndpointGroup[] / AdminRole[]), taken "
+            "verbatim from groups / roles in the feed's latest publication event; the "
+            "contract re-encodes them with the stored version and checks the hash "
+            "(WrongConfigPayload)"
         );
     }
 }

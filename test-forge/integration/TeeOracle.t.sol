@@ -2,6 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
+import { Vm } from "forge-std/Vm.sol";
 import { FlareTeeManagerDeployer } from "../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IDiamond } from "../../contracts/diamond/interfaces/IDiamond.sol";
@@ -29,7 +30,10 @@ import {
     TeeOracleFeedStoreProxy
 } from "../../contracts/tee/extensions/oracle/proxy/TeeOracleFeedStoreProxy.sol";
 import {
-    ITeeOracleInstructionsSender
+    ITeeOracleInstructionsSender,
+    TEE_ORACLE_OP_TYPE,
+    SET_ENDPOINTS_COMMAND,
+    SET_ADMINS_COMMAND
 } from "../../contracts/userInterfaces/tee/ITeeOracleInstructionsSender.sol";
 import {
     ITeeOracleFeedStore,
@@ -77,14 +81,27 @@ contract TeeOracleMachineSetupFacet {
         s.activeTeeIds.add(_teeId);
         s.extensionActiveTeeIds[_extensionId].add(_teeId);
     }
+
+    /// Moves a fabricated machine to another status through the library, so it leaves the
+    /// extension's active set exactly as a real status change would.
+    function changeTeeMachineState(
+        address _teeId,
+        IMachineManager.TeeStatus _status
+    )
+        external
+    {
+        MachineManager.changeStatus(_teeId, _status);
+    }
 }
 
 /**
  * @title TeeOracleIntegrationTest
  * @notice End-to-end flow of the TEE oracle extension against a real FlareTeeManager
  *         diamond and a real Fdc2Verification: reserved extension registration, sender
- *         wiring, configuration publications, a feed update request through the diamond,
- *         a genuinely signed feed update submission, and the paid feed read.
+ *         wiring, a governance configuration publication that auto-dispatches to the live
+ *         active set, a permissionless push for a machine registered later, a feed update
+ *         request through the diamond, a genuinely signed feed update submission, and the
+ *         paid feed read.
  */
 contract TeeOracleIntegrationTest is Test {
 
@@ -122,6 +139,7 @@ contract TeeOracleIntegrationTest is Test {
         relay = makeAddr("Relay");
         feeCalculator = makeAddr("FeeCalculator");
         feeDestination = makeAddr("feeDestination");
+        // the wallet governance names as the claim-back destination of a publication's dispatch
         claimBack = makeAddr("claimBack");
         (teeId, teePrivateKey) = makeAddrAndKey("teeMachine");
 
@@ -143,8 +161,9 @@ contract TeeOracleIntegrationTest is Test {
         // cut the machine-setup helper facet into the diamond
         TeeOracleMachineSetupFacet setupFacet = new TeeOracleMachineSetupFacet();
         IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
-        bytes4[] memory selectors = new bytes4[](1);
+        bytes4[] memory selectors = new bytes4[](2);
         selectors[0] = TeeOracleMachineSetupFacet.setupTeeMachineState.selector;
+        selectors[1] = TeeOracleMachineSetupFacet.changeTeeMachineState.selector;
         cuts[0] = IDiamond.FacetCut(address(setupFacet), IDiamond.FacetCutAction.Add, selectors);
         vm.prank(initialGovernance);
         IDiamondCut(address(flareTeeManager)).diamondCut(cuts, address(0), "");
@@ -260,19 +279,36 @@ contract TeeOracleIntegrationTest is Test {
     }
 
     function testEndToEndFeedFlow() public {
-        // 1. governance publishes endpoints and admins to the machine (pre-production:
-        //    immediate execution; the fee rides as msg.value straight to the diamond)
+        // 1. governance publishes endpoints and admins for the feed (pre-production: immediate
+        //    execution) with the instruction fee attached. No machines are named: the
+        //    publication resolves the extension's live active set itself and dispatches to it,
+        //    so the fleet converges in the publishing transaction.
         address[] memory teeIds = new address[](1);
         teeIds[0] = teeId;
+        // the executor sizes the fee from get*PublicationFee, read in the executing block
+        (address[] memory publicationTargets, uint256 publicationFee) =
+            sender.getEndpointsPublicationFee();
+        assertEq(publicationTargets.length, 1);
+        assertEq(publicationTargets[0], teeId);
+        assertEq(publicationFee, INSTRUCTION_FEE);
         vm.deal(initialGovernance, 2 * INSTRUCTION_FEE);
         vm.startPrank(initialGovernance);
-        sender.setEndpoints{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeGroups(), claimBack);
-        sender.setAdmins{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeRoles(), claimBack);
+        sender.setEndpoints{value: publicationFee}(FEED_ID, 1, _makeGroups(), claimBack);
+        (, uint256 adminsPublicationFee) = sender.getAdminsPublicationFee();
+        sender.setAdmins{value: adminsPublicationFee}(FEED_ID, 1, _makeRoles(), claimBack);
         vm.stopPrank();
+        assertEq(sender.endpointsVersion(FEED_ID), 1);
+        assertEq(sender.adminsVersion(FEED_ID), 1);
         assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId), 1);
         assertEq(sender.expectedAdminsVersion(FEED_ID, teeId), 1);
-        // the whole instruction fee reached the reward manager
+        assertTrue(sender.isTeeIdConfigured(FEED_ID, teeId));
+        // the whole instruction fee reached the reward manager, and nothing was refunded
         assertEq(rewardManager.balance, 2 * INSTRUCTION_FEE);
+        assertEq(initialGovernance.balance, 0);
+        assertEq(address(sender).balance, 0);
+        // the fleet has converged: nothing left to push
+        assertEq(sender.getEndpointsPushTargets(FEED_ID).length, 0);
+        assertEq(sender.getAdminsPushTargets(FEED_ID).length, 0);
 
         // 2. anyone requests a feed update from the configured machine
         address requester = makeAddr("requester");
@@ -282,15 +318,16 @@ contract TeeOracleIntegrationTest is Test {
             sender.requestFeedUpdate{value: INSTRUCTION_FEE}(FEED_ID, teeIds);
         assertNotEq(instructionId, bytes32(0));
 
-        // 3. the machine answers with a signed feed update carrying its current commitments
+        // 3. the machine answers with a signed feed update carrying the feed's published
+        //    configuration generation
         ITeeOracleFeedStore.FeedUpdate memory feedUpdate = ITeeOracleFeedStore.FeedUpdate({
             extensionId: EXTENSION_ID,
             feedId: FEED_ID,
             value: 99954321,
             decimals: 8,
             observedAt: uint64(vm.getBlockTimestamp()) - 1,
-            endpointsHash: sender.expectedEndpointsHash(FEED_ID, teeId),
-            adminsHash: sender.expectedAdminsHash(FEED_ID, teeId)
+            endpointsHash: sender.latestEndpointsHash(FEED_ID),
+            adminsHash: sender.latestAdminsHash(FEED_ID)
         });
         feedStore.submitFeedUpdate(feedUpdate, _sign(feedUpdate));
 
@@ -324,14 +361,8 @@ contract TeeOracleIntegrationTest is Test {
     }
 
     function testSubmitFeedUpdateRejectsTamperedUpdate() public {
-        // publish commitments so only the signature binding can fail
-        address[] memory teeIds = new address[](1);
-        teeIds[0] = teeId;
-        vm.deal(initialGovernance, 2 * INSTRUCTION_FEE);
-        vm.startPrank(initialGovernance);
-        sender.setEndpoints{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeGroups(), claimBack);
-        sender.setAdmins{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeRoles(), claimBack);
-        vm.stopPrank();
+        // publish the configuration so only the signature binding can fail
+        _publishAndDispatch();
 
         ITeeOracleFeedStore.FeedUpdate memory feedUpdate = ITeeOracleFeedStore.FeedUpdate({
             extensionId: EXTENSION_ID,
@@ -339,8 +370,8 @@ contract TeeOracleIntegrationTest is Test {
             value: 99954321,
             decimals: 8,
             observedAt: uint64(vm.getBlockTimestamp()) - 1,
-            endpointsHash: sender.expectedEndpointsHash(FEED_ID, teeId),
-            adminsHash: sender.expectedAdminsHash(FEED_ID, teeId)
+            endpointsHash: sender.latestEndpointsHash(FEED_ID),
+            adminsHash: sender.latestAdminsHash(FEED_ID)
         });
         Signature memory signature = _sign(feedUpdate);
 
@@ -351,9 +382,349 @@ contract TeeOracleIntegrationTest is Test {
         feedStore.submitFeedUpdate(feedUpdate, signature);
     }
 
+    function testLateMachineConvergesThroughPermissionlessPush() public {
+        // the fleet is configured while only one machine exists
+        _publishAndDispatch();
+
+        // a second machine is registered only afterwards - with no governance call available,
+        // it can still be brought current by anyone
+        (address lateTeeId, uint256 lateKey) = makeAddrAndKey("lateTeeMachine");
+        TeeOracleMachineSetupFacet(address(flareTeeManager)).setupTeeMachineState(
+            lateTeeId, EXTENSION_ID, "https://late-tee.example.com"
+        );
+        address[] memory targets = sender.getEndpointsPushTargets(FEED_ID);
+        assertEq(targets.length, 1, "only the lagging machine still needs a push");
+        assertEq(targets[0], lateTeeId);
+
+        // the pusher supplies the configuration values too - nothing stores them, so they come
+        // from the publication's log; the contract re-encodes them with the version it holds
+        address anyone = makeAddr("anyone");
+        vm.deal(anyone, 2 * INSTRUCTION_FEE);
+        vm.startPrank(anyone);
+        sender.pushEndpoints{value: INSTRUCTION_FEE}(FEED_ID, targets, _makeGroups());
+        sender.pushAdmins{value: INSTRUCTION_FEE}(
+            FEED_ID, sender.getAdminsPushTargets(FEED_ID), _makeRoles());
+        vm.stopPrank();
+        assertTrue(sender.isTeeIdConfigured(FEED_ID, lateTeeId));
+        assertEq(sender.getEndpointsPushTargets(FEED_ID).length, 0);
+
+        // and it can now serve the feed
+        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = ITeeOracleFeedStore.FeedUpdate({
+            extensionId: EXTENSION_ID,
+            feedId: FEED_ID,
+            value: 100010000,
+            decimals: 8,
+            observedAt: uint64(vm.getBlockTimestamp()) - 1,
+            endpointsHash: sender.latestEndpointsHash(FEED_ID),
+            adminsHash: sender.latestAdminsHash(FEED_ID)
+        });
+        (uint8 v, bytes32 r, bytes32 sig) = vm.sign(
+            lateKey,
+            SignedPayload.ethSignedHash(TEE_ORACLE_FEED, keccak256(abi.encode(feedUpdate)))
+        );
+        feedStore.submitFeedUpdate(feedUpdate, Signature(v, r, sig));
+        (int256 value,,) = feedStore.getCurrentFeed{value: READ_FEE}();
+        assertEq(value, 100010000);
+    }
+
+    function testPublicationWithoutFeeReverts() public {
+        // a short fee is the executor's to fix, so it is not swallowed: the sender forwards the
+        // whole msg.value and the diamond's own floor rejects it, rolling the publication back
+        (, uint256 fee) = sender.getEndpointsPublicationFee();
+        assertEq(fee, INSTRUCTION_FEE);
+        vm.expectRevert(abi.encodeWithSignature("FeeTooLow()"));
+        vm.prank(initialGovernance);
+        sender.setEndpoints(FEED_ID, 1, _makeGroups(), claimBack);
+        assertEq(sender.endpointsVersion(FEED_ID), 0);
+        assertEq(sender.latestEndpointsHash(FEED_ID), bytes32(0));
+        assertEq(rewardManager.balance, 0);
+    }
+
+    function testPausedPublicationIsPushedAfterUnpause() public {
+        // the extension is paused - possibly BECAUSE the live configuration is wrong - so the
+        // diamond refuses every dispatch. A corrected configuration must still land on chain,
+        // with no value attached since a skipped dispatch cannot refund the executor.
+        vm.prank(extensionOwner);
+        flareTeeManager.emergencyPauseExtension(EXTENSION_ID);
+        // the preview mirrors the publication rather than the raw active set: no targets, no
+        // fee, so an executor who reads only this attaches nothing and avoids ValueNotNeeded
+        (address[] memory paused, uint256 pausedFee) = sender.getEndpointsPublicationFee();
+        assertEq(paused.length, 0, "a paused extension dispatches to nobody");
+        assertEq(pausedFee, 0);
+        vm.deal(initialGovernance, INSTRUCTION_FEE);
+        vm.expectRevert(ITeeOracleInstructionsSender.ValueNotNeeded.selector);
+        vm.prank(initialGovernance);
+        sender.setEndpoints{value: INSTRUCTION_FEE}(FEED_ID, 1, _makeGroups(), claimBack);
+
+        // the values land with no dispatch at all, so the publication EVENT is the only record
+        // of the payload - and it is emitted anyway, precisely so the push below has something to
+        // supply. A keeper reads it from there; the test does exactly that.
+        vm.recordLogs();
+        vm.startPrank(initialGovernance);
+        sender.setEndpoints(FEED_ID, 1, _makeGroups(), claimBack);
+        sender.setAdmins(FEED_ID, 1, _makeRoles(), claimBack);
+        vm.stopPrank();
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        ITeeOracleInstructionsSender.EndpointGroup[] memory loggedGroups = _groupsFromLogs(logs);
+        ITeeOracleInstructionsSender.AdminRole[] memory loggedRoles = _rolesFromLogs(logs);
+        assertEq(keccak256(abi.encode(loggedGroups)), keccak256(abi.encode(_makeGroups())));
+        assertEq(keccak256(abi.encode(loggedRoles)), keccak256(abi.encode(_makeRoles())));
+        assertEq(sender.endpointsVersion(FEED_ID), 1);
+        assertEq(sender.adminsVersion(FEED_ID), 1);
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId), 0);
+        assertEq(rewardManager.balance, 0, "a skipped dispatch pays no instruction fee");
+        assertFalse(sender.isTeeIdConfigured(FEED_ID, teeId));
+
+        // once unpaused, a keeper reads the exact target set and fee, then pushes both kinds
+        vm.prank(extensionOwner);
+        flareTeeManager.emergencyUnpauseExtension(EXTENSION_ID);
+        address keeper = makeAddr("keeper");
+        vm.deal(keeper, 2 * INSTRUCTION_FEE);
+        address[] memory targets = sender.getEndpointsPushTargets(FEED_ID);
+        assertEq(targets.length, 1);
+        assertEq(targets[0], teeId);
+        // the push has no fee preview of its own - the list is dispatched as given, so the
+        // diamond's own fee calculator prices it exactly
+        uint256 endpointsFee = flareTeeManager.calculateFeeByTeeIds(
+            TEE_ORACLE_OP_TYPE, SET_ENDPOINTS_COMMAND, targets);
+        assertEq(endpointsFee, INSTRUCTION_FEE);
+        address[] memory adminTargets = sender.getAdminsPushTargets(FEED_ID);
+        uint256 adminsFee = flareTeeManager.calculateFeeByTeeIds(
+            TEE_ORACLE_OP_TYPE, SET_ADMINS_COMMAND, adminTargets);
+        vm.startPrank(keeper);
+        sender.pushEndpoints{value: endpointsFee}(FEED_ID, targets, loggedGroups);
+        sender.pushAdmins{value: adminsFee}(FEED_ID, adminTargets, loggedRoles);
+        vm.stopPrank();
+
+        assertTrue(sender.isTeeIdConfigured(FEED_ID, teeId));
+        // the instruction fee reached the reward manager, paid by the pusher
+        assertEq(rewardManager.balance, 2 * INSTRUCTION_FEE);
+        assertEq(keeper.balance, 0);
+        assertEq(sender.getEndpointsPushTargets(FEED_ID).length, 0);
+        assertEq(sender.getAdminsPushTargets(FEED_ID).length, 0);
+    }
+
+    function testPushToAMachineOutOfProductionRevertsInTheDiamond() public {
+        // the sender does not pre-check PRODUCTION status - the diamond does. A machine that
+        // leaves PRODUCTION leaves the extension's active set, so the straggler view stops
+        // offering it, and naming it explicitly reverts with the diamond's own error instead of
+        // being silently dropped from a list the caller paid for.
+        _publishAndDispatch();
+        TeeOracleMachineSetupFacet(address(flareTeeManager)).changeTeeMachineState(
+            teeId, IMachineManager.TeeStatus.PAUSED
+        );
+        (address[] memory publicationTargets, uint256 publicationFee) =
+            sender.getEndpointsPublicationFee();
+        assertEq(publicationTargets.length, 0, "the machine left the active set");
+        assertEq(publicationFee, 0);
+        assertEq(sender.getEndpointsPushTargets(FEED_ID).length, 0);
+
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = teeId;
+        address keeper = makeAddr("keeper");
+        vm.deal(keeper, INSTRUCTION_FEE);
+        vm.expectRevert(abi.encodeWithSignature("TeeMachineNotAvailable()"));
+        vm.prank(keeper);
+        sender.pushEndpoints{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeGroups());
+        assertEq(keeper.balance, INSTRUCTION_FEE, "the fee never left the caller");
+    }
+
+    function testPublicationInvalidatesMachinesUntilTheyAdoptIt() public {
+        // the store gates on the FEED's latest published generation, so a publication that
+        // never reached a machine already rejects that machine's updates
+        _publishAndDispatch();
+        ITeeOracleFeedStore.FeedUpdate memory feedUpdate = ITeeOracleFeedStore.FeedUpdate({
+            extensionId: EXTENSION_ID,
+            feedId: FEED_ID,
+            value: 99954321,
+            decimals: 8,
+            observedAt: uint64(vm.getBlockTimestamp()) - 2,
+            endpointsHash: sender.latestEndpointsHash(FEED_ID),
+            adminsHash: sender.latestAdminsHash(FEED_ID)
+        });
+        feedStore.submitFeedUpdate(feedUpdate, _sign(feedUpdate));
+
+        // a second publication: the machine's previous-generation update is already refused,
+        // whether or not its new instruction has been executed by the enclave yet
+        (, uint256 fee) = sender.getEndpointsPublicationFee();
+        vm.deal(initialGovernance, fee);
+        vm.prank(initialGovernance);
+        sender.setEndpoints{value: fee}(FEED_ID, 2, _makeGroups(), claimBack);
+        feedUpdate.observedAt = uint64(vm.getBlockTimestamp()) - 1;
+        feedUpdate.value = 12345678;
+        vm.expectRevert(ITeeOracleFeedStore.StaleEndpoints.selector);
+        feedStore.submitFeedUpdate(feedUpdate, _sign(feedUpdate));
+
+        // and accepted again as soon as the machine runs the new generation
+        feedUpdate.endpointsHash = sender.latestEndpointsHash(FEED_ID);
+        feedStore.submitFeedUpdate(feedUpdate, _sign(feedUpdate));
+        (int256 value,,) = feedStore.getCurrentFeed{value: READ_FEE}();
+        assertEq(value, 12345678);
+    }
+
+    function testPublicationOverpaysWhenTheFleetShrinksAfterTheFeeQuote() public {
+        // a second machine joins, so the publication is quoted for two
+        (address secondTeeId,) = makeAddrAndKey("secondTeeMachine");
+        TeeOracleMachineSetupFacet(address(flareTeeManager)).setupTeeMachineState(
+            secondTeeId, EXTENSION_ID, "https://tee2.example.com"
+        );
+        (address[] memory quoted, uint256 quotedFee) = sender.getEndpointsPublicationFee();
+        assertEq(quoted.length, 2);
+        assertEq(quotedFee, 2 * INSTRUCTION_FEE);
+
+        // one of them is paused before the execution lands, so it leaves the active set and the
+        // quoted value is twice the fee of the single target the publication actually snapshots.
+        // L-01, accepted rather than fixed: the diamond enforces only a floor and hands the WHOLE
+        // value to the reward manager in the same transaction, so the publication succeeds and the
+        // surplus joins that epoch's rewards - unrecoverable once the instruction executes,
+        // claimable to the claim-back address only if it never does. Hence "read the view in the
+        // block the execution lands in".
+        TeeOracleMachineSetupFacet(address(flareTeeManager)).changeTeeMachineState(
+            secondTeeId, IMachineManager.TeeStatus.PAUSED
+        );
+        (address[] memory fresh, uint256 freshFee) = sender.getEndpointsPublicationFee();
+        assertEq(fresh.length, 1);
+        assertEq(fresh[0], teeId);
+        assertEq(freshFee, INSTRUCTION_FEE);
+
+        vm.deal(initialGovernance, quotedFee);
+        vm.prank(initialGovernance);
+        sender.setEndpoints{value: quotedFee}(FEED_ID, 1, _makeGroups(), claimBack);
+        assertEq(sender.endpointsVersion(FEED_ID), 1, "published");
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId), 1);
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, secondTeeId), 0, "not a target");
+        assertEq(initialGovernance.balance, 0, "the surplus is not refunded");
+        assertEq(
+            rewardManager.balance, quotedFee, "fee AND surplus both went to the reward manager"
+        );
+    }
+
+    function testSameIdPauseUnpauseKeepsTheRecordedVersionAndIsNotAPushTarget() public {
+        // L-02, pinned as current behaviour rather than left accidental: the per-machine record
+        // says what was DISPATCHED, and a machine paused and unpaused under the SAME id with no
+        // publication in between keeps it.
+        _publishAndDispatch();
+        assertTrue(sender.isTeeIdConfigured(FEED_ID, teeId));
+        assertEq(sender.getEndpointsPushTargets(FEED_ID).length, 0);
+
+        TeeOracleMachineSetupFacet(address(flareTeeManager)).changeTeeMachineState(
+            teeId, IMachineManager.TeeStatus.PAUSED
+        );
+        // out of the active set, so out of the view - which is what makes the view follow the
+        // diamond rather than keep its own eligibility rules
+        assertEq(sender.getEndpointsPushTargets(FEED_ID).length, 0);
+        assertEq(sender.getAdminsPushTargets(FEED_ID).length, 0);
+
+        TeeOracleMachineSetupFacet(address(flareTeeManager)).changeTeeMachineState(
+            teeId, IMachineManager.TeeStatus.PRODUCTION
+        );
+        // back in the active set, still recorded at the latest version, therefore STILL not a push
+        // target - even though its enclave may have lost its local state while paused. Nothing on
+        // chain can tell the difference, so a keeper must react to restart / lost-state signals of
+        // its own and push explicitly; the lagging-target views are not a complete convergence
+        // mechanism.
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId), 1);
+        assertEq(sender.expectedAdminsVersion(FEED_ID, teeId), 1);
+        assertEq(sender.getEndpointsPushTargets(FEED_ID).length, 0, "omitted, by design");
+        assertEq(sender.getAdminsPushTargets(FEED_ID).length, 0);
+
+        // and the explicit push always works, since it applies no version filter
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = teeId;
+        address keeper = makeAddr("keeper");
+        vm.deal(keeper, 2 * INSTRUCTION_FEE);
+        vm.startPrank(keeper);
+        sender.pushEndpoints{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeGroups());
+        sender.pushAdmins{value: INSTRUCTION_FEE}(FEED_ID, teeIds, _makeRoles());
+        vm.stopPrank();
+        assertTrue(sender.isTeeIdConfigured(FEED_ID, teeId));
+        assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId), 1, "idempotent re-dispatch");
+    }
+
+    function testPushTargetViewsStillReportLaggingMachinesWhileEmergencyPaused() public {
+        // I-01, deliberate: unlike get*PublicationFee these views are NOT pause-aware. Their
+        // output is a diagnosis, not a value to attach, and "who is behind" stays true while
+        // paused - so callers check the pause state separately instead of being blinded exactly
+        // when a problem is being diagnosed.
+        _publishAndDispatch();
+        (address[] memory lateTeeIds,) = flareTeeManager.getActiveTeeMachines(EXTENSION_ID);
+        assertEq(lateTeeIds.length, 1);
+        // a second machine joins after the publication, so it is genuinely lagging
+        (address lateTeeId,) = makeAddrAndKey("lateTeeMachineForPauseView");
+        TeeOracleMachineSetupFacet(address(flareTeeManager)).setupTeeMachineState(
+            lateTeeId, EXTENSION_ID, "https://late.example.com"
+        );
+        assertEq(sender.getEndpointsPushTargets(FEED_ID).length, 1);
+
+        vm.prank(extensionOwner);
+        flareTeeManager.emergencyPauseExtension(EXTENSION_ID);
+        address[] memory targets = sender.getEndpointsPushTargets(FEED_ID);
+        assertEq(targets.length, 1, "still reported while paused");
+        assertEq(targets[0], lateTeeId);
+        assertEq(sender.getAdminsPushTargets(FEED_ID).length, 1);
+        // while the ACTIONABLE views do go quiet, mirroring what a publication would do
+        (address[] memory publicationTargets, uint256 publicationFee) =
+            sender.getEndpointsPublicationFee();
+        assertEq(publicationTargets.length, 0);
+        assertEq(publicationFee, 0);
+        // and acting on the diagnostic without checking the pause reverts in the diamond
+        address keeper = makeAddr("keeper");
+        vm.deal(keeper, INSTRUCTION_FEE);
+        vm.expectRevert(
+            abi.encodeWithSignature("EmergencyPauseActive(uint256)", EXTENSION_ID)
+        );
+        vm.prank(keeper);
+        sender.pushEndpoints{value: INSTRUCTION_FEE}(FEED_ID, targets, _makeGroups());
+    }
+
+    function testRequestFeedUpdateRejectsAZeroFirstTargetBeforeAskingTheManager() public {
+        // L-03: the local rules run before the manager is consulted, so a zero FIRST element is
+        // reported as this contract's own ZeroTeeId and not as the registry's TeeNotFound
+        _publishAndDispatch();
+        address[] memory teeIds = new address[](2);
+        teeIds[0] = address(0);
+        teeIds[1] = teeId;
+        vm.expectRevert(ITeeOracleInstructionsSender.ZeroTeeId.selector);
+        sender.requestFeedUpdate(FEED_ID, teeIds);
+
+        // a duplicate first pair is likewise local
+        teeIds[0] = teeId;
+        teeIds[1] = teeId;
+        vm.expectRevert(ITeeOracleInstructionsSender.DuplicateTeeId.selector);
+        sender.requestFeedUpdate(FEED_ID, teeIds);
+    }
+
+    function testRequestFeedUpdateRejectsAnUnregisteredFirstTargetWithTheManagerError() public {
+        // an id that is no machine at all is a question only the registry can answer, so the
+        // manager's TeeNotFound is the honest error here
+        _publishAndDispatch();
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = makeAddr("neverRegistered");
+        vm.expectRevert(abi.encodeWithSignature("TeeNotFound()"));
+        sender.requestFeedUpdate(FEED_ID, teeIds);
+    }
+
     // -------------------------------------------------------------------------
     // helpers
     // -------------------------------------------------------------------------
+
+    /// Publishes both configuration kinds for the feed with enough value attached for the
+    /// extension's whole live active set, so the publication's auto-dispatch delivers them.
+    function _publishAndDispatch()
+        private
+    {
+        (address[] memory active,) = flareTeeManager.getActiveTeeMachines(EXTENSION_ID);
+        uint256 fee = active.length * INSTRUCTION_FEE;
+        // governance signs the next consecutive version, read here because this helper is also
+        // used on already-published feeds
+        uint64 nextEndpoints = sender.endpointsVersion(FEED_ID) + 1;
+        uint64 nextAdmins = sender.adminsVersion(FEED_ID) + 1;
+        vm.deal(initialGovernance, 2 * fee);
+        vm.startPrank(initialGovernance);
+        sender.setEndpoints{value: fee}(FEED_ID, nextEndpoints, _makeGroups(), claimBack);
+        sender.setAdmins{value: fee}(FEED_ID, nextAdmins, _makeRoles(), claimBack);
+        vm.stopPrank();
+    }
 
     function _sign(
         ITeeOracleFeedStore.FeedUpdate memory _feedUpdate
@@ -366,6 +737,43 @@ contract TeeOracleIntegrationTest is Test {
             SignedPayload.ethSignedHash(TEE_ORACLE_FEED, keccak256(abi.encode(_feedUpdate)))
         );
         return Signature(v, r, s);
+    }
+
+    /// The groups carried by the last `EndpointsPublished` log - how a keeper actually obtains the
+    /// values it hands straight back to `pushEndpoints`, since nothing stores them.
+    function _groupsFromLogs(
+        Vm.Log[] memory _logs
+    )
+        private pure
+        returns (ITeeOracleInstructionsSender.EndpointGroup[] memory _groups)
+    {
+        bool found = false;
+        for (uint256 i = 0; i < _logs.length; i++) {
+            if (_logs[i].topics[0] == ITeeOracleInstructionsSender.EndpointsPublished.selector) {
+                (, _groups) = abi.decode(
+                    _logs[i].data, (bytes32, ITeeOracleInstructionsSender.EndpointGroup[]));
+                found = true;
+            }
+        }
+        require(found, "no EndpointsPublished log");
+    }
+
+    /// See `_groupsFromLogs`.
+    function _rolesFromLogs(
+        Vm.Log[] memory _logs
+    )
+        private pure
+        returns (ITeeOracleInstructionsSender.AdminRole[] memory _roles)
+    {
+        bool found = false;
+        for (uint256 i = 0; i < _logs.length; i++) {
+            if (_logs[i].topics[0] == ITeeOracleInstructionsSender.AdminsPublished.selector) {
+                (, _roles) = abi.decode(
+                    _logs[i].data, (bytes32, ITeeOracleInstructionsSender.AdminRole[]));
+                found = true;
+            }
+        }
+        require(found, "no AdminsPublished log");
     }
 
     function _makeGroups()

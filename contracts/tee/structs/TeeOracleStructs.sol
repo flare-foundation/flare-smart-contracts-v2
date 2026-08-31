@@ -27,4 +27,8 @@ interface TeeOracleStructs {
     function adminsStruct(ITeeOracleInstructionsSender.Admins calldata) external;
 
     function adminRoleStruct(ITeeOracleInstructionsSender.AdminRole calldata) external;
+
+    function feedConfigStruct(ITeeOracleInstructionsSender.FeedConfig calldata) external;
+
+    function machineVersionsStruct(ITeeOracleInstructionsSender.MachineVersions calldata) external;
 }

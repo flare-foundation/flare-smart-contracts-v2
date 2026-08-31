@@ -22,9 +22,67 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * On-chain entry point for one TEE oracle extension's instructions: permissionless feed
  * observation requests plus governance-published endpoint and admin configuration, both
  * kept per feed — one sender serves every feed of the extension, so one machine fleet can
- * serve multiple oracles. The published configuration is committed on-chain (hash +
- * contract-assigned version) BEFORE dispatch, so a feed's `TeeOracleFeedStore` only accepts
- * feed updates from machines that prove they run the feed's latest published configuration.
+ * serve multiple oracles.
+ *
+ * Configuration is published by Flare governance and delivered by an instruction:
+ * - `setEndpoints` / `setAdmins` PUBLISH a feed's latest configuration: validate, take the
+ *   GOVERNANCE-SIGNED `_version` (required to be exactly the feed's current version plus one, so a
+ *   superseded pending call can never execute after its replacement and restore stale values),
+ *   store only the encoded payload's HASH (the payload itself is logged, never stored —
+ *   see below), then dispatch it VERBATIM to the extension's live active set, with the non-zero
+ *   claim-back address governance named as the destination of the fee should the instruction never
+ *   execute — the executed body's `msg.sender` is this contract, so the payer cannot be identified
+ *   on chain and has to be stated.
+ *   The targets are resolved INSIDE the body, never taken as a parameter: a
+ *   governance call's arguments are frozen when the timelocked call is recorded, while the fleet's
+ *   composition is only known when the executor runs it, so a target list in the signature makes
+ *   a publication unexecutable whenever one named machine restarted, was paused or was re-keyed
+ *   during the timelock. Reading `getActiveTeeMachines` in the body is a snapshot of the
+ *   executing block, so publication and fleet convergence happen in one transaction. That set
+ *   needs no filtering: `MachineManager` maintains it as exactly the extension's PRODUCTION
+ *   machines, so it carries no duplicate, no zero address and no foreign-extension id by
+ *   construction, and a fresh version is new to every machine in it.
+ *   Only the two cases where no dispatch is possible AT ALL skip delivery — the extension is
+ *   emergency paused, or its active set is empty — and there the values are published and
+ *   delivery is left to the push ("published, push later"). When a dispatch does happen the whole
+ *   `msg.value` is forwarded and the diamond's floor (`FeeTooLow`) is the only fee gate: a short
+ *   fee reverts there, a surplus is forwarded with the rest into that epoch's rewards and is not
+ *   returned, so the executor reads `get*PublicationFee` in the executing block and attaches
+ *   that. Everything the executor CAN fix
+ *   reverts, and reverting is cheap: `executeGovernanceCall` bubbles the revert, which rolls
+ *   back its own deletion of the timelock entry, so the pending call survives and is
+ *   re-executable in the next block with no re-proposal.
+ * - `pushEndpoints` / `pushAdmins` let ANYONE deliver a published version to the machines they
+ *   name, paying the instruction fee and SUPPLYING the configuration values, which this contract
+ *   re-encodes with the version it holds and checks against the stored hash
+ *   (`WrongConfigPayload`). The list is validated exactly as `requestFeedUpdate`
+ *   validates its own (non-empty, non-zero, unique, on this extension) and then dispatched as
+ *   given; a target that is not in PRODUCTION is left for the diamond to reject, so the call
+ *   reverts instead of quietly dropping a machine the caller paid for. This is how a machine
+ *   registered after a publication converges and how an instruction that never reached its
+ *   enclave is retried; a re-push rewrites the same version idempotently.
+ *   `getEndpointsPushTargets` / `getAdminsPushTargets` build the straggler list to pass in.
+ *
+ * Only the payload's HASH is kept on chain; the payload lives in the `EndpointsPublished` /
+ * `AdminsPublished` log, which carries the published groups / roles as typed arrays — exactly what
+ * the push takes back, the wrapper's other fields being the event's own topics.
+ * Storing the encoded payload cost
+ * ~217,000 gas per PUBLIC endpoint — 96% of a publication — which put a 25-group / 5-endpoint
+ * configuration (48.2 KB) at ~30.5M gas, above the 28,000,000 block gas limit on flare, songbird,
+ * coston2 and coston. Supplying it as calldata instead costs ~8,000 gas per endpoint, so the same
+ * configuration publishes at ~1.3-1.5M gas — a 21-24x reduction, bought at the price of a
+ * log-retention dependency (a payload nobody kept is unpushable until governance republishes).
+ * That is why the publication event carries the full payload UNCONDITIONALLY: when the dispatch is
+ * skipped, nothing else logs it.
+ * The push takes the payload's FIELDS, not raw bytes: hash equality then does not depend on the
+ * caller's ABI encoder reproducing the published bytes, and the version cannot be supplied at all
+ * — it is read from storage, exactly as the publication assigned it.
+ *
+ * What the feed's `TeeOracleFeedStore` enforces on a submitted feed update is the FEED-level
+ * `latestEndpointsHash` / `latestAdminsHash`, not a per-machine record: a publication therefore
+ * invalidates every machine still running the previous generation until it adopts the new one.
+ * The per-machine `expectedEndpointsVersion` / `expectedAdminsVersion` records only what was
+ * DISPATCHED — they answer "which machines still need a push" and gate `requestFeedUpdate`.
  */
 contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgradeableBase {
 
@@ -34,21 +92,16 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
     /// The extension this sender dispatches instructions for.
     uint256 public extensionId;
 
-    /// Version assigned to a feed's most recently published endpoint configuration.
-    mapping(bytes21 feedId => uint64) public endpointsVersion;
-    /// Version assigned to a feed's most recently published admin sets.
-    mapping(bytes21 feedId => uint64) public adminsVersion;
+    /// A feed's published configuration for both kinds: hashes, versions and publication
+    /// timestamps, packed into three slots. `internal` with explicit getters rather than
+    /// `public`, so the individual accessors declared on the interface keep their names.
+    mapping(bytes21 feedId => FeedConfig) internal feedConfigs;
 
-    /// keccak256 of the last endpoints payload published per feed and machine; the feed's
-    /// store enforces this.
-    mapping(bytes21 feedId => mapping(address teeId => bytes32)) public expectedEndpointsHash;
-    /// keccak256 of the last admins payload published per feed and machine; the feed's
-    /// store enforces this.
-    mapping(bytes21 feedId => mapping(address teeId => bytes32)) public expectedAdminsHash;
-    /// Endpoints version last published per feed and machine.
-    mapping(bytes21 feedId => mapping(address teeId => uint64)) public expectedEndpointsVersion;
-    /// Admins version last published per feed and machine.
-    mapping(bytes21 feedId => mapping(address teeId => uint64)) public expectedAdminsVersion;
+    /// The versions last DISPATCHED per feed and machine, both kinds in one slot. The only
+    /// per-machine configuration record kept: it answers "which machines still need a push" and
+    /// gates `requestFeedUpdate`, which reads both kinds of a target with one cold SLOAD. What
+    /// the feed store enforces is the feed-level `FeedConfig.endpointsHash` / `.adminsHash`.
+    mapping(bytes21 feedId => mapping(address teeId => MachineVersions)) internal machineVersions;
 
     /// Every feed id with both configuration kinds (endpoints and admins) published,
     /// append-only. Enumerable so a dashboard can list the extension's feeds without
@@ -95,10 +148,16 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
     {
         require(_feedId != bytes21(0), InvalidFeedId());
         _validateTeeIds(_teeIds);
-        // Only machines that received the feed's current configuration are asked —
-        // a not-yet-configured machine could not produce an acceptable feed update anyway.
+        // Only machines at the feed's LATEST generation are asked: the store gates submissions
+        // on the feed-level hash, so a lagging machine's answer would be rejected outright.
+        // The feed's own versions are read ONCE here rather than per target — including the
+        // both-kinds-published check, so an unpublished feed fails before the loop.
+        FeedConfig storage config = feedConfigs[_feedId];
+        uint64 endpoints = config.endpointsVersion;
+        uint64 admins = config.adminsVersion;
+        require(endpoints != 0 && admins != 0, TeeIdNotConfigured());
         for (uint256 i = 0; i < _teeIds.length; i++) {
-            require(isTeeIdConfigured(_feedId, _teeIds[i]), TeeIdNotConfigured());
+            require(_isTeeIdAtVersions(_feedId, _teeIds[i], endpoints, admins), TeeIdNotConfigured());
         }
         _instructionId = _sendInstructions(
             _teeIds, GET_FEED_COMMAND, abi.encode(FeedUpdateRequest(_feedId)), msg.sender);
@@ -106,11 +165,80 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
     }
 
     /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function pushEndpoints(
+        bytes21 _feedId,
+        address[] calldata _teeIds,
+        EndpointGroup[] calldata _groups
+    )
+        external payable
+        returns (bytes32 _instructionId)
+    {
+        FeedConfig storage config = feedConfigs[_feedId];
+        bytes32 endpointsHash = config.endpointsHash;
+        require(endpointsHash != bytes32(0), NoConfigPublished());
+        uint64 version = config.endpointsVersion;
+        // The values are the caller's to supply — nothing stores them, only `EndpointsPublished`
+        // logs them — and they are re-encoded here EXACTLY as `setEndpoints` encoded them, with
+        // the version taken from STORAGE rather than from the caller: a wrong or stale version
+        // cannot be supplied because none is supplied. Fields rather than a raw `bytes` payload,
+        // so hash equality does not depend on the caller's ABI encoder reproducing the published
+        // bytes — any correct set of field values hashes correctly. No re-validation: a hash match
+        // proves the payload was validated at publication.
+        bytes memory message =
+            abi.encode(Endpoints({version: version, feedId: _feedId, groups: _groups}));
+        require(keccak256(message) == endpointsHash, WrongConfigPayload());
+        _validateTeeIds(_teeIds);
+        // The caller's list is dispatched as given. No version filter: a machine already at the
+        // latest version is accepted, because this is also the retry path for an instruction that
+        // never reached its enclave — the re-dispatch is idempotent and the fee is the spam bound,
+        // exactly as it is for `requestFeedUpdate`. No status filter either: the diamond rejects a
+        // non-PRODUCTION target, and reverting is the honest answer to a caller who named it.
+        // Copied to memory once here, since both the record loop and the dispatch take `memory`.
+        address[] memory targets = _teeIds;
+
+        _recordEndpointsTargets(_feedId, targets, version, endpointsHash);
+
+        _instructionId = _sendInstructions(targets, SET_ENDPOINTS_COMMAND, message, msg.sender);
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function pushAdmins(
+        bytes21 _feedId,
+        address[] calldata _teeIds,
+        AdminRole[] calldata _roles
+    )
+        external payable
+        returns (bytes32 _instructionId)
+    {
+        FeedConfig storage config = feedConfigs[_feedId];
+        bytes32 adminsHash = config.adminsHash;
+        require(adminsHash != bytes32(0), NoConfigPublished());
+        uint64 version = config.adminsVersion;
+        // See `pushEndpoints`: the roles come from the `AdminsPublished` log, the version from
+        // storage, and the canonical re-encoding is checked against the stored commitment.
+        bytes memory message =
+            abi.encode(Admins({version: version, feedId: _feedId, roles: _roles}));
+        require(keccak256(message) == adminsHash, WrongConfigPayload());
+        _validateTeeIds(_teeIds);
+        // See `pushEndpoints`: the list is dispatched as given, retries included, copied to
+        // memory once for the record loop and the dispatch.
+        address[] memory targets = _teeIds;
+
+        _recordAdminsTargets(_feedId, targets, version, adminsHash);
+
+        _instructionId = _sendInstructions(targets, SET_ADMINS_COMMAND, message, msg.sender);
+    }
+
+    /**
      * @inheritdoc IITeeOracleInstructionsSender
      */
     function setEndpoints(
         bytes21 _feedId,
-        address[] calldata _teeIds,
+        uint64 _version,
         EndpointGroup[] calldata _groups,
         address _claimBackAddress
     )
@@ -118,25 +246,76 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         onlyGovernance
     {
         require(_feedId != bytes21(0), InvalidFeedId());
-        _validateTeeIds(_teeIds);
+        // Who funds the execution cannot be read on chain, so governance names the claim-back
+        // address; the diamond stores it unvalidated, hence the zero check here.
+        require(_claimBackAddress != address(0), ZeroClaimBackAddress());
         _validateEndpoints(_groups);
 
-        // One version per publication: every targeted machine shares the same
-        // version and payload hash, so the feed's fleet generations stay comparable.
-        uint64 version = ++endpointsVersion[_feedId];
-        _recordFeedId(_feedId, version, adminsVersion[_feedId]);
-        bytes memory message =
-            abi.encode(Endpoints({version: version, feedId: _feedId, groups: _groups}));
+        // One version per publication: every machine dispatched this payload shares the same
+        // version and hash, so the feed's fleet generations stay comparable.
+        // The version is GOVERNANCE-SIGNED rather than derived at execution time, and must be
+        // EXACTLY the feed's next one. `FlareGovernance` keys a pending call by the hash of its
+        // whole calldata, so two publications for the same feed and kind can be pending at once
+        // and execute in either order; a version derived here would let a SUPERSEDED call execute
+        // after its replacement, take the higher version and become the feed's latest
+        // configuration — in the worst case re-authorising an administrator governance had just
+        // removed. Signing it makes the loser of that race unexecutable instead: whichever call
+        // executes first consumes the version, the other reverts, and governance cancels it.
+        // Equality, not `>`: a jump towards `type(uint64).max` would burn the version space, and
+        // the checked addition below reverts at the maximum rather than wrapping round to a
+        // version machines already hold.
+        FeedConfig storage config = feedConfigs[_feedId];
+        uint64 version = config.endpointsVersion + 1;
+        require(_version == version, UnexpectedConfigVersion(_version, version));
+        _recordFeedId(_feedId, version, config.adminsVersion);
+        // One `abi.encode` serves the commitment AND the instruction body. The event then encodes
+        // the groups a SECOND time for its log data — `emit` cannot be pointed at an existing
+        // buffer, and the two encodings do not coincide anyway (the body wraps the groups in
+        // `Endpoints`, the log data is the bare array behind an offset).
+        // The struct is therefore built in memory explicitly and the event is handed
+        // `endpoints.groups`, i.e. the copy already made for the encode: emitting the CALLDATA
+        // `_groups` instead makes the log encoder traverse calldata a second time, measured at
+        // ~52,000 gas more on a 48 KB payload. As written, the typed event costs ~8,700 gas over a
+        // raw `bytes message` one — under 1% of the publication.
+        Endpoints memory endpoints = Endpoints({version: version, feedId: _feedId, groups: _groups});
+        bytes memory message = abi.encode(endpoints);
         bytes32 endpointsHash = keccak256(message);
 
-        // Record the commitments before dispatch so undelivered instructions block stale submissions.
-        for (uint256 i = 0; i < _teeIds.length; i++) {
-            expectedEndpointsHash[_feedId][_teeIds[i]] = endpointsHash;
-            expectedEndpointsVersion[_feedId][_teeIds[i]] = version;
-            emit EndpointsSet(_feedId, _teeIds[i], version, endpointsHash);
-        }
+        // Only the commitment is stored. Keeping the payload cost ~217,000 gas per PUBLIC
+        // endpoint — 96% of a publication, and above the 28,000,000 block gas limit for a
+        // 25-group / 5-endpoint configuration — so the payload rides in the event instead and
+        // `pushEndpoints` supplies it back, checked against this hash.
+        config.endpointsVersion = version;
+        config.endpointsHash = endpointsHash;
+        config.endpointsPublishedAt = uint64(block.timestamp);
 
-        _sendInstructions(_teeIds, SET_ENDPOINTS_COMMAND, message, _claimBackAddress);
+        // The full payload is logged UNCONDITIONALLY, before the dispatch is even attempted: when
+        // the dispatch is skipped no `TeeInstructionsSent` carries it either, so this log would be
+        // the only record of it and a push has nothing else to read. In the dispatching case the
+        // payload is logged twice; that overlap costs 8 gas per byte (~385k for 48 KB) and is
+        // accepted, since making the log conditional would make an undeliverable configuration
+        // unrecoverable.
+        emit EndpointsPublished(_feedId, version, endpointsHash, endpoints.groups);
+
+        // The publication is stored and final at this point. Delivery targets the extension's
+        // active set as it stands in THIS block, unfiltered: it is exactly the extension's
+        // PRODUCTION machines, and a fresh version is new to every one of them. Anything the
+        // executor can fix — a short fee, a misconfigured or unregistered TEE manager — is left
+        // to revert inside the diamond, which is retryable.
+        // The pause is checked FIRST: while paused nothing can be dispatched, and reading the
+        // active set is an unpaginated diamond call that also builds a `string[]` of machine
+        // URLs this contract discards.
+        if (flareTeeManager.isExtensionEmergencyPaused(extensionId)) {
+            _requireNoValue();
+            return;
+        }
+        address[] memory targets = _activeTeeIds();
+        if (targets.length == 0) {
+            _requireNoValue();
+            return;
+        }
+        _recordEndpointsTargets(_feedId, targets, version, endpointsHash);
+        _sendInstructions(targets, SET_ENDPOINTS_COMMAND, message, _claimBackAddress);
     }
 
     /**
@@ -144,7 +323,7 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
      */
     function setAdmins(
         bytes21 _feedId,
-        address[] calldata _teeIds,
+        uint64 _version,
         AdminRole[] calldata _roles,
         address _claimBackAddress
     )
@@ -152,24 +331,45 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         onlyGovernance
     {
         require(_feedId != bytes21(0), InvalidFeedId());
-        _validateTeeIds(_teeIds);
+        // See setEndpoints: the claim-back address is named, and must not be zero.
+        require(_claimBackAddress != address(0), ZeroClaimBackAddress());
         _validateAdminRoles(_roles);
 
-        // One version per publication — see setEndpoints.
-        uint64 version = ++adminsVersion[_feedId];
-        _recordFeedId(_feedId, version, endpointsVersion[_feedId]);
-        bytes memory message =
-            abi.encode(Admins({version: version, feedId: _feedId, roles: _roles}));
+        // One governance-signed version per publication, required to be exactly the next one —
+        // see setEndpoints for why the version is an argument and not derived here. The admin
+        // sets have their own version stream, so the two kinds never contend for a number.
+        FeedConfig storage config = feedConfigs[_feedId];
+        uint64 version = config.adminsVersion + 1;
+        require(_version == version, UnexpectedConfigVersion(_version, version));
+        _recordFeedId(_feedId, version, config.endpointsVersion);
+        // One encode for the commitment and the dispatch, the roles logged separately from the
+        // same memory copy — see setEndpoints on the double encoding and why `admins.roles` rather
+        // than the calldata `_roles` is what the event gets.
+        Admins memory admins = Admins({version: version, feedId: _feedId, roles: _roles});
+        bytes memory message = abi.encode(admins);
         bytes32 adminsHash = keccak256(message);
 
-        // Record the commitments before dispatch so undelivered instructions block stale submissions.
-        for (uint256 i = 0; i < _teeIds.length; i++) {
-            expectedAdminsHash[_feedId][_teeIds[i]] = adminsHash;
-            expectedAdminsVersion[_feedId][_teeIds[i]] = version;
-            emit AdminsSet(_feedId, _teeIds[i], version, adminsHash);
-        }
+        // Hash only, payload in the event — see setEndpoints for the gas measurement behind it.
+        config.adminsVersion = version;
+        config.adminsHash = adminsHash;
+        config.adminsPublishedAt = uint64(block.timestamp);
 
-        _sendInstructions(_teeIds, SET_ADMINS_COMMAND, message, _claimBackAddress);
+        // Unconditional, dispatch or no dispatch — see setEndpoints.
+        emit AdminsPublished(_feedId, version, adminsHash, admins.roles);
+
+        // Delivery to the live active set — see setEndpoints, including why the pause is
+        // checked before the set is read.
+        if (flareTeeManager.isExtensionEmergencyPaused(extensionId)) {
+            _requireNoValue();
+            return;
+        }
+        address[] memory targets = _activeTeeIds();
+        if (targets.length == 0) {
+            _requireNoValue();
+            return;
+        }
+        _recordAdminsTargets(_feedId, targets, version, adminsHash);
+        _sendInstructions(targets, SET_ADMINS_COMMAND, message, _claimBackAddress);
     }
 
     /**
@@ -185,6 +385,211 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
     /**
      * @inheritdoc ITeeOracleInstructionsSender
      */
+    function getEndpointsPushTargets(
+        bytes21 _feedId
+    )
+        external view
+        returns (address[] memory _teeIds)
+    {
+        FeedConfig storage config = feedConfigs[_feedId];
+        // Without a publication every machine would look "not at the latest version", so the
+        // version filter alone would report the whole fleet as lagging.
+        if (config.endpointsHash == bytes32(0)) {
+            return new address[](0);
+        }
+        // This view answers "who still NEEDS a push", so machines already at the latest version
+        // are left out. `pushEndpoints` still accepts them, as a retry.
+        return _laggingTargets(_feedId, _activeTeeIds(), config.endpointsVersion, true);
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function getAdminsPushTargets(
+        bytes21 _feedId
+    )
+        external view
+        returns (address[] memory _teeIds)
+    {
+        FeedConfig storage config = feedConfigs[_feedId];
+        if (config.adminsHash == bytes32(0)) {
+            return new address[](0);
+        }
+        return _laggingTargets(_feedId, _activeTeeIds(), config.adminsVersion, false);
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function getEndpointsPublicationFee()
+        external view
+        returns (
+            address[] memory _teeIds,
+            uint256 _fee
+        )
+    {
+        // Mirrors what the publication actually does: while the extension is emergency paused
+        // nothing is dispatched and attaching value reverts `ValueNotNeeded`, so the preview
+        // must report no targets and no fee rather than a number the executor cannot use.
+        if (flareTeeManager.isExtensionEmergencyPaused(extensionId)) {
+            return (new address[](0), 0);
+        }
+        _teeIds = _activeTeeIds();
+        if (_teeIds.length > 0) {
+            _fee = flareTeeManager.calculateFeeByTeeIds(
+                TEE_ORACLE_OP_TYPE, SET_ENDPOINTS_COMMAND, _teeIds);
+        }
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function getAdminsPublicationFee()
+        external view
+        returns (
+            address[] memory _teeIds,
+            uint256 _fee
+        )
+    {
+        // Mirrors what the publication actually does: while the extension is emergency paused
+        // nothing is dispatched and attaching value reverts `ValueNotNeeded`, so the preview
+        // must report no targets and no fee rather than a number the executor cannot use.
+        if (flareTeeManager.isExtensionEmergencyPaused(extensionId)) {
+            return (new address[](0), 0);
+        }
+        _teeIds = _activeTeeIds();
+        if (_teeIds.length > 0) {
+            _fee = flareTeeManager.calculateFeeByTeeIds(
+                TEE_ORACLE_OP_TYPE, SET_ADMINS_COMMAND, _teeIds);
+        }
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function getFeedConfig(
+        bytes21 _feedId
+    )
+        external view
+        returns (FeedConfig memory)
+    {
+        return feedConfigs[_feedId];
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function getMachineVersions(
+        bytes21 _feedId,
+        address _teeId
+    )
+        external view
+        returns (MachineVersions memory)
+    {
+        return machineVersions[_feedId][_teeId];
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function latestEndpointsHash(
+        bytes21 _feedId
+    )
+        external view
+        returns (bytes32)
+    {
+        return feedConfigs[_feedId].endpointsHash;
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function latestAdminsHash(
+        bytes21 _feedId
+    )
+        external view
+        returns (bytes32)
+    {
+        return feedConfigs[_feedId].adminsHash;
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function endpointsVersion(
+        bytes21 _feedId
+    )
+        external view
+        returns (uint64)
+    {
+        return feedConfigs[_feedId].endpointsVersion;
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function adminsVersion(
+        bytes21 _feedId
+    )
+        external view
+        returns (uint64)
+    {
+        return feedConfigs[_feedId].adminsVersion;
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function endpointsPublishedAt(
+        bytes21 _feedId
+    )
+        external view
+        returns (uint64)
+    {
+        return feedConfigs[_feedId].endpointsPublishedAt;
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function adminsPublishedAt(
+        bytes21 _feedId
+    )
+        external view
+        returns (uint64)
+    {
+        return feedConfigs[_feedId].adminsPublishedAt;
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function expectedEndpointsVersion(
+        bytes21 _feedId,
+        address _teeId
+    )
+        external view
+        returns (uint64)
+    {
+        return machineVersions[_feedId][_teeId].endpointsVersion;
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
+    function expectedAdminsVersion(
+        bytes21 _feedId,
+        address _teeId
+    )
+        external view
+        returns (uint64)
+    {
+        return machineVersions[_feedId][_teeId].adminsVersion;
+    }
+
+    /**
+     * @inheritdoc ITeeOracleInstructionsSender
+     */
     function isTeeIdConfigured(
         bytes21 _feedId,
         address _teeId
@@ -192,8 +597,53 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         public view
         returns (bool)
     {
-        return expectedEndpointsHash[_feedId][_teeId] != bytes32(0) &&
-            expectedAdminsHash[_feedId][_teeId] != bytes32(0);
+        FeedConfig storage config = feedConfigs[_feedId];
+        return _isTeeIdAtVersions(_feedId, _teeId, config.endpointsVersion, config.adminsVersion);
+    }
+
+    /**
+     * Writes the per-machine endpoints version record for every target and logs it, before the
+     * dispatch that carries the payload. Shared by the publication's auto-dispatch and by
+     * `pushEndpoints` so both leave identical state.
+     * @param _feedId The feed being dispatched.
+     * @param _targets The accepted machines.
+     * @param _version The version being dispatched.
+     * @param _endpointsHash The feed's latest published endpoints hash.
+     */
+    function _recordEndpointsTargets(
+        bytes21 _feedId,
+        address[] memory _targets,
+        uint64 _version,
+        bytes32 _endpointsHash
+    )
+        internal
+    {
+        for (uint256 i = 0; i < _targets.length; i++) {
+            machineVersions[_feedId][_targets[i]].endpointsVersion = _version;
+            emit EndpointsSet(_feedId, _targets[i], _version, _endpointsHash);
+        }
+    }
+
+    /**
+     * Writes the per-machine admins version record for every target and logs it.
+     * See `_recordEndpointsTargets`.
+     * @param _feedId The feed being dispatched.
+     * @param _targets The accepted machines.
+     * @param _version The version being dispatched.
+     * @param _adminsHash The feed's latest published admin-sets hash.
+     */
+    function _recordAdminsTargets(
+        bytes21 _feedId,
+        address[] memory _targets,
+        uint64 _version,
+        bytes32 _adminsHash
+    )
+        internal
+    {
+        for (uint256 i = 0; i < _targets.length; i++) {
+            machineVersions[_feedId][_targets[i]].adminsVersion = _version;
+            emit AdminsSet(_feedId, _targets[i], _version, _adminsHash);
+        }
     }
 
     /**
@@ -229,10 +679,21 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
 
     /**
      * Dispatches one instruction to the given machines, forwarding the entire msg.value as
-     * the fee — the diamond enforces the fee floor and forwards the value to the reward
-     * manager, from where fees of unexecuted instructions are claimable to
-     * `_claimBackAddress`. For the governance-gated configuration publications the value is
-     * attached by the executor via `executeGovernanceCall` (recording rejects value).
+     * the fee, on every path — publication and push alike. The diamond enforces only a fee FLOOR
+     * (`Instructions.sendInstructions`: `require(calculatedFee <= msg.value, FeeTooLow())`) and
+     * then hands the WHOLE value to `RewardManager.receiveRewards` in the same transaction; it
+     * keeps no balance and `_claimBackAddress` is only carried into the emitted
+     * `TeeInstructionsSent`. So a surplus above the fee is not separable afterwards: if the
+     * instruction is never executed, the full recorded value — surplus included — is claimable to
+     * `_claimBackAddress`; if it IS executed, the whole value has already been distributed as that
+     * epoch's rewards and nothing distinguishes the fee from the surplus, so the surplus is gone.
+     * Overpaying therefore costs the surplus to the reward pool rather than reverting, which is
+     * why every caller — the executor of a publication included — reads the fee in the block its
+     * call lands in.
+     * The permissionless methods are caller-funded and pass `msg.sender` as the claim-back
+     * address; a governance publication is funded by whatever the executor attached to
+     * `executeGovernanceCall` and passes the address governance named, because the executed
+     * body's `msg.sender` is this contract itself and the payer cannot be identified on chain.
      */
     // flareTeeManager is a trusted system contract set via AddressUpdatable, not an arbitrary address.
     //slither-disable-next-line arbitrary-send-eth
@@ -259,8 +720,127 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
     }
 
     /**
-     * Requires a non-empty list of unique, non-zero TEE machine ids belonging to this
-     * sender's extension.
+     * Rejects value attached to a publication that skips its dispatch — the extension is
+     * emergency paused, or its active set is empty.
+     * Those are the only two conditions the governance executor cannot do anything about: the
+     * diamond hard-rejects every dispatch while paused (`Instructions.sendInstructions`) and
+     * there is nothing to dispatch to when the fleet is not registered yet. Landing a corrected
+     * configuration on chain must stay possible in both cases, not least because the pause may
+     * exist BECAUSE the published endpoints or admins are wrong; the permissionless push
+     * delivers it afterwards.
+     * Everything else — a short fee, an unset or wrong TEE manager, this contract not being the
+     * extension's registered instructions sender — is deliberately NOT pre-checked: it reverts
+     * inside the diamond with its own canonical error, which surfaces the deployment or funding
+     * mistake instead of hiding it, and costs nothing, since `executeGovernanceCall` bubbles the
+     * revert and thereby rolls back its own deletion of the timelock entry.
+     * A skipped dispatch cannot refund: the executed body's `msg.sender` is this contract, and
+     * `FlareGovernance` does not record who called `executeGovernanceCall`, so the executor
+     * cannot be identified. Paying it forward to the claim-back address governance named, or
+     * keeping it here, would both be worse than reverting and telling them to re-execute with
+     * none attached — that address is the destination of an unexecuted instruction's fee, not a
+     * refund channel for a dispatch that never happened.
+     */
+    function _requireNoValue()
+        internal view
+    {
+        require(msg.value == 0, ValueNotNeeded());
+    }
+
+    /**
+     * Whether a machine holds both of the given versions for a feed — the body of
+     * `isTeeIdConfigured`, taking the feed's two versions as arguments so `requestFeedUpdate`
+     * can read the `FeedConfig` once and then check every target without touching it again.
+     * @param _feedId The feed id.
+     * @param _teeId The TEE machine id.
+     * @param _endpointsVersion The feed's latest published endpoints version.
+     * @param _adminsVersion The feed's latest published admin-sets version.
+     * @return True if both kinds' latest versions were dispatched to the machine.
+     */
+    function _isTeeIdAtVersions(
+        bytes21 _feedId,
+        address _teeId,
+        uint64 _endpointsVersion,
+        uint64 _adminsVersion
+    )
+        internal view
+        returns (bool)
+    {
+        // Both feed-level versions must exist, or an unpublished feed would report every
+        // machine as configured (0 == 0).
+        if (_endpointsVersion == 0 || _adminsVersion == 0) {
+            return false;
+        }
+        // Both kinds come from one packed slot, so this is a single cold SLOAD per machine —
+        // which is what `requestFeedUpdate` pays per target.
+        MachineVersions storage versions = machineVersions[_feedId][_teeId];
+        return versions.endpointsVersion == _endpointsVersion && versions.adminsVersion == _adminsVersion;
+    }
+
+    /**
+     * Drops machines already recorded at `_latestVersion` from the candidates: the "which
+     * machines still NEED this version" question, asked by `getEndpointsPushTargets` /
+     * `getAdminsPushTargets`. The state-changing push paths deliberately do not apply this rule,
+     * so an instruction the enclave never received can be retried immediately: there is no
+     * cooldown, the instruction fee is the spam bound (exactly as it is for `requestFeedUpdate`),
+     * and a re-dispatch rewrites the same version, so it changes nothing the feed store reads.
+     * @param _feedId The feed being dispatched.
+     * @param _candidates The candidate machine ids. Compacted and shrunk IN PLACE, so it must be
+     * a freshly allocated array the caller does not reuse — both callers pass `_activeTeeIds()`.
+     * @param _latestVersion The feed's latest published version of the kind being dispatched.
+     * @param _endpoints True to compare the endpoints version, false for the admin-sets version.
+     * A flag rather than a `storage` pointer to the mapping, because the two versions now share
+     * one packed struct and a struct field cannot be passed as a storage pointer.
+     * @return _lagging The candidates that are behind `_latestVersion`.
+     */
+    function _laggingTargets(
+        bytes21 _feedId,
+        address[] memory _candidates,
+        uint64 _latestVersion,
+        bool _endpoints
+    )
+        internal view
+        returns (address[] memory _lagging)
+    {
+        uint256 count = 0;
+        for (uint256 i = 0; i < _candidates.length; i++) {
+            MachineVersions storage versions = machineVersions[_feedId][_candidates[i]];
+            uint64 dispatched = _endpoints ? versions.endpointsVersion : versions.adminsVersion;
+            if (dispatched != _latestVersion) {
+                _candidates[count] = _candidates[i];
+                count++;
+            }
+        }
+        _lagging = _candidates;
+        // Shrink the freshly allocated candidate array to the lagging machines compacted into
+        // its head, rather than copying them into a second exact-size array.
+        // solhint-disable-next-line no-inline-assembly
+        assembly { mstore(_lagging, count) }
+    }
+
+    /**
+     * Returns the extension's PRODUCTION machines — `MachineManager`'s `extensionActiveTeeIds`
+     * set, maintained by `changeStatus`: a machine enters on the transition to PRODUCTION and
+     * leaves on PAUSED / SUSPENDED / BANNED, so the set is exactly this extension's PRODUCTION
+     * machines, with no duplicate and no zero address. That invariant is why every caller here
+     * dispatches or prices the set as it comes, with no eligibility filter of its own.
+     * Unpaginated, and the diamond also builds a `string[]` of their URLs that is thrown away
+     * here. That cost falls on the `get*PushTargets` / `get*PublicationFee` views (free) and on
+     * a governance publication, whose gas is therefore bounded by the extension's fleet size.
+     */
+    function _activeTeeIds()
+        internal view
+        returns (address[] memory _teeIds)
+    {
+        (_teeIds,) = flareTeeManager.getActiveTeeMachines(extensionId);
+    }
+
+    /**
+     * Requires a non-empty list of unique, non-zero TEE machine ids belonging to this sender's
+     * extension. Shared by every caller-directed path — `requestFeedUpdate`, `pushEndpoints`,
+     * `pushAdmins` — all of which revert on a bad id instead of dropping it: the caller names the
+     * machines it pays for, so a silently skipped target would deliver less than was paid for.
+     * PRODUCTION status is deliberately NOT checked here; the diamond rejects a non-PRODUCTION
+     * target with its own error.
      */
     function _validateTeeIds(
         address[] calldata _teeIds
@@ -268,19 +848,25 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         internal view
     {
         require(_teeIds.length > 0, NoTeeIds());
-        // The diamond derives the extension from the targeted machines and only checks that
-        // this contract is THAT extension's registered sender — and registering a sender on a
-        // (foreign) extension requires no consent from the sender contract. Pin the target
-        // extension explicitly so commitments and fees can never go to another extension's
-        // machines. Checking the first id suffices: the diamond requires all targeted
-        // machines to share one extension, and the whole publication is atomic.
-        require(flareTeeManager.getExtensionId(_teeIds[0]) == extensionId, TeeIdNotInExtension());
+        // Every LOCAL rule is checked BEFORE the manager is consulted at all. With the extension
+        // lookup on `_teeIds[0]` in front of this loop, a zero first element reached the manager
+        // and surfaced its `TeeNotFound()` instead of this contract's declared `ZeroTeeId()` —
+        // the caller's own malformed argument reported as a registry miss.
         for (uint256 i = 0; i < _teeIds.length; i++) {
             require(_teeIds[i] != address(0), ZeroTeeId());
             for (uint256 j = 0; j < i; j++) {
                 require(_teeIds[j] != _teeIds[i], DuplicateTeeId());
             }
         }
+        // The diamond derives the extension from the targeted machines and only checks that
+        // this contract is THAT extension's registered sender — and registering a sender on a
+        // (foreign) extension requires no consent from the sender contract. Pin the target
+        // extension explicitly so commitments and fees can never go to another extension's
+        // machines. Checking the first id suffices: the diamond requires all targeted
+        // machines to share one extension, and the whole request is atomic. A first id that is no
+        // machine at all still reverts with the manager's `TeeNotFound()` — the registry is the
+        // only thing that can answer that question.
+        require(flareTeeManager.getExtensionId(_teeIds[0]) == extensionId, TeeIdNotInExtension());
     }
 
     /**
