@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { FlareTeeManagerDeployer } from "../utils/FlareTeeManagerDeployer.sol";
+import { TeeOracleFeedStoreDeployer } from "../utils/TeeOracleFeedStoreDeployer.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IDiamond } from "../../contracts/diamond/interfaces/IDiamond.sol";
 import { IDiamondCut } from "../../contracts/diamond/interfaces/IDiamondCut.sol";
@@ -26,9 +27,6 @@ import {
 import {
     TeeOracleFeedStore
 } from "../../contracts/tee/extensions/oracle/implementation/TeeOracleFeedStore.sol";
-import {
-    TeeOracleFeedStoreProxy
-} from "../../contracts/tee/extensions/oracle/proxy/TeeOracleFeedStoreProxy.sol";
 import {
     ITeeOracleInstructionsSender,
     TEE_ORACLE_OP_TYPE,
@@ -109,6 +107,11 @@ contract TeeOracleIntegrationTest is Test {
     bytes21 private constant FEED_ID = bytes21(bytes.concat(bytes1(uint8(0x20)), bytes("USDX/USD")));
     uint256 private constant INSTRUCTION_FEE = 1000; // diamond default fee
     uint256 private constant READ_FEE = 3;
+    // deployment defaults: threshold 1 (behaves as a single-signature store), 1% relative
+    // deviation, no absolute allowance
+    uint8 private constant REQUIRED_SIGNATURES = 1;
+    uint16 private constant MAX_SPREAD_BIPS = 100;
+    uint64 private constant MAX_SPREAD_ABSOLUTE = 0;
 
     IIFlareTeeManager private flareTeeManager;
     Fdc2Verification private fdc2Verification;
@@ -243,16 +246,7 @@ contract TeeOracleIntegrationTest is Test {
         vm.prank(addressUpdater);
         sender.updateContractAddresses(senderNameHashes, senderAddresses);
 
-        TeeOracleFeedStore feedStoreImpl = new TeeOracleFeedStore();
-        feedStore = TeeOracleFeedStore(address(new TeeOracleFeedStoreProxy(
-            IGovernanceSettings(address(this)),
-            initialGovernance,
-            addressUpdater,
-            ITeeOracleInstructionsSender(address(sender)),
-            FEED_ID,
-            feeDestination,
-            address(feedStoreImpl)
-        )));
+        _deployFeedStore();
         bytes32[] memory storeNameHashes = new bytes32[](3);
         address[] memory storeAddresses = new address[](3);
         storeNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
@@ -302,7 +296,7 @@ contract TeeOracleIntegrationTest is Test {
         assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId), 1);
         assertEq(sender.expectedAdminsVersion(FEED_ID, teeId), 1);
         assertTrue(sender.isTeeIdConfigured(FEED_ID, teeId));
-        // the whole instruction fee reached the reward manager, and nothing was refunded
+        // the whole instruction fee reached the reward manager; nothing stayed behind
         assertEq(rewardManager.balance, 2 * INSTRUCTION_FEE);
         assertEq(initialGovernance.balance, 0);
         assertEq(address(sender).balance, 0);
@@ -329,7 +323,7 @@ contract TeeOracleIntegrationTest is Test {
             endpointsHash: sender.latestEndpointsHash(FEED_ID),
             adminsHash: sender.latestAdminsHash(FEED_ID)
         });
-        feedStore.submitFeedUpdate(feedUpdate, _sign(feedUpdate));
+        feedStore.submitFeedUpdates(_one(feedUpdate, _sign(feedUpdate)));
 
         // 4. the paid read serves the value; the read fee reaches the fee destination
         (int256 value, int8 decimals, uint64 timestamp) = feedStore.getCurrentFeed{value: READ_FEE}();
@@ -339,9 +333,12 @@ contract TeeOracleIntegrationTest is Test {
         assertEq(feeDestination.balance, READ_FEE);
     }
 
-    function testSubmitFeedUpdateRejectsUnregisteredSigner() public {
+    function testSubmitFeedUpdatesOneSignatureRejectsUnregisteredSigner() public {
         // a signer that is not a machine at all fails inside the diamond's machine lookup
-        // (the revert bubbles through the real verifier and the store untouched)
+        // (the revert bubbles through the real verifier and the store untouched). The
+        // configuration is published first, so the signature is the only thing left to fail on -
+        // the store checks that the feed HAS a published generation before it verifies anything.
+        _publishAndDispatch();
         (, uint256 foreignKey) = makeAddrAndKey("foreignSigner");
         ITeeOracleFeedStore.FeedUpdate memory feedUpdate = ITeeOracleFeedStore.FeedUpdate({
             extensionId: EXTENSION_ID,
@@ -349,18 +346,18 @@ contract TeeOracleIntegrationTest is Test {
             value: 1,
             decimals: 0,
             observedAt: uint64(vm.getBlockTimestamp()) - 1,
-            endpointsHash: keccak256("endpoints"),
-            adminsHash: keccak256("admins")
+            endpointsHash: sender.latestEndpointsHash(FEED_ID),
+            adminsHash: sender.latestAdminsHash(FEED_ID)
         });
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(
             foreignKey,
             SignedPayload.ethSignedHash(TEE_ORACLE_FEED, keccak256(abi.encode(feedUpdate)))
         );
         vm.expectRevert(abi.encodeWithSignature("TeeNotFound()"));
-        feedStore.submitFeedUpdate(feedUpdate, Signature(v, r, s));
+        feedStore.submitFeedUpdates(_one(feedUpdate, Signature(v, r, s)));
     }
 
-    function testSubmitFeedUpdateRejectsTamperedUpdate() public {
+    function testSubmitFeedUpdatesOneSignatureRejectsTamperedUpdate() public {
         // publish the configuration so only the signature binding can fail
         _publishAndDispatch();
 
@@ -379,7 +376,7 @@ contract TeeOracleIntegrationTest is Test {
         // different address that is no machine at all
         feedUpdate.value = 1;
         vm.expectRevert(abi.encodeWithSignature("TeeNotFound()"));
-        feedStore.submitFeedUpdate(feedUpdate, signature);
+        feedStore.submitFeedUpdates(_one(feedUpdate, signature));
     }
 
     function testLateMachineConvergesThroughPermissionlessPush() public {
@@ -422,7 +419,7 @@ contract TeeOracleIntegrationTest is Test {
             lateKey,
             SignedPayload.ethSignedHash(TEE_ORACLE_FEED, keccak256(abi.encode(feedUpdate)))
         );
-        feedStore.submitFeedUpdate(feedUpdate, Signature(v, r, sig));
+        feedStore.submitFeedUpdates(_one(feedUpdate, Signature(v, r, sig)));
         (int256 value,,) = feedStore.getCurrentFeed{value: READ_FEE}();
         assertEq(value, 100010000);
     }
@@ -443,7 +440,7 @@ contract TeeOracleIntegrationTest is Test {
     function testPausedPublicationIsPushedAfterUnpause() public {
         // the extension is paused - possibly BECAUSE the live configuration is wrong - so the
         // diamond refuses every dispatch. A corrected configuration must still land on chain,
-        // with no value attached since a skipped dispatch cannot refund the executor.
+        // with no value attached since a skipped dispatch creates no instruction to pay for.
         vm.prank(extensionOwner);
         flareTeeManager.emergencyPauseExtension(EXTENSION_ID);
         // the preview mirrors the publication rather than the raw active set: no targets, no
@@ -542,7 +539,7 @@ contract TeeOracleIntegrationTest is Test {
             endpointsHash: sender.latestEndpointsHash(FEED_ID),
             adminsHash: sender.latestAdminsHash(FEED_ID)
         });
-        feedStore.submitFeedUpdate(feedUpdate, _sign(feedUpdate));
+        feedStore.submitFeedUpdates(_one(feedUpdate, _sign(feedUpdate)));
 
         // a second publication: the machine's previous-generation update is already refused,
         // whether or not its new instruction has been executed by the enclave yet
@@ -553,11 +550,11 @@ contract TeeOracleIntegrationTest is Test {
         feedUpdate.observedAt = uint64(vm.getBlockTimestamp()) - 1;
         feedUpdate.value = 12345678;
         vm.expectRevert(ITeeOracleFeedStore.StaleEndpoints.selector);
-        feedStore.submitFeedUpdate(feedUpdate, _sign(feedUpdate));
+        feedStore.submitFeedUpdates(_one(feedUpdate, _sign(feedUpdate)));
 
         // and accepted again as soon as the machine runs the new generation
         feedUpdate.endpointsHash = sender.latestEndpointsHash(FEED_ID);
-        feedStore.submitFeedUpdate(feedUpdate, _sign(feedUpdate));
+        feedStore.submitFeedUpdates(_one(feedUpdate, _sign(feedUpdate)));
         (int256 value,,) = feedStore.getCurrentFeed{value: READ_FEE}();
         assertEq(value, 12345678);
     }
@@ -576,9 +573,10 @@ contract TeeOracleIntegrationTest is Test {
         // quoted value is twice the fee of the single target the publication actually snapshots.
         // L-01, accepted rather than fixed: the diamond enforces only a floor and hands the WHOLE
         // value to the reward manager in the same transaction, so the publication succeeds and the
-        // surplus joins that epoch's rewards - unrecoverable once the instruction executes,
-        // claimable to the claim-back address only if it never does. Hence "read the view in the
-        // block the execution lands in".
+        // surplus joins that epoch's rewards. There is no on-chain claim either way; the
+        // claim-back address is only recorded in the event for the off-chain reward calculation,
+        // which is where any return would be decided. Hence "read the view in the block the
+        // execution lands in".
         TeeOracleMachineSetupFacet(address(flareTeeManager)).changeTeeMachineState(
             secondTeeId, IMachineManager.TeeStatus.PAUSED
         );
@@ -593,7 +591,7 @@ contract TeeOracleIntegrationTest is Test {
         assertEq(sender.endpointsVersion(FEED_ID), 1, "published");
         assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId), 1);
         assertEq(sender.expectedEndpointsVersion(FEED_ID, secondTeeId), 0, "not a target");
-        assertEq(initialGovernance.balance, 0, "the surplus is not refunded");
+        assertEq(initialGovernance.balance, 0, "the whole value, surplus included, left the payer");
         assertEq(
             rewardManager.balance, quotedFee, "fee AND surplus both went to the reward manager"
         );
@@ -704,9 +702,272 @@ contract TeeOracleIntegrationTest is Test {
         sender.requestFeedUpdate(FEED_ID, teeIds);
     }
 
+    function testEndToEndThresholdFeedFlow() public {
+        // three real PRODUCTION machines, one published configuration generation for all of them,
+        // and a 2-of-3 threshold: the store stores the median of three genuinely signed
+        // observations of the same event
+        uint256[] memory keys = _setupMachines(3);
+        _publishAndDispatch();
+        vm.prank(initialGovernance);
+        feedStore.setSubmissionPolicy(_policy(2, 100, 0));
+
+        uint64 observedAt = uint64(vm.getBlockTimestamp()) - 1;
+        ITeeOracleFeedStore.SignedFeedUpdate[] memory batch =
+            _signedBatch(_int32s(99954321, 99954700, 99954500), 8, observedAt, keys);
+        feedStore.submitFeedUpdates(batch);
+
+        (int256 value, int8 decimals, uint64 timestamp) = feedStore.getCurrentFeed{value: READ_FEE}();
+        assertEq(value, 99954500, "the middle observation, not the first or the last");
+        assertEq(decimals, 8);
+        assertEq(timestamp, observedAt);
+        // the same batch cannot land twice: the common observedAt ratchets
+        vm.expectRevert(ITeeOracleFeedStore.NotNewer.selector);
+        feedStore.submitFeedUpdates(batch);
+    }
+
+    function testThresholdFlowSubmissionReturnsTheAggregation() public {
+        // the submission itself reports what it aggregated, so the dry run an off-chain caller
+        // does is an eth_call on THIS function - no separate preview view to drift from it
+        uint256[] memory keys = _setupMachines(3);
+        _publishAndDispatch();
+        vm.prank(initialGovernance);
+        feedStore.setSubmissionPolicy(_policy(3, 100, 0));
+
+        ITeeOracleFeedStore.SignedFeedUpdate[] memory batch = _signedBatch(
+            _int32s(99954321, 99954700, 99954500), 8, uint64(vm.getBlockTimestamp()) - 1, keys);
+        ITeeOracleFeedStore.FeedAggregation memory aggregation = feedStore.submitFeedUpdates(batch);
+        assertEq(aggregation.median, 99954500);
+        assertEq(aggregation.minValue, 99954321);
+        assertEq(aggregation.maxValue, 99954700);
+        assertEq(aggregation.decimals, 8);
+        assertEq(aggregation.allowedDeviation, 999545, "100 BIPS of abs(median), floored");
+        assertEq(aggregation.outlierTeeIds.length, 0, "inside the bound, so no FeedOutliers");
+        assertEq(aggregation.outlierDeviations.length, 0);
+
+        // and the stored feed is exactly the returned median
+        (int256 value, int8 decimals,) = feedStore.getCurrentFeed{value: READ_FEE}();
+        assertEq(value, aggregation.median);
+        assertEq(decimals, aggregation.decimals);
+    }
+
+    function testThresholdFlowRejectsSpreadTooBig() public {
+        uint256[] memory keys = _setupMachines(3);
+        _publishAndDispatch();
+        vm.prank(initialGovernance);
+        feedStore.setSubmissionPolicy(_policy(2, 100, 0));
+
+        // one machine reports 20% away from the others: at N = 3 that machine IS one of the
+        // median's neighbours, so the median is not well determined and the batch is refused -
+        // the trace names the bracketing values and the median
+        ITeeOracleFeedStore.SignedFeedUpdate[] memory batch = _signedBatch(
+            _int32s(99954321, 120000000, 99954500), 8, uint64(vm.getBlockTimestamp()) - 1, keys);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeOracleFeedStore.SpreadTooBig.selector, int256(99954321), int256(120000000),
+                int256(99954500), int8(8)
+            )
+        );
+        feedStore.submitFeedUpdates(batch);
+        // nothing was stored - the feed is still unpublished
+        vm.expectRevert(ITeeOracleFeedStore.NoValuePublished.selector);
+        feedStore.getCurrentFeed{value: READ_FEE}();
+    }
+
+    function testThresholdFlowFlagsAnOutlierAndStillPublishes() public {
+        // five real machines, one of them 20% off: at N = 5 the outlier is no longer a neighbour
+        // of the median, so the feed updates and the machine is named in FeedOutliers. This is
+        // the behaviour a consumer like FAssets depends on - one faulty machine must not be able
+        // to stall the feed - while the divergence still lands on chain.
+        uint256[] memory keys = _setupMachines(5);
+        _publishAndDispatch();
+        vm.prank(initialGovernance);
+        feedStore.setSubmissionPolicy(_policy(3, 100, 0));
+
+        int32[] memory values = new int32[](5);
+        values[0] = 99954000;
+        values[1] = 99954250;
+        values[2] = 99954500;
+        values[3] = 99954750;
+        values[4] = 120000000;
+        uint64 observedAt = uint64(vm.getBlockTimestamp()) - 1;
+        ITeeOracleFeedStore.SignedFeedUpdate[] memory batch =
+            _signedBatch(values, 8, observedAt, keys);
+
+        address[] memory expectedTeeIds = new address[](1);
+        expectedTeeIds[0] = vm.addr(keys[4]);
+        int256[] memory expectedDeviations = new int256[](1);
+        expectedDeviations[0] = 120000000 - 99954500;
+        vm.expectEmit();
+        emit ITeeOracleFeedStore.FeedOutliers(
+            observedAt, 99954500, 8, expectedTeeIds, expectedDeviations);
+        ITeeOracleFeedStore.FeedAggregation memory aggregation = feedStore.submitFeedUpdates(batch);
+
+        // the returned report is the event's own arrays, so a dry run sees the same divergence
+        assertEq(aggregation.outlierTeeIds, expectedTeeIds);
+        assertEq(aggregation.outlierDeviations, expectedDeviations);
+        assertEq(aggregation.median, 99954500);
+        assertEq(aggregation.decimals, 8);
+
+        (int256 value,,) = feedStore.getCurrentFeed{value: READ_FEE}();
+        assertEq(value, 99954500);
+    }
+
+    function testThresholdFlowRejectsDuplicateSigner() public {
+        uint256[] memory keys = _setupMachines(3);
+        _publishAndDispatch();
+        vm.prank(initialGovernance);
+        feedStore.setSubmissionPolicy(_policy(2, 100, 0));
+
+        // the same machine signs two different observations: two valid signatures, one machine,
+        // so the threshold is not met
+        keys[1] = keys[0];
+        ITeeOracleFeedStore.SignedFeedUpdate[] memory batch = _signedBatch(
+            _int32s(99954321, 99954400, 99954500), 8, uint64(vm.getBlockTimestamp()) - 1, keys);
+        vm.expectRevert(ITeeOracleFeedStore.DuplicateTeeId.selector);
+        feedStore.submitFeedUpdates(batch);
+    }
+
+    function testThresholdFlowRejectsDemotedMachine() public {
+        uint256[] memory keys = _setupMachines(3);
+        _publishAndDispatch();
+        vm.prank(initialGovernance);
+        feedStore.setSubmissionPolicy(_policy(2, 100, 0));
+
+        ITeeOracleFeedStore.SignedFeedUpdate[] memory batch = _signedBatch(
+            _int32s(99954321, 99954700, 99954500), 8, uint64(vm.getBlockTimestamp()) - 1, keys);
+        // one contributor leaves PRODUCTION between signing and submission: the diamond's own
+        // error bubbles and takes the batch with it, rather than the batch quietly proceeding
+        // with the remaining two signatures
+        TeeOracleMachineSetupFacet(address(flareTeeManager)).changeTeeMachineState(
+            vm.addr(keys[2]), IMachineManager.TeeStatus.PAUSED
+        );
+        vm.expectRevert(abi.encodeWithSignature("TeeMachineNotAvailable()"));
+        feedStore.submitFeedUpdates(batch);
+    }
+
+    function testThresholdFlowRejectsMixedConfigGenerations() public {
+        uint256[] memory keys = _setupMachines(3);
+        _publishAndDispatch();
+        vm.prank(initialGovernance);
+        feedStore.setSubmissionPolicy(_policy(2, 100, 0));
+
+        ITeeOracleFeedStore.SignedFeedUpdate[] memory batch = _signedBatch(
+            _int32s(99954321, 99954700, 99954500), 8, uint64(vm.getBlockTimestamp()) - 1, keys);
+        // one machine still runs the previous generation - a mid-rollout batch is refused as a
+        // whole, which is why a threshold is a reason to keep the fleet configuration homogeneous
+        batch[1].feedUpdate.endpointsHash = keccak256("previous generation");
+        batch[1].signature = _signWith(keys[1], batch[1].feedUpdate);
+        vm.expectRevert(ITeeOracleFeedStore.StaleEndpoints.selector);
+        feedStore.submitFeedUpdates(batch);
+    }
+
+    function testThresholdFlowPausedExtensionRejectsTheWholeBatch() public {
+        uint256[] memory keys = _setupMachines(3);
+        _publishAndDispatch();
+        vm.prank(initialGovernance);
+        feedStore.setSubmissionPolicy(_policy(2, 100, 0));
+        vm.prank(extensionOwner);
+        flareTeeManager.emergencyPauseExtension(EXTENSION_ID);
+
+        ITeeOracleFeedStore.SignedFeedUpdate[] memory batch = _signedBatch(
+            _int32s(99954321, 99954700, 99954500), 8, uint64(vm.getBlockTimestamp()) - 1, keys);
+        vm.expectRevert(
+            abi.encodeWithSignature("ExtensionEmergencyPaused(uint256)", EXTENSION_ID));
+        feedStore.submitFeedUpdates(batch);
+    }
+
+    function testThresholdFlowGas() public {
+        // the same measurement as the unit suite's, but against the REAL Fdc2Verification and a
+        // real diamond: this is what a contributing signature actually costs (ecrecover plus the
+        // machine lookup). Reported in docs/tee-oracle-threshold-feed-plan-2026-08-31.md.
+        uint256[] memory keys = _setupMachines(9);
+        _publishAndDispatch();
+
+        // warm-up, so the measurements below are on a dirty slot and warm callees
+        _measureThresholdGas(1, keys, uint64(vm.getBlockTimestamp()) - 5);
+        emit log_named_uint(
+            "gas N=1 (real verifier)",
+            _measureThresholdGas(1, keys, uint64(vm.getBlockTimestamp()) - 4)
+        );
+        emit log_named_uint(
+            "gas N=3 (real verifier)",
+            _measureThresholdGas(3, keys, uint64(vm.getBlockTimestamp()) - 3)
+        );
+        emit log_named_uint(
+            "gas N=5 (real verifier)",
+            _measureThresholdGas(5, keys, uint64(vm.getBlockTimestamp()) - 2)
+        );
+        emit log_named_uint(
+            "gas N=9 (real verifier)",
+            _measureThresholdGas(9, keys, uint64(vm.getBlockTimestamp()) - 1)
+        );
+    }
+
     // -------------------------------------------------------------------------
     // helpers
     // -------------------------------------------------------------------------
+
+    /// Submits a `_count`-element batch signed by the first `_count` machines and returns the gas
+    /// the call consumed.
+    function _measureThresholdGas(
+        uint256 _count,
+        uint256[] memory _keys,
+        uint64 _observedAt
+    )
+        private
+        returns (uint256)
+    {
+        vm.prank(initialGovernance);
+        feedStore.setSubmissionPolicy(_policy(uint8(_count), 100, 0));
+        uint256[] memory keys = new uint256[](_count);
+        for (uint256 i = 0; i < _count; i++) {
+            keys[i] = _keys[i];
+        }
+        ITeeOracleFeedStore.SignedFeedUpdate[] memory batch =
+            _signedBatch(_uniformValues(_count, 99954321), 8, _observedAt, keys);
+        uint256 gasBefore = gasleft();
+        feedStore.submitFeedUpdates(batch);
+        return gasBefore - gasleft();
+    }
+
+    /// Registers `_count - 1` further PRODUCTION machines on the extension (setUp registers the
+    /// first) and returns all signing keys. Called by the threshold tests only, so the
+    /// single-machine tests keep their exact active-set expectations.
+    function _setupMachines(uint256 _count)
+        private
+        returns (uint256[] memory _keys)
+    {
+        _keys = new uint256[](_count);
+        _keys[0] = teePrivateKey;
+        for (uint256 i = 1; i < _count; i++) {
+            (address extraTeeId, uint256 extraKey) =
+                makeAddrAndKey(string.concat("teeMachine", vm.toString(i + 1)));
+            TeeOracleMachineSetupFacet(address(flareTeeManager)).setupTeeMachineState(
+                extraTeeId, EXTENSION_ID, "https://tee.example.com"
+            );
+            _keys[i] = extraKey;
+        }
+    }
+
+    /// Deploys the feed store with the deployment-default submission policy, through the shared
+    /// test deployer (see `TeeOracleFeedStoreDeployer` for why the `new` lives there).
+    function _deployFeedStore()
+        private
+    {
+        feedStore = new TeeOracleFeedStoreDeployer().deploy(
+            IGovernanceSettings(address(this)),
+            initialGovernance,
+            addressUpdater,
+            ITeeOracleInstructionsSender(address(sender)),
+            FEED_ID,
+            feeDestination,
+            ITeeOracleFeedStore.SubmissionPolicy({
+                requiredSignatures: REQUIRED_SIGNATURES,
+                maxSpreadBIPS: MAX_SPREAD_BIPS,
+                maxSpreadAbsolute: MAX_SPREAD_ABSOLUTE
+            })
+        );
+    }
 
     /// Publishes both configuration kinds for the feed with enough value attached for the
     /// extension's whole live active set, so the publication's auto-dispatch delivers them.
@@ -726,6 +987,62 @@ contract TeeOracleIntegrationTest is Test {
         vm.stopPrank();
     }
 
+    /// One signed element per machine, all observing the same event at the same scale.
+    /// A one-element submission batch. `submitFeedUpdates` is the only submission entry point,
+    /// so a single signature is submitted as an array of one - which is also exactly the
+    /// threshold-1 case these tests exercise.
+    function _one(
+        ITeeOracleFeedStore.FeedUpdate memory _feedUpdate,
+        Signature memory _signature
+    )
+        private pure
+        returns (ITeeOracleFeedStore.SignedFeedUpdate[] memory _batch)
+    {
+        _batch = new ITeeOracleFeedStore.SignedFeedUpdate[](1);
+        _batch[0] = ITeeOracleFeedStore.SignedFeedUpdate(_feedUpdate, _signature);
+    }
+
+    function _signedBatch(
+        int32[] memory _valuesPerElement,
+        int8 _decimals,
+        uint64 _observedAt,
+        uint256[] memory _keys
+    )
+        private view
+        returns (ITeeOracleFeedStore.SignedFeedUpdate[] memory _batch)
+    {
+        _batch = new ITeeOracleFeedStore.SignedFeedUpdate[](_valuesPerElement.length);
+        for (uint256 i = 0; i < _valuesPerElement.length; i++) {
+            ITeeOracleFeedStore.FeedUpdate memory feedUpdate = ITeeOracleFeedStore.FeedUpdate({
+                extensionId: EXTENSION_ID,
+                feedId: FEED_ID,
+                value: _valuesPerElement[i],
+                decimals: _decimals,
+                observedAt: _observedAt,
+                endpointsHash: sender.latestEndpointsHash(FEED_ID),
+                adminsHash: sender.latestAdminsHash(FEED_ID)
+            });
+            _batch[i] = ITeeOracleFeedStore.SignedFeedUpdate({
+                feedUpdate: feedUpdate,
+                signature: _signWith(_keys[i], feedUpdate)
+            });
+        }
+    }
+
+    function _signWith(
+        uint256 _privateKey,
+        ITeeOracleFeedStore.FeedUpdate memory _feedUpdate
+    )
+        private view
+        returns (Signature memory)
+    {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            _privateKey,
+            SignedPayload.ethSignedHash(TEE_ORACLE_FEED, keccak256(abi.encode(_feedUpdate)))
+        );
+        return Signature(v, r, s);
+    }
+
     function _sign(
         ITeeOracleFeedStore.FeedUpdate memory _feedUpdate
     )
@@ -739,6 +1056,42 @@ contract TeeOracleIntegrationTest is Test {
         return Signature(v, r, s);
     }
 
+    function _policy(
+        uint8 _requiredSignatures,
+        uint16 _maxSpreadBIPS,
+        uint64 _maxSpreadAbsolute
+    )
+        private pure
+        returns (ITeeOracleFeedStore.SubmissionPolicy memory)
+    {
+        return ITeeOracleFeedStore.SubmissionPolicy({
+            requiredSignatures: _requiredSignatures,
+            maxSpreadBIPS: _maxSpreadBIPS,
+            maxSpreadAbsolute: _maxSpreadAbsolute
+        });
+    }
+
+    function _int32s(int32 _a, int32 _b, int32 _c)
+        private pure
+        returns (int32[] memory _list)
+    {
+        _list = new int32[](3);
+        _list[0] = _a;
+        _list[1] = _b;
+        _list[2] = _c;
+    }
+
+    /// `_count` elements all reporting the same value, so the deviation bound is out of the way.
+    function _uniformValues(uint256 _count, int32 _value)
+        private pure
+        returns (int32[] memory _list)
+    {
+        _list = new int32[](_count);
+        for (uint256 i = 0; i < _count; i++) {
+            _list[i] = _value;
+        }
+    }
+
     /// The groups carried by the last `EndpointsPublished` log - how a keeper actually obtains the
     /// values it hands straight back to `pushEndpoints`, since nothing stores them.
     function _groupsFromLogs(
@@ -749,9 +1102,10 @@ contract TeeOracleIntegrationTest is Test {
     {
         bool found = false;
         for (uint256 i = 0; i < _logs.length; i++) {
-            if (_logs[i].topics[0] == ITeeOracleInstructionsSender.EndpointsPublished.selector) {
+            Vm.Log memory entry = _logs[i];
+            if (entry.topics[0] == ITeeOracleInstructionsSender.EndpointsPublished.selector) {
                 (, _groups) = abi.decode(
-                    _logs[i].data, (bytes32, ITeeOracleInstructionsSender.EndpointGroup[]));
+                    entry.data, (bytes32, ITeeOracleInstructionsSender.EndpointGroup[]));
                 found = true;
             }
         }
@@ -767,9 +1121,10 @@ contract TeeOracleIntegrationTest is Test {
     {
         bool found = false;
         for (uint256 i = 0; i < _logs.length; i++) {
-            if (_logs[i].topics[0] == ITeeOracleInstructionsSender.AdminsPublished.selector) {
+            Vm.Log memory entry = _logs[i];
+            if (entry.topics[0] == ITeeOracleInstructionsSender.AdminsPublished.selector) {
                 (, _roles) = abi.decode(
-                    _logs[i].data, (bytes32, ITeeOracleInstructionsSender.AdminRole[]));
+                    entry.data, (bytes32, ITeeOracleInstructionsSender.AdminRole[]));
                 found = true;
             }
         }

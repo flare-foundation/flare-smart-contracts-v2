@@ -922,6 +922,33 @@ export interface TeeOracleFeed {
    * `bytes21(category byte || name || zero padding)`.
    */
   feedName: string;
+
+  /**
+   * The number of distinct PRODUCTION TEE machine signatures one feed-update submission must
+   * carry, each over that machine's own observation of the same event; the store stores the
+   * median of them. Must be in [1, 32]. A fresh deployment uses 1 — the fleet must actually
+   * have this many PRODUCTION machines running the feed's latest published configuration, which
+   * nothing on chain can check, so raise it with the governance `setSubmissionPolicy` setter
+   * once it does.
+   */
+  requiredSignatures: integer;
+
+  /**
+   * The relative term of the accepted deviation between the contributed values, in BIPS of
+   * `abs(median)`: a submission is rejected when
+   * `max - min > maxSpreadAbsolute + maxSpreadBIPS * abs(median) / 10000`. Must be at most
+   * 10000 (100%). 100 (1%) matches FAssets' live flare configuration.
+   */
+  maxSpreadBIPS: integer;
+
+  /**
+   * The absolute term of the accepted deviation, in the submission's normalisation scale
+   * (`10^-decimals` units of the batch's finest scale), as a decimal string; at most
+   * 2^64 - 1. Zero gives a purely relative bound; a non-zero value is what keeps the bound
+   * usable for a feed hovering at or near zero, where the relative term alone would demand an
+   * exactly unanimous submission.
+   */
+  maxSpreadAbsolute: string;
 }
 
 export interface Fdc2RequestFee {

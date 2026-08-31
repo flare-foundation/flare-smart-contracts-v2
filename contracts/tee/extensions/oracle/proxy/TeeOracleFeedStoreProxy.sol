@@ -6,6 +6,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 import {
     ITeeOracleInstructionsSender
 } from "../../../../userInterfaces/tee/ITeeOracleInstructionsSender.sol";
+import { ITeeOracleFeedStore } from "../../../../userInterfaces/tee/ITeeOracleFeedStore.sol";
 import { TeeOracleFeedStore } from "../implementation/TeeOracleFeedStore.sol";
 
 
@@ -17,6 +18,7 @@ contract TeeOracleFeedStoreProxy is ERC1967Proxy {
         ITeeOracleInstructionsSender _instructionsSender,
         bytes21 _feedId,
         address _feeDestination,
+        ITeeOracleFeedStore.SubmissionPolicy memory _submissionPolicy,
         address _implementationAddress
     )
         ERC1967Proxy(_implementationAddress,
@@ -28,7 +30,8 @@ contract TeeOracleFeedStoreProxy is ERC1967Proxy {
                     _addressUpdater,
                     _instructionsSender,
                     _feedId,
-                    _feeDestination
+                    _feeDestination,
+                    _submissionPolicy
                 )
             )
         )

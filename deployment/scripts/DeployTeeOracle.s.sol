@@ -16,6 +16,8 @@ import {TeeOracleFeedStore} from
     "../../contracts/tee/extensions/oracle/implementation/TeeOracleFeedStore.sol";
 import {TeeOracleFeedStoreProxy} from
     "../../contracts/tee/extensions/oracle/proxy/TeeOracleFeedStoreProxy.sol";
+import {ITeeOracleFeedStore} from
+    "../../contracts/userInterfaces/tee/ITeeOracleFeedStore.sol";
 import {ITeeOracleInstructionsSender} from
     "../../contracts/userInterfaces/tee/ITeeOracleInstructionsSender.sol";
 
@@ -57,7 +59,8 @@ import {ITeeOracleInstructionsSender} from
  *   the configuration, and the push step below takes exactly what it carries. An indexer, an
  *   archive query or simply the execution receipt all work; if it is lost, governance must
  *   republish.
- *   The claim-back argument is where the fee of an instruction that never executes goes; it
+ *   The claim-back argument is the dispatched instruction's PAYER OF RECORD - emitted in
+ *   TeeInstructionsSent for the off-chain reward calculation, with no on-chain claim attached; it
  *   must be non-zero (ZeroClaimBackAddress). Pre-production, when governance calls execute
  *   immediately, that is the caller itself - the deployer / initial governance address below.
  *   For a PRODUCTION timelocked publication governance must name THE WALLET THAT WILL FUND THE
@@ -72,20 +75,29 @@ import {ITeeOracleInstructionsSender} from
  *   READ THE VIEW IN THE BLOCK THE EXECUTION LANDS IN. The sender applies no fee rule of its own:
  *   it forwards the whole msg.value and the diamond enforces only a FLOOR (FeeTooLow), then hands
  *   the entire value to RewardManager.receiveRewards in the same transaction, holding no balance.
- *   So too little REVERTS, while a surplus is NOT refunded: if the instruction is never executed
- *   the whole recorded value, surplus included, is claimable to the claim-back address, but once it
- *   executes the value has been distributed as that epoch's rewards and nothing separates fee from
- *   surplus. A value quoted for a fleet that shrank in the meantime - a machine paused or
- *   suspended, or a changed fee row - therefore donates the difference to the reward pool.
+ *   So too little REVERTS and is retryable, while whatever IS attached is distributed as that
+ *   epoch's rewards - no per-instruction accounting, no on-chain claim method, and nothing on
+ *   chain separating fee from surplus. The claim-back address and the full value are only
+ *   RECORDED in TeeInstructionsSent; what the OFF-CHAIN reward calculation does with a surplus, or
+ *   with the value of an instruction that never executed, is its own policy decision and is not
+ *   controlled here. A value quoted for a fleet that shrank in the meantime - a machine paused or
+ *   suspended, or a changed fee row - therefore overpays rather than reverting.
  *   A short fee, an unset/wrong FlareTeeManager or a lost instructions-sender registration
  *   REVERT the execution; that is retryable - executeGovernanceCall's revert rolls back its own
  *   deletion of the timelock entry, so just re-execute with the right fee, no re-proposal.
  *   The dispatch is skipped (and the values published anyway) ONLY when the extension is
- *   emergency paused or its active set is empty. In those two cases attach NO value - a skipped
- *   dispatch cannot refund the executor and reverts ValueNotNeeded - and use the push step below
+ *   emergency paused or its active set is empty. In those two cases attach NO value - no
+ *   instruction is created at all, so the call reverts ValueNotNeeded - and use the push step below
  *   to deliver the configuration. get*PublicationFee reports no machines and no fee in both
  *   cases, which is exactly that signal (the get*PushTargets views, by contrast, are NOT
  *   pause-aware and keep reporting who is behind - check the pause state separately).
+ * - store.setSubmissionPolicy(SubmissionPolicy{requiredSignatures, maxSpreadBIPS,
+ *   maxSpreadAbsolute})                                           - Flare governance (timelocked)
+ *   NOTE: only needed to CHANGE the policy after deployment - the initial one comes from the
+ *   feed's chain-config entry (requiredSignatures / maxSpreadBIPS / maxSpreadAbsolute) and is set
+ *   in the store's initializer. Raise the threshold once the fleet actually has that many
+ *   PRODUCTION machines running the feed's latest published configuration: nothing on chain can
+ *   check that, and a threshold above it silently stops the feed from updating.
  * - sender.pushEndpoints / pushAdmins per feed                    - ANYONE (pays the fee)
  *   NOTE: needed for machines registered after a publication, for a publication whose dispatch
  *   was skipped, and to retry an instruction that never reached its enclave.
@@ -112,6 +124,9 @@ contract DeployTeeOracle is Script {
     struct FeedParams {
         string registryName;
         bytes21 feedId;
+        uint8 requiredSignatures;
+        uint16 maxSpreadBIPS;
+        uint64 maxSpreadAbsolute;
     }
 
     // Well-known FlareContractRegistry address (same on all Flare networks)
@@ -197,10 +212,41 @@ contract DeployTeeOracle is Script {
                 "invalid feed name length"
             );
 
+            uint256 requiredSignatures = vm.parseJsonUint(
+                config, string.concat(base, ".requiredSignatures"));
+            uint256 maxSpreadBIPS =
+                vm.parseJsonUint(config, string.concat(base, ".maxSpreadBIPS"));
+            uint256 maxSpreadAbsolute = vm.parseJsonUint(
+                config, string.concat(base, ".maxSpreadAbsolute"));
+
+            // mirrors the store's own InvalidSubmissionPolicy check, so a bad parameter fails
+            // before anything is broadcast
+            require(
+                requiredSignatures != 0 && requiredSignatures <= 32,
+                "requiredSignatures out of range"
+            );
+            require(maxSpreadBIPS <= 10000, "maxSpreadBIPS above 100%");
+            require(
+                maxSpreadAbsolute <= type(uint64).max, "maxSpreadAbsolute too large"
+            );
+            if (requiredSignatures > 1) {
+                // the store cannot check this: a threshold above the number of PRODUCTION
+                // machines running the feed's published configuration silently stops the feed
+                console2.log(string.concat(
+                    "WARNING: ", registryName, " requires ",
+                    vm.toString(requiredSignatures),
+                    " signatures - the fleet must already have that many PRODUCTION machines "
+                    "at the feed's latest published configuration"
+                ));
+            }
+
             feeds.push(FeedParams({
                 registryName: registryName,
                 feedId: bytes21(
-                    bytes.concat(bytes1(uint8(category)), nameBytes))
+                    bytes.concat(bytes1(uint8(category)), nameBytes)),
+                requiredSignatures: uint8(requiredSignatures),
+                maxSpreadBIPS: uint16(maxSpreadBIPS),
+                maxSpreadAbsolute: uint64(maxSpreadAbsolute)
             }));
         }
         require(feeds.length > 0, "no feeds configured");
@@ -319,6 +365,11 @@ contract DeployTeeOracle is Script {
                 ITeeOracleInstructionsSender(address(sender)),
                 feed.feedId,
                 feeDestination,
+                ITeeOracleFeedStore.SubmissionPolicy({
+                    requiredSignatures: feed.requiredSignatures,
+                    maxSpreadBIPS: feed.maxSpreadBIPS,
+                    maxSpreadAbsolute: feed.maxSpreadAbsolute
+                }),
                 address(impl)
             );
             feedStores.push(TeeOracleFeedStore(address(proxy)));
@@ -430,7 +481,8 @@ contract DeployTeeOracle is Script {
             "(no machines named; the EXECUTOR ATTACHES THE FEE from "
             "sender.getEndpointsPublicationFee() / getAdminsPublicationFee(), READ IN THE BLOCK "
             "THE EXECUTION LANDS IN, to executeGovernanceCall - too little reverts in the diamond "
-            "(FeeTooLow) and a surplus is NOT refunded, it joins that epoch's rewards; recording "
+            "(FeeTooLow) and is retryable, and whatever is attached joins that epoch's rewards in "
+            "full, with no on-chain claim; recording "
             "must send no value; attach nothing if that view reports an empty machine list or the "
             "extension is paused)"
         );
@@ -446,7 +498,8 @@ contract DeployTeeOracle is Script {
             "should show the signed version and ALL pending calls per feed and kind"
         );
         console2.log(
-            "   claim-back address argument (non-zero): pre-production the caller itself,",
+            "   claim-back address argument (non-zero) - the instruction's payer of record, "
+            "emitted for the off-chain reward calculation: pre-production the caller itself,",
             deployer
         );
         console2.log(
@@ -457,6 +510,17 @@ contract DeployTeeOracle is Script {
             "   the publication stores only the payload HASH and logs the published groups / roles "
             "in EndpointsPublished / AdminsPublished - KEEP THAT LOG, the push below needs them"
         );
+        for (uint256 i = 0; i < feedStores.length; i++) {
+            console2.log(string.concat(
+                "   ", feeds[i].registryName, " submission policy: requiredSignatures=",
+                vm.toString(uint256(feeds[i].requiredSignatures)),
+                ", maxSpreadBIPS=", vm.toString(uint256(feeds[i].maxSpreadBIPS)),
+                ", maxSpreadAbsolute=",
+                vm.toString(uint256(feeds[i].maxSpreadAbsolute)),
+                " (change later with governance setSubmissionPolicy; raise the threshold only "
+                "once the fleet has that many PRODUCTION machines at the latest configuration)"
+            ));
+        }
         console2.log(
             "6. anyone: sender.pushEndpoints / pushAdmins per feed "
             "(for machines added later or a skipped dispatch - build the list from "

@@ -30,9 +30,9 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  *   superseded pending call can never execute after its replacement and restore stale values),
  *   store only the encoded payload's HASH (the payload itself is logged, never stored —
  *   see below), then dispatch it VERBATIM to the extension's live active set, with the non-zero
- *   claim-back address governance named as the destination of the fee should the instruction never
- *   execute — the executed body's `msg.sender` is this contract, so the payer cannot be identified
- *   on chain and has to be stated.
+ *   claim-back address governance named as the instruction's PAYER OF RECORD — the executed body's
+ *   `msg.sender` is this contract, so the payer cannot be identified on chain and has to be
+ *   stated. It is recorded in `TeeInstructionsSent`, not honoured on chain.
  *   The targets are resolved INSIDE the body, never taken as a parameter: a
  *   governance call's arguments are frozen when the timelocked call is recorded, while the fleet's
  *   composition is only known when the executor runs it, so a target list in the signature makes
@@ -46,8 +46,8 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  *   emergency paused, or its active set is empty — and there the values are published and
  *   delivery is left to the push ("published, push later"). When a dispatch does happen the whole
  *   `msg.value` is forwarded and the diamond's floor (`FeeTooLow`) is the only fee gate: a short
- *   fee reverts there, a surplus is forwarded with the rest into that epoch's rewards and is not
- *   returned, so the executor reads `get*PublicationFee` in the executing block and attaches
+ *   fee reverts there and is retryable, and whatever is attached reaches the reward manager in
+ *   full, so the executor reads `get*PublicationFee` in the executing block and attaches
  *   that. Everything the executor CAN fix
  *   reverts, and reverting is cheap: `executeGovernanceCall` bubbles the revert, which rolls
  *   back its own deletion of the timelock entry, so the pending call survives and is
@@ -246,8 +246,8 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         onlyGovernance
     {
         require(_feedId != bytes21(0), InvalidFeedId());
-        // Who funds the execution cannot be read on chain, so governance names the claim-back
-        // address; the diamond stores it unvalidated, hence the zero check here.
+        // Who funds the execution cannot be read on chain, so governance names the payer of
+        // record; the diamond only emits it, unvalidated, hence the zero check here.
         require(_claimBackAddress != address(0), ZeroClaimBackAddress());
         _validateEndpoints(_groups);
 
@@ -682,16 +682,17 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
      * the fee, on every path — publication and push alike. The diamond enforces only a fee FLOOR
      * (`Instructions.sendInstructions`: `require(calculatedFee <= msg.value, FeeTooLow())`) and
      * then hands the WHOLE value to `RewardManager.receiveRewards` in the same transaction; it
-     * keeps no balance and `_claimBackAddress` is only carried into the emitted
-     * `TeeInstructionsSent`. So a surplus above the fee is not separable afterwards: if the
-     * instruction is never executed, the full recorded value — surplus included — is claimable to
-     * `_claimBackAddress`; if it IS executed, the whole value has already been distributed as that
-     * epoch's rewards and nothing distinguishes the fee from the surplus, so the surplus is gone.
-     * Overpaying therefore costs the surplus to the reward pool rather than reverting, which is
-     * why every caller — the executor of a publication included — reads the fee in the block its
-     * call lands in.
-     * The permissionless methods are caller-funded and pass `msg.sender` as the claim-back
-     * address; a governance publication is funded by whatever the executor attached to
+     * keeps no balance, does no per-instruction accounting and exposes no claim method.
+     * `_claimBackAddress` is only carried into the emitted `TeeInstructionsSent`, alongside the
+     * full `msg.value`. On chain, therefore, a surplus is simply part of that epoch's rewards and
+     * nothing distinguishes it from the fee. What happens NEXT is the off-chain reward
+     * calculation's business: it has the payer of record and the exact value from the log, so it
+     * MAY return a surplus, or MAY keep the value of an instruction that never executed — a
+     * reward-script policy decision, not a guarantee of these contracts. Either way, reading the
+     * fee in the block the call lands in is what keeps the attached value right, so every caller
+     * — the executor of a publication included — does that.
+     * The permissionless methods are caller-funded and pass `msg.sender` as the payer of record;
+     * a governance publication is funded by whatever the executor attached to
      * `executeGovernanceCall` and passes the address governance named, because the executed
      * body's `msg.sender` is this contract itself and the payer cannot be identified on chain.
      */
@@ -733,12 +734,12 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
      * inside the diamond with its own canonical error, which surfaces the deployment or funding
      * mistake instead of hiding it, and costs nothing, since `executeGovernanceCall` bubbles the
      * revert and thereby rolls back its own deletion of the timelock entry.
-     * A skipped dispatch cannot refund: the executed body's `msg.sender` is this contract, and
-     * `FlareGovernance` does not record who called `executeGovernanceCall`, so the executor
-     * cannot be identified. Paying it forward to the claim-back address governance named, or
-     * keeping it here, would both be worse than reverting and telling them to re-execute with
-     * none attached — that address is the destination of an unexecuted instruction's fee, not a
-     * refund channel for a dispatch that never happened.
+     * A skipped dispatch creates NO instruction, so there is no fee to attach and nothing would
+     * record the payer: the executed body's `msg.sender` is this contract, and `FlareGovernance`
+     * does not record who called `executeGovernanceCall`, so the executor cannot be identified.
+     * Forwarding the value to the reward manager with no instruction logged, or keeping it here,
+     * would both be worse than reverting and telling the executor to re-execute with none
+     * attached.
      */
     function _requireNoValue()
         internal view

@@ -15,7 +15,11 @@ bytes32 constant TEE_ORACLE_FEED = bytes32("TEE_ORACLE_FEED");
  * @dev Accepts TEE-signed feed updates and stores the latest one. Submission is open;
  *      trust is the TEE signature (verified through `IFdc2Verification` against the
  *      extension id read from the instructions sender) plus the feed's latest published
- *      configuration generation. Strictly increasing, never-future `observedAt`
+ *      configuration generation. A submission carries `requiredSignatures` distinct machines'
+ *      own observations of one event in a single atomic batch, and the store stores the median
+ *      of them, subject to a governance-set deviation bound — see `submitFeedUpdates`, the SOLE
+ *      submission entry point (a single signature is a one-element array).
+ *      Strictly increasing, never-future `observedAt`
  *      covers replay and out-of-order delivery (observations are stamped with an on-chain
  *      event timestamp inside the enclave), and the signed feed update is bound to this
  *      exact feed via its `extensionId` and `feedId` fields. The concrete store also implements the
@@ -57,6 +61,70 @@ interface ITeeOracleFeedStore {
         bytes32 adminsHash;
     }
 
+    /**
+     * One element of a threshold submission: a feed update together with the TEE signature over
+     * it. Every element is signed by a different machine over ITS OWN observation, so the
+     * elements share only `observedAt` (one observed event) — their `value` and `decimals` may
+     * differ, and the store derives one stored value from them (see `submitFeedUpdates`).
+     * @param feedUpdate The feed update, exactly as signed.
+     * @param signature The TEE signature over that feed update.
+     */
+    struct SignedFeedUpdate {
+        FeedUpdate feedUpdate;
+        Signature signature;
+    }
+
+    /**
+     * The store's submission policy: how many distinct machines must sign one submission and how
+     * far their values may diverge. Governance-set, and set once at initialization.
+     * @param requiredSignatures The number of distinct PRODUCTION-machine signatures a submission
+     * must carry; non-zero and at most 32.
+     * @param maxSpreadBIPS The relative term of the accepted deviation, in BIPS of `abs(median)`;
+     * at most 10000 (100%).
+     * @param maxSpreadAbsolute The absolute term of the accepted deviation, always in units of
+     * `10**-8` (a FIXED reference scale, so the setting's real-world meaning never moves with a
+     * submission's own `decimals`); it is rescaled to each submission's normalisation scale
+     * before use. Zero gives a purely relative bound.
+     */
+    struct SubmissionPolicy {
+        uint8 requiredSignatures;
+        uint16 maxSpreadBIPS;
+        uint64 maxSpreadAbsolute;
+    }
+
+    /**
+     * What a submission aggregated from its batch — returned by `submitFeedUpdates`, so the
+     * transaction that updated the feed also reports the numbers it acted on, and an `eth_call`
+     * on the very same function is a complete dry run. Every field
+     * is exactly what the call used, not a recomputation: `median` / `decimals` are the aggregated
+     * pair (`decimals` is the batch's NORMALISATION scale — the largest of the contributions' —
+     * which may be finer than the scale the median is finally STORED at, and it is the scale
+     * `FeedOutliers` reports in), and `outlierTeeIds` / `outlierDeviations` are the very arrays
+     * `FeedOutliers` carried, empty exactly when no event was emitted.
+     * @param median The median of the normalised values, at the `decimals` scale.
+     * @param minValue The smallest normalised value, at the `decimals` scale.
+     * @param maxValue The largest normalised value, at the `decimals` scale.
+     * @param decimals The normalisation scale every value above is expressed in — the batch's
+     * largest `decimals`.
+     * @param allowedDeviation The deviation bound this batch was judged against, at the same
+     * scale: `maxSpreadAbsolute` (rescaled) plus `maxSpreadBIPS` of `abs(median)`. The bracketing
+     * spread stayed inside it (else the call reverted with `SpreadTooBig`); a single contribution
+     * outside it is an outlier below.
+     * @param outlierTeeIds The machines whose own contribution deviated from `median` by more
+     * than `allowedDeviation`, in submission order — the feed updated anyway.
+     * @param outlierDeviations The matching signed deviations (`value - median`), at the
+     * `decimals` scale, so the direction of each divergence is visible.
+     */
+    struct FeedAggregation {
+        int256 median;
+        int256 minValue;
+        int256 maxValue;
+        int8 decimals;
+        int256 allowedDeviation;
+        address[] outlierTeeIds;
+        int256[] outlierDeviations;
+    }
+
     /// Emitted once at initialization with the immutable per-instance configuration
     /// (the settable configuration additionally emits its setter events at initialization).
     event FeedStoreInitialised(
@@ -65,11 +133,37 @@ interface ITeeOracleFeedStore {
         bytes21 indexed feedId
     );
 
-    /// Emitted when a feed update is accepted and the stored value updates.
-    event FeedUpdated(int32 indexed value, int8 decimals, uint64 indexed observedAt, address indexed teeId);
+    /// Emitted when a feed update is accepted and the stored value updates. `value` and
+    /// `decimals` are the aggregated ones actually stored (see `submitFeedUpdates`), and
+    /// `teeIds` names every machine that contributed a signature, in submission order.
+    /// The contributor list is not indexed - an `address[]` topic could only be indexed as a
+    /// hash of the whole array, which is not searchable per machine.
+    event FeedUpdated(int32 indexed value, int8 decimals, uint64 indexed observedAt, address[] teeIds);
+
+    /// Emitted alongside `FeedUpdated`, and only then, when at least one contribution deviates
+    /// from the accepted median by more than the deviation bound. The feed still updates: a tail
+    /// outlier does not undermine a median, and rejecting the batch over one would only teach
+    /// submitters to filter the batch off chain, which is exactly where the divergence
+    /// information would be lost. Publishing and flagging instead means a submitter who does not
+    /// filter hands over a complete divergence report on chain, while consumers keep a live feed.
+    /// `median`, `decimals` and `deviations` are all expressed in the submission's normalisation
+    /// scale (its largest `decimals`) — NOT the possibly coarser scale the value is stored at,
+    /// which `FeedUpdated` carries. Each deviation is signed (`value - median`), so the direction
+    /// of the divergence is visible; `teeIds[i]` is the machine that submitted `deviations[i]`.
+    /// Join with `FeedUpdated` on the indexed `observedAt`.
+    event FeedOutliers(
+        uint64 indexed observedAt,
+        int256 median,
+        int8 decimals,
+        address[] teeIds,
+        int256[] deviations
+    );
 
     /// Emitted when the fee destination changes.
     event FeeDestinationSet(address feeDestination);
+
+    /// Emitted when the submission policy changes (also once at initialization).
+    event SubmissionPolicySet(uint8 requiredSignatures, uint16 maxSpreadBIPS, uint64 maxSpreadAbsolute);
 
     error WrongExtensionId();
     error WrongFeedId();
@@ -85,31 +179,171 @@ interface ITeeOracleFeedStore {
     error StaleAdmins();
     error NoAdminsPublished();
     error NoValuePublished();
+    error NotEnoughSignatures();
+    error TooManySignatures();
+    error DuplicateTeeId();
+    error ObservedAtMismatch();
+    error DecimalsSpreadTooBig();
+    /// The two values bracketing the median position disagree by more than the accepted
+    /// deviation, so the median itself is not well determined. Carries the offending numbers -
+    /// all three at the `decimals` scale the batch was normalised to - so a trace names the
+    /// divergence without a second call.
+    error SpreadTooBig(
+        int256 lowerNeighbour,
+        int256 upperNeighbour,
+        int256 median,
+        int8 decimals
+    );
+    error InvalidSubmissionPolicy();
+    /// Defensive: the aggregated median could not be brought into `int32` without pushing its
+    /// scale below `int8`. Unreachable for inputs that are themselves `int32` values (see
+    /// `submitFeedUpdates`).
+    error ValueOutOfRange();
 
     /**
-     * Submits a TEE-signed feed update.
-     * The signer must be a PRODUCTION-status TEE machine on the store's extension
-     * (verified through `IFdc2Verification.verifyTeeSignature`, which also rejects
-     * submissions while the extension is emergency paused), the update must name this
-     * store's extension id and feed id, and its observation timestamp must strictly increase and
-     * be strictly older than the accepting block.
-     * It must also carry the FEED's latest published configuration generation: `endpointsHash`
-     * and `adminsHash` are checked against the sender's `latestEndpointsHash` /
-     * `latestAdminsHash` (`NoEndpointsPublished` / `NoAdminsPublished` when the feed has no
-     * publication of that kind, `StaleEndpoints` / `StaleAdmins` on a mismatch). This is
-     * deliberately the feed-level generation and not the version the machine was last dispatched:
-     * a publication therefore invalidates every machine still running the previous configuration
-     * until it adopts the new one. The rollout gap that opens is bounded — a feed publishes at
-     * most hourly and a publication auto-dispatches to the live active set — and it is what
-     * makes a configuration change take effect at once instead of machine by machine.
-     * @param _feedUpdate The feed update, exactly as signed.
-     * @param _signature The TEE signature over the update.
+     * Submits a threshold of TEE-signed feed updates in one atomic call and stores the value
+     * aggregated from them. Anyone may call it; the machines themselves need no funded accounts
+     * and nothing accumulates between transactions — a batch either lands whole or reverts.
+     *
+     * PER ELEMENT, exactly the checks a single-signature submission has always applied:
+     * the signer must be a PRODUCTION-status TEE machine on the store's extension (verified
+     * through `IFdc2Verification.verifyTeeSignature`, which also rejects submissions while the
+     * extension is emergency paused), the signed update must name this store's extension id and
+     * feed id (`WrongExtensionId` / `WrongFeedId`), and it must carry the FEED's latest published
+     * configuration generation — `endpointsHash` / `adminsHash` against the sender's
+     * `latestEndpointsHash` / `latestAdminsHash` (`NoEndpointsPublished` / `NoAdminsPublished`
+     * when the feed has no publication of that kind, `StaleEndpoints` / `StaleAdmins` on a
+     * mismatch). That check is deliberately the feed-level generation and not the version the
+     * machine was last dispatched: a publication therefore invalidates every machine still
+     * running the previous configuration until it adopts the new one. The rollout gap that opens
+     * is bounded — a feed publishes at most hourly and a publication auto-dispatches to the live
+     * active set — and it is what makes a configuration change take effect at once instead of
+     * machine by machine. One consequence of the batch: while a publication is rolling out, a
+     * batch that MIXES generations is rejected as a whole, so a threshold is a reason to keep the
+     * fleet's configuration homogeneous.
+     *
+     * ACROSS THE BATCH:
+     * - the element count must be at least `requiredSignatures` (`NotEnoughSignatures`) and at
+     *   most 32 (`TooManySignatures`, the cap that bounds the O(N^2) distinctness scan and sort);
+     * - the signers must be pairwise distinct (`DuplicateTeeId`) — otherwise one machine could
+     *   reach the threshold alone;
+     * - every element must carry the SAME `observedAt` (`ObservedAtMismatch`): the contributors
+     *   observe one event, so a mismatch means the collector mixed rounds. That single common
+     *   timestamp is then checked once against the store's ratchet (`NotNewer`) and against the
+     *   accepting block (`TooFarAhead`), exactly as a single submission is;
+     * - `value` and `decimals` MAY differ between elements. The machines deliberately leave the
+     *   scale undefined (the observed magnitude fluctuates), so the store normalises rather than
+     *   pinning a scale.
+     *
+     * AGGREGATION — median, computed in `int256`:
+     * 1. `maxDecimals - minDecimals` across the batch must be at most 8
+     *    (`DecimalsSpreadTooBig`): `decimals` is `int8`, so an unbounded difference would
+     *    overflow `10**k`, and an eight-decade disagreement is not two machines reporting the
+     *    same quantity.
+     * 2. every value is normalised to `maxDecimals` in `int256` —
+     *    `value_i * 10**(maxDecimals - decimals_i)`, correct for negative `decimals` and negative
+     *    values, and bounded by ~2.15e17 (`int32` input times `10**8`).
+     * 3. the median of the normalised values: the middle one for an odd count, the `int256`
+     *    average of the two middle ones for an even count (Solidity division truncates toward
+     *    zero, so a half lands on the value nearer zero).
+     * 4. the deviation bound is
+     *    `allowed = maxSpreadAbsolute (rescaled) + maxSpreadBIPS * abs(median) / 10000`, and it
+     *    is applied TWICE, to two different questions:
+     *    - REJECTION — "is the median well determined?" The spread between the two values
+     *      immediately BRACKETING the median position (`values[mid-1]` and `values[mid+1]` for an
+     *      odd count, the two averaged values for an even one) must not exceed `allowed`, else
+     *      the call reverts with `SpreadTooBig(lower, upper, median, decimals)`. If the values
+     *      bracketing the median disagree wildly, the median is meaningless and must not be
+     *      published. Unlike FAssets, which can only skip the feed (its aggregation is a side
+     *      effect of a multi-feed publication), this reverts: one feed per store and one batch
+     *      per transaction mean nothing else in the transaction needs protecting.
+     *    - FLAGGING — "which machines disagree?" Every contribution whose own deviation from the
+     *      median exceeds `allowed` is named in a `FeedOutliers` event, emitted alongside
+     *      `FeedUpdated` and only when at least one is found. It never rejects: a tail outlier
+     *      does not undermine a median, and a revert would only teach submitters to filter the
+     *      batch off chain — destroying exactly the divergence information the flag preserves.
+     *    The two coincide at N <= 3, where the median's neighbours ARE the range's ends; the
+     *    distinction starts to matter at N >= 4, where a tail outlier can no longer move the
+     *    median but is still worth naming.
+     *    `abs(median)` plus the absolute floor keeps the bound usable at a zero or negative
+     *    median: `value` is a SIGNED int32, so a feed may legitimately sit at or cross zero,
+     *    where a purely relative bound would collapse to permitting no disagreement at all and
+     *    would flag every machine as an outlier. The absolute term is a governance setting at a
+     *    FIXED `10**-8` reference scale, rescaled to the batch's normalisation scale before use,
+     *    so its real-world meaning does not move with the machines' choice of `decimals`.
+     * 5. the median is stored back into the same `int32 value` / `int8 decimals` shape external
+     *    consumers already read, at the FINEST scale where it fits `int32`: starting from
+     *    `maxDecimals`, while the value does not fit it is divided by ten — rounding half AWAY
+     *    from zero, symmetrically for negatives — and the scale is decremented. Nothing
+     *    meaningful is lost: every input is itself an `int32` carrying at most ~9.3 significant
+     *    digits and the median lies between the smallest and largest input, so the result is
+     *    representable in the same ~9.3 digits at its own magnitude. When the machines submit the
+     *    same `decimals` the median is exactly representable and the loop does not run at all.
+     *
+     * A threshold of 1 therefore behaves exactly as a single-signature submission always did:
+     * the neighbour spread is 0 and the single deviation is 0, so neither bound bites, and the
+     * median is the submitted value at its submitted scale.
+     *
+     * DRY RUN: an `eth_call` on THIS function is the supported way to rehearse a batch — there is
+     * no separate preview view, deliberately. The call returns the aggregation it acted on and
+     * reverts in exactly the places a real submission would, which a view over a subset of the
+     * rules could not promise: signature verification, the extension pause, the feed binding, the
+     * configuration generation and the `observedAt` ratchet are all enforced here, so a batch that
+     * `eth_call`s cleanly is a batch that can land, and a failing rehearsal names the reason
+     * (`SpreadTooBig` carries both bracketing values and the median, so the divergence is
+     * diagnosable from the trace alone). A view could also silently drift out of agreement with
+     * this path; the same function cannot.
+     * @param _signedFeedUpdates The signed feed updates, one per contributing machine.
+     * @return _feedAggregation The aggregation this submission acted on: the median, the range's
+     * ends, the normalisation scale they are expressed in, the deviation bound the batch was
+     * judged against, and the flagged machines with their signed deviations. These are the SAME
+     * numbers the emitted `FeedUpdated` / `FeedOutliers` carry (up to `FeedUpdated`'s re-scaling
+     * of the median into `int32`), read from the same arrays.
      */
-    function submitFeedUpdate(
-        FeedUpdate calldata _feedUpdate,
-        Signature calldata _signature
+    function submitFeedUpdates(
+        SignedFeedUpdate[] calldata _signedFeedUpdates
     )
-        external;
+        external
+        returns (FeedAggregation memory _feedAggregation);
+
+    /**
+     * Returns the whole submission policy in one call.
+     */
+    function getSubmissionPolicy()
+        external view
+        returns (SubmissionPolicy memory);
+
+    /**
+     * Returns the number of distinct PRODUCTION-machine signatures a submission must carry.
+     * NOTE: governance must keep this at or below the number of PRODUCTION machines running the
+     * feed's latest published configuration — the store cannot check that (the active set moves
+     * under it, and a check would cost an external call per submission), and a threshold above it
+     * silently stops the feed from updating.
+     */
+    function requiredSignatures()
+        external view
+        returns (uint8);
+
+    /**
+     * Returns the relative term of the accepted deviation, in BIPS of `abs(median)`.
+     * The bound it forms is used twice: the median's two bracketing values must stay inside it
+     * (else `SpreadTooBig`), and any single contribution outside it is named in `FeedOutliers`.
+     */
+    function maxSpreadBIPS()
+        external view
+        returns (uint16);
+
+    /**
+     * Returns the absolute term of the accepted deviation, in units of `10**-8` — a FIXED
+     * reference scale, rescaled to each submission's own normalisation scale before use, so that
+     * the setting's real-world meaning cannot move with the machines' choice of `decimals`.
+     * It is what keeps the bound usable at a median of or near zero, where the relative term
+     * alone would demand an exactly unanimous batch and would flag every machine as an outlier.
+     * Zero (the default) makes the bound purely relative.
+     */
+    function maxSpreadAbsolute()
+        external view
+        returns (uint64);
 
     /**
      * Returns the extension id whose TEE machines may sign feed updates.

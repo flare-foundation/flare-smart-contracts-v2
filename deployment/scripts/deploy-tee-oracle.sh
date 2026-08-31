@@ -14,17 +14,20 @@ set -euo pipefail
 # extension's active set, so the governance executor must attach the fee reported by
 # sender.getEndpointsPublicationFee()/getAdminsPublicationFee() to executeGovernanceCall.
 # Read that view in the block the execution lands in. The sender forwards the whole msg.value and
-# the diamond's own floor is the only fee gate: too little reverts there (FeeTooLow), while a
-# surplus is not refunded - the diamond hands the entire value to RewardManager.receiveRewards in
-# the same transaction, so an overpayment is claimable to the claim-back address only if the
-# instruction is never executed, and otherwise joins that epoch's rewards. A value quoted before a
-# machine was paused therefore overpays rather than reverting.
+# the diamond's own floor is the only fee gate: too little reverts there (FeeTooLow) and is
+# retryable, while whatever IS attached reaches RewardManager.receiveRewards in full, in the same
+# transaction. There is no per-instruction accounting and no on-chain claim method: the claim-back
+# address and the full value are only RECORDED in the TeeInstructionsSent event, for the off-chain
+# reward calculation. Whether that returns a surplus, or keeps the fee of an instruction that never
+# executed, is decided there and not by these contracts. A value quoted before a machine was
+# paused therefore overpays rather than reverting.
 # Both calls also take a governance-SIGNED version - exactly the feed's next consecutive one,
 # endpointsVersion(feedId)+1 / adminsVersion(feedId)+1, else UnexpectedConfigVersion - which is
 # what keeps a superseded pending call from executing after its replacement and restoring stale
 # configuration; cancel a superseded pending call rather than leaving it queued.
-# Both calls also take a non-zero claim-back address - the destination of the fee if the
-# dispatched instruction is never executed. For a production timelocked publication governance
+# Both calls also take a non-zero claim-back address - the dispatched instruction's PAYER OF
+# RECORD, emitted for the off-chain reward calculation and conferring no on-chain claim.
+# For a production timelocked publication governance
 # should name the wallet that will fund the execution, since the payer cannot be identified on
 # chain; pre-production, where the call executes immediately, that is the caller itself.
 # A short fee reverts and is simply re-executable (the timelock entry survives). Dispatch

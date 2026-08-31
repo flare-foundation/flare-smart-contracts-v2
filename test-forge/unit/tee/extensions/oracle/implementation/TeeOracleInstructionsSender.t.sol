@@ -300,8 +300,9 @@ contract TeeOracleInstructionsSenderTest is Test {
     function testSetEndpointsForwardsASurplusToTheDiamond() public {
         // accepted, not prevented: the diamond enforces only a floor and hands the WHOLE value to
         // receiveRewards in the same transaction, keeping no balance, so a surplus cannot be
-        // separated from the fee afterwards - it is claimable to the claim-back address only for
-        // an instruction that never executes, and is otherwise part of that epoch's rewards
+        // separated from the fee afterwards: on chain it is simply part of that epoch's rewards.
+        // The claim-back address is only RECORDED in the event, for the off-chain reward
+        // calculation; no contract here returns anything
         _mockCalculateFee(SET_ENDPOINTS_COMMAND, _bothTees(), 10);
         (, uint256 quotedFee) = sender.getEndpointsPublicationFee();
         assertEq(quotedFee, 10);
@@ -320,7 +321,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         vm.prank(governance);
         sender.setEndpoints{value: quotedFee + 1}(FEED_ID, 1, _makeGroups(1, 1), claimBack);
         assertEq(sender.endpointsVersion(FEED_ID), 1, "published");
-        assertEq(governance.balance, 0, "surplus forwarded, not refunded");
+        assertEq(governance.balance, 0, "the whole value, surplus included, left the executor");
     }
 
     function testSetAdminsOverpaysWhenTheFleetShrinksAfterTheFeeQuote() public {
@@ -355,7 +356,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         assertEq(sender.adminsVersion(FEED_ID), 1, "published");
         assertEq(sender.expectedAdminsVersion(FEED_ID, teeId2), 1);
         assertEq(sender.expectedAdminsVersion(FEED_ID, teeId1), 0, "not a target any more");
-        assertEq(governance.balance, 0, "no refund of the 1000 surplus");
+        assertEq(governance.balance, 0, "the 1000 surplus went out with the fee");
     }
 
     function testSetEndpointsNeverPricesTheDispatchItself() public {
@@ -388,8 +389,9 @@ contract TeeOracleInstructionsSenderTest is Test {
     }
 
     function testSetEndpointsRevertValueNotNeededWithNoActiveMachines() public {
-        // a skipped dispatch cannot refund - the executed body's msg.sender is the contract and
-        // the governance library does not record the executor - so value must not be attached
+        // a skipped dispatch creates NO instruction, so there is no fee to attach and nothing
+        // would even record a payer (the executed body's msg.sender is the contract and the
+        // governance library does not record the executor) - so value must not be attached
         _mockGetActiveTeeMachines(new address[](0));
         vm.deal(governance, 77);
         vm.expectRevert(ITeeOracleInstructionsSender.ValueNotNeeded.selector);
@@ -430,7 +432,7 @@ contract TeeOracleInstructionsSenderTest is Test {
         );
         vm.prank(governance);
         sender.setEndpoints{value: 10}(FEED_ID, 1, _makeGroups(1, 1), claimBack);
-        assertEq(governance.balance, 0, "no refund on the dispatch path");
+        assertEq(governance.balance, 0, "the whole value leaves on the dispatch path");
     }
 
     function testSetEndpointsPerFeedIsolation() public {
@@ -591,8 +593,8 @@ contract TeeOracleInstructionsSenderTest is Test {
     }
 
     function testRevertSetEndpointsZeroClaimBackAddress() public {
-        // the diamond stores the claim-back address unvalidated, so a zero would silently make
-        // the fee of an instruction that never executes unreclaimable - and nothing is published
+        // the diamond emits the claim-back address unvalidated, so a zero would silently leave
+        // the off-chain reward calculation with no payer on record - and nothing is published
         vm.expectRevert(ITeeOracleInstructionsSender.ZeroClaimBackAddress.selector);
         vm.prank(governance);
         sender.setEndpoints(FEED_ID, 1, _makeGroups(1, 1), address(0));

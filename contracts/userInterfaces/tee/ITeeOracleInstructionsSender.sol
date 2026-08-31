@@ -46,15 +46,18 @@ bytes32 constant SET_ADMINS_COMMAND = bytes32("SET_ADMINS");
  *      all — the extension is emergency paused, or its active set is empty — and then publishes
  *      the values without delivering them (`msg.value` must be zero, `ValueNotNeeded`). When it
  *      does dispatch, the whole `msg.value` is forwarded and the diamond's fee FLOOR is the only
- *      gate: too little reverts there (`FeeTooLow`), a surplus is forwarded with the rest and is
- *      not returned, since the diamond hands the entire value to `RewardManager.receiveRewards`
- *      in the same transaction and keeps no balance. Size the value with `get*PublicationFee`,
- *      read in the block the execution lands in.
+ *      gate: too little reverts there (`FeeTooLow`) and is retryable. Whatever IS attached goes to
+ *      `RewardManager.receiveRewards` in full, in the same transaction — the diamond keeps no
+ *      balance, does no per-instruction accounting and offers no on-chain claim method. Size the
+ *      value with `get*PublicationFee`, read in the block the execution lands in.
  *      Who funded a publication cannot be read on chain — the executed body's `msg.sender` is
  *      this contract and `FlareGovernance` does not record who called `executeGovernanceCall` —
- *      so a publication names its claim-back address explicitly (`_claimBackAddress`, non-zero),
- *      letting governance point the fee of an unexecuted instruction back at whoever funds the
- *      execution. The permissionless methods need no such argument: their payer is `msg.sender`.
+ *      so a publication names its claim-back address explicitly (`_claimBackAddress`, non-zero).
+ *      That address is RECORDED, not honoured on chain: it and the full value are fields of
+ *      `TeeInstructionsSent`, which is how the OFF-CHAIN reward calculation learns who paid. What
+ *      it then does with a surplus, or with the value of an instruction that never executed, is
+ *      decided there and is not a guarantee of this contract.
+ *      The permissionless methods need no such argument: their payer is `msg.sender`.
  *      Everything the executor CAN fix, above all too small an instruction fee and a
  *      misconfigured or unregistered TEE manager, reverts inside the diamond with its own error;
  *      that is cheap, because a bubbled revert rolls back `executeGovernanceCall`'s deletion of
@@ -465,7 +468,8 @@ interface ITeeOracleInstructionsSender {
      * time. Kept as a view of its own, rather than left to the executor to assemble from
      * `getActiveTeeMachines` plus `calculateFeeByTeeIds`, because getting the value wrong costs
      * something either way: too little reverts the execution inside the diamond (`FeeTooLow`),
-     * and a surplus is forwarded with the fee into that epoch's rewards rather than refunded.
+     * and whatever is attached is handed to the reward manager in full — the contracts neither
+     * separate a surplus from the fee nor return it.
      * A fleet that shrinks or a fee row that changes between the read and the execution therefore
      * makes an earlier quote an overpayment, not a revert — hence "read it in the executing
      * block".

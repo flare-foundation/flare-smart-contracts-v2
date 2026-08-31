@@ -372,15 +372,30 @@
                     "description": "The feed name (up to 20 ASCII characters), e.g. \"USDX/USD\". The feed id is\n`bytes21(category byte || name || zero padding)`.",
                     "type": "string"
                 },
+                "maxSpreadAbsolute": {
+                    "description": "The absolute term of the accepted deviation, in the submission's normalisation scale\n(`10^-decimals` units of the batch's finest scale), as a decimal string; at most\n2^64 - 1. Zero gives a purely relative bound; a non-zero value is what keeps the bound\nusable for a feed hovering at or near zero, where the relative term alone would demand an\nexactly unanimous submission.",
+                    "type": "string"
+                },
+                "maxSpreadBIPS": {
+                    "description": "The relative term of the accepted deviation between the contributed values, in BIPS of\n`abs(median)`: a submission is rejected when\n`max - min > maxSpreadAbsolute + maxSpreadBIPS * abs(median) / 10000`. Must be at most\n10000 (100%). 100 (1%) matches FAssets' live flare configuration.",
+                    "type": "integer"
+                },
                 "registryName": {
                     "description": "The registry name for this feed's TeeOracleFeedStore instance (e.g. \"UsdxFeedStore\").",
                     "type": "string"
+                },
+                "requiredSignatures": {
+                    "description": "The number of distinct PRODUCTION TEE machine signatures one feed-update submission must\ncarry, each over that machine's own observation of the same event; the store stores the\nmedian of them. Must be in [1, 32]. A fresh deployment uses 1 — the fleet must actually\nhave this many PRODUCTION machines running the feed's latest published configuration, which\nnothing on chain can check, so raise it with the governance `setSubmissionPolicy` setter\nonce it does.",
+                    "type": "integer"
                 }
             },
             "required": [
                 "feedCategory",
                 "feedName",
-                "registryName"
+                "maxSpreadAbsolute",
+                "maxSpreadBIPS",
+                "registryName",
+                "requiredSignatures"
             ],
             "type": "object"
         },

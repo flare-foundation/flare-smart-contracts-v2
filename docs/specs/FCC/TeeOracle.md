@@ -113,7 +113,7 @@ everything they can**:
 | Extension is emergency paused (`isExtensionEmergencyPaused`) | dispatch skipped, values published — the diamond hard-rejects every dispatch while paused ([`Instructions`](../../../contracts/tee/library/Instructions.sol)), and a corrected configuration must stay landable, not least because the pause may exist *because* the live configuration is wrong. Checked **before** the active set is read: `getActiveTeeMachines` is unpaginated and also builds a `string[]` of machine URLs the sender discards, which a paused publication must not pay for |
 | The extension's active set is empty | dispatch skipped, values published — the fleet may not be registered yet |
 | The signed `version` is not the feed's current version plus one | **reverts** (`UnexpectedConfigVersion(signed, expected)`) — nothing is published; see [Version ordering](#version-ordering-governance-signs-the-version) |
-| `msg.value` is **below** the instruction fee of the snapshotted targets | **reverts** inside the diamond (`FeeTooLow`) — nothing is published. The sender does no fee arithmetic of its own on any path: it forwards the whole `msg.value` and [`Instructions`](../../../contracts/tee/library/Instructions.sol) enforces the floor. A **surplus** does not revert — see [The fee, and what a surplus costs](#the-fee-and-what-a-surplus-costs) |
+| `msg.value` is **below** the instruction fee of the snapshotted targets | **reverts** inside the diamond (`FeeTooLow`) — nothing is published. The sender does no fee arithmetic of its own on any path: it forwards the whole `msg.value` and [`Instructions`](../../../contracts/tee/library/Instructions.sol) enforces the floor. A **surplus** does not revert — see [The fee, and where it goes](#the-fee-and-where-it-goes) |
 | Unset / wrong TEE manager, or this contract is no longer the extension's registered instructions sender | **reverts** inside the diamond (`OnlyInstructionsSender`) — a deployment mistake must surface, not be hidden |
 
 Reverting is cheap, which is what makes it the right default:
@@ -122,7 +122,7 @@ deletes the timelocked call's entry *before* the inner `address(this).call{value
 bubbles the revert, so a failed execution rolls that deletion back too — the pending call survives
 and the executor simply re-executes in the next block, with no re-proposal and no second timelock.
 
-### The fee, and what a surplus costs
+### The fee, and where it goes
 
 The fee is the **executor's**: `executeGovernanceCall` is payable and forwards its value into the
 executed call, while recording a timelocked call still rejects value (`TimelockValueNotAllowed`).
@@ -132,42 +132,46 @@ machines and no fee, mirroring the publication's own skipped dispatch. A **skipp
 carry no value (`ValueNotNeeded`): the executed
 body runs as `address(this).call(...)`, so its `msg.sender` **is the sender contract**, and
 `FlareGovernance` does not record who called `executeGovernanceCall` — the executor cannot be
-identified, so there is nobody to refund, and keeping their fee here would be worse than telling
-them to re-execute with none attached.
+identified. That is not about refunds — a skipped dispatch creates **no instruction at all**, so
+there is no fee to attach and nothing that would even record a payer.
 
-That same unidentifiable payer is why the dispatched instruction's `claimBackAddress` is an
+The unidentifiable payer is, however, why the dispatched instruction's `claimBackAddress` is an
 explicit **argument** of the publication rather than something the contract derives. It is the
-destination of the fee if the instruction is never executed, so it has to be the wallet that
-funded the execution — and the contract cannot see who that was. Deriving it from
-`FlareGovernance.governance()` would have sent the claim-back to governance for an instruction the
-executor paid for. Freezing the address at proposal time is safe in a way that freezing a machine
-list is not: a stale address cannot make the execution revert, where a machine that left
-`PRODUCTION` during the timelock would; the worst case is naming a wallet since retired, which
-governance recovers from by cancelling the pending call and re-proposing. `address(0)` is rejected
-(`ZeroClaimBackAddress`) — [`Instructions`](../../../contracts/tee/library/Instructions.sol) stores
-the claim-back unvalidated, so a zero would silently make an unexecuted instruction's fee
-unreclaimable. The permissionless methods take no such argument: their payer *is* `msg.sender`.
+publication's **payer of record**, so it has to be the wallet that funded the execution — and the
+contract cannot see who that was. Deriving it from `FlareGovernance.governance()` would have
+recorded governance as the payer of an instruction the executor funded. Freezing the address at
+proposal time is safe in a way that freezing a machine list is not: a stale address cannot make the
+execution revert, where a machine that left `PRODUCTION` during the timelock would; the worst case
+is naming a wallet since retired, which governance recovers from by cancelling the pending call and
+re-proposing. `address(0)` is rejected (`ZeroClaimBackAddress`) —
+[`Instructions`](../../../contracts/tee/library/Instructions.sol) only emits the claim-back,
+unvalidated, so a zero would silently leave the off-chain reward calculation with no payer on
+record. The permissionless methods take no such argument: their payer *is* `msg.sender`.
 
-On the dispatching path the sender forwards the **whole** `msg.value` and imposes no fee rule of
-its own — exactly as the permissionless `requestFeedUpdate` / `push*` methods do. The gate is the
-diamond's: [`Instructions`](../../../contracts/tee/library/Instructions.sol) requires
+**What the contracts actually do with the value.** On the dispatching path the sender forwards the
+**whole** `msg.value` and imposes no fee rule of its own — exactly as the permissionless
+`requestFeedUpdate` / `push*` methods do. The gate is the diamond's:
+[`Instructions`](../../../contracts/tee/library/Instructions.sol) requires
 `calculatedFee <= msg.value` (`FeeTooLow`) and then hands the **entire** value to
-`RewardManager.receiveRewards` **in the same transaction**, keeping no balance of its own;
-`claimBackAddress` is only carried into the emitted `TeeInstructionsSent`. Two consequences follow,
-and together they are why an exact-fee requirement on the publication was considered and
-deliberately **not** adopted:
+`RewardManager.receiveRewards` **in the same transaction**, keeping no balance of its own. There is
+**no per-instruction accounting and no on-chain claim method anywhere in this repo.** The only
+thing that happens to `claimBackAddress` is that it is *recorded*: it and the full `msg.value` are
+both fields of the emitted
+[`TeeInstructionsSent`](../../../contracts/userInterfaces/tee/IInstructions.sol).
 
-- for an instruction that is **never executed**, the full recorded value — surplus included — is
-  claimable to the claim-back address, so an overpayment is not lost there;
-- for an instruction that **is executed**, the whole value has already been distributed as that
-  epoch's rewards and nothing on chain separates the fee from the surplus, so the surplus is not
-  returned.
+Everything after that is the **off-chain reward calculation's** business, and this repo does not
+control it. That calculation has the payer of record and the exact value attached, so it *may*
+return a surplus even on a successfully executed instruction, and it *may* keep the whole amount
+for an instruction that never executed. Both are reward-script policy decisions, not contract
+guarantees. **The docs here promise neither a refund nor the absence of one.**
 
-So the practical guidance is unchanged — read `get*PublicationFee` in the executing block and
-attach what it says — but the failure mode of a stale quote differs by direction: too little
-reverts (`FeeTooLow`, and is retryable as described above), while too much simply donates the
-difference to the reward pool. A fleet that shrinks between the read and the execution — a machine
-paused or suspended, or a changed fee row — therefore overpays rather than reverting.
+What *is* guaranteed on chain, and is the whole of the operational advice: read
+`get*PublicationFee` in the block the execution lands in and attach what it says. Too little
+reverts (`FeeTooLow`, retryable as described above); whatever is attached reaches the reward
+manager in full. A fleet that shrinks between the read and the execution — a machine paused or
+suspended, or a changed fee row — therefore overpays rather than reverting, which is why an
+exact-fee requirement on the publication was considered and deliberately **not** adopted: it would
+turn every such drift into a failed governance execution.
 
 ### Version ordering: governance signs the version
 
@@ -374,7 +378,8 @@ elsewhere:
 There is no push fee preview: since the list is dispatched as given, the diamond's own
 `calculateFeeByTeeIds(TEE_ORACLE_OP_TYPE, command, teeIds)` prices the call exactly, with no
 sender-side view in between. Sending less reverts inside the diamond; sending more is forwarded to
-the reward manager and is not refunded, so a keeper should read the fee in the same block it pays.
+the reward manager in full, and the contracts neither separate it out nor return it, so a keeper
+should read the fee in the same block it pays.
 
 `getEndpointsPublicationFee()` / `getAdminsPublicationFee()` are the governance executor's
 equivalent: the machines a publication would dispatch to — the extension's whole active set — and
@@ -386,8 +391,8 @@ empty machine list is the signal that the publication will skip its dispatch and
 with no value attached — an active emergency pause reads exactly the same way, since these views
 mirror the publication rather than the raw active set. Read them in the block the execution lands
 in: a stale quote that is too low reverts (`FeeTooLow`) and a stale quote that is too high
-overpays, since neither the sender nor the diamond refunds a surplus — see
-[The fee, and what a surplus costs](#the-fee-and-what-a-surplus-costs).
+overpays, since the whole attached value goes to the reward manager and no contract here returns
+any of it — see [The fee, and where it goes](#the-fee-and-where-it-goes).
 
 ## Feed updates
 
@@ -410,13 +415,21 @@ overpays, since neither the sender nor the diamond refunds a surplus — see
    [`FeedUpdate`](../../../contracts/userInterfaces/tee/ITeeOracleFeedStore.sol):
    `{extensionId, feedId, value (int32), decimals (int8), observedAt, endpointsHash, adminsHash}`.
    The value uses the FTSO-style int32 + dynamic-decimals representation (the enclave picks the
-   scale); `observedAt` is the timestamp of an emitted on-chain event, so it is always strictly
-   in the past at submission. It signs
+   scale, and machines need **not** agree on it — see
+   [Threshold aggregation](#threshold-aggregation)); `observedAt` is the timestamp of an emitted
+   on-chain event, so it is always strictly in the past at submission. It signs
    `SignedPayload.ethSignedHash(TEE_ORACLE_FEED, keccak256(abi.encode(feedUpdate)))` — the
    canonical [`SignedPayload`](../../../contracts/utils/lib/SignedPayload.sol) envelope
    (domain prefix + chain id + data hash), same as every other TEE signature.
-3. **Submission** — anyone calls `submitFeedUpdate(feedUpdate, signature)` on the feed's store.
-   The store:
+3. **Submission** — anyone calls `submitFeedUpdates(signedFeedUpdates[])` on the feed's store
+   with one signed update per contributing machine (`SignedFeedUpdate = {feedUpdate, signature}`),
+   in **one atomic call**: nothing accumulates between transactions, so there is no round storage
+   to garbage-collect, no partially filled round to grief, and the machines need no funded
+   accounts of their own. This is the **only** submission entry point: a single signature is a
+   one-element array, and there is no single-update overload — see
+   [The ABI break](#the-abi-break-there-is-no-single-update-call). The signed payload is unchanged
+   by the batching: a machine always signs one `FeedUpdate`.
+   **Per element** the store applies every check a single-signature submission always did:
    - recovers and authorizes the signer through
      [`Fdc2Verification.verifyTeeSignature(extensionId, sig, messageHash)`](../../../contracts/fdc2/implementation/Fdc2Verification.sol)
      — PRODUCTION machine of the extension, extension not emergency paused;
@@ -433,16 +446,163 @@ overpays, since neither the sender nor the diamond refunds a surplus — see
      and a publication auto-dispatches to the live active set — and it buys the property a
      per-machine record cannot give: a superseded configuration stops being accepted at once,
      rather than machine by machine as instructions land;
-   - checks time: `observedAt` must strictly increase (`NotNewer` — replay and out-of-order
-     protection) and be strictly below `block.timestamp` (`TooFarAhead` — the observation
-     event and the update cannot land in the same block, and a future-dated timestamp would
-     freeze the feed irreversibly, since `observedAt` only ratchets up);
-   - stores value, decimals and timestamp (one packed storage slot) and emits `FeedUpdated`.
+   **Across the batch**:
+   - the element count must be at least `requiredSignatures` (`NotEnoughSignatures`) and at most
+     32 (`TooManySignatures` — the cap that bounds the O(N²) distinctness scan and the sort);
+   - the signers must be pairwise distinct (`DuplicateTeeId`), else one machine could reach the
+     threshold alone. The scan is a nested loop over memory — no storage, so a rejected batch
+     leaves nothing behind. (`IFdc2Verification.verifyTeeSignatures`, which does this itself,
+     cannot be used: it verifies many signatures over **one** hash, while here every machine signs
+     its own observation and therefore its own digest.)
+   - every element must carry the **same** `observedAt` (`ObservedAtMismatch`): the contributors
+     observe one event, so a mismatch means the collector mixed rounds. That one common timestamp
+     is then checked **once** against the ratchet (`NotNewer`) and against the accepting block
+     (`TooFarAhead`), exactly as a single submission is — the observation event and the update
+     cannot land in the same block, and a future-dated timestamp would freeze the feed
+     irreversibly since `observedAt` only ratchets up;
+   - `value` and `decimals` **may** differ per element; the store aggregates them (below).
+
+   A batch that passes writes value, decimals and timestamp (one packed storage slot), emits
+   `FeedUpdated` naming every contributor, and — only if some contribution diverged — a
+   `FeedOutliers` event. It also **returns** the aggregation it acted on, which is what makes an
+   `eth_call` on this function the supported dry run — see [The dry run](#the-dry-run).
 
 There is no acceptance window and no pause flag: staleness is the consumer's check (as with
 every FTSO feed), and the FCC per-extension
 [emergency pause](../../../contracts/userInterfaces/tee/IMachineEmergencyPause.sol) already
 stops submissions at the verifier.
+
+One consequence of batching a feed-level configuration check: while a publication is rolling out,
+a batch that **mixes** generations is rejected as a whole (on the lagging element's
+`StaleEndpoints` / `StaleAdmins`). Publish to the whole fleet in one call — which is what
+`setEndpoints` / `setAdmins` do — and treat a threshold as a reason to keep the fleet's
+configuration homogeneous.
+
+### The ABI break: there is no single-update call
+
+[`submitFeedUpdates(SignedFeedUpdate[])`](../../../contracts/userInterfaces/tee/ITeeOracleFeedStore.sol)
+is the sole submission entry point. An earlier revision also carried
+`submitFeedUpdate(FeedUpdate, Signature)` as a one-element shim; it has been **removed**, not
+deprecated, so this is a hard ABI break rather than an addition:
+
+- **Any off-chain caller still encoding `submitFeedUpdate` must move to the array form.** The
+  selector is gone, so a call to it hits no function and reverts — it does not silently no-op.
+  The migration is mechanical and needs no re-signing: a machine signs one `FeedUpdate` either
+  way, so the existing signature is wrapped as `[{feedUpdate, signature}]` and submitted.
+- **The signed payload is unchanged**, so signing code, the `SignedPayload` envelope and the
+  enclave side need no update at all — only the submitting call does.
+- **Above a threshold of 1, submission is inherently an aggregator role.** Whoever submits must
+  first gather `requiredSignatures` signatures over the **same** `observedAt` (that is enforced:
+  `ObservedAtMismatch`) and put them in one atomic call. No single machine can do that alone, so
+  raising the threshold above 1 is also a decision to run a collector — a machine, a keeper or any
+  third party, since submission is permissionless and the submitter needs no authority beyond
+  paying the gas. Keeping one entry point is what makes that role explicit: there is no
+  single-signature path that would quietly keep working for one machine while the threshold says
+  otherwise.
+
+### Threshold aggregation
+
+The store derives **one** stored value from the batch, in `int256`, and writes it back into the
+same `int32 value` / `int8 decimals` shape consumers already read:
+
+1. **Normalisation.** `maxDecimals - minDecimals` across the batch must be at most **8**
+   (`DecimalsSpreadTooBig`): `decimals` is an `int8`, so an unbounded difference would overflow
+   the `10**k` multiplier, and an eight-decade disagreement is not two machines reporting the same
+   quantity. Every value is then scaled to the batch's finest scale as
+   `value_i * 10**(maxDecimals - decimals_i)`. Only the *difference* of the two scales enters, so
+   negative `decimals` are handled by construction, and the multiplier is positive, so negative
+   values scale correctly; the worst case is `|int32| * 10**8 ≈ 2.15e17`, far inside `int256`.
+   The scale is deliberately **not** pinned by governance: the machines leave it undefined because
+   the observed magnitude fluctuates, so the contract normalises instead of rejecting.
+2. **Median.** The middle value for an odd count, the `int256` average of the two middle values
+   for an even one. Solidity division truncates *toward zero*, so a half-way average lands on the
+   value nearer zero (`(1 + 2) / 2 == 1`, `(-1 + -2) / 2 == -1`). The sort is an insertion sort on
+   a **copy**; the batch order is preserved, because the outlier scan below has to name machines.
+3. **The deviation bound**, `allowed = maxSpreadAbsolute (rescaled) + maxSpreadBIPS * abs(median) / 10000`,
+   applied to two different questions:
+
+   | Question | Check | On violation |
+   |----------|-------|--------------|
+   | Is the median well **determined**? | the spread between the two values **bracketing** the median position (`sorted[mid±1]` for an odd count, the two averaged values for an even one) | **reverts** `SpreadTooBig(lower, upper, median, decimals)` — a median whose neighbours disagree wildly is meaningless and must not be published |
+   | **Which machines** disagree? | each contribution's own deviation from the median | **flags**: the machines are named in `FeedOutliers(observedAt, median, decimals, teeIds, deviations)`, emitted alongside `FeedUpdated` and only when the list is non-empty. Never rejects |
+
+   The rejection follows FAssets' `_calculateMedian`
+   ([`FtsoV2PriceStore`](https://github.com/flare-foundation/fassets)) in using the median's
+   neighbours rather than the full range; unlike FAssets, which can only *skip* the feed (its
+   aggregation is a side effect of a multi-feed publication), this reverts — one feed per store and
+   one batch per transaction mean nothing else in the transaction needs protecting.
+   The flag exists because the batch is assembled by **whoever submits it**: rejecting on a tail
+   outlier would only teach submitters to filter off chain, which is exactly where the divergence
+   information would be lost. Publishing and flagging means a submitter who does not filter hands
+   over a complete divergence report on chain, while consumers (FAssets among them) keep a live
+   feed — one faulty machine cannot stall it. Deviations are signed (`value - median`), so the
+   log shows the direction, and `median` / `decimals` / `deviations` are all at the batch's
+   normalisation scale, not the possibly coarser scale `FeedUpdated` carries.
+   At **N ≤ 3 the two checks coincide** — for a sorted triple the median's neighbours *are* the
+   range's ends — so the distinction only starts to matter at N ≥ 4, where a tail can no longer
+   move the median but is still worth naming.
+   `abs(median)` is the relative base because `value` is **signed**: a feed may legitimately sit
+   at or cross zero, where a purely relative bound would collapse to permitting no disagreement at
+   all and would flag every machine. `maxSpreadAbsolute` is the floor that prevents that. It is
+   denominated at a **fixed `10^-8` reference scale** and rescaled to each batch's normalisation
+   scale before use, so the setting's real-world meaning cannot move with the machines' choice of
+   `decimals`; the rescaling is clamped at both ends (a bound above ~4.3e17 already permits every
+   possible deviation, one below a single unit of the batch's scale is zero), which is also what
+   keeps `10**k` inside `uint256` when the two scales are dozens of decades apart.
+4. **Back to `int32` / `int8`.** Starting from `maxDecimals`, while the median does not fit
+   `int32` it is divided by ten — rounding half **away from zero**, symmetrically for negatives
+   (`15 → 2`, `-15 → -2`) — and the scale is decremented. Nothing meaningful is lost: every
+   contribution is itself an `int32` carrying at most ~9.3 significant digits and the median lies
+   between the smallest and largest contribution, so the result is representable in the same ~9.3
+   digits at its own magnitude — and the loop provably terminates at or before the batch's
+   *smallest* `decimals`, which is an `int8` by construction. When the machines agree on `decimals`
+   the median is exactly representable and the loop does not run at all.
+
+A threshold of **1** therefore reproduces the former single-signature behaviour exactly: the
+neighbour spread and the single deviation are both 0, so neither bound bites, and the median is the
+submitted value at its submitted scale.
+
+### The dry run
+
+`submitFeedUpdates` **returns** the aggregation it acted on, as a `FeedAggregation`: the median,
+the range's ends, the normalisation `decimals` they are all expressed in, the `allowedDeviation`
+the batch was judged against, and the flagged machines with their signed deviations. A
+one-element batch returns the same shape (a point range, no possible outlier). The outlier arrays
+are the *very arrays*
+`FeedOutliers` was emitted from and the median/`decimals` pair is the one `FeedUpdated` reports
+(before its re-scaling into `int32`), so the return value cannot disagree with the log.
+
+That return value **is** the preview: an off-chain caller rehearses a batch by `eth_call`-ing
+`submitFeedUpdates` itself. There is deliberately **no separate preview `view`** — an earlier
+draft had one, and it was dropped, because an `eth_call` on the real function is strictly better:
+
+- it enforces *everything* — signature verification, the extension pause, the feed binding, the
+  configuration generation, the `observedAt` ratchet — so a batch that `eth_call`s cleanly is a
+  batch that can actually land, where a view over the aggregation alone could only answer "do the
+  machines agree" and would happily report a median for a batch that no one could submit;
+- it cannot drift. A second entry point over a shared helper still duplicates the *rules around*
+  the helper, and any rule added to one path and not the other is a silent disagreement between
+  what monitoring sees and what the chain does. The same function has nothing to drift from;
+- a failing rehearsal is still diagnosable: it reverts exactly where the real submission would,
+  and `SpreadTooBig(lower, upper, median, decimals)` names both bracketing values and the median,
+  so the divergence is readable straight from the trace.
+
+Monitoring therefore locates a diverging machine without paying for a transaction, exactly as
+before — the diagnosis simply comes from the real path.
+
+Measured gas (execution only, excluding the 21k transaction base and calldata), against the real
+`Fdc2Verification` and a real diamond:
+
+| N | gas | marginal per signature |
+|---|-----|------------------------|
+| 1 | ~115k | — |
+| 3 | ~162k | ~23k |
+| 5 | ~210k | ~24k |
+| 9 | ~309k | ~25k |
+
+The store's own share (mocked verifier, so no `ecrecover` and no machine lookup) is ~62k at N = 1
+and ~140k at N = 9; the ~23-25k marginal cost is dominated by the verifier — `ecrecover` plus the
+diamond's per-machine extension and status reads.
 
 ## Reading a feed
 
@@ -462,6 +622,10 @@ The store implements `IICustomFeed`, so after governance registers it via
   reject those with `"value negative"`).
 - The value and decimals have **no free getters** — the fee gates on-chain consumers
   (off-chain readers can always inspect storage directly). `observedAt` is public.
+- The value served is the **median** of the `requiredSignatures`-or-more contributions of the
+  last accepted submission (see [Threshold aggregation](#threshold-aggregation)); the read shape is
+  unchanged by the threshold, and the contributing machines are in that submission's `FeedUpdated`
+  log, with any divergence in the accompanying `FeedOutliers`.
 
 ## Discovery
 
@@ -476,7 +640,7 @@ The store implements `IICustomFeed`, so after governance registers it via
   unchanged id, so see [Keeper ergonomics](#keeper-ergonomics) before polling them as the only
   convergence signal. `getEndpointsPublicationFee` / `getAdminsPublicationFee` price the next
   publication, and must be read in the block the execution lands in — see
-  [The fee, and what a surplus costs](#the-fee-and-what-a-surplus-costs). The live configuration payloads are not readable from state — they exist only in
+  [The fee, and where it goes](#the-fee-and-where-it-goes). The live configuration payloads are not readable from state — they exist only in
   the `EndpointsPublished` / `AdminsPublished` logs (see
   [Storage model](#storage-model-hash-on-chain-payload-in-the-log));
   `getFeedConfig(feedId)` and `getMachineVersions(feedId, teeId)` return the packed publication and
@@ -486,6 +650,11 @@ The store implements `IICustomFeed`, so after governance registers it via
 - Candidate machines come from the diamond's `getActiveTeeMachines(extensionId)`; indexers can
   also follow the `EndpointsPublished` / `AdminsPublished` (publication) and `EndpointsSet` /
   `AdminsSet` (per-machine dispatch) events alongside `FeedUpdateRequested` / `FeedUpdated`.
+- an `eth_call` on `store.submitFeedUpdates(batch)` rehearses a batch and returns its
+  `FeedAggregation` (see [The dry run](#the-dry-run)), and `FeedOutliers` names the machines whose
+  values diverged in an accepted submission — together, the two ways to spot a misbehaving
+  machine. The submission policy itself is readable as `requiredSignatures()`, `maxSpreadBIPS()`,
+  `maxSpreadAbsolute()` or in one call as `getSubmissionPolicy()`.
 
 ## Deployment and lifecycle
 
@@ -500,6 +669,27 @@ the `teeOracleFeeDestinationAddress` chain parameter (a config setting — curre
 address on all networks, matching FastUpdater's live fee destination; changeable later via the
 governance `setFeeDestination` setter), and switches all proxies to production mode.
 
+Each feed's **submission policy** comes from its own chain-config entry and is set in the store's
+initializer, so a store is never live with an unintended policy:
+
+| Key | Type | Deployment value | Meaning |
+|-----|------|------------------|---------|
+| `requiredSignatures` | `1..32` | **1** | distinct PRODUCTION-machine signatures a submission must carry; 1 makes a fresh deployment behave exactly as a single-signature store |
+| `maxSpreadBIPS` | `0..10000` | **100** (1%) | relative term of the deviation bound, in BIPS of `abs(median)` — matches FAssets' live `flare` configuration |
+| `maxSpreadAbsolute` | decimal string, `≤ 2^64-1` | **"0"** | absolute term, at the fixed `10^-8` reference scale; 0 is inert, so a strictly positive feed behaves purely relatively |
+
+Governance changes them later with the timelocked `setSubmissionPolicy(policy)`
+(`InvalidSubmissionPolicy` on a zero threshold, a threshold above 32, or BIPS above 10000). The
+deploy script applies the same bounds before broadcasting, and warns when a configured threshold is
+above 1.
+
+**Governance invariant:** `requiredSignatures` must stay at or below the number of PRODUCTION
+machines running the feed's latest published configuration. The store cannot check it — the active
+set moves underneath it, and a check would cost an external call per submission — and a threshold
+above it silently stops the feed from updating. Raise the threshold *after* the fleet has grown,
+and remember that a configuration publication invalidates every machine until it adopts the new
+generation, so the effective number of eligible signers dips during a rollout.
+
 Steps the script cannot perform:
 
 | Step | Who |
@@ -508,7 +698,8 @@ Steps the script cannot perform:
 | `setExtensionContracts(extensionId, 0, sender)`, `addTeeVersion`, `addAllowedTeeMachineOwners` | extension owner (direct) |
 | `setOperationFees` `TEE_ORACLE` rows | Flare governance (timelocked; the default fee applies until then) |
 | `FtsoV2.addCustomFeeds([stores])` | Flare governance (timelocked) |
-| `setEndpoints` / `setAdmins` per feed | Flare governance (timelocked; the executor attaches the instruction fee from `get*PublicationFee`, read in the block the execution lands in — too little reverts in the diamond (`FeeTooLow`) and is retryable, a surplus is forwarded into that epoch's rewards and is not refunded; zero value if and only if the dispatch will be skipped. Governance also signs the next consecutive `version` and cancels a superseded pending call rather than leaving it queued, and names the non-zero `claimBackAddress`, normally the wallet funding the execution) |
+| `setSubmissionPolicy` per store (only to CHANGE the initial policy) | Flare governance (timelocked) |
+| `setEndpoints` / `setAdmins` per feed | Flare governance (timelocked; the executor attaches the instruction fee from `get*PublicationFee`, read in the block the execution lands in — too little reverts in the diamond (`FeeTooLow`) and is retryable, and whatever is attached goes to the reward manager in full, with no on-chain claim; zero value if and only if the dispatch will be skipped. Governance also signs the next consecutive `version` and cancels a superseded pending call rather than leaving it queued, and names the non-zero `claimBackAddress` — the payer of record for the off-chain reward calculation, normally the wallet funding the execution) |
 | `pushEndpoints` / `pushAdmins` per feed | anyone (pays the instruction fee for the accepted machines, and supplies the configuration values from the publication log) |
 
 **TEE governance (`setNewTeeGovernance`) is not part of this extension's flow.** Machine
@@ -523,8 +714,13 @@ the machines register, since registration binds against the latest hash.
 
 The stores cache the sender's `extensionId` at initialization (it is initializer-only on the
 sender, so it cannot diverge) and refuse to initialize against an uninitialized sender
-(`ZeroExtensionId`). Feed id, extension wiring and the decimal scale have no setters — exotic
-rotations go through a `reinitializer` upgrade, and a scale change means a new store and feed.
+(`ZeroExtensionId`). Feed id and extension wiring have no setters — exotic rotations go through a
+`reinitializer` upgrade. The decimal scale is not a setting at all: every update carries its own,
+and a submission's scales are normalised (see
+[Threshold aggregation](#threshold-aggregation)); the only governance-settable behaviour on a store
+is the fee destination and the submission policy. The policy's three fields complete `feedId`'s
+storage slot exactly (21 + 1 + 2 + 8 = 32 bytes), so a submission reads the whole policy with the
+feed id it needs anyway — one `SLOAD`, no new storage.
 
 ## The USDX instance
 

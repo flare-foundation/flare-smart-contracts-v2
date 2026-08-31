@@ -46,8 +46,8 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      *   In both cases the values are published and nothing is dispatched — "published, push
      *   later", with `pushEndpoints` delivering it afterwards. Landing a corrected configuration
      *   on chain has to stay possible during a pause, not least because the pause may exist
-     *   BECAUSE the published configuration is wrong. Since there is nobody to refund in that
-     *   case (see below), `msg.value` must be zero or the call reverts `ValueNotNeeded`, telling
+     *   BECAUSE the published configuration is wrong. Since no instruction is created at all in
+     *   that case, `msg.value` must be zero or the call reverts `ValueNotNeeded`, telling
      *   the executor to re-execute with none attached.
      * Everything the executor CAN fix reverts, inside the diamond with the diamond's own error:
      * a fee below the one the snapshotted targets cost (`FeeTooLow`), an unset or wrong TEE
@@ -61,23 +61,25 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * `executeGovernanceCall` (recording a timelocked call still rejects value with
      * `TimelockValueNotAllowed`). Size it with `getEndpointsPublicationFee`, read in the block
      * the execution lands in. The whole `msg.value` is forwarded, and the diamond hands all of it
-     * to `RewardManager.receiveRewards` in the same transaction rather than holding a balance, so
-     * there is no refund of surplus: for an instruction that is never executed the whole recorded
-     * value — surplus included — is claimable to the claim-back address, but once the instruction
-     * executes the value has been distributed as that epoch's rewards and nothing separates the
-     * fee from the surplus. Overpaying therefore donates the difference to the reward pool. There
-     * is no refund at all when the dispatch is skipped — the executed body's `msg.sender` is
-     * this contract and `FlareGovernance` does not record who called `executeGovernanceCall`, so
-     * the executor cannot be identified on chain. That is exactly why the claim-back address of
-     * the dispatched instruction is an explicit ARGUMENT: governance names whoever will fund the
-     * execution, instead of the contract guessing. Reading the governance address in the body
-     * would send the claim-back of an instruction that never executes to governance while the
-     * executor paid for it. Unlike a frozen target list, freezing this argument at proposal time
-     * cannot make the publication unexecutable — an address cannot revert a dispatch; the worst
-     * case is naming a wallet since retired, which governance fixes by cancelling the pending
-     * call and re-proposing. `address(0)` is rejected (`ZeroClaimBackAddress`) because the
-     * diamond stores the claim-back unvalidated, so a zero would silently make the fee of an
-     * unexecuted instruction unreclaimable.
+     * to `RewardManager.receiveRewards` in the same transaction rather than holding a balance.
+     * There is no per-instruction accounting and no on-chain claim method, so the contracts
+     * neither separate a surplus from the fee nor return either: too little reverts and is
+     * retryable, and whatever is attached is distributed as that epoch's rewards.
+     * What the claim-back address IS, then, is a RECORD. The executed body's `msg.sender` is this
+     * contract and `FlareGovernance` does not record who called `executeGovernanceCall`, so the
+     * funder cannot be identified on chain — which is why it is an explicit ARGUMENT: governance
+     * names whoever will fund the execution instead of the contract guessing, and the address is
+     * emitted, alongside the full `msg.value`, in `TeeInstructionsSent`. The OFF-CHAIN reward
+     * calculation reads that log. Whether it returns a surplus on an executed instruction, or
+     * keeps the value of one that never executed, is a reward-script policy decision made there
+     * — not a promise made here, and not something this repo controls.
+     * Reading the governance address in the body would instead record governance as the funder of
+     * an instruction the executor paid for. Unlike a frozen target list, freezing this argument at
+     * proposal time cannot make the publication unexecutable — an address cannot revert a
+     * dispatch; the worst case is naming a wallet since retired, which governance fixes by
+     * cancelling the pending call and re-proposing. `address(0)` is rejected
+     * (`ZeroClaimBackAddress`) because the diamond stores the claim-back unvalidated, so a zero
+     * would silently leave the off-chain calculation with no payer on record.
      * The version is part of the encoded payload, so republishing identical content still yields
      * a new version and a new hash — and since the feed store enforces the FEED-level hash, a
      * publication immediately invalidates every machine still running the previous generation
@@ -104,10 +106,11 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * @param _version The version governance assigns to this publication; must be exactly
      * `endpointsVersion(_feedId) + 1` when the call EXECUTES.
      * @param _groups The tagged endpoint groups; validated on-chain (see the payload structs).
-     * @param _claimBackAddress Address that can claim back the instruction fee if the dispatched
-     * instruction is never executed — normally the wallet that funds the `executeGovernanceCall`.
-     * Must be non-zero (`ZeroClaimBackAddress`). Unused when the dispatch is skipped, since then
-     * no value may be attached at all.
+     * @param _claimBackAddress The payer of record for the dispatched instruction — normally the
+     * wallet that funds the `executeGovernanceCall`. Recorded in `TeeInstructionsSent` for the
+     * off-chain reward calculation; it confers no on-chain claim. Must be non-zero
+     * (`ZeroClaimBackAddress`). Unused when the dispatch is skipped, since then no value may be
+     * attached at all.
      */
     function setEndpoints(
         bytes21 _feedId,
@@ -124,7 +127,7 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * next `adminsVersion`, store the
      * `keccak256` of the encoded `Admins` payload with the timestamp, emit `AdminsPublished`
      * carrying the published `AdminRole[]`, then dispatch to the live active set with the same
-     * skip, revert, fee and claim-back semantics. Size the executor's fee with
+     * skip, revert, fee and payer-of-record semantics. Size the executor's fee with
      * `getAdminsPublicationFee`.
      * The admin sets have their own consecutive version stream, so `_version` must be exactly
      * `adminsVersion(_feedId) + 1`. See `setEndpoints` for why the version is signed rather than
@@ -136,9 +139,9 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * @param _version The version governance assigns to this publication; must be exactly
      * `adminsVersion(_feedId) + 1` when the call EXECUTES.
      * @param _roles The role-tagged admin sets; validated on-chain (role-agnostic rules only).
-     * @param _claimBackAddress Address that can claim back the instruction fee if the dispatched
-     * instruction is never executed; must be non-zero (`ZeroClaimBackAddress`). See
-     * `setEndpoints`.
+     * @param _claimBackAddress The payer of record for the dispatched instruction, recorded in
+     * `TeeInstructionsSent` and conferring no on-chain claim; must be non-zero
+     * (`ZeroClaimBackAddress`). See `setEndpoints`.
      */
     function setAdmins(
         bytes21 _feedId,

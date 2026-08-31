@@ -483,7 +483,7 @@
     ],
     "teeOracleExtensionId": 1,
     "teeOracleFeeds": [
-        {"registryName": "UsdxFeedStore", "feedCategory": 32, "feedName": "USDX/USD"}
+        {"registryName": "UsdxFeedStore", "feedCategory": 32, "feedName": "USDX/USD", "requiredSignatures": 1, "maxSpreadBIPS": 100, "maxSpreadAbsolute": "0"}
     ],
     "teeOracleFeeDestinationAddress": "0x000000000000000000000000000000000000dEaD",
     "teePaymentsConfigurations": [
