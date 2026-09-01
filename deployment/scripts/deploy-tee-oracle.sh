@@ -9,8 +9,10 @@ set -euo pipefail
 # one TeeOracleFeedStore UUPS proxy per feed configured in `teeOracleFeeds` (chain
 # config), wires them via the AddressUpdater and switches them to production mode.
 # The governance-only follow-up steps (registerReserved, setExtensionContracts,
-# operation fee rows, FtsoV2.addCustomFeeds, setEndpoints/setAdmins) are printed by
-# the script. Note that setEndpoints/setAdmins name no machines but DO dispatch to the
+# addTeeVersion/addAllowedTeeMachineOwners, FtsoV2.addCustomFeeds, setEndpoints/setAdmins
+# and the follow-up pushEndpoints/pushAdmins) are printed by the script. The TEE_ORACLE
+# operation fee rows are NOT printed and are configured separately, with the rest of the
+# payment configuration. Note that setEndpoints/setAdmins name no machines but DO dispatch to the
 # extension's active set, so the governance executor must attach the fee reported by
 # sender.getEndpointsPublicationFee()/getAdminsPublicationFee() to executeGovernanceCall.
 # Read that view in the block the execution lands in. The sender forwards the whole msg.value and
@@ -21,10 +23,10 @@ set -euo pipefail
 # reward calculation. Whether that returns a surplus, or keeps the fee of an instruction that never
 # executed, is decided there and not by these contracts. A value quoted before a machine was
 # paused therefore overpays rather than reverting.
-# Both calls also take a governance-SIGNED version - exactly the feed's next consecutive one,
-# endpointsVersion(feedId)+1 / adminsVersion(feedId)+1, else UnexpectedConfigVersion - which is
-# what keeps a superseded pending call from executing after its replacement and restoring stale
-# configuration; cancel a superseded pending call rather than leaving it queued.
+# The publication version is derived when the call EXECUTES, as the feed's next consecutive one.
+# Ordering between two pending publications is a governance responsibility: the one executed LAST
+# wins, whichever was proposed first, so cancel a superseded pending call rather than leaving it
+# queued.
 # Both calls also take a non-zero claim-back address - the dispatched instruction's PAYER OF
 # RECORD, emitted for the off-chain reward calculation and conferring no on-chain claim.
 # For a production timelocked publication governance

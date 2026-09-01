@@ -26,9 +26,8 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  *
  * Configuration is published by Flare governance and delivered by an instruction:
  * - `setEndpoints` / `setAdmins` PUBLISH a feed's latest configuration: validate, take the
- *   GOVERNANCE-SIGNED `_version` (required to be exactly the feed's current version plus one, so a
- *   superseded pending call can never execute after its replacement and restore stale values),
- *   store only the encoded payload's HASH (the payload itself is logged, never stored —
+ *   feed's next consecutive version (derived when the call EXECUTES — see the ordering note on
+ *   `setEndpoints`), store only the encoded payload's HASH (the payload itself is logged, never stored —
  *   see below), then dispatch it VERBATIM to the extension's live active set, with the non-zero
  *   claim-back address governance named as the instruction's PAYER OF RECORD — the executed body's
  *   `msg.sender` is this contract, so the payer cannot be identified on chain and has to be
@@ -44,7 +43,14 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  *   construction, and a fresh version is new to every machine in it.
  *   Only the two cases where no dispatch is possible AT ALL skip delivery — the extension is
  *   emergency paused, or its active set is empty — and there the values are published and
- *   delivery is left to the push ("published, push later"). When a dispatch does happen the whole
+ *   delivery is left to the push ("published, push later"). That skip is not free: the publication
+ *   is final the moment it lands, so the feed store immediately rejects every machine still on the
+ *   previous generation, and `requestFeedUpdate` rejects them too (their per-machine record is only
+ *   advanced on the dispatching path). The feed stops updating and cannot even be ASKED to update
+ *   until someone calls `pushEndpoints` / `pushAdmins` with the payload from the publication event
+ *   and pays the fleet-wide instruction fee; unpausing alone does not restore it. Treat such a
+ *   publication as requiring an immediate follow-up push.
+ *   When a dispatch does happen the whole
  *   `msg.value` is forwarded and the diamond's floor (`FeeTooLow`) is the only fee gate: a short
  *   fee reverts there and is retryable, and whatever is attached reaches the reward manager in
  *   full, so the executor reads `get*PublicationFee` in the executing block and attaches
@@ -70,7 +76,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * ~217,000 gas per PUBLIC endpoint — 96% of a publication — which put a 25-group / 5-endpoint
  * configuration (48.2 KB) at ~30.5M gas, above the 28,000,000 block gas limit on flare, songbird,
  * coston2 and coston. Supplying it as calldata instead costs ~8,000 gas per endpoint, so the same
- * configuration publishes at ~1.3-1.5M gas — a 21-24x reduction, bought at the price of a
+ * configuration publishes at ~1.95M gas — a ~16x reduction, bought at the price of a
  * log-retention dependency (a payload nobody kept is unpushable until governance republishes).
  * That is why the publication event carries the full payload UNCONDITIONALLY: when the dispatch is
  * skipped, nothing else logs it.
@@ -131,6 +137,12 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         initializer
     {
         FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
+        // `AddressUpdatable.setAddressUpdaterValue` does not check this, and a zero updater
+        // cannot be corrected through the normal path: `updateContractAddresses` is gated on
+        // `msg.sender == addressUpdater`, so `flareTeeManager` would stay unset and every
+        // publication, push and request would revert. Only a governance UUPS upgrade to an
+        // implementation that rewrites the slot could recover it.
+        require(_addressUpdater != address(0), ZeroAddressUpdater());
         require(_extensionId != 0, InvalidExtensionId());
         extensionId = _extensionId;
         emit InstructionsSenderInitialised(_extensionId);
@@ -155,7 +167,10 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         FeedConfig storage config = feedConfigs[_feedId];
         uint64 endpoints = config.endpointsVersion;
         uint64 admins = config.adminsVersion;
-        require(endpoints != 0 && admins != 0, TeeIdNotConfigured());
+        // A feed-level condition, so it gets a feed-level error: the two cases need opposite
+        // remedies - wait for a governance publication, versus push the published version to the
+        // machine - and `TeeIdNotConfigured` cannot tell a caller which one it is looking at.
+        require(endpoints != 0 && admins != 0, FeedNotConfigured());
         for (uint256 i = 0; i < _teeIds.length; i++) {
             require(_isTeeIdAtVersions(_feedId, _teeIds[i], endpoints, admins), TeeIdNotConfigured());
         }
@@ -238,7 +253,6 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
      */
     function setEndpoints(
         bytes21 _feedId,
-        uint64 _version,
         EndpointGroup[] calldata _groups,
         address _claimBackAddress
     )
@@ -252,21 +266,19 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         _validateEndpoints(_groups);
 
         // One version per publication: every machine dispatched this payload shares the same
-        // version and hash, so the feed's fleet generations stay comparable.
-        // The version is GOVERNANCE-SIGNED rather than derived at execution time, and must be
-        // EXACTLY the feed's next one. `FlareGovernance` keys a pending call by the hash of its
-        // whole calldata, so two publications for the same feed and kind can be pending at once
-        // and execute in either order; a version derived here would let a SUPERSEDED call execute
-        // after its replacement, take the higher version and become the feed's latest
-        // configuration — in the worst case re-authorising an administrator governance had just
-        // removed. Signing it makes the loser of that race unexecutable instead: whichever call
-        // executes first consumes the version, the other reverts, and governance cancels it.
-        // Equality, not `>`: a jump towards `type(uint64).max` would burn the version space, and
-        // the checked addition below reverts at the maximum rather than wrapping round to a
+        // version and hash, so the feed's fleet generations stay comparable. It is derived HERE,
+        // at execution time, as the feed's next consecutive one - it is not an argument.
+        // ORDERING IS A GOVERNANCE RESPONSIBILITY, as it is for every other timelocked setter in
+        // this repository: `FlareGovernance` keys a pending call by the hash of its whole
+        // calldata, so two publications for one feed and kind can be pending at once and execute
+        // in either order, and the one that executes LAST becomes the feed's configuration - even
+        // if it was proposed first. Governance must therefore CANCEL a superseded publication
+        // rather than leave it queued; execution is not permissionless (only whitelisted
+        // executors can call `executeGovernanceCall`), so the ordering is theirs to control.
+        // The checked addition reverts at `type(uint64).max` rather than wrapping round to a
         // version machines already hold.
         FeedConfig storage config = feedConfigs[_feedId];
         uint64 version = config.endpointsVersion + 1;
-        require(_version == version, UnexpectedConfigVersion(_version, version));
         _recordFeedId(_feedId, version, config.adminsVersion);
         // One `abi.encode` serves the commitment AND the instruction body. The event then encodes
         // the groups a SECOND time for its log data — `emit` cannot be pointed at an existing
@@ -323,7 +335,6 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
      */
     function setAdmins(
         bytes21 _feedId,
-        uint64 _version,
         AdminRole[] calldata _roles,
         address _claimBackAddress
     )
@@ -335,12 +346,12 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
         require(_claimBackAddress != address(0), ZeroClaimBackAddress());
         _validateAdminRoles(_roles);
 
-        // One governance-signed version per publication, required to be exactly the next one —
-        // see setEndpoints for why the version is an argument and not derived here. The admin
-        // sets have their own version stream, so the two kinds never contend for a number.
+        // One version per publication, derived here as the feed's next consecutive one — see
+        // setEndpoints on why ordering between two pending publications is governance's to
+        // control. The admin sets have their own version stream, so the two kinds never contend
+        // for a number.
         FeedConfig storage config = feedConfigs[_feedId];
         uint64 version = config.adminsVersion + 1;
-        require(_version == version, UnexpectedConfigVersion(_version, version));
         _recordFeedId(_feedId, version, config.endpointsVersion);
         // One encode for the commitment and the dispatch, the roles logged separately from the
         // same memory copy — see setEndpoints on the double encoding and why `admins.roles` rather
@@ -875,6 +886,17 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
      * (required groups, URL scheme policy, credential-name policy, private-URL commitment
      * format) are pinned in the TEE extension build. No count caps — transaction size and
      * gas are the natural limit.
+     * NOTE: endpoints are deliberately NOT de-duplicated within a group, unlike the admins of a
+     * role. The asymmetry is not an oversight: an `address` is a canonical 20 bytes, so
+     * `DuplicateAdmin` is a guarantee, whereas a URL has unbounded equivalent spellings — host
+     * case, a trailing slash, an explicit `:443`, a redundant query parameter — so a string
+     * comparison would be trivially bypassable and would advertise a distinctness it cannot
+     * deliver. It would also REJECT legitimate configurations: the same host may appear twice
+     * under different `secretRef` credentials, and PRIVATE endpoints commit to SALTED hashes, so
+     * two entries for one upstream differ on chain by construction. Whether a group's endpoints
+     * are genuinely independent sources is therefore a property of the published configuration
+     * and of the TEE extension build, not something this contract can check — see
+     * `ITeeOracleInstructionsSender.EndpointGroup`.
      */
     function _validateEndpoints(
         EndpointGroup[] calldata _groups
@@ -929,7 +951,9 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
     /**
      * Requires kind-consistent endpoint fields. PRIVATE is the special case — it publishes
      * a commitment and no URL; every other kind (PUBLIC today, possible future additions)
-     * publishes a URL and no commitment.
+     * publishes a URL and no commitment. `secretRef` is orthogonal to both and is NOT required
+     * by either: it names a credential, not the URL, and an endpoint that needs none leaves it
+     * empty. See `ITeeOracleInstructionsSender.Endpoint`.
      */
     function _checkEndpoint(
         Endpoint calldata _endpoint

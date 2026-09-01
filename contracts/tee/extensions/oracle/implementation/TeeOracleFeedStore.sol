@@ -54,10 +54,13 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         int256 median;
         int256 minValue;
         int256 maxValue;
-        /// The two values bracketing the median position; their spread is what the rejection
-        /// bound judges.
+        /// The two values bracketing the median position, reported verbatim by `SpreadTooBig`.
         int256 lowerNeighbour;
         int256 upperNeighbour;
+        /// What the rejection bound actually judges: their difference for an even count, HALF of
+        /// it for an odd one, so the number does not depend on the batch's parity. Zero for a
+        /// single element.
+        int256 spread;
         /// The bound both checks use: rescaled absolute term + maxSpreadBIPS of abs(median).
         int256 allowedDeviation;
         int8 decimals;
@@ -159,6 +162,12 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         initializer
     {
         FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
+        // `AddressUpdatable.setAddressUpdaterValue` does not check this, and a zero updater
+        // cannot be corrected through the normal path: `updateContractAddresses` is gated on
+        // `msg.sender == addressUpdater`, so `fdc2Verification` and `feeCalculator` would stay
+        // unset and every submission and every paid read would revert. Only a governance UUPS
+        // upgrade to an implementation that rewrites the slot could recover it.
+        require(_addressUpdater != address(0), ZeroAddress());
         require(address(_instructionsSender) != address(0), ZeroAddress());
         uint8 category = uint8(_feedId[0]);
         require(category >= 0x20 && category < 0x40, InvalidFeedCategory());
@@ -223,7 +232,12 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         address[] memory teeIds = _verifyContributors(_signedFeedUpdates);
 
         // Back into the int32 / int8 shape external consumers (FAssets among them) already read.
+        // The scale is NOT restricted here: `getCurrentFeed` reports the value together with its
+        // own `decimals`, and picking a read that can represent it is the consumer's call —
+        // FtsoV2's `get*InWei` family converts to 18 decimals and therefore cannot serve every
+        // scale, which is a property of that conversion rather than of the value this store holds.
         (int32 value_, int8 decimals_) = _toStoredScale(aggregation.median, aggregation.decimals);
+
         value = value_;
         decimals = decimals_;
         observedAt = batchObservedAt;
@@ -269,7 +283,6 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
             uint64 _timestamp
         )
     {
-        _collectFee();
         uint64 observedAt_ = observedAt;
         // observedAt only ratchets up from the first accepted update, so this triggers
         // only while the feed is unpublished; the slot is already loaded — the check is free.
@@ -277,6 +290,15 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         _value = value;
         _decimals = decimals;
         _timestamp = observedAt_;
+        // LAST: `_collectFee` hands control to `feeDestination`, so this call's own reads are all
+        // done and the values it returns are already fixed - a destination that re-enters cannot
+        // change what THIS invocation reports. It does NOT make the destination harmless: it still
+        // receives control with all remaining gas, and FtsoV2 runs this inside a loop over a
+        // caller-supplied feed list while holding value it has yet to forward to later feeds, so a
+        // contract destination can still re-enter FtsoV2 or this store between elements, and one
+        // that reverts still fails every read of this feed. See
+        // `IITeeOracleFeedStore.setFeeDestination` for the constraint that actually governs this.
+        _collectFee();
     }
 
     /**
@@ -383,6 +405,19 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
      * PRODUCTION machines running the feed's configuration - that set moves under the store, and
      * checking it would cost an external call per submission. Keeping the threshold reachable is
      * a governance invariant; exceeding it silently stops the feed from updating.
+     * NOTE: nor are the two deviation terms given a floor. Setting BOTH to zero is a legitimate
+     * policy - it is how a discrete or binary feed demands exact agreement - but only up to a
+     * SUBMITTED count of 2. From 3 it does NOT give unanimity: only the values at the median
+     * position must match, so (0, 0, 1) has a judged spread of (1 - 0) / 2 == 0, publishes 0 and
+     * merely flags the dissenter. The count is the submitter's choice, bounded below by
+     * `requiredSignatures` and above by 32, so a threshold of 2 does not pin it to 2. On a
+     * continuous feed a zero bound stops every non-identical batch.
+     * See `ITeeOracleFeedStore.SubmissionPolicy`.
+     * NOTE: this setter is an ordinary timelocked governance call, keyed by the hash of its whole
+     * calldata, so two policies can be pending at once and execute in either order - an older,
+     * weaker one landing last silently restores a lower `requiredSignatures`. Unlike the sender's
+     * configuration publications there is no signed version to make the loser unexecutable, so
+     * governance MUST cancel a superseded policy call rather than leave it queued.
      */
     function _setSubmissionPolicy(
         SubmissionPolicy calldata _submissionPolicy
@@ -515,10 +550,10 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
      * `ObservedAtMismatch` when the elements do not all observe one event, and
      * `DecimalsSpreadTooBig` when their scales disagree by more than `MAX_DECIMALS_SPREAD`.
      * @return _aggregation The normalised values in submission order, the median, the range's
-     * ends, the two values bracketing the median, the normalisation scale they are all expressed
-     * in (the batch's largest `decimals`), the deviation bound the batch is judged against, and
-     * whether the BRACKETING values stay inside that bound. Whether individual contributions do
-     * is a separate question, answered by `_isOutlier`.
+     * ends, the two values bracketing the median and the parity-neutral spread derived from them,
+     * the normalisation scale they are all expressed in (the batch's largest `decimals`), the
+     * deviation bound the batch is judged against, and whether that spread stays inside it.
+     * Whether individual contributions do is a separate question, answered by `_isOutlier`.
      */
     function _aggregate(
         SignedFeedUpdate[] calldata _signedFeedUpdates
@@ -576,25 +611,39 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         _aggregation.minValue = sorted[0];
         _aggregation.maxValue = sorted[count - 1];
 
+        // The judged spread, kept parity-neutral - see `_aggregation.spread`. This follows FAssets'
+        // `_calculateMedian` exactly, including the HALVING in the odd branch: an odd count's
+        // neighbours straddle the median across TWO gaps, an even count's across one, so without
+        // the division the same real dispersion would be judged twice as harshly whenever the
+        // batch happens to have an odd number of elements.
         uint256 middle = count / 2;
+        int256 spread;
         if (count % 2 == 1) {
             _aggregation.median = sorted[middle];
             // The values immediately bracketing the median position; for a single element the
             // median brackets itself, so the spread is zero.
             _aggregation.lowerNeighbour = count == 1 ? sorted[0] : sorted[middle - 1];
             _aggregation.upperNeighbour = count == 1 ? sorted[0] : sorted[middle + 1];
+            // The AVERAGE of the two gaps flanking the median, so the comparison is against one
+            // gap either way. `upperNeighbour >= lowerNeighbour` (the array is sorted), so the
+            // division is a floor and cannot round away from zero.
+            spread = count == 1
+                ? int256(0)
+                : (_aggregation.upperNeighbour - _aggregation.lowerNeighbour) / 2;
         } else {
             // An even count has no middle element: the two values that ARE averaged into the
-            // median are the ones bracketing it.
+            // median are the ones bracketing it, and their difference is already a single gap.
             _aggregation.lowerNeighbour = sorted[middle - 1];
             _aggregation.upperNeighbour = sorted[middle];
             // Solidity division truncates TOWARD ZERO, so a half-way average lands on the value
             // nearer zero: (1 + 2) / 2 == 1 and (-1 + -2) / 2 == -1.
             _aggregation.median = (sorted[middle - 1] + sorted[middle]) / 2;
+            spread = _aggregation.upperNeighbour - _aggregation.lowerNeighbour;
         }
+        _aggregation.spread = spread;
 
-        // One bound, two uses (see `ITeeOracleFeedStore.submitFeedUpdates`): the neighbour spread
-        // must stay inside it, and any single contribution outside it is flagged. abs(median) is
+        // One bound, two uses (see `ITeeOracleFeedStore.submitFeedUpdates`): the parity-neutral
+        // neighbour spread must stay inside it, and any single contribution outside it is flagged. abs(median) is
         // the relative base - `value` is signed, so the median may be zero or negative - and the
         // absolute term is what keeps the bound usable there. Computed in uint256, where
         // maxSpreadBIPS * abs(median) cannot overflow, then widened back: both terms are bounded
@@ -605,9 +654,7 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         _aggregation.allowedDeviation = int256(
             _absoluteAllowance(maxDecimals) + (uint256(maxSpreadBIPS) * absMedian) / MAX_BIPS
         );
-        _aggregation.withinSpread =
-            _aggregation.upperNeighbour - _aggregation.lowerNeighbour <=
-                _aggregation.allowedDeviation;
+        _aggregation.withinSpread = _aggregation.spread <= _aggregation.allowedDeviation;
     }
 
     /**
@@ -615,7 +662,7 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
      * Clamped at both ends: a bound scaled up beyond `UNBOUNDED_SPREAD` already permits every
      * possible deviation, and one scaled down below a single unit of the batch's scale is zero.
      * The clamps are also what keep `10**k` inside uint256 - `_decimals` is an int8, so the two
-     * scales can be up to 135 decades apart.
+     * scales can be up to 136 decades apart (`shift = _decimals - 8` spans [-136, 119]).
      */
     function _absoluteAllowance(
         int8 _decimals

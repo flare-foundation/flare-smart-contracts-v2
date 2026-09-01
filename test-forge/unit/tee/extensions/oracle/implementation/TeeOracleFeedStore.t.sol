@@ -594,30 +594,63 @@ contract TeeOracleFeedStoreTest is Test {
     }
 
     function testSubmitFeedUpdatesSpreadJustInsideTheBound() public {
-        // 100 BIPS of a median of 100050 is 1000 (the division floors), and the two values
-        // bracketing the median are exactly 1000 apart: the bound is inclusive, so this is
-        // accepted. At N = 3 the median's neighbours ARE the range's ends
+        // 100 BIPS of a median of 100050 is 1000 (the division floors). At an ODD count the
+        // judged spread is HALF the neighbour difference (FAssets' `_calculateMedian`), so 2000
+        // apart is exactly 1000 and the inclusive bound accepts it.
         _setPolicy(3, MAX_SPREAD_BIPS, MAX_SPREAD_ABSOLUTE);
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch,) =
-            _makeBatch(_values(100050, 100050, 101050), _scales(4), _now() - 1);
+            _makeBatch(_values(100050, 100050, 102050), _scales(4), _now() - 1);
         feedStore.submitFeedUpdates(batch);
         (int256 value,,) = feedStore.getCurrentFeed{value: FEE}();
         assertEq(value, 100050);
     }
 
     function testSubmitFeedUpdatesRevertSpreadTooBigJustOutsideTheBound() public {
-        // one unit wider than the previous test: the median's neighbours are 1001 apart against
-        // an allowance of 1000, so the median is not well determined and nothing is published
+        // two units wider than the previous test: the neighbours are 2002 apart, so the judged
+        // (halved) spread is 1001 against an allowance of 1000 - the median is not well
+        // determined and nothing is published. The error still reports the RAW neighbours.
         _setPolicy(3, MAX_SPREAD_BIPS, MAX_SPREAD_ABSOLUTE);
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch,) =
-            _makeBatch(_values(100050, 100050, 101051), _scales(4), _now() - 1);
+            _makeBatch(_values(100050, 100050, 102052), _scales(4), _now() - 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ITeeOracleFeedStore.SpreadTooBig.selector, int256(100050), int256(101051),
+                ITeeOracleFeedStore.SpreadTooBig.selector, int256(100050), int256(102052),
                 int256(100050), int8(4)
             )
         );
         feedStore.submitFeedUpdates(batch);
+    }
+
+    /// The judged spread must not depend on whether the batch happens to have an odd or an even
+    /// number of elements. FAssets' `_calculateMedian` halves the odd case for exactly this
+    /// reason; dropping the halving would make an odd batch twice as hard to publish as an even
+    /// one carrying the same real dispersion.
+    function testSubmitFeedUpdatesSpreadIsParityNeutral() public {
+        _setPolicy(2, MAX_SPREAD_BIPS, MAX_SPREAD_ABSOLUTE);
+        // Four machines evenly spaced 2000 apart around 100050: the even batch's judged spread is
+        // the single central gap, 2000; 100 BIPS of the median is 1000, so it is refused.
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory even,) =
+            _makeBatch(_values(98050, 99050, 101050, 102050), _scales(4), _now() - 1);
+        vm.expectRevert();
+        feedStore.submitFeedUpdates(even);
+
+        // The same 2000 spacing with an odd count spans two gaps, 4000, and the halving brings it
+        // back to 2000 - the SAME judgement, refused for the same reason rather than twice as
+        // harshly.
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory odd,) =
+            _makeBatch(_values(98050, 100050, 102050), _scales(4), _now() - 1);
+        vm.expectRevert();
+        feedStore.submitFeedUpdates(odd);
+
+        // ... and a spacing that IS inside the bound lands at both parities
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory evenOk,) =
+            _makeBatch(_values(99050, 99550, 100550, 101050), _scales(4), _now() - 2);
+        feedStore.submitFeedUpdates(evenOk);
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory oddOk,) =
+            _makeBatch(_values(99050, 100050, 101050), _scales(4), _now() - 1);
+        feedStore.submitFeedUpdates(oddOk);
+        (int256 value,,) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(value, 100050);
     }
 
     function testSubmitFeedUpdatesRevertSpreadTooBigZeroMedian() public {
@@ -662,10 +695,10 @@ contract TeeOracleFeedStoreTest is Test {
     function testSubmitFeedUpdatesRevertSpreadTooBigNegativeMedian() public {
         _setPolicy(3, MAX_SPREAD_BIPS, MAX_SPREAD_ABSOLUTE);
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch,) =
-            _makeBatch(_values(-101051, -100050, -100050), _scales(4), _now() - 1);
+            _makeBatch(_values(-102052, -100050, -100050), _scales(4), _now() - 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ITeeOracleFeedStore.SpreadTooBig.selector, int256(-101051), int256(-100050),
+                ITeeOracleFeedStore.SpreadTooBig.selector, int256(-102052), int256(-100050),
                 int256(-100050), int8(4)
             )
         );
@@ -973,9 +1006,9 @@ contract TeeOracleFeedStoreTest is Test {
         // judged against exactly the same real tolerance.
         _setPolicy(3, 0, 1_000_000_000);
 
-        // decimals 0: a neighbour spread of 10 is accepted
+        // decimals 0: neighbours 20 apart are a judged (halved) spread of exactly 10 - accepted
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory atZero,) =
-            _makeBatch(_values(0, 5, 10), _scales(0), _now() - 3);
+            _makeBatch(_values(0, 5, 20), _scales(0), _now() - 3);
         feedStore.submitFeedUpdates(atZero);
         (int256 value, int8 decimals,) = feedStore.getCurrentFeed{value: FEE}();
         assertEq(value, 5);
@@ -983,28 +1016,28 @@ contract TeeOracleFeedStoreTest is Test {
 
         // decimals 2: the SAME real spread (10.0) is accepted, which is 1000 units there
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory atTwo,) =
-            _makeBatch(_values(0, 500, 1000), _scales(2), _now() - 2);
+            _makeBatch(_values(0, 500, 2000), _scales(2), _now() - 2);
         feedStore.submitFeedUpdates(atTwo);
         (value, decimals,) = feedStore.getCurrentFeed{value: FEE}();
         assertEq(value, 500);
         assertEq(decimals, 2);
 
-        // and one unit past it is refused at both scales
+        // and one judged unit past it is refused at both scales
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory tooWideAtZero,) =
-            _makeBatch(_values(0, 5, 11), _scales(0), _now() - 1);
+            _makeBatch(_values(0, 5, 22), _scales(0), _now() - 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ITeeOracleFeedStore.SpreadTooBig.selector, int256(0), int256(11), int256(5),
+                ITeeOracleFeedStore.SpreadTooBig.selector, int256(0), int256(22), int256(5),
                 int8(0)
             )
         );
         feedStore.submitFeedUpdates(tooWideAtZero);
 
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory tooWideAtTwo,) =
-            _makeBatch(_values(0, 500, 1001), _scales(2), _now() - 1);
+            _makeBatch(_values(0, 500, 2002), _scales(2), _now() - 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ITeeOracleFeedStore.SpreadTooBig.selector, int256(0), int256(1001), int256(500),
+                ITeeOracleFeedStore.SpreadTooBig.selector, int256(0), int256(2002), int256(500),
                 int8(2)
             )
         );
@@ -1096,10 +1129,10 @@ contract TeeOracleFeedStoreTest is Test {
         // both bracketing values and the median, at the batch's normalisation scale
         _setPolicy(3, MAX_SPREAD_BIPS, MAX_SPREAD_ABSOLUTE);
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch,) =
-            _makeBatch(_values(100050, 100050, 101051), _scales(4), _now() - 1);
+            _makeBatch(_values(100050, 100050, 102052), _scales(4), _now() - 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ITeeOracleFeedStore.SpreadTooBig.selector, int256(100050), int256(101051),
+                ITeeOracleFeedStore.SpreadTooBig.selector, int256(100050), int256(102052),
                 int256(100050), int8(4))
         );
         feedStore.submitFeedUpdates(batch);
@@ -1340,6 +1373,166 @@ contract TeeOracleFeedStoreTest is Test {
         address[] memory contractAddresses = new address[](0);
         vm.expectRevert("only address updater");
         feedStore.updateContractAddresses(contractNameHashes, contractAddresses);
+    }
+
+
+    /// The policy and the feed state live in different slots; neither write may disturb the other.
+    function testSetSubmissionPolicyDoesNotDisturbTheFeedState() public {
+        _submit(100000, 4, _now() - 1);
+        _setPolicy(1, 250, 7);
+        (int256 value_, int8 decimals_, uint64 timestamp_) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(value_, 100000);
+        assertEq(decimals_, 4);
+        assertEq(timestamp_, _now() - 1);
+        assertEq(feedStore.maxSpreadAbsolute(), 7);
+    }
+    // -------------------------------------------------------------------------
+    // getCurrentFeed orders its state reads before the fee transfer
+    // -------------------------------------------------------------------------
+
+    /// The unpublished-feed check must be reached WITHOUT first handing control (and the value)
+    /// to `feeDestination`: a reverting destination must not be able to mask `NoValuePublished`,
+    /// and the destination must not be called at all on a read that cannot succeed.
+    function testGetCurrentFeedRevertsNoValuePublishedWithoutCallingFeeDestination() public {
+        // a destination that rejects every plain transfer
+        address rejecting = address(new RejectingReceiver());
+        vm.prank(governance);
+        feedStore.setFeeDestination(rejecting);
+        // still NoValuePublished, not FeeTransferFailed: the state read happens first
+        vm.expectRevert(ITeeOracleFeedStore.NoValuePublished.selector);
+        feedStore.getCurrentFeed{value: FEE}();
+    }
+
+    /// And the fee still reaches the destination on the successful path.
+    function testGetCurrentFeedForwardsTheFeeAfterReadingState() public {
+        _submit(100000, 4, _now() - 1);
+        uint256 before = feeDestination.balance;
+        (int256 value_, int8 decimals_, uint64 timestamp_) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(value_, 100000);
+        assertEq(decimals_, 4);
+        assertEq(timestamp_, _now() - 1);
+        assertEq(feeDestination.balance - before, FEE);
+    }
+
+    // -------------------------------------------------------------------------
+    // coverage the audit named as missing
+    // -------------------------------------------------------------------------
+
+    /// `_absoluteAllowance`'s scale-UP branch (0 < shift <= 20) was never entered by any test:
+    /// every existing case sits at decimals <= 8. At decimals 10 the setting is multiplied by
+    /// 10**2, so S = 5 means 500 normalised units - and the batch either side of that bound
+    /// decides acceptance.
+    function testSubmitFeedUpdatesAbsoluteAllowanceScalesUpAboveTheReferenceScale() public {
+        _setPolicy(2, 0, 5);
+        // spread 500 == the rescaled bound, accepted (the comparison is inclusive)
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory ok, ) =
+            _makeBatch(_values(100000, 100500), _scales(10), _now() - 2);
+        feedStore.submitFeedUpdates(ok);
+        // spread 501 is one unit over
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory tooWide, ) =
+            _makeBatch(_values(100000, 100501), _scales(10), _now() - 1);
+        vm.expectRevert();
+        feedStore.submitFeedUpdates(tooWide);
+    }
+
+    /// The `shift > 20` clamp: at decimals 29 the rescaled term reaches UNBOUNDED_SPREAD, which
+    /// exceeds every reachable deviation - so the spread check is disabled entirely. This is the
+    /// documented operator trap, pinned here so it cannot change silently.
+    function testSubmitFeedUpdatesAbsoluteAllowanceClampAboveTwentyDisablesTheBound() public {
+        _setPolicy(2, 0, 1);
+        // normalisation scale 29 puts `shift` at 21, past the clamp, so the rescaled term is
+        // UNBOUNDED_SPREAD; the batch's own scales differ by the maximum 8 decades, so the two
+        // normalised values are eight orders of magnitude apart and the median downscales back
+        // into the readable window
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch, ) =
+            _makeBatch(_values(2000000000, 2000000000), _scales(29, 21), _now() - 1);
+        // a spread of ~2e17 normalised units, accepted anyway - the clamp disabled the bound
+        ITeeOracleFeedStore.FeedAggregation memory aggregation = feedStore.submitFeedUpdates(batch);
+        assertEq(aggregation.decimals, 29);
+        assertEq(aggregation.maxValue - aggregation.minValue, 199999998000000000);
+        assertEq(aggregation.allowedDeviation, 1e19);
+        assertEq(feedStore.observedAt(), _now() - 1);
+    }
+
+    /// `_toStoredScale` running more than one iteration, and the documented divergence between
+    /// the batch's normalisation `decimals` and the coarser scale the value is STORED at.
+    function testSubmitFeedUpdatesDownscalesRepeatedlyAndReportsBothScales() public {
+        _setPolicy(2, 10000, type(uint64).max);
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch, ) =
+            _makeBatch(_values(2000000000, 2100000000), _scales(8, 0), _now() - 1);
+        ITeeOracleFeedStore.FeedAggregation memory aggregation = feedStore.submitFeedUpdates(batch);
+        // normalisation scale is the batch's largest decimals
+        assertEq(aggregation.decimals, 8);
+        // median of [2e9, 2.1e17] at scale 8 is 1.05e17, which needs EIGHT divisions by ten to
+        // fit int32 - so the stored scale is 8 - 8 = 0 and the stored value is the rounded median
+        (int256 value_, int8 storedDecimals, ) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(aggregation.median, 105000001000000000);
+        assertEq(storedDecimals, 0);
+        assertEq(value_, 1050000010);
+    }
+
+    /// `_isOutlier` is strict `>`, so a contribution exactly AT the bound is not flagged. The
+    /// existing suite exercised the boundary but never asserted which side it falls on.
+    function testSubmitFeedUpdatesDeviationExactlyAtTheBoundIsNotFlagged() public {
+        _setPolicy(3, 0, 0);
+        // bound is 0, all five identical: no outlier, and deviation 0 is not > 0
+        vm.recordLogs();
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch, ) =
+            _makeBatch(_values(100, 100, 100, 100, 100), _scales(4), _now() - 1);
+        feedStore.submitFeedUpdates(batch);
+        assertEq(_countOutlierLogs(vm.getRecordedLogs()), 0);
+    }
+
+    /// An EVEN count combined with a flagged tail - the even bracketing branch and `_emitOutliers`
+    /// were never exercised together.
+    function testSubmitFeedUpdatesEvenCountFlagsATailOutlier() public {
+        _setPolicy(4, 100, 0);
+        vm.recordLogs();
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch, address[] memory batchTeeIds) =
+            _makeBatch(_values(100000, 100000, 100000, 200000), _scales(4), _now() - 1);
+        ITeeOracleFeedStore.FeedAggregation memory aggregation = feedStore.submitFeedUpdates(batch);
+        // even count: the two averaged values bracket the median, so the tail cannot reject it
+        assertEq(aggregation.median, 100000);
+        assertEq(aggregation.outlierTeeIds.length, 1);
+        assertEq(aggregation.outlierTeeIds[0], batchTeeIds[3]);
+        assertEq(aggregation.outlierDeviations[0], 100000);
+        assertEq(_countOutlierLogs(vm.getRecordedLogs()), 1);
+    }
+
+    /// The insertion sort was only ever handed already-sorted (all-equal) input at large N.
+    /// A strictly DESCENDING batch is its worst case and must still produce the right median.
+    function testSubmitFeedUpdatesSortsADescendingBatchOfThirtyTwo() public {
+        _setPolicy(uint8(MAX_SIGNATURES), 10000, type(uint64).max);
+        int32[] memory descending = new int32[](MAX_SIGNATURES);
+        for (uint256 i = 0; i < MAX_SIGNATURES; i++) {
+            descending[i] = int32(uint32(MAX_SIGNATURES - i)) * 1000;
+        }
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch, ) =
+            _makeBatch(descending, _scales(4), _now() - 1);
+        ITeeOracleFeedStore.FeedAggregation memory aggregation = feedStore.submitFeedUpdates(batch);
+        // 32 values 1000..32000: the two central ones are 16000 and 17000
+        assertEq(aggregation.median, 16500);
+        assertEq(aggregation.minValue, 1000);
+        assertEq(aggregation.maxValue, 32000);
+    }
+
+    // -------------------------------------------------------------------------
+    // initialization
+    // -------------------------------------------------------------------------
+
+    function testInitializeRevertZeroAddressUpdater() public {
+        TeeOracleFeedStore impl = new TeeOracleFeedStore();
+        vm.expectRevert(ITeeOracleFeedStore.ZeroAddress.selector);
+        new TeeOracleFeedStoreProxy(
+            governanceSettings,
+            governance,
+            address(0),
+            ITeeOracleInstructionsSender(instructionsSender),
+            FEED_ID,
+            feeDestination,
+            _policy(REQUIRED_SIGNATURES, MAX_SPREAD_BIPS, MAX_SPREAD_ABSOLUTE),
+            address(impl)
+        );
     }
 
     // -------------------------------------------------------------------------

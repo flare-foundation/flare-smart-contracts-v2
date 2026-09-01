@@ -15,8 +15,7 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
     /**
      * Publishes a feed's endpoint configuration as the feed's latest, and dispatches it to the
      * extension's active machines.
-     * Validates the payload, takes the governance-signed `_version` as the feed's next
-     * `endpointsVersion`, ABI-encodes the
+     * Validates the payload, takes the feed's next consecutive `endpointsVersion`, ABI-encodes the
      * `Endpoints` payload and stores its `keccak256` with the publication timestamp — the payload
      * itself is NOT stored — the event `EndpointsPublished` carries the published `EndpointGroup[]`
      * instead, which is exactly what `pushEndpoints` takes back (the wrapper's other two fields are
@@ -24,7 +23,7 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * Storing the encoded payload instead cost ~217,000 gas per PUBLIC endpoint, 96% of a
      * publication, which put a 25-group / 5-endpoint configuration (48.2 KB) at ~30.5M gas —
      * above the 28,000,000 block gas limit on flare, songbird, coston2 and coston. Committing to
-     * the hash alone and logging the payload costs ~8,000 gas per endpoint, ~1.3-1.5M gas for the
+     * the hash alone and logging the payload costs ~8,000 gas per endpoint, ~1.95M gas for the
      * same configuration. The event is emitted UNCONDITIONALLY, dispatch or no dispatch: when the
      * dispatch is skipped no `TeeInstructionsSent` carries the payload either, so this log is the
      * only record of it and a later push has nothing else to read.
@@ -34,8 +33,13 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * fleet's composition is only known when the executor runs it, so a target list in the
      * signature makes a publication unexecutable whenever one named machine restarted, was paused
      * or was re-keyed during the timelock. Reading the active set in the body is a snapshot of the
-     * EXECUTING block instead, which is why there is no gap between publishing a configuration
-     * and the fleet receiving it. Nothing is filtered out of that set: the diamond maintains it as
+     * EXECUTING block instead, which is why no machine is MISSED because the target list was
+     * frozen at proposal time. That closes the TARGETING gap, not the ADOPTION one: a machine only
+     * learns the payload by processing the dispatched instruction off chain, while the feed store
+     * enforces the new feed-level generation from the publication block onwards, so every
+     * signature still carrying the previous one is rejected (`StaleEndpoints` / `StaleAdmins`) and
+     * the feed does not update until enough machines have adopted it — see
+     * `ITeeOracleFeedStore.submitFeedUpdates`. Nothing is filtered out of that set: the diamond maintains it as
      * exactly the extension's PRODUCTION machines — no duplicate, no zero address, no foreign
      * extension — and a fresh version is new to every one of them.
      * The dispatch is skipped only in the two cases where no dispatch is possible at all, and
@@ -84,15 +88,16 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * a new version and a new hash — and since the feed store enforces the FEED-level hash, a
      * publication immediately invalidates every machine still running the previous generation
      * until it adopts the new one.
-     * The version is SIGNED BY GOVERNANCE rather than derived when the call executes, and must be
-     * exactly `endpointsVersion(_feedId) + 1` (`UnexpectedConfigVersion`, carrying the signed and
-     * the expected value). `FlareGovernance` records a pending call under the hash of its ENTIRE
+     * ORDERING IS A GOVERNANCE RESPONSIBILITY, exactly as it is for every other timelocked setter
+     * in this repository. `FlareGovernance` records a pending call under the hash of its ENTIRE
      * calldata, so two publications for the same feed and kind can be pending simultaneously and
-     * be executed in either order. With the version derived at execution time, a SUPERSEDED call
-     * executed after its replacement would take the higher version, overwrite the commitment and
-     * be dispatched to the whole fleet — restoring, in the worst case, an administrator that
-     * governance had just removed. Signing the version turns that into a safe failure: whichever
-     * call executes first consumes the version and the other becomes unexecutable.
+     * be executed in either order; the one executed LAST takes the higher version and becomes the
+     * feed's configuration, even if it was proposed first. Governance must therefore CANCEL a
+     * superseded publication (`cancelGovernanceCall`) rather than leave it queued — the risk it
+     * closes is a stale ADMINS payload re-authorising an administrator that governance had just
+     * removed. Execution is not permissionless: only the whitelisted executors in
+     * `GovernanceSettings` can call `executeGovernanceCall`, so the order in which matured calls
+     * land is under the same operational control as the proposals themselves.
      * Operationally this means two rules for governance. A publication must sign the NEXT
      * CONSECUTIVE version, read from `endpointsVersion(_feedId)` (or `getFeedConfig`) at proposal
      * time; and a pending call that a later proposal SUPERSEDES must be CANCELLED
@@ -103,8 +108,6 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * space; at the maximum the checked increment reverts instead of wrapping.
      * Only governance can call this method.
      * @param _feedId The feed the configuration serves.
-     * @param _version The version governance assigns to this publication; must be exactly
-     * `endpointsVersion(_feedId) + 1` when the call EXECUTES.
      * @param _groups The tagged endpoint groups; validated on-chain (see the payload structs).
      * @param _claimBackAddress The payer of record for the dispatched instruction — normally the
      * wallet that funds the `executeGovernanceCall`. Recorded in `TeeInstructionsSent` for the
@@ -114,7 +117,6 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      */
     function setEndpoints(
         bytes21 _feedId,
-        uint64 _version,
         EndpointGroup[] calldata _groups,
         address _claimBackAddress
     )
@@ -123,21 +125,18 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
     /**
      * Publishes a feed's role-tagged admin signer sets as the feed's latest, and dispatches them
      * to the extension's active machines.
-     * Same shape as `setEndpoints`: validate, take the governance-signed `_version` as the feed's
-     * next `adminsVersion`, store the
+     * Same shape as `setEndpoints`: validate, take the feed's next consecutive `adminsVersion`,
+     * store the
      * `keccak256` of the encoded `Admins` payload with the timestamp, emit `AdminsPublished`
      * carrying the published `AdminRole[]`, then dispatch to the live active set with the same
      * skip, revert, fee and payer-of-record semantics. Size the executor's fee with
      * `getAdminsPublicationFee`.
-     * The admin sets have their own consecutive version stream, so `_version` must be exactly
-     * `adminsVersion(_feedId) + 1`. See `setEndpoints` for why the version is signed rather than
-     * derived and for the two governance rules that follow from it — sign the next consecutive
-     * version, and cancel a superseded pending call. Stale ADMINS are the most serious case the
-     * signed version prevents: a removed administrator re-authorised under a higher version.
+     * The admin sets have their own consecutive version stream. See `setEndpoints` for the
+     * ordering rule that follows: cancel a superseded pending publication rather than leaving it
+     * queued. Stale ADMINS are the most serious case it guards against — a removed administrator
+     * re-authorised by a publication that was proposed earlier but executed later.
      * Only governance can call this method.
      * @param _feedId The feed the admin sets serve.
-     * @param _version The version governance assigns to this publication; must be exactly
-     * `adminsVersion(_feedId) + 1` when the call EXECUTES.
      * @param _roles The role-tagged admin sets; validated on-chain (role-agnostic rules only).
      * @param _claimBackAddress The payer of record for the dispatched instruction, recorded in
      * `TeeInstructionsSent` and conferring no on-chain claim; must be non-zero
@@ -145,7 +144,6 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      */
     function setAdmins(
         bytes21 _feedId,
-        uint64 _version,
         AdminRole[] calldata _roles,
         address _claimBackAddress
     )

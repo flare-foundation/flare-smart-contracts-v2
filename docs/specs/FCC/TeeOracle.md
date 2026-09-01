@@ -74,18 +74,32 @@ are `onlyGovernance` and name no machines:
   agreement `threshold`. An endpoint is either **PUBLIC** (plain `https://...` URL, optionally
   with a placeholder token — e.g. `{secret}` — substituted inside the enclave with the credential
   named by `secretRef`) or **PRIVATE** (only a salted `urlHash` commitment on-chain; the URL
-  itself is provisioned off-chain like a credential — a commitment is used instead of a
-  TEE-pubkey-encrypted URL because an on-chain ciphertext would expose the URL forever if the
-  machine's key ever leaked).
+  itself arrives by its own direct instruction and the enclave accepts it only if it hashes to the
+  published commitment — a commitment is used instead of a TEE-pubkey-encrypted URL because an
+  on-chain ciphertext would expose the URL forever if the machine's key ever leaked).
+  `secretRef` is **orthogonal to the kind**: it names a credential such as an API key, provisioned
+  separately from the URL and possibly governed by a different admin role. Either kind may carry
+  one and either may leave it empty, so the contract does not validate it in either direction.
 - **Admins** — role-tagged admin signer sets (e.g. `bytes32("backing")`,
   `bytes32("providers")`) with per-role thresholds — the admins decide who may install
   credentials in the enclave. Role semantics (which credentials a role governs, required roles,
   role-specific floors) are pinned in the enclave build; the contract enforces only
   role-agnostic shape rules.
 
-Each publication validates the payload's shape, takes the **governance-signed `version`** as the
-feed's next one (`endpointsVersion` / `adminsVersion`, required to be exactly the current value plus
-one — see [Version ordering](#version-ordering-governance-signs-the-version); part of the
+**Endpoints are deliberately not de-duplicated within a group, though a role's admins are.** The
+asymmetry is intentional. An `address` is a canonical 20 bytes, so `DuplicateAdmin` is a real
+guarantee. A URL is a string with unbounded equivalent spellings — host case, a trailing slash, an
+explicit `:443`, a redundant query parameter — so any on-chain comparison would be trivially
+bypassable while advertising a distinctness it cannot deliver. It would also *reject* legitimate
+configurations: the same host may legitimately appear twice under different `secretRef`
+credentials, and PRIVATE endpoints commit to **salted** hashes, so two entries for one upstream
+differ on chain by construction. Whether a group's `threshold` of k really means k independent
+sources is therefore a property of the published configuration and of the TEE extension build, and
+is checked where the URLs are actually resolved — not here.
+
+Each publication validates the payload's shape, takes the feed's **next consecutive version**
+(`endpointsVersion` / `adminsVersion`, derived when the call executes — see
+[Version ordering](#version-ordering-is-a-governance-responsibility); part of the
 ABI-encoded payload, so identical content republished still yields a new version and hash), stores its
 `keccak256` (`latestEndpointsHash` / `latestAdminsHash`) and the timestamp
 (`endpointsPublishedAt` / `adminsPublishedAt`), and emits `EndpointsPublished` /
@@ -112,7 +126,6 @@ everything they can**:
 |-----------|----------|
 | Extension is emergency paused (`isExtensionEmergencyPaused`) | dispatch skipped, values published — the diamond hard-rejects every dispatch while paused ([`Instructions`](../../../contracts/tee/library/Instructions.sol)), and a corrected configuration must stay landable, not least because the pause may exist *because* the live configuration is wrong. Checked **before** the active set is read: `getActiveTeeMachines` is unpaginated and also builds a `string[]` of machine URLs the sender discards, which a paused publication must not pay for |
 | The extension's active set is empty | dispatch skipped, values published — the fleet may not be registered yet |
-| The signed `version` is not the feed's current version plus one | **reverts** (`UnexpectedConfigVersion(signed, expected)`) — nothing is published; see [Version ordering](#version-ordering-governance-signs-the-version) |
 | `msg.value` is **below** the instruction fee of the snapshotted targets | **reverts** inside the diamond (`FeeTooLow`) — nothing is published. The sender does no fee arithmetic of its own on any path: it forwards the whole `msg.value` and [`Instructions`](../../../contracts/tee/library/Instructions.sol) enforces the floor. A **surplus** does not revert — see [The fee, and where it goes](#the-fee-and-where-it-goes) |
 | Unset / wrong TEE manager, or this contract is no longer the extension's registered instructions sender | **reverts** inside the diamond (`OnlyInstructionsSender`) — a deployment mistake must surface, not be hidden |
 
@@ -173,40 +186,35 @@ suspended, or a changed fee row — therefore overpays rather than reverting, wh
 exact-fee requirement on the publication was considered and deliberately **not** adopted: it would
 turn every such drift into a failed governance execution.
 
-### Version ordering: governance signs the version
+### Version ordering is a governance responsibility
 
-The version is an **argument** of the publication, not something the contract derives when the call
-executes, and it must be exactly the feed's current version for that kind **plus one**
-(`UnexpectedConfigVersion(signed, expected)`). Endpoints and admins have separate streams.
+The version is **derived when the call executes**, as the feed's current version for that kind
+**plus one**. Endpoints and admins have separate streams. It is not an argument, and the contract
+does not police which of two pending publications lands first — for the same reason no other
+timelocked setter in this repository does.
 
-The reason is how the timelock identifies a pending call.
+That matters because of how the timelock identifies a pending call.
 [`FlareGovernance`](../../../contracts/governance/lib/FlareGovernance.sol) records it under
 `keccak256(encodedCall)` — the hash of the *whole* calldata — so two `setEndpoints` calls for the
 same feed with different payloads are two **independent** pending entries, each executable on its
-own, in either order, and nothing removes one when the other is proposed. With the version computed
-at execution time, an older publication executed *after* its replacement would take the higher
-version, overwrite the commitment and be dispatched to the whole active fleet: the superseded
-configuration would become the feed's latest. Stale **admins** are the serious case — a removed or
-compromised administrator re-authorised under a newer version number.
+own, in either order, and nothing removes one when the other is proposed. The one executed **last**
+takes the higher version, overwrites the commitment and is dispatched to the whole active fleet —
+even if it was proposed first. Stale **admins** are the serious case: a removed or compromised
+administrator re-authorised because the older publication happened to land second.
 
-Signing the version makes that a safe failure instead. Both calls of a supersede pair are proposed
-while the feed is at version *n*, so both sign *n+1*; whichever executes first consumes it and the
-other becomes permanently unexecutable. Two operational rules follow:
+The control is operational, and it is the same control every other governance call relies on:
 
-- **Sign the next consecutive version.** Read `endpointsVersion(feedId)` / `adminsVersion(feedId)`
-  (or `getFeedConfig`) when proposing. Deliberately sequential publications are fine — sign *n+1*
-  and *n+2*, and the second cannot execute before the first, which is what keeps the stored versions
-  strictly consecutive.
-- **Cancel a superseded pending call**, with `cancelGovernanceCall`, rather than leaving it queued:
-  it can no longer execute, so it only clutters the timelock.
+- **Cancel a superseded pending call** with `cancelGovernanceCall` rather than leaving it queued.
+  This is the rule that keeps a replaced configuration from coming back.
+- **Execution is not permissionless.** Only the whitelisted executors in
+  [`GovernanceSettings`](../../../contracts/userInterfaces/IGovernanceSettings.sol) can call
+  `executeGovernanceCall`, so the order in which matured calls land is under the same operational
+  control as the proposals themselves.
+- Governance tooling should display **all** pending calls per feed and kind, and refuse to schedule
+  a competing publication for the same feed and kind by default.
 
-Governance tooling should therefore display the signed version and **all** pending calls per feed
-and kind, and refuse to schedule a competing publication for the same feed and kind by default.
-
-Equality is required rather than "greater than": an execution allowed to jump would let a single
-publication land near `type(uint64).max` and exhaust the remaining version space, and at the maximum
-the checked increment reverts (arithmetic overflow) rather than wrapping round to a version the
-machines already hold.
+At `type(uint64).max` the checked increment reverts (arithmetic overflow) rather than wrapping round
+to a version the machines already hold.
 
 ### Storage model: hash on chain, payload in the log
 
@@ -228,10 +236,10 @@ That is a gas decision, measured on this branch:
 | | payload stored on chain | hash only, payload as calldata |
 |---|---|---|
 | per PUBLIC endpoint (~70-char URL) | ~217,000 gas — **96% of a publication** | ~8,000 gas |
-| 25 groups × 5 endpoints (48.2 KB encoded) | ~30.5M gas | ~1.3-1.5M gas |
-| against the block gas limit | **over** the 28,000,000 limit on `flare`, `songbird`, `coston2` and `coston` — unpublishable | ~5% of a block |
+| 25 groups × 5 endpoints (48.2 KB encoded) | ~30.5M gas | ~1.95M gas |
+| against the block gas limit | **over** the 28,000,000 limit on `flare`, `songbird`, `coston2` and `coston` — unpublishable | ~7% of a block |
 
-A 21-24x factor, and the difference between a configuration that can be published at all and one
+A ~16x factor, and the difference between a configuration that can be published at all and one
 that cannot. Storage at ~625 gas per fresh byte simply does not scale to a real endpoint set.
 
 What it costs:
@@ -403,8 +411,10 @@ any of it — see [The fee, and where it goes](#the-fee-and-where-it-goes).
    `TeeIdNotConfigured`. That is a hard revert because the store gates submissions on the
    feed-level hash: an observation from a lagging machine would be rejected, so it must not be
    paid for. The feed's own two versions are read **once**, before the loop over the targets —
-   including the both-kinds-published check, so an unpublished feed fails without touching a
-   per-machine record — and each target is then compared against those two values. Known
+   including the both-kinds-published check, which has its own error, `FeedNotConfigured`, so an
+   unpublished feed fails without touching a per-machine record and a caller can tell "wait for a
+   governance publication" from "push the published version to this machine" — and each target is
+   then compared against those two values. Known
    residual: the version record says what was *dispatched*, so a machine whose instruction never
    reached its enclave still reads as current and can waste one request fee before a re-push. The
    instruction message is the ABI-encoded `FeedUpdateRequest{feedId}` and the fee is `msg.value`
@@ -459,16 +469,26 @@ any of it — see [The fee, and where it goes](#the-fee-and-where-it-goes).
      is then checked **once** against the ratchet (`NotNewer`) and against the accepting block
      (`TooFarAhead`), exactly as a single submission is — the observation event and the update
      cannot land in the same block, and a future-dated timestamp would freeze the feed
-     irreversibly since `observedAt` only ratchets up;
-   - `value` and `decimals` **may** differ per element; the store aggregates them (below).
+     irreversibly since `observedAt` only ratchets up. Because the ratchet is *strict* and an
+     observation is stamped with the triggering event's block timestamp, **at most one round per
+     distinct block timestamp can ever be published** — two keepers requesting in the same block
+     each pay an instruction fee but only one of the two resulting rounds can land. Equal
+     `observedAt` therefore proves two contributions describe the same *instant*, not that they
+     answered the same request;
+   - `value` and `decimals` **may** differ per element; the store aggregates them (below). The
+     aggregated scale is deliberately **not** restricted: `getCurrentFeed` reports the value
+     together with its own `decimals`, and choosing a read that can represent it is the consumer's
+     call. `FtsoV2`'s `get*InWei` family converts to 18 decimals and so cannot serve every scale —
+     a property of that conversion, not of the value this store holds. See
+     [Reading a feed](#reading-a-feed).
 
    A batch that passes writes value, decimals and timestamp (one packed storage slot), emits
    `FeedUpdated` naming every contributor, and — only if some contribution diverged — a
    `FeedOutliers` event. It also **returns** the aggregation it acted on, which is what makes an
    `eth_call` on this function the supported dry run — see [The dry run](#the-dry-run).
 
-There is no acceptance window and no pause flag: staleness is the consumer's check (as with
-every FTSO feed), and the FCC per-extension
+There is no acceptance window and no pause flag: staleness is the consumer's check (as with every
+FTSO feed), and the FCC per-extension
 [emergency pause](../../../contracts/userInterfaces/tee/IMachineEmergencyPause.sol) already
 stops submissions at the verifier.
 
@@ -523,12 +543,17 @@ same `int32 value` / `int8 decimals` shape consumers already read:
 
    | Question | Check | On violation |
    |----------|-------|--------------|
-   | Is the median well **determined**? | the spread between the two values **bracketing** the median position (`sorted[mid±1]` for an odd count, the two averaged values for an even one) | **reverts** `SpreadTooBig(lower, upper, median, decimals)` — a median whose neighbours disagree wildly is meaningless and must not be published |
+   | Is the median well **determined**? | the spread at the median position: `sorted[mid] − sorted[mid−1]` for an even count, and **half** of `sorted[mid+1] − sorted[mid−1]` for an odd one | **reverts** `SpreadTooBig(lower, upper, median, decimals)` — a median whose neighbours disagree wildly is meaningless and must not be published. The error reports the RAW neighbours, so at an odd count the judged spread is half the difference it shows |
    | **Which machines** disagree? | each contribution's own deviation from the median | **flags**: the machines are named in `FeedOutliers(observedAt, median, decimals, teeIds, deviations)`, emitted alongside `FeedUpdated` and only when the list is non-empty. Never rejects |
 
    The rejection follows FAssets' `_calculateMedian`
    ([`FtsoV2PriceStore`](https://github.com/flare-foundation/fassets)) in using the median's
-   neighbours rather than the full range; unlike FAssets, which can only *skip* the feed (its
+   neighbours rather than the full range, **including the halving of the odd case**. That halving
+   is what keeps the number parity-neutral: an odd count's neighbours straddle the median across
+   two gaps and an even count's across one, so without it the same real dispersion would be judged
+   twice as harshly whenever the batch happened to have an odd number of elements — and a
+   `maxSpreadBIPS` ported from FAssets' live configuration would be twice as tight here as there.
+   Unlike FAssets, which can only *skip* the feed (its
    aggregation is a side effect of a multi-feed publication), this reverts — one feed per store and
    one batch per transaction mean nothing else in the transaction needs protecting.
    The flag exists because the batch is assembled by **whoever submits it**: rejecting on a tail
@@ -538,9 +563,22 @@ same `int32 value` / `int8 decimals` shape consumers already read:
    feed — one faulty machine cannot stall it. Deviations are signed (`value - median`), so the
    log shows the direction, and `median` / `decimals` / `deviations` are all at the batch's
    normalisation scale, not the possibly coarser scale `FeedUpdated` carries.
-   At **N ≤ 3 the two checks coincide** — for a sorted triple the median's neighbours *are* the
-   range's ends — so the distinction only starts to matter at N ≥ 4, where a tail can no longer
-   move the median but is still worth naming.
+   The two tests read the same bound with **different metrics**, and an operator sizing the
+   parameter has to know which one bites: rejection compares a *spread* at the median position, flagging compares each
+   machine's one-sided *deviation* from it. For an ODD count the halving makes those the same
+   quantity, so the two tests fire at the same displacement; for an EVEN count the spread is the
+   full gap between two distinct machines, so rejection fires at half the displacement flagging
+   does. Rejection is never the looser of the two, so size the parameter from the rejection side —
+   it is the one that stalls the feed.
+   Flagging is **unreachable for N ≤ 2**: a single element deviates from itself by zero, and for a
+   pair the median is their average, so each deviation is half a spread that has already had to fit
+   inside `allowed`. From **N = 3** it is reachable — `(0, 0, 20)` at `allowed` 10 has a judged
+   spread of `(20 − 0) / 2 = 10`, so it publishes a median of 0 and names the machine at 20.
+   The test is **centre-local**, so it is not monotone in N: a batch rejected at N = 3 can be
+   accepted, with the same median, by adding a fourth signature that lands between the original
+   three. That is inherent to judging the median by its neighbours rather than by the full range —
+   more corroboration *at the centre* is exactly what makes the median better determined — and it
+   is the same property that stops one tail outlier from stalling the feed.
    `abs(median)` is the relative base because `value` is **signed**: a feed may legitimately sit
    at or cross zero, where a purely relative bound would collapse to permitting no disagreement at
    all and would flag every machine. `maxSpreadAbsolute` is the floor that prevents that. It is
@@ -676,12 +714,33 @@ initializer, so a store is never live with an unintended policy:
 |-----|------|------------------|---------|
 | `requiredSignatures` | `1..32` | **1** | distinct PRODUCTION-machine signatures a submission must carry; 1 makes a fresh deployment behave exactly as a single-signature store |
 | `maxSpreadBIPS` | `0..10000` | **100** (1%) | relative term of the deviation bound, in BIPS of `abs(median)` — matches FAssets' live `flare` configuration |
-| `maxSpreadAbsolute` | decimal string, `≤ 2^64-1` | **"0"** | absolute term, at the fixed `10^-8` reference scale; 0 is inert, so a strictly positive feed behaves purely relatively |
+| `maxSpreadAbsolute` | decimal string, `≤ 2^64-1` | **"0"** | absolute term, at the fixed `10^-8` reference scale; 0 is inert, so a strictly positive feed behaves purely relatively. To ask for a real-world tolerance `T` in the feed's own units, set `T × 1e8` |
 
 Governance changes them later with the timelocked `setSubmissionPolicy(policy)`
 (`InvalidSubmissionPolicy` on a zero threshold, a threshold above 32, or BIPS above 10000). The
 deploy script applies the same bounds before broadcasting, and warns when a configured threshold is
 above 1.
+
+**Two scale traps the contract cannot check**, because the normalisation scale is the enclaves'
+choice and is only known per batch: the absolute term's rescaling *floors*, so a
+`maxSpreadAbsolute` below one unit of the batch's own scale (`< 10^(8 - decimals)`) silently
+becomes **zero**; and at a batch `decimals ≥ 29` any non-zero setting clamps above every reachable
+deviation, disabling the rejection *and* the flagging entirely. Pin the enclave's `decimals` per
+feed and size the setting against it.
+
+**A degenerate policy is legal and sometimes correct.** `maxSpreadBIPS = 0` together with
+`maxSpreadAbsolute = 0` makes the bound identically zero, which is how a discrete or binary feed
+demands exact agreement — but only at N ≤ 2. From **N = 3** it does **not** give unanimity: only
+the values at the median position have to match, so `(0, 0, 1)` has a judged spread of
+`(1 − 0) / 2 = 0`, publishes 0 and merely flags the dissenter. On a continuous feed it stops every non-identical batch, and since `SpreadTooBig`
+is a revert rather than an event, a log-only monitoring stack sees nothing at all — just a feed that
+stopped.
+
+**`setSubmissionPolicy` is an ordinary timelocked call**, keyed by the hash of its whole calldata,
+so two policies can be pending at once and execute in either order — an older, weaker one landing
+last silently restores a lower `requiredSignatures`. Unlike the sender's configuration publications
+nothing makes the loser unexecutable, so governance **must cancel** a
+superseded policy call rather than leave it queued. The same applies to `setFeeDestination`.
 
 **Governance invariant:** `requiredSignatures` must stay at or below the number of PRODUCTION
 machines running the feed's latest published configuration. The store cannot check it — the active

@@ -37,23 +37,21 @@ import {ITeeOracleInstructionsSender} from
  * - OperationFeesFacet.setOperationFees TEE_ORACLE rows           - Flare governance (timelocked)
  *   NOTE: until the fee rows are executed, the default fee applies
  * - FtsoV2.addCustomFeeds([feed stores])                          - Flare governance (timelocked)
- * - sender.setEndpoints / setAdmins per feed + VERSION + claim-back address
+ * - sender.setEndpoints / setAdmins per feed + claim-back address
  *                                                                  - Flare governance (timelocked)
  *   NOTE: no machines are named - the call resolves the extension's active set itself and
  *   dispatches to it. The EXECUTOR MUST ATTACH THE INSTRUCTION FEE to executeGovernanceCall.
- *   GOVERNANCE SIGNS THE VERSION. The second argument must be EXACTLY the feed's next consecutive
- *   version for that kind - endpointsVersion(feedId) + 1 / adminsVersion(feedId) + 1 - or the
- *   execution reverts UnexpectedConfigVersion(signed, expected). Two rules follow:
- *   (a) read the current version when PROPOSING and sign the next one; for two deliberately
- *       sequential publications sign n+1 and n+2, and the second cannot execute before the first;
- *   (b) a pending call that a later proposal SUPERSEDES must be CANCELLED (cancelGovernanceCall),
- *       not left queued. A timelocked call is keyed by the hash of its whole calldata, so two
- *       publications for one feed and kind can be pending at once; the signed version is what
- *       stops the superseded one executing after its replacement and restoring stale values -
- *       the worst case being a removed administrator re-authorised under a higher version. The
- *       loser of that race becomes unexecutable, so leaving it queued only clutters the timelock.
- *   TOOLING should therefore display the signed version and ALL pending calls per feed and kind,
- *   and refuse to schedule a second publication for the same feed and kind by default.
+ *   THE VERSION IS DERIVED AT EXECUTION TIME as the feed's next consecutive one for that kind.
+ *   ORDERING IS THEREFORE A GOVERNANCE RESPONSIBILITY, as it is for every other timelocked setter:
+ *   a call is keyed by the hash of its whole calldata, so two publications for one feed and kind
+ *   can be pending at once, and the one EXECUTED LAST takes the higher version and becomes the
+ *   feed's configuration - even if it was proposed first. A pending call that a later proposal
+ *   SUPERSEDES must therefore be CANCELLED (cancelGovernanceCall), not left queued; the worst case
+ *   of leaving it is a removed administrator re-authorised by the older publication landing last.
+ *   Only whitelisted executors can execute a matured call, so that ordering is under the same
+ *   operational control as the proposals themselves.
+ *   TOOLING should display ALL pending calls per feed and kind, and refuse to schedule a second
+ *   publication for the same feed and kind by default.
  *   The publication stores only the payload's HASH and emits the published EndpointGroup[] /
  *   AdminRole[] in EndpointsPublished / AdminsPublished. KEEP THAT LOG: it is the only record of
  *   the configuration, and the push step below takes exactly what it carries. An indexer, an
@@ -487,15 +485,14 @@ contract DeployTeeOracle is Script {
             "extension is paused)"
         );
         console2.log(
-            "   VERSION argument: exactly the feed's NEXT CONSECUTIVE version for that kind, "
-            "endpointsVersion(feedId) + 1 / adminsVersion(feedId) + 1, else the execution reverts "
-            "UnexpectedConfigVersion(signed, expected). Governance SIGNS it, so a superseded "
-            "pending call cannot execute after its replacement and restore stale configuration"
+            "   VERSION: derived when the call EXECUTES, as the feed's next consecutive one for "
+            "that kind. Two publications for one feed can be pending at once and the one executed "
+            "LAST wins, whichever was proposed first"
         );
         console2.log(
             "   CANCEL a superseded pending call (cancelGovernanceCall) instead of leaving it "
-            "queued - it is unexecutable once its replacement has consumed the version. Tooling "
-            "should show the signed version and ALL pending calls per feed and kind"
+            "queued - otherwise the older publication can land last and become the feed's "
+            "configuration. Tooling should show ALL pending calls per feed and kind"
         );
         console2.log(
             "   claim-back address argument (non-zero) - the instruction's payer of record, "

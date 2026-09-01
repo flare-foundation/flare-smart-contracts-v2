@@ -36,12 +36,13 @@ bytes32 constant SET_ADMINS_COMMAND = bytes32("SET_ADMINS");
  *      a snapshot of the executing block, and there is no delay between publication and fleet
  *      convergence. That set is dispatched to verbatim — the diamond maintains it as exactly the
  *      extension's PRODUCTION machines, so there is nothing to filter out of it.
- *      A publication also carries the version governance SIGNED for it, which must be exactly the
- *      feed's next one for that kind (`UnexpectedConfigVersion`): a timelocked call is keyed by
- *      its whole calldata, so two publications for one feed can be pending at once, and without a
- *      signed version a superseded call could execute after its replacement and restore the
- *      configuration it was meant to replace. Governance therefore allocates consecutive versions
- *      and cancels a superseded pending call instead of leaving it queued.
+ *      A publication takes the feed's next consecutive version for that kind, derived when the
+ *      call EXECUTES. Ordering between two pending publications is a governance responsibility, as
+ *      it is for every other timelocked setter: a call is keyed by its whole calldata, so two
+ *      publications for one feed can be pending at once and the one executed LAST wins, even if it
+ *      was proposed first. Governance cancels a superseded pending call instead of leaving it
+ *      queued; only whitelisted executors can execute a matured call, so that ordering is under
+ *      the same operational control as the proposals themselves.
  *      A publication skips its dispatch only in the two cases where no dispatch is possible at
  *      all — the extension is emergency paused, or its active set is empty — and then publishes
  *      the values without delivering them (`msg.value` must be zero, `ValueNotNeeded`). When it
@@ -73,7 +74,7 @@ bytes32 constant SET_ADMINS_COMMAND = bytes32("SET_ADMINS");
  *      ~217,000 gas per PUBLIC endpoint and put a 25-group / 5-endpoint configuration (48.2 KB)
  *      at ~30.5M gas, above the 28,000,000 block gas limit on every Flare network; supplying it
  *      as calldata costs ~8,000 gas per endpoint, so the same configuration publishes at
- *      ~1.3-1.5M gas.
+ *      ~1.95M gas.
  */
 interface ITeeOracleInstructionsSender {
 
@@ -93,19 +94,20 @@ interface ITeeOracleInstructionsSender {
      * `secretRef`; the exact placeholder syntax is a convention between the published
      * configuration and the TEE extension implementation, not enforced on-chain. Must be
      * empty for PRIVATE.
-     * @param urlHash PRIVATE only: commitment to the URL provisioned to the machine off-chain
-     * (delivered like a credential, under `secretRef`). The commitment format is pinned in the
-     * TEE extension build and should be salted — a bare hash of a low-entropy URL would be
-     * brute-forceable from chain data. Must be zero for PUBLIC. A commitment is deliberately
-     * used instead of a TEE-pubkey-encrypted URL: an on-chain ciphertext would expose the URL
-     * forever if the machine's key ever leaked, a commitment reveals nothing.
-     * @param secretRef The credential / provisioning NAME the machine resolves — never a value
-     * (hence the name). For PUBLIC endpoints it names the credential substituted into the
-     * URL's placeholder (empty when the URL has none); for PRIVATE endpoints it names the
-     * off-chain-provisioned URL entry, which by the same convention may carry or reference a
-     * credential of its own (e.g. an API-key auth header) — so even a
-     * credentialed API's URL comes through configuration instead of being hardcoded in the
-     * TEE extension build.
+     * @param urlHash PRIVATE only: the COMMITMENT to the endpoint's URL. The URL itself is
+     * delivered to the machine by a separate direct instruction, and the enclave accepts it only
+     * if it hashes to this value — so the commitment is what binds the privately delivered URL to
+     * the governance-published configuration. The commitment format is pinned in the TEE extension
+     * build and should be salted — a bare hash of a low-entropy URL would be brute-forceable from
+     * chain data. Must be zero for PUBLIC. A commitment is deliberately used instead of a
+     * TEE-pubkey-encrypted URL: an on-chain ciphertext would expose the URL forever if the
+     * machine's key ever leaked, a commitment reveals nothing.
+     * @param secretRef The credential NAME the machine resolves — never a value (hence the name),
+     * and never the URL. It is ORTHOGONAL to `kind`: it names a credential such as an API key,
+     * which is provisioned separately from the URL and may be governed by a different admin role
+     * entirely. Both kinds may carry one and both may leave it empty — a PUBLIC endpoint whose URL
+     * has no placeholder to substitute, or a PRIVATE endpoint that needs no credential beyond the
+     * URL itself, simply sets it to "". It is therefore NOT validated here, in either direction.
      */
     struct Endpoint {
         EndpointKind kind;
@@ -120,8 +122,20 @@ interface ITeeOracleInstructionsSender {
      * extension build — the contract only enforces tag-agnostic shape rules.
      * @param group The group tag, e.g. `bytes32("flare")`, `bytes32(uint256(chainId))` or
      * `bytes32("hex_cash")`.
-     * @param threshold How many endpoints in the group must agree.
-     * @param endpoints The endpoints.
+     * @param threshold How many endpoints in the group must agree; at least 1 and at most
+     * `endpoints.length`, which is all the contract enforces. It does NOT check that the endpoints
+     * are distinct sources, and deliberately so: a URL has unbounded equivalent spellings (host
+     * case, a trailing slash, an explicit `:443`, a redundant query parameter), so any on-chain
+     * comparison would be trivially bypassable while advertising a distinctness it cannot deliver
+     * — and it would reject legitimate configurations, since the same host may appear twice under
+     * different `secretRef` credentials and PRIVATE endpoints commit to SALTED hashes. That a
+     * `threshold` of k really means k independent upstreams is therefore a property of the
+     * published configuration and of the TEE extension build. Contrast `AdminRole.admins`, where
+     * an `address` is canonical and the duplicate check IS a guarantee.
+     * There is no floor either: a 1-of-1 group is accepted, and whether one is acceptable for a
+     * given tag is a policy pinned in the TEE extension build.
+     * @param endpoints The endpoints. The same upstream may appear in another group — groups are
+     * separate quorums.
      */
     struct EndpointGroup {
         bytes32 group;
@@ -275,22 +289,32 @@ interface ITeeOracleInstructionsSender {
     error NoAdmins();
     error ZeroAdmin();
     error DuplicateAdmin();
+    /// The feed has no published configuration at all - neither kind, or only one of the two.
+    error FeedNotConfigured();
+    /// The address updater must not be zero: it can never be corrected afterwards.
+    error ZeroAddressUpdater();
     error NoConfigPublished();
     error WrongConfigPayload();
     error ValueNotNeeded();
     error ZeroClaimBackAddress();
-    /// A publication's governance-signed version is not the feed's next one for that kind. Carries
-    /// what was signed and what the feed expects, so a rejected execution says at a glance whether
-    /// the call was superseded (expected already consumed) or is queued ahead of its predecessor.
-    error UnexpectedConfigVersion(uint64 signedVersion, uint64 expectedVersion);
 
     /**
      * Requests a fresh feed observation from the given TEE machines.
+     *
+     * NOTE: an observation is stamped with the timestamp of the on-chain event that triggered it,
+     * and the feed store's ratchet is STRICT, so at most one round per distinct block timestamp
+     * can ever be published. Two keepers requesting in the same block each pay a full instruction
+     * fee, but only the first of the two resulting rounds can land — the other reverts `NotNewer`
+     * for ever. Equal `observedAt` therefore proves two contributions describe the same INSTANT,
+     * not that they answered the same request.
      * Open to anyone; the instruction fee (msg.value) bounds spam and the feed store
      * verifies the TEE signature on the resulting feed update. Every targeted machine must
      * be at the feed's latest published generation for BOTH kinds (`isTeeIdConfigured`, else
      * `TeeIdNotConfigured`) — a lagging machine's answer would be rejected by the store, so it
-     * must not be paid for. The instruction message carries the ABI-encoded `FeedUpdateRequest`
+     * must not be paid for. A feed with NOTHING published for one or both kinds fails earlier,
+     * and separately, with `FeedNotConfigured`: the two need opposite remedies — wait for a
+     * governance publication, versus push the published version to the machine — so they do not
+     * share an error. The instruction message carries the ABI-encoded `FeedUpdateRequest`
      * so the machine knows which feed to observe.
      * @param _feedId The feed to observe.
      * @param _teeIds The TEE machines to ask (non-empty, unique, non-zero, on this

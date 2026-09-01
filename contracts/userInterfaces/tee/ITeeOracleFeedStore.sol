@@ -84,7 +84,18 @@ interface ITeeOracleFeedStore {
      * @param maxSpreadAbsolute The absolute term of the accepted deviation, always in units of
      * `10**-8` (a FIXED reference scale, so the setting's real-world meaning never moves with a
      * submission's own `decimals`); it is rescaled to each submission's normalisation scale
-     * before use. Zero gives a purely relative bound.
+     * before use. Zero gives a purely relative bound. To ask for a real-world tolerance `T` in
+     * the feed's own units, set `maxSpreadAbsolute = T * 1e8` — the rescaling makes the term
+     * worth `maxSpreadAbsolute * 1e-8` at EVERY normalisation scale. Two traps, neither of which
+     * can be checked on chain because the scale is the enclaves' choice and is only known per
+     * batch: the rescale FLOORS, so a setting below one unit of the batch's own scale
+     * (`maxSpreadAbsolute < 10**(8 - decimals)`) silently becomes zero; and once the RESCALED
+     * term exceeds the largest reachable deviation (~4.3e17) the rejection AND the flagging are
+     * disabled entirely. `decimals >= 29` guarantees that for any non-zero setting, but a large
+     * setting reaches it far earlier — `maxSpreadAbsolute = 1e18` already does so at
+     * `decimals = 8`, the reference scale itself. The rule is
+     * `maxSpreadAbsolute * 10**(decimals - 8) > ~4.3e17`. Pin the enclave's `decimals` per feed
+     * and size the setting against it.
      */
     struct SubmissionPolicy {
         uint8 requiredSignatures;
@@ -184,10 +195,11 @@ interface ITeeOracleFeedStore {
     error DuplicateTeeId();
     error ObservedAtMismatch();
     error DecimalsSpreadTooBig();
-    /// The two values bracketing the median position disagree by more than the accepted
-    /// deviation, so the median itself is not well determined. Carries the offending numbers -
-    /// all three at the `decimals` scale the batch was normalised to - so a trace names the
-    /// divergence without a second call.
+    /// The spread at the median position exceeds the accepted deviation, so the median itself is
+    /// not well determined. Carries the offending numbers - all three at the `decimals` scale the
+    /// batch was normalised to - so a trace names the divergence without a second call. Note the
+    /// judged spread is `upperNeighbour - lowerNeighbour` for an even count and HALF of it for an
+    /// odd one (see `submitFeedUpdates`), so compare accordingly when reading a trace.
     error SpreadTooBig(
         int256 lowerNeighbour,
         int256 upperNeighbour,
@@ -249,9 +261,13 @@ interface ITeeOracleFeedStore {
      * 4. the deviation bound is
      *    `allowed = maxSpreadAbsolute (rescaled) + maxSpreadBIPS * abs(median) / 10000`, and it
      *    is applied TWICE, to two different questions:
-     *    - REJECTION — "is the median well determined?" The spread between the two values
-     *      immediately BRACKETING the median position (`values[mid-1]` and `values[mid+1]` for an
-     *      odd count, the two averaged values for an even one) must not exceed `allowed`, else
+     *    - REJECTION — "is the median well determined?" The spread at the median position must not
+     *      exceed `allowed`. For an EVEN count that is `values[mid] - values[mid-1]`, the gap
+     *      between the two values being averaged. For an ODD count the median is flanked by TWO
+     *      gaps, so the spread is their AVERAGE — `(values[mid+1] - values[mid-1]) / 2` — which is
+     *      what keeps the number comparable across parities: without the halving the same real
+     *      dispersion would be judged twice as harshly whenever the batch happens to be odd. This
+     *      is exactly FAssets' `_calculateMedian`. Else
      *      the call reverts with `SpreadTooBig(lower, upper, median, decimals)`. If the values
      *      bracketing the median disagree wildly, the median is meaningless and must not be
      *      published. Unlike FAssets, which can only skip the feed (its aggregation is a side
@@ -262,9 +278,26 @@ interface ITeeOracleFeedStore {
      *      `FeedUpdated` and only when at least one is found. It never rejects: a tail outlier
      *      does not undermine a median, and a revert would only teach submitters to filter the
      *      batch off chain — destroying exactly the divergence information the flag preserves.
-     *    The two coincide at N <= 3, where the median's neighbours ARE the range's ends; the
-     *    distinction starts to matter at N >= 4, where a tail outlier can no longer move the
-     *    median but is still worth naming.
+     *    The two tests read the SAME `allowed` with different metrics, and an operator has to
+     *    size the number knowing which one bites: rejection compares a two-sided SPREAD between
+     *    two machines, flagging compares each machine's one-sided DEVIATION from the median. Per
+     *    machine, rejection is therefore between 1x and 2x the stricter of the two, and which one
+     *    applies follows the PARITY: for an odd count the halving makes the judged spread the same
+     *    quantity as a contribution's own deviation, so the two tests fire at the same
+     *    displacement; for an even count the spread is the full gap between two distinct machines,
+     *    so rejection fires at half the displacement flagging does. Rejection is never the LOOSER
+     *    of the two, so size `allowed` from the rejection side; it is the one that stalls the feed.
+     *    Flagging is unreachable for N <= 2 — a single element deviates from itself by zero, and
+     *    for a pair the median is their average, so each deviation is half a spread that has
+     *    already had to fit inside `allowed`. From N = 3 it is reachable: `(0, 0, 20)` at
+     *    `allowed` 10 has a judged spread of 10, so it publishes a median of 0 and names the
+     *    machine at 20.
+     *    Note that the test is centre-local, so it is not monotone in N: a batch rejected at
+     *    N = 3 can be accepted, with the same median, by adding a fourth signature that lands
+     *    between the original three. That is inherent to judging the median by its neighbours
+     *    rather than by the full range — more corroboration AT THE CENTRE is exactly what makes
+     *    the median better determined — and it is the property that stops one tail outlier from
+     *    stalling the feed.
      *    `abs(median)` plus the absolute floor keeps the bound usable at a zero or negative
      *    median: `value` is a SIGNED int32, so a feed may legitimately sit at or cross zero,
      *    where a purely relative bound would collapse to permitting no disagreement at all and

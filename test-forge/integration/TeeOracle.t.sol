@@ -287,9 +287,9 @@ contract TeeOracleIntegrationTest is Test {
         assertEq(publicationFee, INSTRUCTION_FEE);
         vm.deal(initialGovernance, 2 * INSTRUCTION_FEE);
         vm.startPrank(initialGovernance);
-        sender.setEndpoints{value: publicationFee}(FEED_ID, 1, _makeGroups(), claimBack);
+        sender.setEndpoints{value: publicationFee}(FEED_ID, _makeGroups(), claimBack);
         (, uint256 adminsPublicationFee) = sender.getAdminsPublicationFee();
-        sender.setAdmins{value: adminsPublicationFee}(FEED_ID, 1, _makeRoles(), claimBack);
+        sender.setAdmins{value: adminsPublicationFee}(FEED_ID, _makeRoles(), claimBack);
         vm.stopPrank();
         assertEq(sender.endpointsVersion(FEED_ID), 1);
         assertEq(sender.adminsVersion(FEED_ID), 1);
@@ -431,7 +431,7 @@ contract TeeOracleIntegrationTest is Test {
         assertEq(fee, INSTRUCTION_FEE);
         vm.expectRevert(abi.encodeWithSignature("FeeTooLow()"));
         vm.prank(initialGovernance);
-        sender.setEndpoints(FEED_ID, 1, _makeGroups(), claimBack);
+        sender.setEndpoints(FEED_ID, _makeGroups(), claimBack);
         assertEq(sender.endpointsVersion(FEED_ID), 0);
         assertEq(sender.latestEndpointsHash(FEED_ID), bytes32(0));
         assertEq(rewardManager.balance, 0);
@@ -451,15 +451,15 @@ contract TeeOracleIntegrationTest is Test {
         vm.deal(initialGovernance, INSTRUCTION_FEE);
         vm.expectRevert(ITeeOracleInstructionsSender.ValueNotNeeded.selector);
         vm.prank(initialGovernance);
-        sender.setEndpoints{value: INSTRUCTION_FEE}(FEED_ID, 1, _makeGroups(), claimBack);
+        sender.setEndpoints{value: INSTRUCTION_FEE}(FEED_ID, _makeGroups(), claimBack);
 
         // the values land with no dispatch at all, so the publication EVENT is the only record
         // of the payload - and it is emitted anyway, precisely so the push below has something to
         // supply. A keeper reads it from there; the test does exactly that.
         vm.recordLogs();
         vm.startPrank(initialGovernance);
-        sender.setEndpoints(FEED_ID, 1, _makeGroups(), claimBack);
-        sender.setAdmins(FEED_ID, 1, _makeRoles(), claimBack);
+        sender.setEndpoints(FEED_ID, _makeGroups(), claimBack);
+        sender.setAdmins(FEED_ID, _makeRoles(), claimBack);
         vm.stopPrank();
         Vm.Log[] memory logs = vm.getRecordedLogs();
         ITeeOracleInstructionsSender.EndpointGroup[] memory loggedGroups = _groupsFromLogs(logs);
@@ -546,7 +546,7 @@ contract TeeOracleIntegrationTest is Test {
         (, uint256 fee) = sender.getEndpointsPublicationFee();
         vm.deal(initialGovernance, fee);
         vm.prank(initialGovernance);
-        sender.setEndpoints{value: fee}(FEED_ID, 2, _makeGroups(), claimBack);
+        sender.setEndpoints{value: fee}(FEED_ID, _makeGroups(), claimBack);
         feedUpdate.observedAt = uint64(vm.getBlockTimestamp()) - 1;
         feedUpdate.value = 12345678;
         vm.expectRevert(ITeeOracleFeedStore.StaleEndpoints.selector);
@@ -587,7 +587,7 @@ contract TeeOracleIntegrationTest is Test {
 
         vm.deal(initialGovernance, quotedFee);
         vm.prank(initialGovernance);
-        sender.setEndpoints{value: quotedFee}(FEED_ID, 1, _makeGroups(), claimBack);
+        sender.setEndpoints{value: quotedFee}(FEED_ID, _makeGroups(), claimBack);
         assertEq(sender.endpointsVersion(FEED_ID), 1, "published");
         assertEq(sender.expectedEndpointsVersion(FEED_ID, teeId), 1);
         assertEq(sender.expectedEndpointsVersion(FEED_ID, secondTeeId), 0, "not a target");
@@ -978,12 +978,10 @@ contract TeeOracleIntegrationTest is Test {
         uint256 fee = active.length * INSTRUCTION_FEE;
         // governance signs the next consecutive version, read here because this helper is also
         // used on already-published feeds
-        uint64 nextEndpoints = sender.endpointsVersion(FEED_ID) + 1;
-        uint64 nextAdmins = sender.adminsVersion(FEED_ID) + 1;
         vm.deal(initialGovernance, 2 * fee);
         vm.startPrank(initialGovernance);
-        sender.setEndpoints{value: fee}(FEED_ID, nextEndpoints, _makeGroups(), claimBack);
-        sender.setAdmins{value: fee}(FEED_ID, nextAdmins, _makeRoles(), claimBack);
+        sender.setEndpoints{value: fee}(FEED_ID, _makeGroups(), claimBack);
+        sender.setAdmins{value: fee}(FEED_ID, _makeRoles(), claimBack);
         vm.stopPrank();
     }
 

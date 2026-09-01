@@ -935,18 +935,31 @@ export interface TeeOracleFeed {
 
   /**
    * The relative term of the accepted deviation between the contributed values, in BIPS of
-   * `abs(median)`: a submission is rejected when
-   * `max - min > maxSpreadAbsolute + maxSpreadBIPS * abs(median) / 10000`. Must be at most
-   * 10000 (100%). 100 (1%) matches FAssets' live flare configuration.
+   * `abs(median)`. The deviation bound is
+   * `allowed = maxSpreadAbsolute (rescaled) + maxSpreadBIPS * abs(median) / 10000`, and a
+   * submission is rejected when the two values BRACKETING the median position differ by more
+   * than `allowed` — not when `max - min` does: for four or more signatures the tails are
+   * excluded from this test and are merely flagged in `FeedOutliers`. Note the two tests use
+   * `allowed` with different metrics: rejection compares a two-sided spread between two
+   * machines, flagging compares one machine's one-sided deviation from the median, so rejection
+   * bites at between half and all of the per-machine displacement that flagging does: for an odd
+   * count the two coincide, for an even count rejection fires at half the displacement. Rejection
+   * is never looser, so size this from the rejection side. Must be at most 10000 (100%). 100 (1%) matches FAssets' live flare configuration.
    */
   maxSpreadBIPS: integer;
 
   /**
-   * The absolute term of the accepted deviation, in the submission's normalisation scale
-   * (`10^-decimals` units of the batch's finest scale), as a decimal string; at most
-   * 2^64 - 1. Zero gives a purely relative bound; a non-zero value is what keeps the bound
+   * The absolute term of the accepted deviation, always in units of `10^-8` — a FIXED reference
+   * scale, rescaled to each submission's own normalisation scale before use, so the setting's
+   * real-world meaning does not move with the `decimals` the enclaves happen to pick. To ask for
+   * a real-world tolerance `T` in the feed's own units, set `T * 1e8`. As a decimal string; at
+   * most 2^64 - 1. Zero gives a purely relative bound; a non-zero value is what keeps the bound
    * usable for a feed hovering at or near zero, where the relative term alone would demand an
-   * exactly unanimous submission.
+   * exactly unanimous submission. Two traps the contract cannot check, because the scale is the
+   * enclaves' choice and is only known per batch: the rescale FLOORS, so a value below one unit
+   * of the batch's own scale (`< 10^(8 - decimals)`) silently becomes zero; and at a batch
+   * `decimals >= 29` any non-zero value clamps above every reachable deviation, disabling the
+   * rejection and the flagging alike. Pin the enclave's `decimals` per feed and size against it.
    */
   maxSpreadAbsolute: string;
 }
