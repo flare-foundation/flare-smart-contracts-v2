@@ -182,6 +182,16 @@ contract RelayTestBase is Test {
         return abi.encodePacked(Relay.relay.selector, policy, message, sigs);
     }
 
+    // Same relay message with its leading selector swapped, to exercise the relay()-only guard.
+    function _withSelector(bytes memory _encodedCall, bytes4 _selector)
+        internal pure returns (bytes memory _out)
+    {
+        _out = bytes.concat(_encodedCall);
+        for (uint256 i = 0; i < 4; i++) {
+            _out[i] = _selector[i];
+        }
+    }
+
 }
 
 // Merkle-proven randomness and live-pointer monotonicity.
@@ -1466,6 +1476,32 @@ contract RelayThresholdOverrideTest is RelayTestBase {
         assertEq(relay.verifyCustomSignature(rm, mh), REWARD_EPOCH_ID, "sanity: policy threshold passes");
         vm.expectRevert(IRelay.VerificationFailed.selector);
         relay.verifyCustomSignatureWithThreshold(rm, mh, 6000);
+    }
+
+    // The self-call is restricted to relay(): identical bytes with any other leading selector are
+    // rejected before the call is made, so this path can never reach another function on this
+    // contract regardless of what that function returns.
+    function test_verifyCustomSignature_revertsOnNonRelaySelector() public {
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm = _customSigRelayMessage(policy, mh, 3);
+        assertEq(relay.verifyCustomSignature(rm, mh), REWARD_EPOCH_ID, "sanity: unmodified message verifies");
+        vm.expectRevert(IRelay.NotRelayCall.selector);
+        relay.verifyCustomSignature(_withSelector(rm, IRelay.verify.selector), mh);
+    }
+
+    function test_verifyCustomSignatureWithThreshold_revertsOnNonRelaySelector() public {
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm = _customSigRelayMessage(policy, mh, 3);
+        vm.expectRevert(IRelay.NotRelayCall.selector);
+        relay.verifyCustomSignatureWithThreshold(_withSelector(rm, IRelay.isFinalized.selector), mh, 3980);
+    }
+
+    // Calldata too short to carry a selector must not slice out of range.
+    function test_verifyCustomSignature_revertsOnCalldataShorterThanSelector() public {
+        vm.expectRevert(IRelay.NotRelayCall.selector);
+        relay.verifyCustomSignature(hex"aabbcc", keccak256("x"));
+        vm.expectRevert(IRelay.NotRelayCall.selector);
+        relay.verifyCustomSignature(hex"", keccak256("x"));
     }
 
     // 10000 BIPS (100%) and above can never be satisfied under the strict comparison, so the

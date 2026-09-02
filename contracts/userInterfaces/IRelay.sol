@@ -162,6 +162,10 @@ interface IRelay is RandomNumberV2Interface {
     error NotEnoughWeight();
     error NotFinalized();
     error NotNextRewardEpoch();
+    /// verifyCustomSignature / verifyCustomSignatureWithThreshold were given calldata that does
+    /// not select relay(). The self-call is restricted to relay() so it can never become a
+    /// general-purpose internal entry point.
+    error NotRelayCall();
     error NotWithLastInitialized();
     error OldRelayIncompatible();
     /// Old-relay migration is home-only. A relay-mode mirror uses its local fee and exemption
@@ -224,6 +228,8 @@ interface IRelay is RandomNumberV2Interface {
      *           must domain-separate `_messageHash` for their application, including every replay
      *           boundary they require (for example destination chain id, consuming contract,
      *           operation and nonce).
+     *           Calldata whose leading four bytes are not the `relay()` selector is rejected
+     *           with `NotRelayCall`, so this path cannot reach any other function on the contract.
      * @param _relayMessage Full calldata for the `relay()` self-call, including its 4-byte selector.
      * @param _messageHash The hash of the message.
      * @return _rewardEpochId The reward epoch id of the signing policy.

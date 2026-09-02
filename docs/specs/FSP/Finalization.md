@@ -57,10 +57,17 @@ policy it must carry this 38-byte protocol message and the indexed signatures:
 protocolId = 1 || votingRoundId = 0 || isSecureRandom = 0 || merkleRoot = _messageHash
 ```
 
+The wrapper rejects calldata whose leading four bytes are not the `relay()`
+selector (`NotRelayCall`), so the self-call can never reach another function on
+the contract.
+
 The protocol-1 path stores no root. On acceptance it returns exactly 35 bytes:
 the 32-byte message hash and the three-byte reward epoch ID from the supplied,
 validated signing policy. The wrapper requires inner-call success, this exact
-return shape, and hash equality, then returns that reward epoch ID.
+return shape, and hash equality, then returns that reward epoch ID. The
+selector check, not the return shape, is what confines the self-call: the
+35-byte discriminator is a uniqueness property of today's `relay()` returns,
+not an access rule.
 
 `verifyCustomSignatureWithThreshold` performs the same validation with an
 optional caller-selected weight threshold. A value of zero uses the policy

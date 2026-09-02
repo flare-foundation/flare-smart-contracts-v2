@@ -2018,6 +2018,15 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
         bytes calldata _relayMessage,
         bytes32 _messageHash
     ) internal returns (uint256 _rewardEpochId) {
+        // Restrict the self-call to relay(). Without this the caller picks any selector on this
+        // contract, and the only thing standing between that and an arbitrary internal entry
+        // point is the 35-byte return discriminator below — a property of today's relay() return
+        // shapes, not an access rule. Any future self-call target (or any method that happens to
+        // return 35 bytes) would silently widen this path; the selector check does not.
+        require(
+            _relayMessage.length >= SELECTOR_BYTES && bytes4(_relayMessage[:SELECTOR_BYTES]) == IRelay.relay.selector,
+            NotRelayCall()
+        );
         /* solhint-disable avoid-low-level-calls */
         //slither-disable-next-line arbitrary-send-eth
         (bool success, bytes memory returnData) = address(this).call(_relayMessage);
