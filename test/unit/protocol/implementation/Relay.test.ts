@@ -484,6 +484,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
   it("Should fail to relay a Mode-2 message with a zero merkle root", async () => {
     const newMessageData = { ...messageData };
     newMessageData.protocolId = randomNumberProtocolId + 1; // non-random protocol
+    // isSecureRandom is meaningful only for the random-number protocol; Relay requires 0 elsewhere.
+    newMessageData.isSecureRandom = false;
     newMessageData.votingRoundId++;
     newMessageData.merkleRoot = ethers.ZeroHash;
     const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
@@ -1768,6 +1770,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const specificVotingRoundId = newMessageData.votingRoundId + 5;
       newMessageData.votingRoundId = specificVotingRoundId;
       newMessageData.protocolId = randomNumberProtocolId + 1; // non-random number protocol
+      // isSecureRandom is meaningful only for the random-number protocol; Relay requires 0 elsewhere.
+      newMessageData.isSecureRandom = false;
       let messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
       let signatures = await generateSignatures(accountPrivateKeys, messageHash, N / 2 + 1);
 
@@ -1885,6 +1889,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       newMessageData.merkleRoot = tree.root!;
       newMessageData.votingRoundId = newMessageData.votingRoundId + 5;
       newMessageData.protocolId = 17;
+      // isSecureRandom is meaningful only for the random-number protocol; Relay requires 0 elsewhere.
+      newMessageData.isSecureRandom = false;
       const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData, chainId);
       const signatures = await generateSignatures(accountPrivateKeys, messageHash, N / 2 + 1);
       const fullData = RelayMessage.encode({

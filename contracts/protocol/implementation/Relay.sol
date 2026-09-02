@@ -159,7 +159,8 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
     // Protocol message merkle root structure
     // 1 byte - protocolId
     // 4 bytes - votingRoundId
-    // 1 byte - isSecureRandom
+    // 1 byte - isSecureRandom (a bool: 0 or 1 for the random-number protocol, 0 for every other
+    //          protocol id; enforced while parsing the message)
     // 32 bytes - merkleRoot
     // Total 38 bytes
     // if loaded into a memory slot, these are right shifts and masks
@@ -999,7 +1000,7 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             // Extracting protocolId, votingRoundId and isSecureRandom
             // 1 bytes - protocolId
             // 4 bytes - votingRoundId
-            // 1 bytes - isSecureRandom
+            // 1 bytes - isSecureRandom (bool)
             // 32 bytes - merkleRoot
             // message length: 38
 
@@ -1081,18 +1082,39 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                 }
 
                 if eq(protocolId, 1) {
-                    // both votingRoundId and isSecureRandom should be 0
+                    // votingRoundId should be 0
                     if votingRoundId {
                         revertWithError(memPtrGP0, ERR_WRONG_MESSAGE_FORMAT)
                     }
+                }
 
-                    if structValue( // isSecureRandom should be 0
-                        shr(
-                            sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
-                            mload(memPtrGP0)
+                // isSecureRandom is a bool, and it carries meaning only for the random-number
+                // protocol: 0 or 1 there, 0 for every other protocol id (protocolId == 1
+                // included). Enforced once here, ahead of every sink, so no downstream path has
+                // to normalize a byte and no non-canonical value can reach the random leaf, the
+                // stored quality bit, or the bool field of ProtocolMessageRelayed.
+                {
+                    let maxIsSecureRandom := 0
+                    if eq(
+                        protocolId,
+                        structValue(
+                            mload(add(memPtrGP0, M_5_stateData)),
+                            SD_BOFF_randomNumberProtocolId,
+                            SD_MASK_randomNumberProtocolId
+                        )
+                    ) {
+                        maxIsSecureRandom := 1
+                    }
+                    if gt(
+                        structValue(
+                            shr(
+                                sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
+                                mload(memPtrGP0)
+                            ),
+                            MSG_NMR_BOFF_isSecureRandom,
+                            MSG_NMR_MASK_isSecureRandom
                         ),
-                        MSG_NMR_BOFF_isSecureRandom,
-                        MSG_NMR_MASK_isSecureRandom
+                        maxIsSecureRandom
                     ) {
                         revertWithError(memPtrGP0, ERR_WRONG_MESSAGE_FORMAT2)
                     }
@@ -1624,8 +1646,8 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
 
                             // Here we setup M_5 to value of isSecureRandom from message
                             // while in M_6 we have Merkle root
-                            // Note that the value of isSecureRandom outside the random
-                            // generating protocol is meaningless.
+                            // Outside the random generating protocol message parsing requires
+                            // isSecureRandom to be 0, so the emitted bool is always false here.
                             // These two fields are used for the emitted event
                             mstore(add(memPtrFor, M_5_isSecureRandom),
                                 structValue(
@@ -1652,19 +1674,19 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
                                 SD_MASK_randomNumberProtocolId
                             )
                         ) {
-                            // Read and normalize isSecureRandom from the message to {0,1}.
+                            // Read isSecureRandom. Message parsing already constrained it to
+                            // {0,1} for this protocol, so no normalization is needed here and
+                            // the value fed to the leaf is exactly the signed one.
                             calldatacopy(
                                 memPtrFor,
                                 add(SELECTOR_BYTES, signingPolicyLength),
                                 MESSAGE_NO_MR_BYTES
                             )
-                            let isSecure := iszero(iszero(
-                                structValue(
-                                    shr(sub(256, mul(8, MESSAGE_NO_MR_BYTES)), mload(memPtrFor)),
-                                    MSG_NMR_BOFF_isSecureRandom,
-                                    MSG_NMR_MASK_isSecureRandom
-                                )
-                            ))
+                            let isSecure := structValue(
+                                shr(sub(256, mul(8, MESSAGE_NO_MR_BYTES)), mload(memPtrFor)),
+                                MSG_NMR_BOFF_isSecureRandom,
+                                MSG_NMR_MASK_isSecureRandom
+                            )
 
                             // Verify the random Merkle proof against the signed merkleRoot and store
                             // toRandomNumberPrivate[votingRoundId] (always, so historical lookups work).

@@ -173,6 +173,19 @@ contract RelayTestBase is Test {
     }
 
     // Full relay() calldata for a custom-signature (protocolId == 1) message over `merkleRoot`.
+    // Same layout as _protocolMessage but with a raw isSecureRandom byte, so tests can build
+    // messages carrying non-canonical values that a bool parameter could not express.
+    function _protocolMessageRawFlag(
+        uint8 protocolId,
+        uint32 votingRoundId,
+        uint8 isSecureRandomByte,
+        bytes32 merkleRoot
+    )
+        internal pure returns (bytes memory)
+    {
+        return abi.encodePacked(protocolId, votingRoundId, isSecureRandomByte, merkleRoot);
+    }
+
     function _customSigRelayMessage(bytes memory policy, bytes32 merkleRoot, uint256 numSigners)
         internal view returns (bytes memory)
     {
@@ -262,6 +275,60 @@ contract RelayRandomTest is RelayTestBase {
         // ...but the older round is still stored for historical lookups
         (uint256 rndH,,) = relay.getRandomNumberHistorical(v1);
         assertEq(rndH, 0x1111, "historical not stored for stale round");
+    }
+
+    // isSecureRandom is a bool. The random-number protocol accepts 0 or 1 and nothing else:
+    // a non-canonical byte is rejected while parsing the message, before it can reach the leaf,
+    // the stored quality bit, or either event.
+    function test_random_nonCanonicalSecureByte_reverts() public {
+        uint32 vrid = START_VOTING_ROUND_ID;
+        (bytes32 root, bytes32 sibling) = _treeFor(vrid, 0xAAAA, true);
+        bytes memory message = _protocolMessageRawFlag(RANDOM_PROTOCOL_ID, vrid, 2, root);
+        bytes memory rm = abi.encodePacked(
+            Relay.relay.selector, policy, message,
+            _signatures(_ethSignedHash(message), _firstK(3)),
+            abi.encodePacked(uint256(0xAAAA), sibling)
+        );
+        vm.expectRevert(IRelay.WrongMessageFormat2.selector);
+        this.relayRaw(rm);
+        // the same round with a canonical byte still relays, so the rejection is not incidental
+        (bool okCanonical,) = address(relay).call(_randomRelayMessage(vrid, 0xAAAA, true, 3));
+        assertTrue(okCanonical, "canonical isSecureRandom must relay");
+    }
+
+    // Outside the random-number protocol the flag carries no meaning and nothing constrains it,
+    // so it must be zero. Its only sink there is the bool field of ProtocolMessageRelayed.
+    function test_mode2_nonRandomProtocol_secureFlagMustBeZero() public {
+        uint8 pid = RANDOM_PROTOCOL_ID + 1;
+        uint32 vrid = START_VOTING_ROUND_ID;
+        bytes memory set = _protocolMessageRawFlag(pid, vrid, 1, keccak256("root"));
+        bytes memory rmSet = abi.encodePacked(
+            Relay.relay.selector, policy, set, _signatures(_ethSignedHash(set), _firstK(3))
+        );
+        vm.expectRevert(IRelay.WrongMessageFormat2.selector);
+        this.relayRaw(rmSet);
+
+        bytes memory clear = _protocolMessage(pid, vrid, false, keccak256("root"));
+        bytes memory rmClear = abi.encodePacked(
+            Relay.relay.selector, policy, clear, _signatures(_ethSignedHash(clear), _firstK(3))
+        );
+        (bool okClear,) = address(relay).call(rmClear);
+        assertTrue(okClear, "a clear flag on a non-random protocol must relay");
+        assertTrue(relay.isFinalized(pid, vrid), "round should be finalized");
+    }
+
+    // protocolId == 1 (custom signature) keeps requiring zero; the general rule subsumes the
+    // dedicated check it replaced, and a non-canonical byte is rejected there too.
+    function test_customSignatureProtocol_secureFlagMustBeZero() public {
+        bytes32 mh = keccak256("app-action");
+        for (uint8 flag = 1; flag <= 2; flag++) {
+            bytes memory message = _protocolMessageRawFlag(1, 0, flag, mh);
+            bytes memory rm = abi.encodePacked(
+                Relay.relay.selector, policy, message, _signatures(_ethSignedHash(message), _firstK(3))
+            );
+            vm.expectRevert(IRelay.WrongMessageFormat2.selector);
+            this.relayRaw(rm);
+        }
     }
 
     function test_random_invalidProof_reverts() public {
@@ -369,23 +436,6 @@ contract RelayRandomTest is RelayTestBase {
         assertTrue(ok, "deep (2-node) merkle proof should verify");
         (uint256 rnd,,) = relay.getRandomNumber();
         assertEq(rnd, value);
-    }
-
-    // A message isSecure byte outside {0,1} is normalized to 1; the leaf uses 1.
-    function test_random_isSecureNormalization() public {
-        uint32 vrid = START_VOTING_ROUND_ID;
-        uint256 value = 0x5;
-        bytes32 leaf = _randomLeaf(vrid, value, true); // leaf uses isSecure = 1
-        bytes32 sibling = keccak256("sibling");
-        bytes32 root = _sortedPair(leaf, sibling);
-        bytes memory message = abi.encodePacked(RANDOM_PROTOCOL_ID, vrid, uint8(2), root); // isSecure byte = 2
-        bytes memory sigs = _signatures(_ethSignedHash(message), _firstK(3));
-        bytes memory trailer = abi.encodePacked(value, sibling);
-        (bool ok,) = address(relay).call(abi.encodePacked(Relay.relay.selector, policy, message, sigs, trailer));
-        assertTrue(ok, "isSecure byte 2 should normalize to 1 and verify");
-        (uint256 rnd, bool sec,) = relay.getRandomNumber();
-        assertEq(rnd, value);
-        assertTrue(sec, "isSecure must be normalized to true");
     }
 
     // bubbles the inner relay() revert data so vm.expectRevert can match the exact reason

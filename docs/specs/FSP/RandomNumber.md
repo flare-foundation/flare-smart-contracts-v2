@@ -10,10 +10,12 @@ The FTSO anchor protocol's voting rounds include a per-round 256-bit random as a
 randomNumber (32 bytes) || Merkle proof nodes (32 bytes each)
 ```
 
-Relay normalizes the signed `isSecureRandom` byte to `0` or `1`, computes
+`isSecureRandom` is a bool on the wire: Relay rejects any value above `1` while parsing the
+protocol message (`WrongMessageFormat2`), so the signed byte reaches the leaf unchanged. Relay
+computes
 
 ```text
-leaf = keccak256(abi.encode(votingRoundId, randomNumber, normalizedSecureFlag))
+leaf = keccak256(abi.encode(votingRoundId, randomNumber, isSecureRandom))
 ```
 
 and folds the supplied proof with OpenZeppelin-compatible sorted-pair hashing. The computed root must equal the root in the threshold-signed protocol message. A missing value, non-word-aligned trailer, or invalid proof reverts without storing the random.
@@ -37,7 +39,7 @@ function getRandomNumber()
 Returned values:
 
 - `_randomNumber` is the Merkle-proven 256-bit value stored for `stateData.randomVotingRoundId`.
-- `_isSecureRandom` reflects the normalized, threshold-signed secure-random bit from the protocol message. Relay does not independently derive this quality classification. A non-secure round still has a value but must be treated as best-effort.
+- `_isSecureRandom` reflects the threshold-signed secure-random bit from the protocol message, which the message parser already required to be a canonical `0` or `1`. Relay does not independently derive this quality classification. A non-secure round still has a value but must be treated as best-effort.
 - `_randomTimestamp` is the nominal start of the next voting round, computed as `firstVotingRoundStartTs + (randomVotingRoundId + 1) × votingEpochDurationSeconds`. It is protocol time derived from the round ID, not the block timestamp at which Relay stored the value.
 
 For historical lookups:
@@ -73,6 +75,6 @@ function getCurrentRandomWithQualityAndTimestamp() external view returns(uint256
 
 ## What "secure" means
 
-A round's random is **secure** when the FTSO anchor protocol's off-chain rules classify it as secure and a signing-policy quorum finalizes that classification with the root. Relay checks that the proven leaf contains the same normalized secure flag as the signed protocol message; it does not recompute reveal participation or security quality.
+A round's random is **secure** when the FTSO anchor protocol's off-chain rules classify it as secure and a signing-policy quorum finalizes that classification with the root. Relay builds the proven leaf from the signed protocol message's own flag rather than reading a flag off the tree, so a leaf committed under a different classification simply fails the proof; it does not recompute reveal participation or security quality.
 
 A non-secure round can still be useful (e.g. application contracts that don't need bias-resistance), but FSP only uses the random for vote-power-block selection when the secure flag is set.

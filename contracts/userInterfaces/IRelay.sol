@@ -72,6 +72,9 @@ interface IRelay is RandomNumberV2Interface {
     );
 
     // Event is emitted when a protocol message is relayed.
+    // isSecureRandom is always a canonical bool: the relayed message must carry 0 or 1 for the
+    // random-number protocol and 0 for every other protocol id, so this field never carries a
+    // value a strict ABI decoder would reject. Outside the random-number protocol it is false.
     event ProtocolMessageRelayed(
         uint8 indexed protocolId,           // Protocol id
         uint32 indexed votingRoundId,       // Voting round id
@@ -205,6 +208,8 @@ interface IRelay is RandomNumberV2Interface {
     error VotersWeightsSizeMismatch();
     error VotingEpochDurationZero();
     error WrongMessageFormat();
+    /// The protocol message's isSecureRandom byte is not a canonical bool for its protocol id:
+    /// it must be 0 or 1 for the random-number protocol and 0 for every other protocol id.
     error WrongMessageFormat2();
     error WrongSignPolicyRewardEpoch();
     error WrongSignature();
