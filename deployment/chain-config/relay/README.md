@@ -41,7 +41,7 @@ before any broadcast — the config's `expectedDeployer` and those pins cross-ch
       "chainId": 42161,                    // asserted against block.chainid at deploy
       "relayOwner": "0x…",                 // the chain's multisig
       "feeCollectionAddress": "0x…",       // nonzero
-      "timelockDurationSeconds": 3600,     // owner-timelock for fee setters + upgrades
+      "timelockDurationSeconds": 3600,     // owner-timelock for every guarded call
       "feeConfigs": [ { "protocolId": 100, "fee": "1000000" } ],  // fee > 0; omit a protocol to make it free
       "feeToken": "0x…",                   // REQUIRED: ERC-20 the fee is paid in (zero = native)
       "feeExemptAddresses": [ "0x…" ]      // e.g. DVN adapters, seeded fee-exempt (may be empty)
@@ -147,7 +147,7 @@ constructor re-validates ranges authoritatively.
 | Field | Meaning |
 |-------|---------|
 | `chainId` | The target chain id; asserted against `block.chainid` at deploy. |
-| `relayOwner` | Per-chain owner: authorizes fee setters and UUPS upgrades through the owner-timelock (the chain's multisig). Nonzero. |
+| `relayOwner` | Per-chain owner: authorizes every guarded call — fee settings, UUPS upgrades, the timelock duration and ownership transfer — through the owner-timelock (the chain's multisig). Nonzero. |
 | `feeCollectionAddress` | Recipient of collected `verify()` fees. Nonzero (a zero recipient burns fees). |
 | `timelockDurationSeconds` | Initial owner-timelock duration (≤ 7 days; 0 = immediate owner calls). |
 | `feeConfigs` | `[{ "protocolId": <uint8 > 1>, "fee": "<uint256 > 0>" }]`. Native wei, or `feeToken` base units when one is set. A free protocol is expressed by omission (zero fees are rejected). |

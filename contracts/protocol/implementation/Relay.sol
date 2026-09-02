@@ -313,8 +313,9 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
      * @param _signingPolicySetter The address of the signing policy setter.
      * @param _oldRelay The old relay contract (can be address(0)); home/setter-mode deployments
      * only — must be zero in relay mode (mirrors), see OldRelayNotAllowedInRelayMode.
-     * @param _initialOwner The per-chain owner (multisig): authorizes the fee setters and
-     * upgrades through the OwnableWithTimelock queue (see IOwnableWithTimelock).
+     * @param _initialOwner The per-chain owner (multisig): authorizes every guarded call — fee
+     * settings, upgrades, the timelock duration and ownership transfer — through the
+     * OwnableWithTimelock owner-timelock path (see IOwnableWithTimelock).
      */
     function initialize(
         RelayInitialConfig memory _initialConfig,

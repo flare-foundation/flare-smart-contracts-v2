@@ -26,7 +26,7 @@
             "description": "The source's own home (setter-mode) Relay deployment settings. Protocol addresses are read\nfrom the on-chain FlareContractRegistry, the epoch/protocol params are inherited from the\ncurrently deployed Relay's stateData() (four are handshake-enforced to match it anyway; the\nrest are preserved across a redeploy), and the initial signing-policy hash is always\nreconstructed from chain state and verified against the old Relay — so the only thing\nconfigured here is the owner-timelock duration.",
             "properties": {
                 "timelockDurationSeconds": {
-                    "description": "Initial owner-timelock duration in seconds applied to the owner's fee setters and\nupgrades (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls\nimmediate (reasonable on home chains where the owner is the governance multisig, itself\nbehind Flare's governance timelock).",
+                    "description": "Initial owner-timelock duration in seconds applied to every guarded owner call — fee\nsettings, upgrades, this duration and ownership transfer (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls\nimmediate (reasonable on home chains where the owner is the governance multisig, itself\nbehind Flare's governance timelock).",
                     "type": "integer"
                 }
             },
@@ -66,11 +66,11 @@
                     "type": "string"
                 },
                 "relayOwner": {
-                    "description": "The per-chain owner (Relay.owner()): the chain's designated multisig, authorizing the fee\nsetters and UUPS upgrades through the owner-timelock. Does not exist on the Flare\nregistry, so it is configured here.",
+                    "description": "The per-chain owner (Relay.owner()): the chain's designated multisig, authorizing every\nguarded call — fee settings, UUPS upgrades, the timelock duration and ownership transfer —\nthrough the owner-timelock. Does not exist on the Flare registry, so it is configured here.",
                     "type": "string"
                 },
                 "timelockDurationSeconds": {
-                    "description": "Initial owner-timelock duration in seconds applied to the owner's fee setters and\nupgrades (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls\nimmediate.",
+                    "description": "Initial owner-timelock duration in seconds applied to every guarded owner call — fee\nsettings, upgrades, this duration and ownership transfer (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls\nimmediate.",
                     "type": "integer"
                 }
             },

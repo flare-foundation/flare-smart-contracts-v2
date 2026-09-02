@@ -30,9 +30,9 @@ export interface RelayMirrorConfig {
   chainId: integer;
 
   /**
-   * The per-chain owner (Relay.owner()): the chain's designated multisig, authorizing the fee
-   * setters and UUPS upgrades through the owner-timelock. Does not exist on the Flare
-   * registry, so it is configured here.
+   * The per-chain owner (Relay.owner()): the chain's designated multisig, authorizing every
+   * guarded call — fee settings, UUPS upgrades, the timelock duration and ownership transfer —
+   * through the owner-timelock. Does not exist on the Flare registry, so it is configured here.
    */
   relayOwner: string;
 
@@ -42,8 +42,8 @@ export interface RelayMirrorConfig {
   feeCollectionAddress: string;
 
   /**
-   * Initial owner-timelock duration in seconds applied to the owner's fee setters and
-   * upgrades (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls
+   * Initial owner-timelock duration in seconds applied to every guarded owner call — fee
+   * settings, upgrades, this duration and ownership transfer (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls
    * immediate.
    */
   timelockDurationSeconds: integer;
@@ -80,8 +80,8 @@ export interface RelayMirrorConfig {
  */
 export interface RelayHomeConfig {
   /**
-   * Initial owner-timelock duration in seconds applied to the owner's fee setters and
-   * upgrades (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls
+   * Initial owner-timelock duration in seconds applied to every guarded owner call — fee
+   * settings, upgrades, this duration and ownership transfer (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls
    * immediate (reasonable on home chains where the owner is the governance multisig, itself
    * behind Flare's governance timelock).
    */

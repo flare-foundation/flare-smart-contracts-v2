@@ -43,7 +43,7 @@ interface IEntityManagerRead {
 // Relay implementation (plain CREATE) + RelayProxy through the Create3Factory (chain-invariant
 // address) in SETTER MODE: signingPolicySetter = FlareSystemsManager, oldRelay migration
 // handshake, NO feeConfigs, and sourceChainId forced to == block.chainid. The Relay owner
-// (governance and upgrade authority via the OwnableWithTimelock queue) is the governance
+// (governance and upgrade authority via the OwnableWithTimelock path) is the governance
 // address read from GovernanceSettings.
 //
 // The initial signing-policy hash for the next reward epoch is ALWAYS RECONSTRUCTED from chain
@@ -84,7 +84,8 @@ contract DeployRelayHome is RelayDeployBase {
         // Every address is read from chain — the FlareContractRegistry is the single source of
         // truth on a Flare network, so no addresses live in the config. GovernanceSettings is
         // resolved by name (its own address is not fixed across chains); the Relay owner —
-        // authorizing fee setters and UUPS upgrades through the owner-timelock — is its live
+        // authorizing every guarded call (fee settings, UUPS upgrades, the timelock duration
+        // and ownership transfer) through the owner-timelock — is its live
         // getGovernanceAddress().
         address flareSystemsManager = _registryAddress("FlareSystemsManager");
         address oldRelay = _registryAddress("Relay");

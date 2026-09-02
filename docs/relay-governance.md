@@ -28,13 +28,51 @@ For a method protected by `onlyOwnerWithTimelock`:
   self-call.
 
 The timelock duration is itself timelocked and capped at seven days.
-`renounceOwnership` is disabled; ownership moves atomically through
-`transferOwnership`.
+`renounceOwnership` is disabled; ownership moves through `transferOwnership`,
+which is **also** guarded by `onlyOwnerWithTimelock`. With a nonzero duration it
+queues publicly and waits like every other owner action. A partially compromised
+signer set therefore cannot take the role in a single transaction and lock the
+honest signers out of cancelling anything. There is no propose/accept handshake
+and no pending-owner state: when the call executes the role moves in one write,
+and a reverted execution moves nothing.
+
+With the transfer guarded, **no owner action can take effect without passing
+through the queue-and-wait window while a nonzero duration is configured**. A
+zero duration disarms the timelock for every guarded call, transfers included:
+they then apply immediately and nothing is queued. The complete owner surface is
+`setProtocolFees`, `setFeeExemptions`, `setFeeCollectionAddress`,
+`setSigningPolicySetter`, `upgradeToAndCall`, `setTimelockDuration` and
+`transferOwnership`, all `onlyOwnerWithTimelock`; `renounceOwnership` reverts;
+`executeTimelockedCall` is permissionless. The single exception is
+`cancelTimelockedCall`, which is plain `onlyOwner` and immediate by design — it
+can only withdraw a pending action, never enact one, so the outgoing owner keeps
+it until execution and may cancel a queued transfer with it. `OwnableUpgradeable`
+and `UUPSUpgradeable` contribute no other mutating entry point.
+
+The owner is a per-chain multisig, and `transferOwnership` exists to **replace
+that multisig** — rotating to a new signer set, migrating to a different safe —
+not to hand the role to an individual. The contract cannot enforce that, and a
+zero target is rejected but a wrong nonzero one is unrecoverable, so the target
+address is a first-class review item on any transfer proposal.
 
 Queued entries are keyed by calldata and timestamp. They are not bound to an
-owner generation or implementation generation and do not expire. Before an
-ownership transfer or implementation change, enumerate and cancel every queued
-operation that must not remain executable.
+owner generation or implementation generation, do not expire, and are **not
+enumerable on-chain** — the contract keeps a bare hash-to-timestamp mapping with
+no key set, so nothing on-chain reports what is outstanding. Clearing the queue
+is therefore an off-chain procedure:
+
+1. replay `CallTimelocked` from deployment and collect the emitted hashes;
+2. drop each hash already matched by a later `TimelockedCallExecuted` or
+   `TimelockedCallCanceled`;
+3. confirm every remaining hash with `getExecuteTimelockedCallTimestamp`, which
+   reverts `TimelockInvalidSelector` once an entry is gone;
+4. `cancelTimelockedCall` each operation that must not remain executable.
+
+Run that pass before every ownership transfer and implementation change. Neither
+one invalidates a queued entry, and an incoming owner cannot verify from chain
+state alone that nothing is still pending, so this is a procedural control — the
+structural fix is recorded as RLY-SEC-07 in
+[relay-security-review.md](relay-security-review.md).
 
 ## 2. Owner-controlled Relay surface
 
@@ -47,6 +85,8 @@ The owner/timelock controls:
 | `setFeeCollectionAddress(address)` | relay mode | changes the nonzero fee recipient |
 | `setSigningPolicySetter(address)` | setter mode | changes the trusted nonzero signing-policy setter |
 | `upgradeToAndCall(address,bytes)` | both | upgrades the UUPS implementation and optionally runs migration calldata |
+| `transferOwnership(address)` | both | moves the owner role to a new nonzero address (normally a replacement multisig) |
+| `setTimelockDuration(uint256)` | both | changes the timelock duration, capped at seven days |
 
 `setProtocolFees` is a full replace: the previous fee table is cleared before the
 supplied one is applied, so a protocol not listed in the call is free (fee 0)

@@ -40,7 +40,8 @@ contract RelayNestedMigrationMock is Relay {
 
 /**
  * Owner-timelock semantics of Relay's OwnableWithTimelock base, with Relay's guarded
- * functions — the fee setters and upgradeToAndCall — as the timelocked surface.
+ * functions — the fee setters, upgradeToAndCall, setTimelockDuration and transferOwnership —
+ * as the timelocked surface.
  * The test contract is the Relay owner, so guarded calls are direct.
  */
 contract RelayOwnableWithTimelockTest is Test {
@@ -132,6 +133,88 @@ contract RelayOwnableWithTimelockTest is Test {
         // The older, superseded intent still applies afterwards.
         relay.executeTimelockedCall(toTwoDays);
         assertEq(relay.getTimelockDurationSeconds(), 2 days, "superseded queue was not executable");
+    }
+
+    // ── Ownership transfer ────────────────────────────────────────────────────
+
+    function test_transferOwnershipDirectWhenZero() public {
+        // Duration 0: applies immediately, like every other guarded setter.
+        relay.transferOwnership(address(0xA11CE));
+        assertEq(relay.owner(), address(0xA11CE));
+    }
+
+    function test_transferOwnershipRevertZeroAddress() public {
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableInvalidOwner.selector, address(0)));
+        relay.transferOwnership(address(0));
+    }
+
+    function test_transferOwnershipRevertNonOwner() public {
+        vm.prank(address(0xBEEF));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, address(0xBEEF))
+        );
+        relay.transferOwnership(address(0xA11CE));
+    }
+
+    // The point of the change: with the timelock armed, taking the owner role is no longer a
+    // single atomic transaction — it queues publicly and waits like everything else.
+    function test_transferOwnershipQueuedOnceActive() public {
+        relay.setTimelockDuration(TIMELOCK);
+
+        relay.transferOwnership(address(0xA11CE));
+        assertEq(relay.owner(), address(this), "ownership moved without the delay");
+
+        bytes memory call = abi.encodeCall(relay.transferOwnership, (address(0xA11CE)));
+        assertEq(relay.getExecuteTimelockedCallTimestamp(call), vm.getBlockTimestamp() + TIMELOCK);
+
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
+        relay.executeTimelockedCall(call);
+        assertEq(relay.owner(), address(0xA11CE), "ownership did not move on execution");
+    }
+
+    // Cancelling is what the waiting window is for.
+    function test_transferOwnershipQueueCanBeCancelled() public {
+        relay.setTimelockDuration(TIMELOCK);
+        relay.transferOwnership(address(0xA11CE));
+
+        bytes memory call = abi.encodeCall(relay.transferOwnership, (address(0xA11CE)));
+        relay.cancelTimelockedCall(call);
+
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
+        vm.expectRevert(IOwnableWithTimelock.TimelockInvalidSelector.selector);
+        relay.executeTimelockedCall(call);
+        assertEq(relay.owner(), address(this), "cancelled transfer still applied");
+    }
+
+    // After the transfer the role really has moved: the new owner governs, the old one cannot.
+    function test_transferOwnershipMovesTheOwnerRole() public {
+        relay.setTimelockDuration(TIMELOCK);
+        relay.transferOwnership(address(0xA11CE));
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
+        relay.executeTimelockedCall(abi.encodeCall(relay.transferOwnership, (address(0xA11CE))));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, address(this))
+        );
+        relay.setTimelockDuration(2 days);
+
+        vm.prank(address(0xA11CE));
+        relay.setTimelockDuration(2 days); // queues under the new owner
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
+        relay.executeTimelockedCall(abi.encodeCall(relay.setTimelockDuration, (2 days)));
+        assertEq(relay.getTimelockDurationSeconds(), 2 days);
+    }
+
+    // A zero target is only rejected when the queued call executes — queueing validates nothing,
+    // exactly as for every other guarded setter.
+    function test_transferOwnershipZeroAddressRejectedAtExecution() public {
+        relay.setTimelockDuration(TIMELOCK);
+        relay.transferOwnership(address(0)); // queues without complaint
+
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableInvalidOwner.selector, address(0)));
+        relay.executeTimelockedCall(abi.encodeCall(relay.transferOwnership, (address(0))));
+        assertEq(relay.owner(), address(this));
     }
 
     // ── Queue / execute / cancel ──────────────────────────────────────────────

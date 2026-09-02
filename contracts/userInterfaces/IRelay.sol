@@ -43,8 +43,12 @@ interface IRelay is RandomNumberV2Interface {
                                                                // (signingPolicySetter set) forces it to
                                                                // equal block.chainid.
         uint256 timelockDurationSeconds;                       // Initial owner-timelock duration applied to
-                                                               // the fee setters and upgrades (see
-                                                               // IOwnableWithTimelock); at most 7 days.
+                                                               // every guarded owner call — fee settings,
+                                                               // upgrades, this duration and ownership
+                                                               // transfer (see IOwnableWithTimelock);
+                                                               // at most 7 days. Zero disables the
+                                                               // timelock: guarded calls then apply
+                                                               // immediately instead of queueing.
     }
 
     // Event is emitted when a new signing policy is initialized by the signing policy setter.

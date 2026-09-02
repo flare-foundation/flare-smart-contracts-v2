@@ -29,7 +29,8 @@ export interface RelayInitialConfig {
   // explicit and NONZERO on every deployment — a home deploy states its own chain id (enforced
   // on-chain), a mirror the mirrored network's.
   sourceChainId: number;
-  // Initial owner-timelock duration in seconds applied to the owner's fee setters and upgrades
-  // (see IOwnableWithTimelock). At most 7 days; 0 makes owner calls immediate.
+  // Initial owner-timelock duration in seconds applied to every guarded owner call — fee
+  // settings, upgrades, this duration and ownership transfer (see IOwnableWithTimelock).
+  // At most 7 days; 0 makes owner calls immediate.
   timelockDurationSeconds: number;
 }

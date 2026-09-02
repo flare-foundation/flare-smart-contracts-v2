@@ -41,7 +41,7 @@ This library backs the TEE Diamond and the FDC2 / TEE UUPS contracts. Contracts 
 
 [`Relay`](../../contracts/protocol/implementation/Relay.sol) does not inherit either governed stack. Each Relay proxy has an owner managed by [`OwnableWithTimelock`](../../contracts/utils/implementation/OwnableWithTimelock.sol) and uses OpenZeppelin UUPS upgrade mechanics. With a nonzero Relay timelock, an owner call protected by `onlyOwnerWithTimelock` queues the exact calldata; after its ETA, anyone may execute it through `executeTimelockedCall(bytes)`. The owner can cancel it. Queue entries are keyed by calldata, do not expire, and survive ownership or implementation changes unless canceled.
 
-Relay's owner-timelocked surface includes fee configuration, fee exemptions, fee collection, signing-policy-setter changes in the applicable deployment mode, and `upgradeToAndCall`. Relay has no `governance()`, `productionMode`, or `executeGovernanceCall(bytes4)` lifecycle. See the [Relay governance runbook](../relay-governance.md) for its exact operating model.
+Relay's owner-timelocked surface includes fee configuration, fee exemptions, fee collection, signing-policy-setter changes in the applicable deployment mode, `upgradeToAndCall`, the timelock duration itself, and `transferOwnership`. `renounceOwnership` reverts. With a nonzero duration the only owner power that stays immediate is `cancelTimelockedCall`, which can withdraw a pending action but never enact one; a zero duration makes every guarded call immediate. Relay has no `governance()`, `productionMode`, or `executeGovernanceCall(bytes4)` lifecycle. See the [Relay governance runbook](../relay-governance.md) for its exact operating model.
 
 ## `Governor` — community proposals
 

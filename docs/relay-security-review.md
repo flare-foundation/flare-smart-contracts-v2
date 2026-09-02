@@ -136,14 +136,25 @@ admission path.
 The timelock queue key binds calldata and its execution timestamp. It does not
 bind the owner generation, implementation generation, or an expiry. A call
 queued by the current owner remains permissionlessly executable after ownership
-transfer unless the new owner identifies and cancels it. A compatible upgrade
-that retains the timelock namespace and execution surface likewise does not
-invalidate an entry automatically; arbitrary replacement code may instead
-alter, ignore, or delete that state.
+transfer unless the new owner identifies and cancels it. `transferOwnership` is
+itself guarded, so with a nonzero duration the transfer is at least visible for
+the delay before it applies, which is when the outstanding queue must be
+cleared; with a zero duration there is no such window. Either way the transfer
+invalidates no entry. A compatible upgrade that retains the timelock
+namespace and execution surface likewise does not invalidate an entry
+automatically; arbitrary replacement code may instead alter, ignore, or delete
+that state.
+
+Identifying the entries is off-chain work. The queue is a bare
+hash-to-timestamp mapping with no key set, so nothing on-chain lists what is
+outstanding and an incoming owner cannot establish from chain state alone that
+the queue is empty. The mitigation is procedural, not structural.
 
 Bind queued operations to an authority/implementation generation, invalidate
 the generation on transfer or upgrade, and give operations a finite execution
-window.
+window. Pending that, the accepted mitigation is the clearing procedure in
+[relay-governance.md](relay-governance.md) §1, run before every ownership
+transfer and implementation change.
 
 ### RLY-SEC-08 — round-zero security disagreement
 
