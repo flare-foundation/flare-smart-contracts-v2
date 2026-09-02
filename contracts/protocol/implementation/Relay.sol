@@ -1777,6 +1777,12 @@ contract Relay is IIRelay, OwnableWithTimelock, UUPSUpgradeable {
             // arbitrary contract in this slot answers the delegated verify itself and is covered
             // by the migration trust assumption (see docs/relay-security-review.md). A supported
             // source that unexpectedly enforces a nonzero fee rejects this zero-value call.
+            //
+            // Never delegate a round the old relay did not finalize. Its stored root is zero
+            // there, and Merkle folding returns the leaf unchanged for an empty proof, so a zero
+            // leaf would verify against the zero root. Mirrors the local path's NotFinalized
+            // guard below; a source that cannot answer this fails closed by reverting.
+            require(oldRelay.isFinalized(_protocolId, _votingRoundId), NotFinalized());
             bool ok = oldRelay.verify(_protocolId, _votingRoundId, _leaf, _proof);
             require(ok, OldRelayVerificationFailed());
             if (msg.value > 0) {

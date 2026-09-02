@@ -310,8 +310,10 @@ interface IRelay is RandomNumberV2Interface {
      *   there is no refund path.
      * A successful verification delegated to a configured old relay (home deployments only,
      * rounds below the migration boundary) is free: no value is forwarded and the caller's
-     * entire msg.value is refunded. Migration configuration must use an intended supported
-     * setter-mode Relay chain, whose verification fees remain zero.
+     * entire msg.value is refunded. The round must be finalized on that source too, otherwise
+     * the call reverts NotFinalized — an unfinalized round has a zero root there, which an
+     * empty proof over a zero leaf would otherwise satisfy. Migration configuration must use an
+     * intended supported setter-mode Relay chain, whose verification fees remain zero.
      * **NOTE:** A leaf equal to the (finalized, non-zero) root verifies with an empty proof —
      *           a standard Merkle property. Off-chain leaf encoding MUST be domain-separated from internal
      *           and root node hashes so an internal node cannot be presented as a differently-typed leaf.

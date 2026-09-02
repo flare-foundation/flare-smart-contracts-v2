@@ -463,6 +463,26 @@ contract RelayVerifyTest is RelayTestBase {
         assertTrue(r.verify(3, 100, keccak256("x"), new bytes32[](0)));
     }
 
+    // An unfinalized pre-boundary round must not be delegated: the source's root is zero there and
+    // folding an empty proof returns the leaf, so a zero leaf would otherwise verify against it.
+    function test_verify_oldRelayFallback_revertsWhenSourceRoundNotFinalized() public {
+        Relay r = _deployWithOldRelay(true);
+        MockOldRelay(address(r.oldRelay())).setFinalized(false);
+        vm.expectRevert(IRelay.NotFinalized.selector);
+        r.verify(3, 100, bytes32(0), new bytes32[](0));
+    }
+
+    // The exact shape the guard closes: zero leaf + empty proof against an unfinalized round.
+    function test_verify_oldRelayFallback_zeroLeafEmptyProofRejectedWhenNotFinalized() public {
+        Relay r = _deployWithOldRelay(true);
+        MockOldRelay mock = MockOldRelay(address(r.oldRelay()));
+        // With the round finalized the delegation still answers (the source decides).
+        assertTrue(r.verify(3, 100, bytes32(0), new bytes32[](0)));
+        mock.setFinalized(false);
+        vm.expectRevert(IRelay.NotFinalized.selector);
+        r.verify(3, 100, bytes32(0), new bytes32[](0));
+    }
+
     // verify() forwards only the protocol fee and refunds the overpayment to the caller.
     function test_verify_refundsOverpayment() public {
         uint8 pid = 3;
@@ -1551,6 +1571,8 @@ contract RelayThresholdOverrideTest is RelayTestBase {
 // exposes matching stateData() timing fields, and returns a configurable verify() result.
 contract MockOldRelay {
     bool public verifyReturn;
+    // Defaults to a finalized round; flipped by tests exercising the delegated NotFinalized guard.
+    bool public finalizedReturn = true;
     uint32 internal immutable ts;
     uint8 internal immutable vd;
     uint32 internal immutable fre;
@@ -1593,8 +1615,11 @@ contract MockOldRelay {
     function merkleRoots(uint256, uint256) external pure returns (bytes32) {
         return bytes32(uint256(0xABCDEF));
     }
-    function isFinalized(uint256, uint256) external pure returns (bool) {
-        return true;
+    function isFinalized(uint256, uint256) external view returns (bool) {
+        return finalizedReturn;
+    }
+    function setFinalized(bool _v) external {
+        finalizedReturn = _v;
     }
     function toSigningPolicyHash(uint256) external pure returns (bytes32) {
         return bytes32(uint256(0xCAFE));
