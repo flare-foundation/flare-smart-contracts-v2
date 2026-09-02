@@ -33,9 +33,12 @@ bytes32 constant SET_ADMINS_COMMAND = bytes32("SET_ADMINS");
  *      call is recorded, while the fleet's composition is only known when the executor runs it,
  *      so a target list in the signature makes a publication unexecutable whenever one named
  *      machine left PRODUCTION during the timelock. Reading the active set in the body instead is
- *      a snapshot of the executing block, and there is no delay between publication and fleet
- *      convergence. That set is dispatched to verbatim — the diamond maintains it as exactly the
- *      extension's PRODUCTION machines, so there is nothing to filter out of it.
+ *      a snapshot of the executing block, so no machine is missed because the target list was
+ *      frozen at proposal time. That closes the TARGETING gap, not the ADOPTION one: machines
+ *      adopt the payload off chain, and until enough of them have, the store rejects updates
+ *      still carrying the previous generation. That set is dispatched to verbatim — the diamond
+ *      maintains it as exactly the extension's PRODUCTION machines, so there is nothing to filter
+ *      out of it.
  *      A publication takes the feed's next consecutive version for that kind, derived when the
  *      call EXECUTES. Ordering between two pending publications is a governance responsibility, as
  *      it is for every other timelocked setter: a call is keyed by its whole calldata, so two
@@ -49,15 +52,18 @@ bytes32 constant SET_ADMINS_COMMAND = bytes32("SET_ADMINS");
  *      does dispatch, the whole `msg.value` is forwarded and the diamond's fee FLOOR is the only
  *      gate: too little reverts there (`FeeTooLow`) and is retryable. Whatever IS attached goes to
  *      `RewardManager.receiveRewards` in full, in the same transaction — the diamond keeps no
- *      balance, does no per-instruction accounting and offers no on-chain claim method. Size the
+ *      balance, does no per-instruction accounting and offers no claim method of its own — a
+ *      refund, if the off-chain reward calculation attributes one, is claimed later through the
+ *      `RewardManager` like any other reward. Size the
  *      value with `get*PublicationFee`, read in the block the execution lands in.
  *      Who funded a publication cannot be read on chain — the executed body's `msg.sender` is
  *      this contract and `FlareGovernance` does not record who called `executeGovernanceCall` —
  *      so a publication names its claim-back address explicitly (`_claimBackAddress`, non-zero).
- *      That address is RECORDED, not honoured on chain: it and the full value are fields of
- *      `TeeInstructionsSent`, which is how the OFF-CHAIN reward calculation learns who paid. What
- *      it then does with a surplus, or with the value of an instruction that never executed, is
- *      decided there and is not a guarantee of this contract.
+ *      That address is RECORDED here and honoured — if at all — only later: it and the full
+ *      value are fields of `TeeInstructionsSent`, which is how the OFF-CHAIN reward calculation
+ *      learns who paid. Whether a surplus, or the value of an instruction that never executed, is
+ *      attributed back to that address is decided there and is not a guarantee of this contract;
+ *      whatever it attributes is then claimed on chain through the `RewardManager`.
  *      The permissionless methods need no such argument: their payer is `msg.sender`.
  *      Everything the executor CAN fix, above all too small an instruction fee and a
  *      misconfigured or unregistered TEE manager, reverts inside the diamond with its own error;
@@ -302,9 +308,11 @@ interface ITeeOracleInstructionsSender {
      * Requests a fresh feed observation from the given TEE machines.
      *
      * NOTE: an observation is stamped with the timestamp of the on-chain event that triggered it,
-     * and the feed store's ratchet is STRICT, so at most one round per distinct block timestamp
-     * can ever be published. Two keepers requesting in the same block each pay a full instruction
-     * fee, but only the first of the two resulting rounds can land — the other reverts `NotNewer`
+     * and the feed store's ratchet is STRICT, so at most one ACCEPTED UPDATE per distinct block
+     * timestamp can ever be published. Two keepers requesting in the same block each pay a full
+     * instruction fee, but only one submission carrying that timestamp can land — whichever is
+     * first, possibly mixing responses from both rounds, since they share it; every later one
+     * reverts `NotNewer`
      * for ever. Equal `observedAt` therefore proves two contributions describe the same INSTANT,
      * not that they answered the same request.
      * Open to anyone; the instruction fee (msg.value) bounds spam and the feed store
@@ -603,11 +611,11 @@ interface ITeeOracleInstructionsSender {
 
     /**
      * Returns the version assigned to a feed's most recently published endpoint
-     * configuration. Governance signs it into each `setEndpoints` call and the contract requires
-     * it to be exactly this value plus one, so the stream is strictly consecutive; the version is
-     * part of the encoded payload, so republishing identical content still yields a new version
-     * and a new hash. The next publication of this feed's endpoints must therefore sign
-     * `endpointsVersion(_feedId) + 1`.
+     * configuration. The next publication DERIVES its version as this value plus one when it
+     * executes — it is not an argument and nothing is signed — a checked increment, so it reverts
+     * at `type(uint64).max`. The stream is therefore strictly consecutive, and because the version
+     * is part of the encoded payload, republishing identical content still yields a new version
+     * and a new hash.
      * @param _feedId The feed id.
      */
     function endpointsVersion(
@@ -619,7 +627,7 @@ interface ITeeOracleInstructionsSender {
     /**
      * Returns the version assigned to a feed's most recently published admin sets.
      * Its own consecutive stream, independent of the endpoints one: the next `setAdmins` for this
-     * feed must sign `adminsVersion(_feedId) + 1`. See `endpointsVersion`.
+     * feed derives `adminsVersion(_feedId) + 1` when it executes. See `endpointsVersion`.
      * @param _feedId The feed id.
      */
     function adminsVersion(

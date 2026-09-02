@@ -31,13 +31,16 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  *   see below), then dispatch it VERBATIM to the extension's live active set, with the non-zero
  *   claim-back address governance named as the instruction's PAYER OF RECORD — the executed body's
  *   `msg.sender` is this contract, so the payer cannot be identified on chain and has to be
- *   stated. It is recorded in `TeeInstructionsSent`, not honoured on chain.
+ *   stated. It is recorded in `TeeInstructionsSent`; a refund, if the off-chain reward
+ *   calculation grants one, is claimed later through the `RewardManager` like any other reward.
  *   The targets are resolved INSIDE the body, never taken as a parameter: a
  *   governance call's arguments are frozen when the timelocked call is recorded, while the fleet's
  *   composition is only known when the executor runs it, so a target list in the signature makes
  *   a publication unexecutable whenever one named machine restarted, was paused or was re-keyed
  *   during the timelock. Reading `getActiveTeeMachines` in the body is a snapshot of the
- *   executing block, so publication and fleet convergence happen in one transaction. That set
+ *   executing block, so publication and DISPATCH happen in one transaction; ADOPTION is off chain
+ *   and lags it, and until enough machines have adopted, the store rejects updates that still
+ *   carry the previous generation. That set
  *   needs no filtering: `MachineManager` maintains it as exactly the extension's PRODUCTION
  *   machines, so it carries no duplicate, no zero address and no foreign-extension id by
  *   construction, and a fresh version is new to every machine in it.
@@ -693,7 +696,9 @@ contract TeeOracleInstructionsSender is IITeeOracleInstructionsSender, FlareUpgr
      * the fee, on every path — publication and push alike. The diamond enforces only a fee FLOOR
      * (`Instructions.sendInstructions`: `require(calculatedFee <= msg.value, FeeTooLow())`) and
      * then hands the WHOLE value to `RewardManager.receiveRewards` in the same transaction; it
-     * keeps no balance, does no per-instruction accounting and exposes no claim method.
+     * keeps no balance and does no per-instruction accounting, and exposes no claim method of its
+     * own - the value is claimable only the way any reward is, through the `RewardManager`, and
+     * only if the off-chain calculation attributes an amount to the payer of record.
      * `_claimBackAddress` is only carried into the emitted `TeeInstructionsSent`, alongside the
      * full `msg.value`. On chain, therefore, a surplus is simply part of that epoch's rewards and
      * nothing distinguishes it from the fee. What happens NEXT is the off-chain reward

@@ -573,10 +573,10 @@ contract TeeOracleIntegrationTest is Test {
         // quoted value is twice the fee of the single target the publication actually snapshots.
         // L-01, accepted rather than fixed: the diamond enforces only a floor and hands the WHOLE
         // value to the reward manager in the same transaction, so the publication succeeds and the
-        // surplus joins that epoch's rewards. There is no on-chain claim either way; the
-        // claim-back address is only recorded in the event for the off-chain reward calculation,
-        // which is where any return would be decided. Hence "read the view in the block the
-        // execution lands in".
+        // surplus joins that epoch's rewards. Neither the sender nor the diamond offers a claim;
+        // the claim-back address is only recorded in the event for the off-chain reward
+        // calculation, which decides any return - claimed, if attributed, through the
+        // RewardManager. Hence "read the view in the block the execution lands in".
         TeeOracleMachineSetupFacet(address(flareTeeManager)).changeTeeMachineState(
             secondTeeId, IMachineManager.TeeStatus.PAUSED
         );
@@ -976,8 +976,8 @@ contract TeeOracleIntegrationTest is Test {
     {
         (address[] memory active,) = flareTeeManager.getActiveTeeMachines(EXTENSION_ID);
         uint256 fee = active.length * INSTRUCTION_FEE;
-        // governance signs the next consecutive version, read here because this helper is also
-        // used on already-published feeds
+        // the version is assigned by the contract, so this helper works on an already-published
+        // feed exactly as it does on a fresh one
         vm.deal(initialGovernance, 2 * fee);
         vm.startPrank(initialGovernance);
         sender.setEndpoints{value: fee}(FEED_ID, _makeGroups(), claimBack);
@@ -985,7 +985,6 @@ contract TeeOracleIntegrationTest is Test {
         vm.stopPrank();
     }
 
-    /// One signed element per machine, all observing the same event at the same scale.
     /// A one-element submission batch. `submitFeedUpdates` is the only submission entry point,
     /// so a single signature is submitted as an array of one - which is also exactly the
     /// threshold-1 case these tests exercise.

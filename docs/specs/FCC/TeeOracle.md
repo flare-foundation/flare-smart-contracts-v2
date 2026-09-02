@@ -45,8 +45,10 @@ timelocked governance call's arguments are frozen when the call is *recorded*
 it. A target list in the signature therefore makes the whole publication unexecutable whenever one
 named machine restarted, was paused or was re-keyed during the timelock; reading the active set in
 the body is a snapshot of the *executing* block instead, so nothing about the fleet can invalidate
-an approved publication and there is no delay between publishing a configuration and the fleet
-receiving it.
+an approved publication and no machine is missed because the list was frozen at proposal time. That
+closes the **targeting** gap, not the **adoption** one: enclaves receive and adopt the dispatched
+configuration asynchronously, with no contractual time bound — the permissionless push exists
+precisely for machines the dispatch never reached.
 
 That set is dispatched to **verbatim** — the publication applies no eligibility predicate of its
 own. `extensionActiveTeeIds[extensionId]` in
@@ -64,8 +66,8 @@ hash (see [Storage model](#storage-model-hash-on-chain-payload-in-the-log)).
 
 ### Publication (governance)
 
-`setEndpoints(feedId, version, EndpointGroup[], claimBackAddress) payable` and
-`setAdmins(feedId, version, AdminRole[], claimBackAddress) payable` on
+`setEndpoints(feedId, EndpointGroup[], claimBackAddress) payable` and
+`setAdmins(feedId, AdminRole[], claimBackAddress) payable` on
 [`IITeeOracleInstructionsSender`](../../../contracts/tee/extensions/oracle/interface/IITeeOracleInstructionsSender.sol)
 are `onlyGovernance` and name no machines:
 
@@ -167,10 +169,17 @@ record. The permissionless methods take no such argument: their payer *is* `msg.
 [`Instructions`](../../../contracts/tee/library/Instructions.sol) requires
 `calculatedFee <= msg.value` (`FeeTooLow`) and then hands the **entire** value to
 `RewardManager.receiveRewards` **in the same transaction**, keeping no balance of its own. There is
-**no per-instruction accounting and no on-chain claim method anywhere in this repo.** The only
-thing that happens to `claimBackAddress` is that it is *recorded*: it and the full `msg.value` are
-both fields of the emitted
+**no per-instruction accounting, and no claim method on the sender or the diamond.** The only thing
+that happens to `claimBackAddress` on chain is that it is *recorded*: it and the full `msg.value`
+are both fields of the emitted
 [`TeeInstructionsSent`](../../../contracts/userInterfaces/tee/IInstructions.sol).
+
+A refund is therefore **deferred and policy-dependent, not impossible.** The value sits in the
+`RewardManager` as part of that reward epoch's pool, so if the off-chain reward calculation
+attributes an amount to the claim-back address, that address claims it through the
+`RewardManager`'s ordinary claim path once the epoch's calculation is published — the same way any
+reward is claimed. What these contracts guarantee is the record; whether a refund is attributed to
+it is decided off chain.
 
 Everything after that is the **off-chain reward calculation's** business, and this repo does not
 control it. That calculation has the payer of record and the exact value attached, so it *may*
@@ -452,10 +461,11 @@ any of it — see [The fee, and where it goes](#the-fee-and-where-it-goes).
      `StaleAdmins`, `NoEndpointsPublished` / `NoAdminsPublished`) — the machine proves it runs the
      feed's **latest published** configuration. The check is deliberately feed-level and not per
      machine, so a publication is an immediate invalidation of every machine still running the
-     previous generation. The rollout gap that opens is bounded — a feed publishes at most hourly,
-     and a publication auto-dispatches to the live active set — and it buys the property a
-     per-machine record cannot give: a superseded configuration stops being accepted at once,
-     rather than machine by machine as instructions land;
+     previous generation — the property a per-machine record cannot give: a superseded
+     configuration stops being accepted at once, rather than machine by machine as instructions
+     land. The rollout gap that opens is **not** contractually bounded: dispatch is immediate and
+     on-chain, but enclave receipt and adoption are asynchronous and can fail, which is what the
+     permissionless push exists for;
    **Across the batch**:
    - the element count must be at least `requiredSignatures` (`NotEnoughSignatures`) and at most
      32 (`TooManySignatures` — the cap that bounds the O(N²) distinctness scan and the sort);
@@ -465,14 +475,18 @@ any of it — see [The fee, and where it goes](#the-fee-and-where-it-goes).
      cannot be used: it verifies many signatures over **one** hash, while here every machine signs
      its own observation and therefore its own digest.)
    - every element must carry the **same** `observedAt` (`ObservedAtMismatch`): the contributors
-     observe one event, so a mismatch means the collector mixed rounds. That one common timestamp
+     must share one observation timestamp, so a mismatch means the collector mixed rounds. Equality
+     establishes a common *instant*, not a common request — nothing binds a `FeedUpdate` to the
+     instruction that produced it, so responses to several requests emitted in one block all carry
+     that block's timestamp and may be combined. That one common timestamp
      is then checked **once** against the ratchet (`NotNewer`) and against the accepting block
      (`TooFarAhead`), exactly as a single submission is — the observation event and the update
      cannot land in the same block, and a future-dated timestamp would freeze the feed
      irreversibly since `observedAt` only ratchets up. Because the ratchet is *strict* and an
-     observation is stamped with the triggering event's block timestamp, **at most one round per
-     distinct block timestamp can ever be published** — two keepers requesting in the same block
-     each pay an instruction fee but only one of the two resulting rounds can land. Equal
+     observation is stamped with the triggering event's block timestamp, **at most one accepted
+     update per distinct block timestamp can ever be published** — two keepers requesting in the
+     same block each pay an instruction fee, but only one submission carrying that timestamp can
+     land (possibly mixing responses from both rounds, since they share it). Equal
      `observedAt` therefore proves two contributions describe the same *instant*, not that they
      answered the same request;
    - `value` and `decimals` **may** differ per element; the store aggregates them (below). The
@@ -543,16 +557,18 @@ same `int32 value` / `int8 decimals` shape consumers already read:
 
    | Question | Check | On violation |
    |----------|-------|--------------|
-   | Is the median well **determined**? | the spread at the median position: `sorted[mid] − sorted[mid−1]` for an even count, and **half** of `sorted[mid+1] − sorted[mid−1]` for an odd one | **reverts** `SpreadTooBig(lower, upper, median, decimals)` — a median whose neighbours disagree wildly is meaningless and must not be published. The error reports the RAW neighbours, so at an odd count the judged spread is half the difference it shows |
+   | Is the median well **determined**? | the spread at the median position: `sorted[mid] − sorted[mid−1]` for an even count, and **half** of `sorted[mid+1] − sorted[mid−1]` for an odd one | **reverts** `SpreadTooBig(lowerNeighbour, upperNeighbour, median, decimals)` — a median whose neighbours disagree wildly is meaningless and must not be published. The error reports the RAW neighbours, so at an odd count the judged spread is half the difference it shows |
    | **Which machines** disagree? | each contribution's own deviation from the median | **flags**: the machines are named in `FeedOutliers(observedAt, median, decimals, teeIds, deviations)`, emitted alongside `FeedUpdated` and only when the list is non-empty. Never rejects |
 
    The rejection follows FAssets' `_calculateMedian`
    ([`FtsoV2PriceStore`](https://github.com/flare-foundation/fassets)) in using the median's
    neighbours rather than the full range, **including the halving of the odd case**. That halving
-   is what keeps the number parity-neutral: an odd count's neighbours straddle the median across
-   two gaps and an even count's across one, so without it the same real dispersion would be judged
-   twice as harshly whenever the batch happened to have an odd number of elements — and a
+   is what equalises **uniform adjacent spacing** across parity: an odd count's neighbours straddle
+   the median across two gaps and an even count's across one, so without it a uniformly spaced
+   batch would be judged twice as harshly whenever its element count is odd — and a
    `maxSpreadBIPS` ported from FAssets' live configuration would be twice as tight here as there.
+   It does **not** turn the statistic into a per-machine radius for an asymmetric sample; see the
+   metric note below.
    Unlike FAssets, which can only *skip* the feed (its
    aggregation is a side effect of a multi-feed publication), this reverts — one feed per store and
    one batch per transaction mean nothing else in the transaction needs protecting.
@@ -560,19 +576,39 @@ same `int32 value` / `int8 decimals` shape consumers already read:
    outlier would only teach submitters to filter off chain, which is exactly where the divergence
    information would be lost. Publishing and flagging means a submitter who does not filter hands
    over a complete divergence report on chain, while consumers (FAssets among them) keep a live
-   feed — one faulty machine cannot stall it. Deviations are signed (`value - median`), so the
+   feed — provided the diverging machine either is not one of the two **bracketing** values, or
+   does not push the judged spread past the bound. That condition is narrower than it sounds, and
+   parity-dependent. At N = 3 the bracketing pair is `sorted[0]` and `sorted[2]`, so a faulty
+   machine at either extreme *does* enter the spread — but because the odd branch halves and floors
+   it, a raw bracketing gap of up to `2 × allowed + 1` still lands, so even a bracketing outlier is
+   often only flagged. A faulty machine that sorts into the middle stays out of the spread but not
+   out of the test: it becomes the median, and `allowed` is computed from `abs(median)`, so it moves
+   the threshold itself. At N = 4 the extremes `sorted[0]` and `sorted[3]` are excluded from the
+   spread **unconditionally**, whatever they are, and the central gap alone decides whether the
+   batch lands. A faulty machine can also simply withhold,
+   which no threshold prevents. What `k >= 2f+1` buys is that the median lies inside the honest
+   range — not that the median, or either bracketing value, is itself honest.
+   Deviations are signed (`value - median`), so the
    log shows the direction, and `median` / `decimals` / `deviations` are all at the batch's
    normalisation scale, not the possibly coarser scale `FeedUpdated` carries.
-   The two tests read the same bound with **different metrics**, and an operator sizing the
-   parameter has to know which one bites: rejection compares a *spread* at the median position, flagging compares each
-   machine's one-sided *deviation* from it. For an ODD count the halving makes those the same
-   quantity, so the two tests fire at the same displacement; for an EVEN count the spread is the
-   full gap between two distinct machines, so rejection fires at half the displacement flagging
-   does. Rejection is never the looser of the two, so size the parameter from the rejection side —
-   it is the one that stalls the feed.
+   The two tests read the same bound with **different metrics**, and **neither dominates the
+   other** — which one bites depends on the parity *and* on how asymmetric the sample is:
+
+   * **Even count** — the judged spread is the gap between the two values being averaged, so a
+     pair straddling the median at `± d` is *rejected* at `2d` while each is *flagged* at `d`.
+     Rejection bites at half the per-machine displacement.
+   * **Odd count** — the judged spread is the *mean* of the two gaps flanking the median,
+     `(L + R) / 2`, while flagging fires on the largest single deviation, which is at least
+     `max(L, R) ≥ (L + R) / 2`. Rejection therefore bites **later** than flagging here — up to 2×
+     later when one neighbour sits *on* the median. That is exactly why an accepted batch can name
+     an outlier from N = 3 onwards.
+
+   Size the parameter from the rejection side for **liveness** — it is the test that stalls the
+   feed — but do not read either test as implying the other.
    Flagging is **unreachable for N ≤ 2**: a single element deviates from itself by zero, and for a
-   pair the median is their average, so each deviation is half a spread that has already had to fit
-   inside `allowed`. From **N = 3** it is reachable — `(0, 0, 20)` at `allowed` 10 has a judged
+   pair the median lies between the two values, so each deviation is at most the spread — exactly
+   half of it only when the two sum to an even number, since the median truncates toward zero — and
+   the spread has already had to fit inside `allowed`. From **N = 3** it is reachable — `(0, 0, 20)` at `allowed` 10 has a judged
    spread of `(20 − 0) / 2 = 10`, so it publishes a median of 0 and names the machine at 20.
    The test is **centre-local**, so it is not monotone in N: a batch rejected at N = 3 can be
    accepted, with the same median, by adding a fourth signature that lands between the original
@@ -587,9 +623,13 @@ same `int32 value` / `int8 decimals` shape consumers already read:
    `decimals`; the rescaling is clamped at both ends (a bound above ~4.3e17 already permits every
    possible deviation, one below a single unit of the batch's scale is zero), which is also what
    keeps `10**k` inside `uint256` when the two scales are dozens of decades apart.
-4. **Back to `int32` / `int8`.** Starting from `maxDecimals`, while the median does not fit
-   `int32` it is divided by ten — rounding half **away from zero**, symmetrically for negatives
-   (`15 → 2`, `-15 → -2`) — and the scale is decremented. Nothing meaningful is lost: every
+4. **Back to `int32` / `int8`.** Starting from `maxDecimals`, the scale is coarsened a decade at a
+   time until the median fits `int32`. Rounding is half **away from zero**, symmetrically for
+   negatives (`15 → 2`, `-15 → -2`), and is applied **once, to the original median**, at whichever
+   scale is finally used. Compounding a rounding per decade instead can land one final unit away
+   from the correctly rounded value — a median of `50,500,000,049` across two decades gives
+   `505,000,001` that way against `505,000,000` — and that one unit in the last place is the whole
+   of the error, however many decades are crossed. Nothing meaningful is lost: every
    contribution is itself an `int32` carrying at most ~9.3 significant digits and the median lies
    between the smallest and largest contribution, so the result is representable in the same ~9.3
    digits at its own magnitude — and the loop provably terminates at or before the batch's
@@ -603,8 +643,11 @@ submitted value at its submitted scale.
 ### The dry run
 
 `submitFeedUpdates` **returns** the aggregation it acted on, as a `FeedAggregation`: the median,
-the range's ends, the normalisation `decimals` they are all expressed in, the `allowedDeviation`
-the batch was judged against, and the flagged machines with their signed deviations. A
+the range's ends, the normalisation `decimals` they are all expressed in, the `spread` the
+rejection test actually compared (the bracketing gap for an even count, half of it for an odd one),
+the `allowedDeviation` the batch was judged against, and the flagged machines with their signed
+deviations. `spread` is returned because it cannot be re-derived from the other fields — without it
+a caller would have to re-normalise and re-sort the batch to learn its acceptance headroom. A
 one-element batch returns the same shape (a point range, no possible outlier). The outlier arrays
 are the *very arrays*
 `FeedOutliers` was emitted from and the median/`decimals` pair is the one `FeedUpdated` reports
@@ -622,7 +665,7 @@ draft had one, and it was dropped, because an `eth_call` on the real function is
   the helper, and any rule added to one path and not the other is a silent disagreement between
   what monitoring sees and what the chain does. The same function has nothing to drift from;
 - a failing rehearsal is still diagnosable: it reverts exactly where the real submission would,
-  and `SpreadTooBig(lower, upper, median, decimals)` names both bracketing values and the median,
+  and `SpreadTooBig(lowerNeighbour, upperNeighbour, median, decimals)` names both bracketing values and the median,
   so the divergence is readable straight from the trace.
 
 Monitoring therefore locates a diverging machine without paying for a transaction, exactly as
@@ -730,11 +773,15 @@ feed and size the setting against it.
 
 **A degenerate policy is legal and sometimes correct.** `maxSpreadBIPS = 0` together with
 `maxSpreadAbsolute = 0` makes the bound identically zero, which is how a discrete or binary feed
-demands exact agreement — but only at N ≤ 2. From **N = 3** it does **not** give unanimity: only
-the values at the median position have to match, so `(0, 0, 1)` has a judged spread of
-`(1 − 0) / 2 = 0`, publishes 0 and merely flags the dissenter. On a continuous feed it stops every non-identical batch, and since `SpreadTooBig`
-is a revert rather than an event, a log-only monitoring stack sees nothing at all — just a feed that
-stopped.
+demands exact agreement — but only at N ≤ 2. From **N = 3** it does **not** give unanimity, and the
+rule is parity-split: at an even count the two central values must tie exactly, while at an odd
+count the bracketing pair may differ by one unit because the judged spread floors — `(0, 0, 1)` has
+a judged spread of `(1 − 0) / 2 = 0`, publishes 0 and merely flags the dissenter, and the same holds
+on a continuous feed (`(100, 100, 101)` lands and flags the machine at 101). Values outside the
+bracketing pair, first existing at even N ≥ 4 and odd N ≥ 5, escape the rejection spread — though
+not the outlier flagging, which judges every element. What remains
+true on any feed: a batch this policy rejects reverts with `SpreadTooBig` — a revert rather than an
+event — so a log-only monitoring stack sees nothing at all, just a feed that stopped.
 
 **`setSubmissionPolicy` is an ordinary timelocked call**, keyed by the hash of its whole calldata,
 so two policies can be pending at once and execute in either order — an older, weaker one landing
@@ -758,7 +805,7 @@ Steps the script cannot perform:
 | `setOperationFees` `TEE_ORACLE` rows | Flare governance (timelocked; the default fee applies until then) |
 | `FtsoV2.addCustomFeeds([stores])` | Flare governance (timelocked) |
 | `setSubmissionPolicy` per store (only to CHANGE the initial policy) | Flare governance (timelocked) |
-| `setEndpoints` / `setAdmins` per feed | Flare governance (timelocked; the executor attaches the instruction fee from `get*PublicationFee`, read in the block the execution lands in — too little reverts in the diamond (`FeeTooLow`) and is retryable, and whatever is attached goes to the reward manager in full, with no on-chain claim; zero value if and only if the dispatch will be skipped. Governance also signs the next consecutive `version` and cancels a superseded pending call rather than leaving it queued, and names the non-zero `claimBackAddress` — the payer of record for the off-chain reward calculation, normally the wallet funding the execution) |
+| `setEndpoints` / `setAdmins` per feed | Flare governance (timelocked; the executor attaches the instruction fee from `get*PublicationFee`, read in the block the execution lands in — too little reverts in the diamond (`FeeTooLow`) and is retryable, and whatever is attached goes to the reward manager in full — a refund, if the off-chain calculation grants one, is claimed later through the `RewardManager`; zero value if and only if the dispatch will be skipped. The version is derived when the call executes; governance cancels a superseded pending call rather than leaving it queued, and names the non-zero `claimBackAddress` — the payer of record for the off-chain reward calculation, normally the wallet funding the execution) |
 | `pushEndpoints` / `pushAdmins` per feed | anyone (pays the instruction fee for the accepted machines, and supplies the configuration values from the publication log) |
 
 **TEE governance (`setNewTeeGovernance`) is not part of this extension's flow.** Machine

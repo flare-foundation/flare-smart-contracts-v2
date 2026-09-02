@@ -27,7 +27,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * (observations are stamped with an on-chain event timestamp inside the enclave), and the
  * signed feed update is bound to this exact feed via its `extensionId` and `feedId` fields.
  *
- * One submission carries `requiredSignatures` distinct machines' OWN observations of one event
+ * One submission carries `requiredSignatures` distinct machines' OWN observations at one instant
  * in a single atomic batch through the sole entry point `submitFeedUpdates` (a single signature is
  * a one-element array),
  * and the store stores the median of them — normalised in int256, because the machines
@@ -58,7 +58,9 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         int256 lowerNeighbour;
         int256 upperNeighbour;
         /// What the rejection bound actually judges: their difference for an even count, HALF of
-        /// it for an odd one, so the number does not depend on the batch's parity. Zero for a
+        /// it for an odd one - the MEAN of the two gaps flanking the median. That equalises
+        /// UNIFORM adjacent spacing across parity; it does not make the statistic a per-machine
+        /// radius, so an odd batch can be accepted while still naming an outlier. Zero for a
         /// single element.
         int256 spread;
         /// The bound both checks use: rescaled absolute term + maxSpreadBIPS of abs(median).
@@ -205,8 +207,11 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         // The REJECTION check: if the two values bracketing the median disagree by more than the
         // bound, the median is not well determined and must not be published. Reverting rather
         // than skipping (as FAssets must) is affordable here: one feed per store and one batch
-        // per transaction, so nothing else in the transaction is at stake. Note this is NOT a
-        // check on the tails - those are flagged below, not rejected.
+        // per transaction, so nothing else in the transaction is at stake. Note it judges only the
+        // two values BRACKETING the median - at N = 3 that includes the extremes; values outside
+        // the bracket (first existing at even N >= 4 / odd N >= 5) do not enter the rejection
+        // spread - they are still evaluated by the flagging check below, and are named only when
+        // their deviation exceeds the bound.
         require(
             aggregation.withinSpread,
             SpreadTooBig(
@@ -257,6 +262,7 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
             minValue: aggregation.minValue,
             maxValue: aggregation.maxValue,
             decimals: aggregation.decimals,
+            spread: aggregation.spread,
             allowedDeviation: aggregation.allowedDeviation,
             outlierTeeIds: outlierTeeIds,
             outlierDeviations: outlierDeviations
@@ -407,17 +413,22 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
      * a governance invariant; exceeding it silently stops the feed from updating.
      * NOTE: nor are the two deviation terms given a floor. Setting BOTH to zero is a legitimate
      * policy - it is how a discrete or binary feed demands exact agreement - but only up to a
-     * SUBMITTED count of 2. From 3 it does NOT give unanimity: only the values at the median
-     * position must match, so (0, 0, 1) has a judged spread of (1 - 0) / 2 == 0, publishes 0 and
-     * merely flags the dissenter. The count is the submitter's choice, bounded below by
-     * `requiredSignatures` and above by 32, so a threshold of 2 does not pin it to 2. On a
-     * continuous feed a zero bound stops every non-identical batch.
+     * SUBMITTED count of 2. Beyond that it is parity-split and does NOT give unanimity: at an EVEN
+     * count the two central values must be identical, while values outside the bracketing pair -
+     * first existing at an even count of 4, an odd count of 5 - never enter the rejection spread
+     * (the flagging test still judges every element), so (0, 5, 5, 900) publishes 5 and flags
+     * both extremes; at an ODD count the bracketing pair
+     * itself may differ by one unit, because the halving floors - so (0, 0, 1) has a judged spread
+     * of (1 - 0) / 2 == 0, publishes 0 and merely flags the dissenter, which IS a bracketing
+     * value. The count is the
+     * submitter's choice, bounded below by `requiredSignatures` and above by 32, so a threshold of
+     * 2 does not pin it to 2.
      * See `ITeeOracleFeedStore.SubmissionPolicy`.
      * NOTE: this setter is an ordinary timelocked governance call, keyed by the hash of its whole
      * calldata, so two policies can be pending at once and execute in either order - an older,
-     * weaker one landing last silently restores a lower `requiredSignatures`. Unlike the sender's
-     * configuration publications there is no signed version to make the loser unexecutable, so
-     * governance MUST cancel a superseded policy call rather than leave it queued.
+     * weaker one landing last silently restores a lower `requiredSignatures`. Nothing makes the
+     * loser unexecutable, here or on the sender's configuration publications, so governance MUST
+     * cancel a superseded policy call rather than leave it queued.
      */
     function _setSubmissionPolicy(
         SubmissionPolicy calldata _submissionPolicy
@@ -543,14 +554,18 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
     }
 
     /**
-     * The batch's shape checks and its aggregation - everything that produces the number, and
-     * nothing that decides whether the batch may land. The subset of it that is meaningful to a
-     * caller is what `submitFeedUpdates` returns as `FeedAggregation`.
+     * The batch's shape checks and its aggregation: everything that produces the number, plus the
+     * SHAPE rules that must hold for a number to exist at all (it reverts on those, listed below).
+     * What it does not decide is whether an otherwise well-formed batch may land - the spread
+     * verdict is returned as a flag for `submitFeedUpdates` to act on, and the timestamp and
+     * signature rules live there. The subset of the working set that is meaningful to a caller is
+     * what `submitFeedUpdates` returns as `FeedAggregation`.
      * Reverts with `NotEnoughSignatures` / `TooManySignatures` on the element count,
-     * `ObservedAtMismatch` when the elements do not all observe one event, and
+     * `ObservedAtMismatch` when the elements do not all share one observation timestamp, and
      * `DecimalsSpreadTooBig` when their scales disagree by more than `MAX_DECIMALS_SPREAD`.
      * @return _aggregation The normalised values in submission order, the median, the range's
-     * ends, the two values bracketing the median and the parity-neutral spread derived from them,
+     * ends, the two values bracketing the median and the spread derived from them (halved for an
+     * odd count),
      * the normalisation scale they are all expressed in (the batch's largest `decimals`), the
      * deviation bound the batch is judged against, and whether that spread stays inside it.
      * Whether individual contributions do is a separate question, answered by `_isOutlier`.
@@ -573,8 +588,13 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         int8 minDecimals = maxDecimals;
         for (uint256 i = 1; i < count; i++) {
             FeedUpdate calldata feedUpdate = _signedFeedUpdates[i].feedUpdate;
-            // The contributors observe ONE event, so a differing observedAt means the collector
-            // mixed rounds - the values would not be comparable at all.
+            // The contributors must share one observation timestamp; a differing observedAt means
+            // the collector mixed rounds and the values would not be comparable at all. Note what
+            // equality does and does not prove: `observedAt` is the timestamp of the triggering
+            // on-chain event, and nothing binds a `FeedUpdate` to the instruction that produced
+            // it, so several independent requests landing in ONE block yield responses that all
+            // carry that block's timestamp and can be combined. Equality therefore proves a common
+            // INSTANT, not a common request. See `ITeeOracleFeedStore.submitFeedUpdates`.
             require(feedUpdate.observedAt == batchObservedAt, ObservedAtMismatch());
             if (feedUpdate.decimals > maxDecimals) {
                 maxDecimals = feedUpdate.decimals;
@@ -611,11 +631,10 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         _aggregation.minValue = sorted[0];
         _aggregation.maxValue = sorted[count - 1];
 
-        // The judged spread, kept parity-neutral - see `_aggregation.spread`. This follows FAssets'
-        // `_calculateMedian` exactly, including the HALVING in the odd branch: an odd count's
-        // neighbours straddle the median across TWO gaps, an even count's across one, so without
-        // the division the same real dispersion would be judged twice as harshly whenever the
-        // batch happens to have an odd number of elements.
+        // The judged spread - see `_aggregation.spread`. This follows FAssets' `_calculateMedian`
+        // exactly, including the HALVING in the odd branch: an odd count's neighbours straddle the
+        // median across TWO gaps, an even count's across one, so without the division a uniformly
+        // spaced batch would be judged twice as harshly whenever its element count is odd.
         uint256 middle = count / 2;
         int256 spread;
         if (count % 2 == 1) {
@@ -642,8 +661,10 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
         }
         _aggregation.spread = spread;
 
-        // One bound, two uses (see `ITeeOracleFeedStore.submitFeedUpdates`): the parity-neutral
-        // neighbour spread must stay inside it, and any single contribution outside it is flagged. abs(median) is
+        // One bound, two uses (see `ITeeOracleFeedStore.submitFeedUpdates`): the neighbour spread
+        // must stay inside it, and any single contribution outside it is flagged. The two are NOT
+        // the same metric - at an odd count the spread is the mean of the two flanking gaps, so it
+        // can pass while a contribution beyond it is still named. abs(median) is
         // the relative base - `value` is signed, so the median may be zero or negative - and the
         // absolute term is what keeps the bound usable there. Computed in uint256, where
         // maxSpreadBIPS * abs(median) cannot overflow, then widened back: both terms are bounded
@@ -729,8 +750,11 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
 
     /**
      * Brings an aggregated value into the stored `int32` / `int8` shape at the FINEST scale where
-     * it fits, dividing by ten and decrementing the scale while it does not. Rounding is half
-     * AWAY from zero, symmetrically for negatives (15 -> 2, -15 -> -2).
+     * it fits, coarsening the scale by a decade at a time while it does not. Rounding is half
+     * AWAY from zero, symmetrically for negatives (15 -> 2, -15 -> -2), and is applied ONCE, to
+     * the original value, at whichever scale is finally used - so the stored number is the
+     * correctly rounded one rather than the product of a rounding per decade, which could differ
+     * from it by one unit in the last place.
      * Nothing meaningful is lost: every contributed value is itself an int32, carrying at most
      * ~9.3 significant digits, and the median lies between the smallest and largest contribution,
      * so the result is representable in the same ~9.3 digits at its own magnitude. When the
@@ -750,11 +774,19 @@ contract TeeOracleFeedStore is IITeeOracleFeedStore, IICustomFeed, FlareUpgradea
             int8 _storedDecimals
         )
     {
-        int256 scaled = _value;
         int256 scale = _decimals;
+        int256 divisor = 1;
+        int256 scaled = _value;
         while (scaled > int256(type(int32).max) || scaled < int256(type(int32).min)) {
-            scaled = scaled >= 0 ? (scaled + 5) / 10 : (scaled - 5) / 10;
+            // Each candidate scale rounds the ORIGINAL value ONCE. Compounding a rounding per
+            // decade instead can land one final unit away from the correctly rounded value: a
+            // median of 50_500_000_049 at two decades gives 505_000_001 that way, where a single
+            // division to the same scale gives 505_000_000. The error is bounded by that one
+            // unit however many decades are crossed - it is a wrong last digit, not a drift.
+            divisor *= 10;
             scale -= 1;
+            int256 half = divisor / 2;
+            scaled = _value >= 0 ? (_value + half) / divisor : (_value - half) / divisor;
         }
         // Unreachable for the batches this contract aggregates: each contribution is an int32 at
         // its own scale and the median lies between the smallest and the largest of them, so the

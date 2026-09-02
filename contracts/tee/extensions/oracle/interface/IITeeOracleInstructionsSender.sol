@@ -66,9 +66,13 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * `TimelockValueNotAllowed`). Size it with `getEndpointsPublicationFee`, read in the block
      * the execution lands in. The whole `msg.value` is forwarded, and the diamond hands all of it
      * to `RewardManager.receiveRewards` in the same transaction rather than holding a balance.
-     * There is no per-instruction accounting and no on-chain claim method, so the contracts
-     * neither separate a surplus from the fee nor return either: too little reverts and is
-     * retryable, and whatever is attached is distributed as that epoch's rewards.
+     * There is no per-instruction accounting, and neither the diamond nor this contract exposes a
+     * claim method, so nothing here separates a surplus from the fee or returns either: too little
+     * reverts and is retryable, and whatever is attached joins that reward epoch's pool. A refund
+     * is therefore DEFERRED and POLICY-DEPENDENT rather than impossible — the value is in the
+     * `RewardManager`, so if the off-chain reward calculation attributes an amount to the
+     * claim-back address, that address claims it through the `RewardManager`'s ordinary claim path
+     * once the epoch's calculation is published.
      * What the claim-back address IS, then, is a RECORD. The executed body's `msg.sender` is this
      * contract and `FlareGovernance` does not record who called `executeGovernanceCall`, so the
      * funder cannot be identified on chain — which is why it is an explicit ARGUMENT: governance
@@ -82,7 +86,7 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * proposal time cannot make the publication unexecutable — an address cannot revert a
      * dispatch; the worst case is naming a wallet since retired, which governance fixes by
      * cancelling the pending call and re-proposing. `address(0)` is rejected
-     * (`ZeroClaimBackAddress`) because the diamond stores the claim-back unvalidated, so a zero
+     * (`ZeroClaimBackAddress`) because the diamond only EMITS the claim-back, unvalidated, so a zero
      * would silently leave the off-chain calculation with no payer on record.
      * The version is part of the encoded payload, so republishing identical content still yields
      * a new version and a new hash — and since the feed store enforces the FEED-level hash, a
@@ -97,21 +101,24 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * closes is a stale ADMINS payload re-authorising an administrator that governance had just
      * removed. Execution is not permissionless: only the whitelisted executors in
      * `GovernanceSettings` can call `executeGovernanceCall`, so the order in which matured calls
-     * land is under the same operational control as the proposals themselves.
-     * Operationally this means two rules for governance. A publication must sign the NEXT
-     * CONSECUTIVE version, read from `endpointsVersion(_feedId)` (or `getFeedConfig`) at proposal
-     * time; and a pending call that a later proposal SUPERSEDES must be CANCELLED
-     * (`cancelGovernanceCall`) rather than left queued, since it will otherwise sit there
-     * unexecutable. Intentionally sequential publications are fine — sign versions n+1 and n+2 and
-     * the second cannot execute before the first. Equality is required rather than "greater than"
-     * so that no execution can jump to a value near `type(uint64).max` and exhaust the version
-     * space; at the maximum the checked increment reverts instead of wrapping.
+     * land is under the same operational control as the proposals themselves. A superseded call
+     * does NOT lapse on its own: the version is derived when it executes, so it would happily take
+     * the next number and overwrite the replacement that landed before it. VERSIONS stay
+     * consecutive by construction — each publication takes the next number at the moment it runs;
+     * cancellation plays no part in the numbering. What cancellation controls is CONTENT: it stops
+     * a superseded payload from landing last. And if two publications are meant to apply in a
+     * particular order, that order too is operational — do not let the second mature until the
+     * first has landed.
+     * At
+     * `type(uint64).max` the checked increment reverts instead of wrapping.
      * Only governance can call this method.
      * @param _feedId The feed the configuration serves.
      * @param _groups The tagged endpoint groups; validated on-chain (see the payload structs).
      * @param _claimBackAddress The payer of record for the dispatched instruction — normally the
      * wallet that funds the `executeGovernanceCall`. Recorded in `TeeInstructionsSent` for the
-     * off-chain reward calculation; it confers no on-chain claim. Must be non-zero
+     * off-chain reward calculation. It carries no claim on this contract or the diamond; any
+     * refund comes later, and only if that calculation attributes one, through the
+     * `RewardManager`. Must be non-zero
      * (`ZeroClaimBackAddress`). Unused when the dispatch is skipped, since then no value may be
      * attached at all.
      */
@@ -139,7 +146,8 @@ interface IITeeOracleInstructionsSender is ITeeOracleInstructionsSender {
      * @param _feedId The feed the admin sets serve.
      * @param _roles The role-tagged admin sets; validated on-chain (role-agnostic rules only).
      * @param _claimBackAddress The payer of record for the dispatched instruction, recorded in
-     * `TeeInstructionsSent` and conferring no on-chain claim; must be non-zero
+     * `TeeInstructionsSent`; any refund is deferred to the off-chain reward calculation and
+     * claimed through the `RewardManager` — see `setEndpoints`. Must be non-zero
      * (`ZeroClaimBackAddress`). See `setEndpoints`.
      */
     function setAdmins(

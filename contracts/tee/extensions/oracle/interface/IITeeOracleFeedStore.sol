@@ -36,14 +36,15 @@ interface IITeeOracleFeedStore is ITeeOracleFeedStore {
      * silently — through a REVERT, not an event — when it is set wrong: `requiredSignatures` must
      * stay at or below the number of PRODUCTION machines running the feed's latest published
      * configuration, and the two deviation terms must not be so small that an honest fleet cannot
-     * meet them (both zero demands bit-exact agreement of the bracketing pair). Each is
-     * recoverable only by a second, timelocked call.
+     * meet them (both zero demands bit-exact agreement of the two central values at an even
+     * count, and agreement within one unit at an odd one). Each is recoverable only by a second,
+     * timelocked call.
      * NOTE: this is an ordinary timelocked governance call, keyed by the hash of its whole
      * calldata, so two policies can be pending at once and execute in either order — an older,
-     * weaker one landing last silently restores a lower `requiredSignatures`. Unlike the sender's
-     * configuration publications there is no signed version to make the loser unexecutable, so
-     * governance must CANCEL a superseded policy call rather than leave it queued. The same
-     * applies to `setFeeDestination`.
+     * weaker one landing last silently restores a lower `requiredSignatures`. Nothing makes the
+     * loser unexecutable, here or on the sender's configuration publications, so governance must
+     * CANCEL a superseded policy call rather than leave it queued. The same applies to
+     * `setFeeDestination`.
      * Only governance can call this method.
      * @param _submissionPolicy The new policy. Its `maxSpreadAbsolute` is denominated at the
      * fixed `10**-8` reference scale, not at any particular submission's scale.

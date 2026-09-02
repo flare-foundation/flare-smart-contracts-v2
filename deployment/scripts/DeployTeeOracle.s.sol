@@ -58,7 +58,8 @@ import {ITeeOracleInstructionsSender} from
  *   archive query or simply the execution receipt all work; if it is lost, governance must
  *   republish.
  *   The claim-back argument is the dispatched instruction's PAYER OF RECORD - emitted in
- *   TeeInstructionsSent for the off-chain reward calculation, with no on-chain claim attached; it
+ *   TeeInstructionsSent for the off-chain reward calculation, which alone decides whether a refund
+ *   is attributed to it (claimed later through the RewardManager); it
  *   must be non-zero (ZeroClaimBackAddress). Pre-production, when governance calls execute
  *   immediately, that is the caller itself - the deployer / initial governance address below.
  *   For a PRODUCTION timelocked publication governance must name THE WALLET THAT WILL FUND THE
@@ -74,7 +75,7 @@ import {ITeeOracleInstructionsSender} from
  *   it forwards the whole msg.value and the diamond enforces only a FLOOR (FeeTooLow), then hands
  *   the entire value to RewardManager.receiveRewards in the same transaction, holding no balance.
  *   So too little REVERTS and is retryable, while whatever IS attached is distributed as that
- *   epoch's rewards - no per-instruction accounting, no on-chain claim method, and nothing on
+ *   epoch's rewards - no per-instruction accounting, no claim method on these contracts, and nothing on
  *   chain separating fee from surplus. The claim-back address and the full value are only
  *   RECORDED in TeeInstructionsSent; what the OFF-CHAIN reward calculation does with a surplus, or
  *   with the value of an instruction that never executed, is its own policy decision and is not
@@ -480,7 +481,8 @@ contract DeployTeeOracle is Script {
             "sender.getEndpointsPublicationFee() / getAdminsPublicationFee(), READ IN THE BLOCK "
             "THE EXECUTION LANDS IN, to executeGovernanceCall - too little reverts in the diamond "
             "(FeeTooLow) and is retryable, and whatever is attached joins that epoch's rewards in "
-            "full, with no on-chain claim; recording "
+            "full - a refund, if the reward calculation grants one, is claimed later through the "
+            "RewardManager; recording "
             "must send no value; attach nothing if that view reports an empty machine list or the "
             "extension is paused)"
         );

@@ -621,22 +621,24 @@ contract TeeOracleFeedStoreTest is Test {
         feedStore.submitFeedUpdates(batch);
     }
 
-    /// The judged spread must not depend on whether the batch happens to have an odd or an even
-    /// number of elements. FAssets' `_calculateMedian` halves the odd case for exactly this
-    /// reason; dropping the halving would make an odd batch twice as hard to publish as an even
-    /// one carrying the same real dispersion.
+    /// For UNIFORM adjacent spacing the judged spread must not depend on the batch's parity —
+    /// that is what FAssets' halving of the odd case buys, and dropping it would make a uniformly
+    /// spaced odd batch twice as hard to publish as an even one at the same spacing. It is only
+    /// that: for an asymmetric sample the two parities are genuinely different statistics (an
+    /// average of two gaps versus one raw gap).
     function testSubmitFeedUpdatesSpreadIsParityNeutral() public {
         _setPolicy(2, MAX_SPREAD_BIPS, MAX_SPREAD_ABSOLUTE);
-        // Four machines evenly spaced 2000 apart around 100050: the even batch's judged spread is
-        // the single central gap, 2000; 100 BIPS of the median is 1000, so it is refused.
+        // Four machines around 100050 with gaps 1000/2000/1000: the even batch's judged spread is
+        // the single CENTRAL gap, 2000; 100 BIPS of the median is 1000, so it is refused. The data
+        // is chosen so that this central gap equals the odd batch's average gap below.
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory even,) =
             _makeBatch(_values(98050, 99050, 101050, 102050), _scales(4), _now() - 1);
         vm.expectRevert();
         feedStore.submitFeedUpdates(even);
 
-        // The same 2000 spacing with an odd count spans two gaps, 4000, and the halving brings it
-        // back to 2000 - the SAME judgement, refused for the same reason rather than twice as
-        // harshly.
+        // The odd batch IS uniformly spaced at 2000, so its two gaps span 4000 and the halving
+        // brings it back to 2000 - the SAME judged number as the even batch above, refused for the
+        // same reason rather than twice as harshly.
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory odd,) =
             _makeBatch(_values(98050, 100050, 102050), _scales(4), _now() - 1);
         vm.expectRevert();
@@ -654,8 +656,11 @@ contract TeeOracleFeedStoreTest is Test {
     }
 
     function testSubmitFeedUpdatesRevertSpreadTooBigZeroMedian() public {
-        // a zero median leaves only the absolute allowance, which defaults to zero: a
-        // non-unanimous batch cannot pass
+        // a zero median leaves only the absolute allowance, which defaults to zero. That does NOT
+        // mean unanimity is required in general - values outside the bracketing pair escape the
+        // rejection spread (not the flagging; none exist at N = 3 anyway), and at an odd count
+        // the bracketing pair may differ by one unit - but here the bracketing pair IS (-5, 5),
+        // whose halved gap is 5, so the batch cannot pass
         _setPolicy(3, MAX_SPREAD_BIPS, 0);
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch,) =
             _makeBatch(_values(-5, 0, 5), _scales(0), _now() - 1);
@@ -682,8 +687,9 @@ contract TeeOracleFeedStoreTest is Test {
     }
 
     function testSubmitFeedUpdatesNegativeMedianUsesAbsoluteValueAsTheBase() public {
-        // the same range that sits exactly on the bound for a positive median (1000 against
-        // abs(-100050)) sits exactly on it here too
+        // the bound is taken from abs(median), so a negative feed is judged on the same numbers as
+        // its positive mirror: allowed = 1% of abs(-100050) = 1000, and the raw bracketing gap of
+        // 1000 halves to a judged spread of 500 - comfortably inside it
         _setPolicy(3, MAX_SPREAD_BIPS, MAX_SPREAD_ABSOLUTE);
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch,) =
             _makeBatch(_values(-101050, -100050, -100050), _scales(4), _now() - 1);
@@ -981,8 +987,9 @@ contract TeeOracleFeedStoreTest is Test {
     }
 
     function testSubmitFeedUpdatesNeighbourAndRangeChecksCoincideAtThree() public {
-        // the very batch whose tail is only FLAGGED at N = 5 is REJECTED at N = 3: with three
-        // values the median's neighbours are the range's ends, so a tail does move the median
+        // the very batch whose tail is only FLAGGED at N = 5 is REJECTED at N = 3. The median is
+        // unchanged (sorted[1] either way) - what changes is that at N = 3 the tail IS a
+        // bracketing value, so it enters the judged spread instead of being excluded from it
         _setPolicy(3, MAX_SPREAD_BIPS, MAX_SPREAD_ABSOLUTE);
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch,) =
             _makeBatch(_values(100025, 100050, 200000), _scales(4), _now() - 1);
@@ -1056,7 +1063,9 @@ contract TeeOracleFeedStoreTest is Test {
         assertEq(value, 0, "(-2e9 + 2e9) / 2");
 
         // scaling it down: at `decimals` -120 the bound is far below one unit of the batch's
-        // scale, so it rounds to nothing and only a unanimous batch passes
+        // scale, so it rounds to nothing. With the bound at zero the bracketing pair must agree
+        // (exactly at an even count, within one unit at an odd one); values outside the bracket
+        // stay out of the rejection spread, though not out of the flagging
         (ITeeOracleFeedStore.SignedFeedUpdate[] memory scaledAway,) =
             _makeBatch(_values(100, 101), _scales(-120), _now() - 1);
         vm.expectRevert(
@@ -1469,6 +1478,110 @@ contract TeeOracleFeedStoreTest is Test {
         assertEq(aggregation.median, 105000001000000000);
         assertEq(storedDecimals, 0);
         assertEq(value_, 1050000010);
+    }
+
+    /// The negative mirror of the multi-decade rounding case: the one-shot division must round
+    /// half AWAY from zero symmetrically, so the stored value is -505000000 and not -505000001.
+    function testSubmitFeedUpdatesRoundsOnceAcrossSeveralDecadesNegative() public {
+        _setPolicy(2, 10000, type(uint64).max);
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch,) =
+            _makeBatch(_values(-1000000000, -1000000098), _scales(0, 2), _now() - 1);
+        ITeeOracleFeedStore.FeedAggregation memory a = feedStore.submitFeedUpdates(batch);
+        assertEq(a.median, -50500000049);
+        assertEq(a.decimals, 2);
+        (int256 value_, int8 storedDecimals,) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(storedDecimals, 0);
+        assertEq(value_, -505000000, "per-decade rounding would give -505000001");
+    }
+
+    /// The odd-count spread is the MEAN of the two flanking gaps, so an ASYMMETRIC sample is
+    /// judged on that mean while flagging fires on the largest single deviation. At the boundary
+    /// this makes rejection strictly looser than flagging: the batch below is accepted with the
+    /// divergent machine merely named, and only two units more span tips it over.
+    function testSubmitFeedUpdatesOddSpreadIsTheMeanOfTheFlankingGaps() public {
+        _setPolicy(3, MAX_SPREAD_BIPS, MAX_SPREAD_ABSOLUTE);
+        // median 100050, allowed = 1% = 1000; one neighbour sits ON the median, so the raw span
+        // is 2000 and the judged spread is exactly 1000 - accepted, and the far machine flagged
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory atBound, address[] memory ids) =
+            _makeBatch(_values(100050, 100050, 102050), _scales(4), _now() - 2);
+        ITeeOracleFeedStore.FeedAggregation memory a = feedStore.submitFeedUpdates(atBound);
+        assertEq(a.median, 100050);
+        assertEq(a.spread, 1000);
+        assertEq(a.allowedDeviation, 1000);
+        assertEq(a.outlierTeeIds.length, 1, "rejection is looser than flagging at an odd count");
+        assertEq(a.outlierTeeIds[0], ids[2]);
+
+        // ONE unit wider is still accepted - the odd spread FLOORS, so a raw gap of 2A+1 judges
+        // as A. This is the real boundary, and it only exists because of the halving.
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory atOddBound,) =
+            _makeBatch(_values(100050, 100050, 102051), _scales(4), _now() - 1);
+        ITeeOracleFeedStore.FeedAggregation memory b = feedStore.submitFeedUpdates(atOddBound);
+        assertEq(b.spread, 1000, "raw gap 2A+1 floors to A");
+        assertEq(b.allowedDeviation, 1000);
+
+        // two units wider: judged spread 1001 > 1000
+        vm.warp(vm.getBlockTimestamp() + 2);
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory past,) =
+            _makeBatch(_values(100050, 100050, 102052), _scales(4), _now() - 1);
+        vm.expectRevert();
+        feedStore.submitFeedUpdates(past);
+    }
+
+    /// A zero bound gives true unanimity only at N <= 2. The caller chooses the batch, so a
+    /// threshold of 2 does not stop it submitting a third signature that changes the answer.
+    function testSubmitFeedUpdatesZeroBoundUnanimityOnlyHoldsAtTwo() public {
+        _setPolicy(2, 0, 0);
+        // the pair disagrees by one unit: refused
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory pair,) =
+            _makeBatch(_values(0, 1), _scales(0), _now() - 2);
+        vm.expectRevert();
+        feedStore.submitFeedUpdates(pair);
+
+        // the same disagreement inside a caller-selected triple publishes and merely flags it
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory triple, address[] memory ids) =
+            _makeBatch(_values(0, 0, 1), _scales(0), _now() - 1);
+        ITeeOracleFeedStore.FeedAggregation memory a = feedStore.submitFeedUpdates(triple);
+        assertEq(a.median, 0);
+        assertEq(a.spread, 0);
+        assertEq(a.outlierTeeIds.length, 1);
+        assertEq(a.outlierTeeIds[0], ids[2]);
+    }
+
+    /// `FeedAggregation.spread` must report the value the rejection test actually compared, since
+    /// a dry-run caller cannot re-derive it from the other fields.
+    function testSubmitFeedUpdatesReturnsTheComparedSpread() public {
+        _setPolicy(2, 10000, 0);
+        // even count: the gap between the two averaged values, not halved
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory even,) =
+            _makeBatch(_values(100, 200), _scales(0), _now() - 3);
+        assertEq(feedStore.submitFeedUpdates(even).spread, 100);
+        // odd count: half the flanking span
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory odd,) =
+            _makeBatch(_values(100, 150, 200), _scales(0), _now() - 2);
+        assertEq(feedStore.submitFeedUpdates(odd).spread, 50);
+        // single element: zero (the threshold has to allow a one-element batch)
+        _setPolicy(1, 10000, 0);
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory one,) =
+            _makeBatch(_values(100), _scales(0), _now() - 1);
+        assertEq(feedStore.submitFeedUpdates(one).spread, 0);
+    }
+
+    /// Rounding must be applied ONCE, to the original median, at whichever scale is finally used.
+    /// Rounding per decade instead compounds: this median crosses two decades and the two modes
+    /// disagree by one unit in the last place.
+    function testSubmitFeedUpdatesRoundsOnceAcrossSeveralDecades() public {
+        _setPolicy(2, 10000, type(uint64).max);
+        // 1000000000 @ decimals 0 normalises to 1e11; 1000000098 @ decimals 2 stays as it is;
+        // the median is 50_500_000_049 at decimals 2, which needs two decades to fit int32.
+        (ITeeOracleFeedStore.SignedFeedUpdate[] memory batch,) =
+            _makeBatch(_values(1000000000, 1000000098), _scales(0, 2), _now() - 1);
+        ITeeOracleFeedStore.FeedAggregation memory aggregation = feedStore.submitFeedUpdates(batch);
+        assertEq(aggregation.median, 50500000049);
+        assertEq(aggregation.decimals, 2);
+        (int256 value_, int8 storedDecimals,) = feedStore.getCurrentFeed{value: FEE}();
+        assertEq(storedDecimals, 0);
+        // 50_500_000_049 / 100 rounds to 505_000_000; rounding per decade would give 505_000_001
+        assertEq(value_, 505000000);
     }
 
     /// `_isOutlier` is strict `>`, so a contribution exactly AT the bound is not flagged. The

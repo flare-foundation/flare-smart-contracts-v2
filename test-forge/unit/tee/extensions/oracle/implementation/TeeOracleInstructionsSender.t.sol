@@ -27,6 +27,9 @@ import {
 } from "../../../../../../contracts/userInterfaces/tee/IMachineEmergencyPause.sol";
 import { IOperationFees } from "../../../../../../contracts/userInterfaces/tee/IOperationFees.sol";
 import { IFlareGovernance } from "../../../../../../contracts/userInterfaces/IFlareGovernance.sol";
+import {
+    IIFlareGovernance
+} from "../../../../../../contracts/governance/interface/IIFlareGovernance.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
@@ -520,6 +523,39 @@ contract TeeOracleInstructionsSenderTest is Test {
         );
     }
 
+    /// The counterpart to `testSetEndpointsLastExecutionWins`: cancelling the superseded call is
+    /// the control that actually prevents the stale publication, so it is pinned too.
+    function testSetEndpointsCancellingASupersededCallPreventsIt() public {
+        _switchToProduction();
+        ITeeOracleInstructionsSender.EndpointGroup[] memory first = _makeGroups(1, 1);
+        ITeeOracleInstructionsSender.EndpointGroup[] memory second = _makeGroups(2, 1);
+        bytes memory callA = abi.encodeCall(sender.setEndpoints, (FEED_ID, first, claimBack));
+        bytes memory callB = abi.encodeCall(sender.setEndpoints, (FEED_ID, second, claimBack));
+
+        vm.startPrank(productionGovernance);
+        (bool okA,) = address(sender).call(callA);
+        (bool okB,) = address(sender).call(callB);
+        assertTrue(okA && okB);
+        // governance cancels the superseded proposal instead of leaving it queued
+        IIFlareGovernance(address(sender)).cancelGovernanceCall(callA);
+        vm.stopPrank();
+        vm.warp(vm.getBlockTimestamp() + TIMELOCK + 1);
+
+        vm.prank(executor);
+        sender.executeGovernanceCall(callB);
+        assertEq(sender.endpointsVersion(FEED_ID), 1);
+        bytes32 hashB = keccak256(abi.encode(
+            ITeeOracleInstructionsSender.Endpoints({version: 1, feedId: FEED_ID, groups: second})));
+        assertEq(sender.latestEndpointsHash(FEED_ID), hashB);
+
+        // the cancelled call can no longer execute, so it cannot take version 2
+        vm.prank(executor);
+        vm.expectRevert();
+        sender.executeGovernanceCall(callA);
+        assertEq(sender.endpointsVersion(FEED_ID), 1, "no second publication");
+        assertEq(sender.latestEndpointsHash(FEED_ID), hashB, "B is still the feed's configuration");
+    }
+
     function testSetEndpointsAtMaxVersionFailsSafely() public {
         // at type(uint64).max the checked increment reverts instead of wrapping round to a version
         // machines already hold
@@ -796,7 +832,9 @@ contract TeeOracleInstructionsSenderTest is Test {
         groups[0].endpoints[0].url = "";
         groups[0].endpoints[0].urlHash = keccak256("private-endpoint");
         groups[0].endpoints[0].secretRef = "";
-        // ... and a PUBLIC one whose URL carries no placeholder to substitute
+        // ... and a PUBLIC one with no credential named at all. (The contract never inspects the
+        // URL for a placeholder - that pairing is a convention between the published config and
+        // the enclave build - so only the empty `secretRef` is what this exercises.)
         groups[0].endpoints[1].secretRef = "";
         vm.prank(governance);
         sender.setEndpoints(FEED_ID, groups, claimBack);

@@ -16,7 +16,7 @@ bytes32 constant TEE_ORACLE_FEED = bytes32("TEE_ORACLE_FEED");
  *      trust is the TEE signature (verified through `IFdc2Verification` against the
  *      extension id read from the instructions sender) plus the feed's latest published
  *      configuration generation. A submission carries `requiredSignatures` distinct machines'
- *      own observations of one event in a single atomic batch, and the store stores the median
+ *      own observations at one instant in a single atomic batch, and the store stores the median
  *      of them, subject to a governance-set deviation bound — see `submitFeedUpdates`, the SOLE
  *      submission entry point (a single signature is a one-element array).
  *      Strictly increasing, never-future `observedAt`
@@ -64,7 +64,7 @@ interface ITeeOracleFeedStore {
     /**
      * One element of a threshold submission: a feed update together with the TEE signature over
      * it. Every element is signed by a different machine over ITS OWN observation, so the
-     * elements share only `observedAt` (one observed event) — their `value` and `decimals` may
+     * elements share only `observedAt` (one observation instant) — their `value` and `decimals` may
      * differ, and the store derives one stored value from them (see `submitFeedUpdates`).
      * @param feedUpdate The feed update, exactly as signed.
      * @param signature The TEE signature over that feed update.
@@ -117,6 +117,11 @@ interface ITeeOracleFeedStore {
      * @param maxValue The largest normalised value, at the `decimals` scale.
      * @param decimals The normalisation scale every value above is expressed in — the batch's
      * largest `decimals`.
+     * @param spread The value the rejection test actually compared against `allowedDeviation`, at
+     * the `decimals` scale: `upperNeighbour - lowerNeighbour` for an even count, HALF of it for an
+     * odd one, and zero for a single element. Returned because it cannot be re-derived from the
+     * other fields — a dry-run caller would otherwise have to re-normalise and re-sort the batch
+     * to learn its acceptance headroom.
      * @param allowedDeviation The deviation bound this batch was judged against, at the same
      * scale: `maxSpreadAbsolute` (rescaled) plus `maxSpreadBIPS` of `abs(median)`. The bracketing
      * spread stayed inside it (else the call reverted with `SpreadTooBig`); a single contribution
@@ -131,6 +136,7 @@ interface ITeeOracleFeedStore {
         int256 minValue;
         int256 maxValue;
         int8 decimals;
+        int256 spread;
         int256 allowedDeviation;
         address[] outlierTeeIds;
         int256[] outlierDeviations;
@@ -227,10 +233,12 @@ interface ITeeOracleFeedStore {
      * when the feed has no publication of that kind, `StaleEndpoints` / `StaleAdmins` on a
      * mismatch). That check is deliberately the feed-level generation and not the version the
      * machine was last dispatched: a publication therefore invalidates every machine still
-     * running the previous configuration until it adopts the new one. The rollout gap that opens
-     * is bounded — a feed publishes at most hourly and a publication auto-dispatches to the live
-     * active set — and it is what makes a configuration change take effect at once instead of
-     * machine by machine. One consequence of the batch: while a publication is rolling out, a
+     * running the previous configuration until it adopts the new one. What that buys is immediacy
+     * on the REJECTION side: a superseded configuration stops being accepted at once, not machine
+     * by machine. The rollout gap it opens is NOT contractually bounded — publication and dispatch
+     * are on-chain and immediate, but an enclave receives and adopts asynchronously and can miss
+     * the instruction entirely, which is what the sender's permissionless `pushEndpoints` /
+     * `pushAdmins` exist for. One consequence of the batch: while a publication is rolling out, a
      * batch that MIXES generations is rejected as a whole, so a threshold is a reason to keep the
      * fleet's configuration homogeneous.
      *
@@ -240,7 +248,12 @@ interface ITeeOracleFeedStore {
      * - the signers must be pairwise distinct (`DuplicateTeeId`) — otherwise one machine could
      *   reach the threshold alone;
      * - every element must carry the SAME `observedAt` (`ObservedAtMismatch`): the contributors
-     *   observe one event, so a mismatch means the collector mixed rounds. That single common
+     *   share one observation timestamp, so a mismatch means the collector mixed rounds. Note the
+     *   limit of what equality proves: `observedAt` is the timestamp of the triggering on-chain
+     *   event and nothing binds a `FeedUpdate` to the instruction that produced it, so several
+     *   independent requests landing in ONE block yield responses that all carry that block's
+     *   timestamp and may be combined into one batch. It establishes a common INSTANT, not a
+     *   common request. That single common
      *   timestamp is then checked once against the store's ratchet (`NotNewer`) and against the
      *   accepting block (`TooFarAhead`), exactly as a single submission is;
      * - `value` and `decimals` MAY differ between elements. The machines deliberately leave the
@@ -262,15 +275,22 @@ interface ITeeOracleFeedStore {
      *    `allowed = maxSpreadAbsolute (rescaled) + maxSpreadBIPS * abs(median) / 10000`, and it
      *    is applied TWICE, to two different questions:
      *    - REJECTION — "is the median well determined?" The spread at the median position must not
-     *      exceed `allowed`. For an EVEN count that is `values[mid] - values[mid-1]`, the gap
-     *      between the two values being averaged. For an ODD count the median is flanked by TWO
-     *      gaps, so the spread is their AVERAGE — `(values[mid+1] - values[mid-1]) / 2` — which is
-     *      what keeps the number comparable across parities: without the halving the same real
-     *      dispersion would be judged twice as harshly whenever the batch happens to be odd. This
-     *      is exactly FAssets' `_calculateMedian`. Else
-     *      the call reverts with `SpreadTooBig(lower, upper, median, decimals)`. If the values
-     *      bracketing the median disagree wildly, the median is meaningless and must not be
-     *      published. Unlike FAssets, which can only skip the feed (its aggregation is a side
+     *      exceed `allowed`, else the call reverts with
+     *      `SpreadTooBig(lowerNeighbour, upperNeighbour, median, decimals)` — a median whose
+     *      bracketing values disagree wildly is meaningless and must not be published. That spread
+     *      is parity-dependent:
+     *      - EVEN count: `values[mid] - values[mid-1]`, the RAW gap between the two values being
+     *        averaged.
+     *      - ODD count: the median is flanked by TWO gaps, so the spread is their average,
+     *        `(values[mid+1] - values[mid-1]) / 2`, and integer division FLOORS it — a raw
+     *        bracketing gap of `2 * allowed + 1` therefore still lands.
+     *      Halving the odd branch is what makes UNIFORMLY spaced adjacent gaps judged alike at
+     *      either parity — without it such a batch would be judged twice as harshly whenever its
+     *      element count is odd. It is exact only for that uniform case: for an asymmetric
+     *      sample the two parities are genuinely different statistics, an average of two gaps
+     *      against one raw gap. It is exactly FAssets' `_calculateMedian`. Note the error reports
+     *      the RAW neighbours, so at an odd count the judged spread is half what it shows.
+     *      Unlike FAssets, which can only skip the feed (its aggregation is a side
      *      effect of a multi-feed publication), this reverts: one feed per store and one batch
      *      per transaction mean nothing else in the transaction needs protecting.
      *    - FLAGGING — "which machines disagree?" Every contribution whose own deviation from the
@@ -278,20 +298,40 @@ interface ITeeOracleFeedStore {
      *      `FeedUpdated` and only when at least one is found. It never rejects: a tail outlier
      *      does not undermine a median, and a revert would only teach submitters to filter the
      *      batch off chain — destroying exactly the divergence information the flag preserves.
+     *      Note the condition, because it is narrower than "one faulty machine cannot stall it":
+     *      a faulty machine is harmless to LIVENESS only when it is not one of the two bracketing
+     *      values. At N = 3 those are `sorted[0]` and `sorted[2]` — so a faulty machine at either
+     *      extreme does enter the spread. One that sorts into the middle stays out of the spread
+     *      but not out of the test: it becomes the median, and `allowed` is computed from
+     *      `abs(median)`, so it still moves the threshold the spread is compared against. At
+     *      N = 4 the extremes `sorted[0]` and `sorted[3]` are excluded from the spread
+     *      UNCONDITIONALLY, whatever they are, and the central gap alone decides whether the
+     *      batch lands. A faulty machine can also simply
+     *      withhold, which no threshold prevents. What `requiredSignatures >= 2f+1` buys is that
+     *      the median lies inside the honest range — not that the median, or either bracketing
+     *      value, is itself an honest machine's value.
      *    The two tests read the SAME `allowed` with different metrics, and an operator has to
-     *    size the number knowing which one bites: rejection compares a two-sided SPREAD between
-     *    two machines, flagging compares each machine's one-sided DEVIATION from the median. Per
-     *    machine, rejection is therefore between 1x and 2x the stricter of the two, and which one
-     *    applies follows the PARITY: for an odd count the halving makes the judged spread the same
-     *    quantity as a contribution's own deviation, so the two tests fire at the same
-     *    displacement; for an even count the spread is the full gap between two distinct machines,
-     *    so rejection fires at half the displacement flagging does. Rejection is never the LOOSER
-     *    of the two, so size `allowed` from the rejection side; it is the one that stalls the feed.
+     *    size the number knowing which one bites: rejection compares a SPREAD at the median
+     *    position, flagging compares each machine's own DEVIATION from the median. NEITHER test
+     *    dominates the other, and which one bites depends on the batch's PARITY and on how
+     *    asymmetric the sample is:
+     *    - EVEN count: the judged spread is the gap between the two values being averaged, so a
+     *      pair straddling the median at `+/- d` is REJECTED at `2d` while each is FLAGGED at `d`
+     *      - rejection bites at half the per-machine displacement.
+     *    - ODD count: the judged spread is the MEAN of the two gaps flanking the median,
+     *      `(L + R) / 2`, while flagging fires on the largest single deviation, which is at least
+     *      `max(L, R) >= (L + R) / 2`. Rejection therefore bites LATER than flagging here - up to
+     *      2x later when the sample is maximally asymmetric, i.e. one neighbour sitting ON the
+     *      median. That is exactly why an accepted batch can name an outlier from N = 3 onwards.
+     *    Size `allowed` from the rejection side for LIVENESS - it is the test that stalls the feed
+     *    - but do not read either test as implying the other.
      *    Flagging is unreachable for N <= 2 — a single element deviates from itself by zero, and
-     *    for a pair the median is their average, so each deviation is half a spread that has
-     *    already had to fit inside `allowed`. From N = 3 it is reachable: `(0, 0, 20)` at
-     *    `allowed` 10 has a judged spread of 10, so it publishes a median of 0 and names the
-     *    machine at 20.
+     *    for a pair the median lies between the two values, so the two deviations are the FLOOR
+     *    and CEILING halves of the spread (the median truncates toward zero, so they are equal
+     *    only when the pair sums to an even number) — and the larger of them is still at most the
+     *    spread, which has already had to fit inside `allowed`. From N = 3 it is reachable, and the asymmetry above
+     *    is why: `(0, 0, 20)` at `allowed` 15 has a judged spread of `(20 - 0) / 2 = 10`, so it
+     *    publishes a median of 0 and names the machine at 20, whose own deviation is 20.
      *    Note that the test is centre-local, so it is not monotone in N: a batch rejected at
      *    N = 3 can be accepted, with the same median, by adding a fourth signature that lands
      *    between the original three. That is inherent to judging the median by its neighbours
@@ -300,22 +340,31 @@ interface ITeeOracleFeedStore {
      *    stalling the feed.
      *    `abs(median)` plus the absolute floor keeps the bound usable at a zero or negative
      *    median: `value` is a SIGNED int32, so a feed may legitimately sit at or cross zero,
-     *    where a purely relative bound would collapse to permitting no disagreement at all and
-     *    would flag every machine as an outlier. The absolute term is a governance setting at a
-     *    FIXED `10**-8` reference scale, rescaled to the batch's normalisation scale before use,
-     *    so its real-world meaning does not move with the machines' choice of `decimals`.
+     *    where a purely relative bound collapses to zero and leaves only the absolute term. With
+     *    BOTH terms zero the rule is parity-split: at an EVEN count the two central values must be
+     *    IDENTICAL, at an ODD count they may differ by one unit of the batch's scale (the halving
+     *    floors). Values OUTSIDE the bracketing pair escape the REJECTION test only — the
+     *    flagging test judges every element — and they first exist at an even count of 4 or an
+     *    odd count of 5; at N = 3 every element is the median or a bracketing value. The absolute term is a
+     *    governance setting at a FIXED `10**-8` reference scale, rescaled to the batch's
+     *    normalisation scale before use, so its real-world meaning does not move with the
+     *    machines' choice of `decimals`.
      * 5. the median is stored back into the same `int32 value` / `int8 decimals` shape external
      *    consumers already read, at the FINEST scale where it fits `int32`: starting from
-     *    `maxDecimals`, while the value does not fit it is divided by ten — rounding half AWAY
-     *    from zero, symmetrically for negatives — and the scale is decremented. Nothing
+     *    `maxDecimals`, the scale is coarsened a decade at a time until the value fits, and the
+     *    rounding — half AWAY from zero, symmetrically for negatives — is applied ONCE, to
+     *    the ORIGINAL median, at whichever scale is finally used. Rounding per decade could
+     *    land one unit away from that value in the last place. Nothing
      *    meaningful is lost: every input is itself an `int32` carrying at most ~9.3 significant
      *    digits and the median lies between the smallest and largest input, so the result is
      *    representable in the same ~9.3 digits at its own magnitude. When the machines submit the
      *    same `decimals` the median is exactly representable and the loop does not run at all.
      *
-     * A threshold of 1 therefore behaves exactly as a single-signature submission always did:
-     * the neighbour spread is 0 and the single deviation is 0, so neither bound bites, and the
-     * median is the submitted value at its submitted scale.
+     * A ONE-ELEMENT submission therefore behaves exactly as a single-signature submission always
+     * did: the neighbour spread is 0 and the single deviation is 0, so neither bound bites, and
+     * the median is the submitted value at its submitted scale. A `requiredSignatures` of 1 only
+     * PERMITS such a batch — it does not force one, since the count is the submitter's choice
+     * anywhere from the threshold up to 32, and a larger batch is judged like any other.
      *
      * DRY RUN: an `eth_call` on THIS function is the supported way to rehearse a batch — there is
      * no separate preview view, deliberately. The call returns the aggregation it acted on and
@@ -370,8 +419,12 @@ interface ITeeOracleFeedStore {
      * Returns the absolute term of the accepted deviation, in units of `10**-8` — a FIXED
      * reference scale, rescaled to each submission's own normalisation scale before use, so that
      * the setting's real-world meaning cannot move with the machines' choice of `decimals`.
-     * It is what keeps the bound usable at a median of or near zero, where the relative term
-     * alone would demand an exactly unanimous batch and would flag every machine as an outlier.
+     * It is what keeps the bound usable at a median of or near zero, where the relative term alone
+     * collapses to zero. With both terms zero the two central values must be IDENTICAL at an even
+     * count and may differ by one unit at an odd one (the halving floors); values outside the
+     * bracketing pair — first existing at an even count of 4 or an odd count of 5 — never enter
+     * the rejection spread, so a batch can still publish with wildly divergent extremes, which
+     * the flagging test then names.
      * Zero (the default) makes the bound purely relative.
      */
     function maxSpreadAbsolute()

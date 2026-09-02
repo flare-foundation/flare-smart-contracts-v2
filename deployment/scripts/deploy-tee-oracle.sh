@@ -8,17 +8,18 @@ set -euo pipefail
 # Deploys the TEE oracle extension: one TeeOracleInstructionsSender UUPS proxy plus
 # one TeeOracleFeedStore UUPS proxy per feed configured in `teeOracleFeeds` (chain
 # config), wires them via the AddressUpdater and switches them to production mode.
-# The governance-only follow-up steps (registerReserved, setExtensionContracts,
-# addTeeVersion/addAllowedTeeMachineOwners, FtsoV2.addCustomFeeds, setEndpoints/setAdmins
-# and the follow-up pushEndpoints/pushAdmins) are printed by the script. The TEE_ORACLE
-# operation fee rows are NOT printed and are configured separately, with the rest of the
-# payment configuration. Note that setEndpoints/setAdmins name no machines but DO dispatch to the
+# The follow-up steps that cannot be scripted are printed by the script, and they do NOT all have
+# the same caller: registerReserved, FtsoV2.addCustomFeeds and setEndpoints/setAdmins are Flare
+# governance (timelocked); setExtensionContracts and addTeeVersion/addAllowedTeeMachineOwners are
+# the extension owner (direct, no timelock); pushEndpoints/pushAdmins are permissionless. The
+# TEE_ORACLE operation fee rows are NOT printed and are configured separately, with the rest of
+# the payment configuration. Note that setEndpoints/setAdmins name no machines but DO dispatch to the
 # extension's active set, so the governance executor must attach the fee reported by
 # sender.getEndpointsPublicationFee()/getAdminsPublicationFee() to executeGovernanceCall.
 # Read that view in the block the execution lands in. The sender forwards the whole msg.value and
 # the diamond's own floor is the only fee gate: too little reverts there (FeeTooLow) and is
 # retryable, while whatever IS attached reaches RewardManager.receiveRewards in full, in the same
-# transaction. There is no per-instruction accounting and no on-chain claim method: the claim-back
+# transaction. There is no per-instruction accounting and no claim method on these contracts: the claim-back
 # address and the full value are only RECORDED in the TeeInstructionsSent event, for the off-chain
 # reward calculation. Whether that returns a surplus, or keeps the fee of an instruction that never
 # executed, is decided there and not by these contracts. A value quoted before a machine was
@@ -28,7 +29,8 @@ set -euo pipefail
 # wins, whichever was proposed first, so cancel a superseded pending call rather than leaving it
 # queued.
 # Both calls also take a non-zero claim-back address - the dispatched instruction's PAYER OF
-# RECORD, emitted for the off-chain reward calculation and conferring no on-chain claim.
+# RECORD, emitted for the off-chain reward calculation; a refund, if that calculation grants one,
+# is claimed later through the RewardManager like any other reward.
 # For a production timelocked publication governance
 # should name the wallet that will fund the execution, since the payer cannot be identified on
 # chain; pre-production, where the call executes immediately, that is the caller itself.
