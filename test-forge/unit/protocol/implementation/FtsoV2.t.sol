@@ -1810,6 +1810,10 @@ contract FtsoV2ConversionHarness is FtsoV2 {
     function convertToWei(uint256 _value, int8 _decimals) external pure returns (uint256) {
         return _convertToWei(_value, _decimals);
     }
+
+    function convertToWeiSigned(int256 _value, int8 _decimals) external pure returns (int256) {
+        return _convertToWei(_value, _decimals);
+    }
 }
 
 contract FtsoV2ConversionTest is Test {
@@ -1832,5 +1836,44 @@ contract FtsoV2ConversionTest is Test {
 
         vm.expectRevert(stdError.arithmeticError);
         ftsoV2ConversionHarness.convertToWei(type(uint256).max, 17);
+    }
+
+    // The signed scale factor is computed with checked int256 exponentiation, so the two decimals
+    // values whose factor is exactly 10**77 revert: 95 on the scale-down branch and -59 on the
+    // scale-up branch. Computing the factor in uint256 and casting instead would wrap — 10**77
+    // fits in uint256 but exceeds int256 max — turning it into a negative multiplier and silently
+    // flipping the sign of the result.
+    function testConvertToWeiSignedRejectsWrappingScaleFactor() public {
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2ConversionHarness.convertToWeiSigned(1, 95);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2ConversionHarness.convertToWeiSigned(1, -59);
+
+        // The neighbouring values overflow the exponent itself, so they were never at risk.
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2ConversionHarness.convertToWeiSigned(1, 96);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2ConversionHarness.convertToWeiSigned(1, -60);
+
+        // One decimal inside the cliff the factor still fits int256 and the conversion is ordinary,
+        // so the reverts above are the boundary and not a blanket failure.
+        assertEq(ftsoV2ConversionHarness.convertToWeiSigned(-(int256(10) ** 76), 94), -1);
+        assertEq(ftsoV2ConversionHarness.convertToWeiSigned(-123456, 4), -123456 * int256(10) ** 14);
+    }
+
+    // The unsigned converter's cliff sits one decimal later: 10**77 fits in uint256, so the same
+    // two values scale instead of reverting. There is no sign to flip, so this was never the same
+    // hazard — pinned here so the asymmetry between the two converters stays deliberate.
+    function testConvertToWeiUnsignedCliffIsOneDecimalLater() public {
+        assertEq(ftsoV2ConversionHarness.convertToWei(1, 95), 0);
+        assertEq(ftsoV2ConversionHarness.convertToWei(1, -59), 10 ** 77);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2ConversionHarness.convertToWei(1, 96);
+
+        vm.expectRevert(stdError.arithmeticError);
+        ftsoV2ConversionHarness.convertToWei(1, -60);
     }
 }
