@@ -17,12 +17,14 @@ contract RelayOldRelayFeeSourceFV {
 
     uint256 internal immutable requiredFee;
     bool internal immutable rejectFeeQuery;
+    bool internal immutable finalized;
     uint256 public callCount;
     uint256 public receivedValue;
 
-    constructor(uint256 _requiredFee, bool _rejectFeeQuery) {
+    constructor(uint256 _requiredFee, bool _rejectFeeQuery, bool _finalized) {
         requiredFee = _requiredFee;
         rejectFeeQuery = _rejectFeeQuery;
+        finalized = _finalized;
     }
 
     function signingPolicySetter() external pure returns (address) {
@@ -42,6 +44,10 @@ contract RelayOldRelayFeeSourceFV {
         return requiredFee;
     }
 
+    function isFinalized(uint256, uint256) external view returns (bool) {
+        return finalized;
+    }
+
     function verify(uint256, uint256, bytes32, bytes32[] calldata) external payable returns (bool) {
         if (msg.value < requiredFee) revert DelegatedFeeRequired();
         callCount++;
@@ -54,8 +60,9 @@ contract RelayOldRelayFeeSourceFV {
  * Bounded value-flow properties for pre-boundary verify() delegation.
  *
  * The real proxied Relay is initialized in setter mode with a compatible source.
- * The successful fixture rejects every fee-getter query, accepts only the value
- * received by verify(), and records that value. The positive-fee fixture accepts
+ * The successful fixture reports a finalized round, rejects every fee-getter
+ * query, accepts only the value received by verify(), and records that value.
+ * The unfinalized fixture must fail the exact NotFinalized precheck; the positive-fee fixture accepts
  * a delegated call only when the required value reaches it. Together the checks
  * pin getter independence, zero-value delegation, full refund, and fail-closed
  * behavior for a source that enforces a positive fee.
@@ -69,6 +76,12 @@ contract RelayOldRelayFeeFV is Test {
     function setUp() public {}
 
     receive() external payable {}
+
+    function test_fvOldRelayFinalizationAndValueFlow() external {
+        this.check_oldRelay_zeroValueFullRefund(1);
+        this.check_oldRelay_positiveFeeSourceFailsClosed(1, 2);
+        this.check_oldRelay_unfinalizedSourceRejected(1);
+    }
 
     function _config() internal view returns (IRelay.RelayInitialConfig memory cfg) {
         cfg.initialRewardEpochId = 1;
@@ -110,7 +123,7 @@ contract RelayOldRelayFeeFV is Test {
     /// zero value, refunds all attached value, and leaves no native balance in Relay.
     // EXPECT: PASS (proof).
     function check_oldRelay_zeroValueFullRefund(uint128 msgValue) external {
-        RelayOldRelayFeeSourceFV source = new RelayOldRelayFeeSourceFV(0, true);
+        RelayOldRelayFeeSourceFV source = new RelayOldRelayFeeSourceFV(0, true, true);
         Relay relay = _deploy(source);
         vm.deal(address(this), CALLER_BALANCE);
         vm.deal(address(source), 0);
@@ -133,7 +146,7 @@ contract RelayOldRelayFeeFV is Test {
     function check_oldRelay_positiveFeeSourceFailsClosed(uint96 fee, uint128 msgValue) external {
         vm.assume(fee > 0);
         vm.assume(msgValue >= fee);
-        RelayOldRelayFeeSourceFV source = new RelayOldRelayFeeSourceFV(fee, false);
+        RelayOldRelayFeeSourceFV source = new RelayOldRelayFeeSourceFV(fee, false, true);
         Relay relay = _deploy(source);
         vm.deal(address(this), CALLER_BALANCE);
         vm.deal(address(source), 0);
@@ -150,10 +163,36 @@ contract RelayOldRelayFeeFV is Test {
         assert(address(this).balance == callerBefore);
     }
 
+    /// A source that reports an unfinalized round is rejected by the presence
+    /// precheck even though its verify() would return true. The exact selector
+    /// distinguishes the guard from fee, refund or source-ABI failures.
+    // EXPECT: PASS (proof).
+    function check_oldRelay_unfinalizedSourceRejected(uint128 msgValue) external {
+        RelayOldRelayFeeSourceFV source = new RelayOldRelayFeeSourceFV(0, true, false);
+        Relay relay = _deploy(source);
+        vm.deal(address(this), CALLER_BALANCE);
+        vm.deal(address(source), 0);
+        vm.deal(address(relay), 0);
+        uint256 callerBefore = address(this).balance;
+
+        (bool ok, bytes memory data) = address(relay).call{value: msgValue}(
+            abi.encodeCall(relay.verify, (PROTOCOL_ID, PRE_BOUNDARY_ROUND, LEAF, new bytes32[](0)))
+        );
+
+        assert(!ok);
+        assert(data.length == 4);
+        assert(bytes4(data) == IRelay.NotFinalized.selector);
+        assert(source.callCount() == 0);
+        assert(source.receivedValue() == 0);
+        assert(address(source).balance == 0);
+        assert(address(relay).balance == 0);
+        assert(address(this).balance == callerBefore);
+    }
+
     /// The successful delegated path is reachable with an attached value that is fully refunded.
     // EXPECT: COUNTEREXAMPLE (reachability control).
     function check_reach_oldRelay_freeDelegation() external {
-        RelayOldRelayFeeSourceFV source = new RelayOldRelayFeeSourceFV(0, true);
+        RelayOldRelayFeeSourceFV source = new RelayOldRelayFeeSourceFV(0, true, true);
         Relay relay = _deploy(source);
         vm.deal(address(this), 1);
         bool ok = _verify(relay, 1);

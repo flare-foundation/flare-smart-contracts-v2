@@ -232,11 +232,12 @@ Build Profile: dist
         completed = Mock(returncode=0, stdout="", stderr="")
         with patch.object(verify_fv.subprocess, "run", return_value=completed) as run:
             exitcode, _ = verify_fv._prepare_halmos_artifacts(
-                build_manifest(), environment={"FOUNDRY_SRC": "test-forge/fv"}
+                build_manifest(), forge_binary="/pinned/forge",
+                environment={"FOUNDRY_SRC": "test-forge/fv"}
             )
             self.assertEqual(0, exitcode)
         command = run.call_args.args[0]
-        self.assertEqual("forge", command[0])
+        self.assertEqual("/pinned/forge", command[0])
         self.assertEqual("build", command[1])
         self.assertNotIn("test-forge/fv", command)
         self.assertEqual(

@@ -39,12 +39,13 @@ the bundle.
 | Bounded signature-slot accounting | symbolic compiled-bytecode execution plus accepting reachability witnesses | `RelaySigFV`, `RelaySigParamFV`, `RelayModelBridgeFV` | generated `relay-halmos.json` |
 | Canonical signature gates and precompile ABI | bounded symbolic execution; concrete EVM precompile tests are supplementary | `RelayCanonicalityFV`, `RelayEcrecoverSymbolicFV`, `RelayEcrecoverABI` | generated Halmos report; separate Foundry output |
 | Epoch/policy state machine and `oldRelay` mode compatibility | bounded symbolic compiled-bytecode execution | epoch, delay, window, rotation, mode, and `RelayConstructorFV` harnesses listed by manifest | generated `relay-halmos.json` |
-| Random/Merkle binding | bounded symbolic compiled-bytecode execution | random binding, monotonicity, security normalization, and Merkle harnesses | generated `relay-halmos.json` |
+| Random/Merkle binding and canonical security byte | bounded symbolic compiled-bytecode execution | random binding, monotonicity, canonical security-byte/sink agreement, and Merkle harnesses | generated `relay-halmos.json` |
 | Local native fee and return semantics | bounded symbolic compiled-bytecode execution plus native-balance Lean lemmas | fee-conservation, verify-fee, return-discriminator harnesses, and `RelayFeeLayer.lean` | generated Halmos and Lean reports |
-| Pre-boundary delegated value flow | bounded symbolic execution of the real proxy against compatible observable sources; CVL external-call value/target observations | `RelayOldRelayFeeFV` zero-value, full-refund, getter-independence, and positive-fee fail-closed checks; `oldRelayDelegationForwardsNoValueAndRefundsOnSuccess` | generated Halmos report; Certora cloud report only when current and complete |
+| Pre-boundary finalized-round gate and delegated value flow | bounded symbolic execution of the real proxy against compatible observable sources; CVL external-call value/target observations | `RelayOldRelayFeeFV` finalized-source, zero-value, full-refund, getter-independence, and positive-fee fail-closed checks; `oldRelayDelegationForwardsNoValueAndRefundsOnSuccess` | generated Halmos report; Certora cloud report only when current and complete |
 | Token fee and fee-table semantics | bounded symbolic execution against a deterministic exact-transfer ERC-20; storage CVL rules where declared | `RelayFeeTokenFV`, constructor/owner-mode harnesses, and manifest-declared Certora rules | generated Halmos report; Certora cloud report only when current and complete |
-| Owner/timelock/UUPS modeled behavior | bounded symbolic execution; CVL transition rules; concrete governance tests are supplementary | access-control and owner-timelock harnesses, including duplicate-queue ETA replacement and queued-call survival across ownership transfer; `ownershipTransferPreservesQueuedCall` | generated Halmos report and separate Foundry output; Certora cloud report only when current and complete |
+| Owner/timelock/UUPS modeled behavior | bounded symbolic execution; CVL transition rules; concrete governance tests are supplementary | access-control and owner-timelock harnesses, including delayed ownership transfer, duplicate-queue ETA replacement, and unrelated queued-call survival across ownership transfer; manifest-declared ownership rules | generated Halmos report and separate Foundry output; Certora cloud report only when current and complete |
 | Exact protocol-1 threshold arithmetic | bounded compiled-bytecode checks and unbounded Lean arithmetic | threshold override/scaling harnesses and `RelaySigLoop.lean` | generated Halmos and Lean reports |
+| Custom-signature selector boundary | bounded compiled-bytecode checks through the proxy, exact rejection selectors, inner-parser path, and accepting quorum controls | `RelayThresholdOverrideFV` short-input/non-Relay-selector checks and `RelayReturnDiscriminatorFV` | generated `relay-halmos.json` |
 | Unbounded policy-slot threshold theorem | Lean induction over arbitrary policy/signature lengths | `RelaySigLoop.lean` | generated `relay-lean.json` |
 | Conditional EVM/Yul refinement | Lean proof over pinned EVMYulLean semantics | `lean/bytecode-refinement/*.lean` | generated `relay-lean.json` |
 | CVL configuration/rule integrity | exact munge, compile, and CVL typecheck | `certora/Relay*.conf`, `certora/specs/*.spec` | generated `relay-certora-local.json` |
@@ -72,11 +73,12 @@ For each assurance objective, review in this order:
 4. the constituent report's tool result and generation provenance; and
 5. the aggregate bundle's source/manifest consistency decision.
 
-The current security findings in
-[`../relay-security-review.md`](../relay-security-review.md) identify inputs that
-positive proof fixtures may exclude. Those findings remain open unless the
-contract enforces the premise and a regression/proof covers every admission or
-state-transition path.
+The current security review in
+[`../relay-security-review.md`](../relay-security-review.md) identifies inputs that
+positive proof fixtures may exclude. Claims over those fixtures retain their
+admission, configuration, or integration premises. A policy or lifecycle
+requirement is not automatically an implementation defect: the review states
+which behavior is intentional and which correctness edges remain open.
 
 ## Evidence maintenance rule
 

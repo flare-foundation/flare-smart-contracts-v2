@@ -53,7 +53,7 @@ The proof set establishes the following within its stated models:
 The following are explicit boundaries, not proved deployment-wide guarantees:
 
 - `ecrecover` and `keccak` behavior is supplied by premises;
-- [`RelayLoopLiteral.bodyL`](RelayLoopLiteral.lean#L78) is a hand transcription, not a mechanically extracted or AST-equivalent copy
+- [`RelayLoopLiteral.bodyL`](RelayLoopLiteral.lean#L81) is a hand transcription, not a mechanically extracted or AST-equivalent copy
   of the complete compiler output;
 - loop-invariant setup values are parameters, and the protocol-1 theorem assumes the equality connecting
   the modeled `TLOAD` result to the loop-local threshold;

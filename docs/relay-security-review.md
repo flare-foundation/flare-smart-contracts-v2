@@ -1,254 +1,365 @@
 # Relay security review
 
-## Scope and verdict
+## Scope and safety conclusion
 
-This review covers the current implementation of
-[`Relay.sol`](../contracts/protocol/implementation/Relay.sol). Inherited owner,
-timelock, proxy, and `oldRelay` read-delegation behavior is considered only where
-it changes the security of Relay.
+Target: `contracts/protocol/implementation/Relay.sol` at commit
+`ef8ffd1e98685287cc9ee33589b6e15489a13a66`, including RelayProxy,
+OwnableWithTimelock, the home signing-policy producer, migration construction,
+and the FDC2 custom-signature consumer. The comparison is `origin/main` at
+`b69873e1e1a0785e2450d811f35c7927a625716b`.
 
-Normative protocol behavior is in
-[`specs/FSP/Finalization.md`](specs/FSP/Finalization.md); owner and deployment
-operations are in [`relay-governance.md`](relay-governance.md). This document
-records findings, assumptions, impact, and remediation rather than redefining
-those interfaces.
+No permissionless quorum bypass, unauthorized root replacement, standard-token
+fee theft, or unguarded UUPS upgrade was confirmed. The current implementation
+has a coherent authorization design under its stated trust assumptions.
+Production approval still requires current verification evidence and explicit
+acceptance or hardening of the boundaries below. A proof claim requires current
+normalized reports, not the presence of verification files in the working tree.
 
-No unconditional permissionless Critical or High vulnerability was identified.
-The contract nevertheless has one conditional high-impact policy-integrity
-failure, two quorum/migration state-machine failures, and lower-severity
-availability and integration risks. These findings are part of the current
-security boundary and must not be hidden by a passing formal-verification gate.
+In particular, a malicious quorum choosing a malicious replacement policy is
+already exercising its policy authority. Missing duplicate-voter and policy-start
+validation are valuable hardening targets, but an unauthorized admission path
+has not been established in the supported home producer or quorum-controlled
+mirror path. They are not ranked as High vulnerabilities merely by assuming
+that those authorities have already failed.
 
-| ID | Severity | Finding | Required capability or condition |
-| --- | --- | --- | --- |
-| RLY-SEC-01 | Conditional High | Duplicate voter identities can contribute multiple policy-slot weights | A malformed policy is admitted |
-| RLY-SEC-02 | Medium | A terminal future random round can freeze the live-random pointer | An increased-threshold quorum signs the value |
-| RLY-SEC-03 | Medium/Low | Initial-policy start metadata can disagree with the migration read boundary | Inconsistent initialization inputs |
-| RLY-SEC-04 | Low | Current randomness is discontinuous across an `oldRelay` cutover | Consumers switch before a local random is finalized |
-| RLY-SEC-05 | Low | Zero-total-weight policies are accepted but cannot finalize | A malformed policy is admitted |
-| RLY-SEC-06 | Low | Nonmonotonic policy starts can preserve overlapping policy authority | A malformed policy sequence is admitted |
-| RLY-SEC-07 | Low | Queued privileged calls are not automatically invalidated by owner or compatible implementation changes | A call was queued before the change |
-| RLY-SEC-08 | Informational | A secure random finalized at voting round zero is reported insecure by the live getter | The first valid round is zero |
-| RLY-SEC-09 | Informational | Token-fee accounting assumes exact-transfer ERC-20 semantics | The owner configures a fee-on-transfer, rebasing, callback-capable, or otherwise nonstandard token |
+Normative behavior is in [Finalization](specs/FSP/Finalization.md).
+Deployment and owner operations are in [Relay governance](relay-governance.md).
+The [branch review](branch-security-review.md) covers the other changed contracts,
+and the [scope inventory](security-review-scope.md) lists all changed Solidity paths.
 
-Severity is conditional on the stated prerequisite. A trusted setter, a valid
-quorum, or a migration operator is not treated as an arbitrary attacker; the
-finding records how an input error or partial compromise can exceed the intended
-invariant.
+## Trust and authorization boundaries
 
-## RLY-SEC-01 — duplicate voter identities count more than once
+| Actor or dependency                | Authority relied on                                                      | Boundary that Relay enforces                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Anyone submitting relay calldata   | Transport only                                                           | Must present a stored policy and sufficient valid indexed signatures                         |
+| Home signing-policy setter         | Supplies complete policies                                               | Only the configured setter can call; setter mode cannot be cleared                           |
+| Mirror policy quorum               | Approves the next complete policy                                        | Mode-1 rotation authenticates the replacement under the admitted current policy              |
+| Relay owner                        | Fee configuration, setter rotation, ownership and implementation changes | Guarded calls use the configured delay; cancellation is immediate                            |
+| Timelock executor                  | Executes a specific queued authorization                                 | Permissionless execution must match the exact calldata hash and maturity                     |
+| Initial deployer                   | Chooses policy hash, mode, source, timings and migration metadata        | Proxy initialization is atomic; opaque policy contents are not fully validated               |
+| oldRelay and its upgrade authority | Answers delegated historical reads                                       | Immediate-source compatibility checks do not establish implementation provenance             |
+| ERC-20 fee token and fee recipient | Transfer/refund behavior and availability                                | Root inclusion precedes fee calls; exact-transfer token semantics remain an assumption       |
+| Custom-signature consumer          | Defines the meaning and lifetime of a digest                             | Relay checks policy eligibility and weight; consumer replay and freshness rules are external |
 
-The signature loop prevents reuse of a policy **index** by requiring strictly
-increasing indices. It does not prevent several indices from containing the same
-address. The same canonical signature can therefore satisfy each duplicate
-entry, and Relay adds every indexed weight.
+A nonzero delay protects the guarded owner surfaces only. It does not delay normal
+home-policy creation or quorum finalization. A zero delay intentionally permits
+immediate owner changes. An authorized implementation replacement can change
+future semantics; current-code proofs cannot constrain arbitrary replacement code.
 
-For example, a policy with voters `[A, A, C, D, E]`, weights
-`[150, 150, 67, 67, 66]`, and threshold `260` can be finalized by repeating
-`A`'s signature at indices 0 and 1. The accumulated policy-slot weight is 300,
-but only one distinct key signed.
+## Current issue register
 
-The affected admission paths are:
+Severity describes demonstrated reachability under the stated conditions.
+“Hardening” and “integration” entries are not counted as permissionless exploits.
 
-- the initial policy, represented only by an opaque hash at initialization;
-- `setSigningPolicy`, which trusts the configured setter; and
-- policy rotation through `relay()` mode 1.
+| ID         | Classification                        | Boundary                                                                                    |
+| ---------- | ------------------------------------- | ------------------------------------------------------------------------------------------- |
+| RLY-SEC-01 | Policy hardening                      | Slot uniqueness is enforced; signer-address uniqueness is delegated to policy admission     |
+| RLY-SEC-02 | Low, quorum-dependent availability    | An accepted terminal random round makes the live getter unreadable and cannot be superseded |
+| RLY-SEC-03 | Low, manual-configuration consistency | Opaque initial-policy start and nonzero oldRelay read boundary can disagree                 |
+| RLY-SEC-04 | Low, migration integration            | The live random value is not carried across a migration                                     |
+| RLY-SEC-05 | Policy hardening                      | A zero-total policy is structurally admissible but cannot reach strict acceptance           |
+| RLY-SEC-06 | Policy hardening                      | Retirement depends on the next policy's unbounded start                                     |
+| RLY-SEC-07 | Documented governance behavior        | Existing queued calls survive ownership and compatible implementation changes               |
+| RLY-SEC-08 | Informational edge correctness        | A first secure round zero is not reflected in the live security bit                         |
+| RLY-SEC-09 | Token integration assumption          | Fee transfers assume an exact-transfer ERC-20                                               |
+| RLY-SEC-10 | Consumer freshness requirement        | The returned custom-signature policy epoch does not authenticate signature age              |
+| RLY-SEC-11 | Deployment hardening                  | Opaque initial-policy and parameter bounds need composition checks                          |
 
-Impact includes finalizing arbitrary protocol and random roots, approving a
-custom message, and installing a subsequent signing policy once a malformed
-policy is active.
+## RLY-SEC-01 — policy slots and signer identities
 
-Required remediation: validate every complete policy before it becomes active.
-Require a nonzero, unique address for each voter, a positive bounded total
-weight, and valid threshold metadata. Runtime recovered-address deduplication is
-useful defense in depth for policies admitted through a hash-only interface.
+The signature loop requires strictly increasing voter indices, canonical ECDSA
+parameters, and recovery of the address in each selected slot. It does not
+require the addresses in different slots to be distinct. If trusted admission
+accepts repeated addresses, the associated weights are all attributable to the
+same key. The security invariant is therefore “enough admitted slot weight,”
+not “enough independently controlled identities.”
+Evidence: `Relay.sol:459-481,1485-1575`.
 
-## RLY-SEC-02 — terminal future random freezes the live pointer
+The supported home producer is material to this assessment:
+`FlareSystemsManager.sol:908-921` obtains its voter snapshot from
+`VoterRegistry.sol:196-236`; voter registration and EntityManager signing-address
+registration enforce identity restrictions
+(`VoterRegistry.sol:532-540,622`,
+`EntityManager.sol:231-243`). Initial policy configuration remains trusted.
+Mirror rotation already requires approval of the entire replacement policy.
 
-Relay rejects stale signed messages but permits arbitrarily far-future voting
-rounds after applying the increased future-message threshold. A random message
-for `type(uint32).max` can therefore be finalized by a sufficiently large valid
-quorum.
+No arbitrary caller can choose the stored policy hash or inject an additional
+voter slot through the reviewed honest producer. Assigning High severity without
+an untrusted admission route would overstate the finding.
 
-The live random pointer advances monotonically. Once it reaches the terminal
-round, no later `uint32` round can replace it. In addition, the live getter adds
-one to the stored `uint32` before widening to `uint256`, so the getter reverts on
-the terminal value.
+Hardening: validate nonzero unique signer addresses and positive total weight
+at every complete-policy admission point; document and verify the producer-to-
+Relay invariant. A sorted-address requirement would change the current policy
+ordering and wire compatibility, so do not introduce it without coordinating the
+producer and signers. Individual zero weights may result from normalization;
+rejecting every zero weight also requires a producer compatibility decision.
 
-Required remediation:
+## RLY-SEC-02 — terminal live-random state
 
-- impose a small time-derived future horizon;
-- reject `type(uint32).max` explicitly;
-- widen before arithmetic; and
-- verify the invariant that every accepted live pointer is readable and can be
-  superseded by a later representable round.
+Relay accepts sufficiently authenticated future rounds. If such a round reaches
+the maximum uint32 value, the monotonic live pointer has no later representable
+round, and `getRandomNumber()` adds one as uint32 before widening. That getter
+then reverts. Evidence: `Relay.sol:1124-1203,1711-1738,1933-1941`.
 
-## RLY-SEC-03 — migration write and read partitions can overlap or gap
+This is a real arithmetic/availability boundary, but entering it requires
+signatures over the abnormal future round. A submitter cannot transform valid
+ordinary-round signatures into that message. The classification is Low,
+quorum-dependent hardening, with high potential operational impact if entered.
 
-Initialization stores an opaque initial-policy hash and a separate
-`startingVotingRoundIdForInitialRewardEpochId`. The policy bytes supplied later
-to `relay()` carry their own start round. The encoded start controls whether a
-message may be finalized locally; the initialization value controls whether
-read functions consult local storage or `oldRelay`.
+Hardening: widen before addition, explicitly define terminal-round behavior,
+and bound accepted future rounds to a protocol-compatible time horizon.
+Widening alone repairs readability but does not restore progress after the
+terminal round. The verification obligation is: every accepted live state is
+readable, and ordinary protocol operation cannot consume the terminal state.
 
-If the encoded policy start is lower than the read boundary, Relay can finalize
-a root locally and then hide it behind delegation to `oldRelay`. If it is
-higher, an interval can exist in which the intended policy cannot finalize a
-root. The implementation does not establish equality between the two values.
+## RLY-SEC-03 — initial policy and migration boundary
 
-Required remediation: initialize from the complete policy, validate it, derive
-the read boundary from its metadata, and compute the canonical hash on-chain.
-At minimum, require equality when the initial policy is revealed.
+With `oldRelay != address(0)`, initialization stores a separate read-delegation
+boundary beside the opaque initial-policy hash. Local finalization uses the
+start revealed in the policy; historical reads use the initialization boundary.
+If these disagree, a locally stored root can fall on the delegated side, or an
+interval may have no usable local initial policy.
+Evidence: `Relay.sol:329-357,1788-1817,1900-1919,1955-1959`.
 
-## RLY-SEC-04 — current randomness is not migrated
+The supported home deployment constructs both from the same system-manager
+value and checks the migrated policy hash:
+`deployment/scripts/relay/DeployRelayHome.s.sol:156-193,222-259`.
+The inconsistency therefore requires a different/manual configuration path or
+failure of the trusted deployment assumptions. With no oldRelay, the separate
+boundary does not control delegated reads.
 
-Reads below the migration boundary delegate to `oldRelay`. The live
-`getRandomNumber()` path always reads local state. Immediately after cutover it
-therefore reports a predictable zero with `isSecure = false` until a local
-random root is finalized.
+Hardening: derive the boundary from a complete initial policy on-chain, or
+validate equality at the first reveal. Retain deployment checks for the
+source's policy hash, timings and mode, and additionally establish its
+implementation provenance. Treat every transitive oldRelay and its upgrade
+authority as part of the integrity boundary.
 
-Consumers that correctly require `isSecure` can become unavailable. Consumers
-that discard the flag can use predictable input.
+## RLY-SEC-04 — live randomness at migration
 
-Required remediation: delegate the live getter until local current-random state
-exists, or seed a verified snapshot atomically during migration. Registry
-cutover must not precede continuity of the live random value.
+The live getter always uses local random state, while historical getters can
+delegate. Immediately after cutover it returns zero with `isSecure = false`
+until a local random is finalized. Consumers that require security may stop;
+consumers that ignore the bit may use predictable input.
+Evidence: `Relay.sol:1925-1941,1947-1959`.
 
-## Lower-severity state and governance findings
+The insecure flag is honest; this is not a forged secure random value. The
+system manager itself checks security/freshness
+(`FlareSystemsManager.sol:278-280`).
+Require consumer checks and a cutover procedure that establishes a local secure
+value before dependants switch, or design a verified atomic seed/delegation rule.
 
-### RLY-SEC-05 — unusable zero-weight policy
+## RLY-SEC-05 — unusable zero-total policy
 
-A nonempty policy whose weights and threshold are all zero satisfies the current
-threshold-band checks. Finalization remains impossible because acceptance uses
-a strict `weight > threshold` comparison. Require a positive total weight and,
-preferably, a positive weight for every admitted voter.
+A nonempty zero-total policy can satisfy structural threshold-band checks but
+cannot satisfy strict accumulated weight greater than threshold. It requires
+trusted initialization, setter admission, or a quorum-approved replacement.
+The normalized home snapshot cannot have all-zero weights under its bounded
+voter count and positive input total.
+Evidence: `Relay.sol:459-481`, `VoterRegistry.sol:204-236`.
 
-### RLY-SEC-06 — policy starts are not monotonic
+Enforce a positive total as defense in depth and keep the upstream positive-input
+premise explicit. This is configuration liveness hardening.
 
-The implementation assumes that start rounds are nondecreasing across reward
-epochs but does not enforce that assumption. A lower later start can leave an
-older quorum valid over rounds also covered by a newer policy. Require monotonic
-starts or make the invariant an explicit, machine-checked property of every
-admission path.
+## RLY-SEC-06 — policy retirement
 
-### RLY-SEC-07 — queued calls outlive authority changes
+For a policy from epoch R, the cross-epoch gate consults the stored start of
+R+1. It does not consult every later policy. An extreme admitted next start can
+leave the older policy eligible for a very long interval, even when more policies
+exist. Its ordinary threshold can apply once it is no longer the last initialized
+policy. Evidence: `Relay.sol:1161-1203,1273-1400`.
 
-The timelock queue key binds calldata and its execution timestamp. It does not
-bind the owner generation, implementation generation, or an expiry. A call
-queued by the current owner remains permissionlessly executable after ownership
-transfer unless the new owner identifies and cancels it. `transferOwnership` is
-itself guarded, so with a nonzero duration the transfer is at least visible for
-the delay before it applies, which is when the outstanding queue must be
-cleared; with a zero duration there is no such window. Either way the transfer
-invalidates no entry. A compatible upgrade that retains the timelock
-namespace and execution surface likewise does not invalidate an entry
-automatically; arbitrary replacement code may instead alter, ignore, or delete
-that state.
+The home producer derives a start from time and enforces a forward delay
+(`FlareSystemsManager.sol:1168-1175`). Mirror signers authorize the full
+replacement, and a malicious quorum could already retain its own identities in
+successive policies. The extreme boundary itself is not an escalation beyond
+that authority. It becomes a latent risk under accidental malformed admission
+followed by later compromise of retired keys.
 
-Identifying the entries is off-chain work. The queue is a bare
-hash-to-timestamp mapping with no key set, so nothing on-chain lists what is
-outstanding and an incoming owner cannot establish from chain state alone that
-the queue is empty. The mitigation is procedural, not structural.
+Hardening: verify producer start bounds and monotonicity at admission and consider
+a bounded overlap rule. Any current/previous-only rule must preserve legitimate
+delayed finalization and policy availability behavior; it is a protocol change,
+not a safe incidental edit.
 
-Bind queued operations to an authority/implementation generation, invalidate
-the generation on transfer or upgrade, and give operations a finite execution
-window. Pending that, the accepted mitigation is the clearing procedure in
-[relay-governance.md](relay-governance.md) §1, run before every ownership
-transfer and implementation change.
+## RLY-SEC-07 — queued authorizations and handover
 
-### RLY-SEC-08 — round-zero security disagreement
+Queue entries bind calldata and maturity, not the owner generation or an expiry.
+The documented semantics preserve an existing authorization across ownership
+transfer. A compatible implementation can also retain the same queue.
+Evidence: `OwnableWithTimelock.sol:23-28,63-80,110-132`.
 
-The live random pointer updates only when the accepted round is strictly greater
-than its zero-initialized value. A valid secure random at round zero is stored in
-the per-round mappings, but the live security flag remains false. Use an explicit presence
-bit, or update the pointer when the first local random is stored.
+The outgoing owner should inventory events and cancel unwanted entries before
+transfer; the incoming owner cannot cancel until ownership changes. The queue
+has no on-chain enumeration. Ownership transfer is itself delayed when the
+delay is nonzero, and an outgoing owner can cancel it. A nonzero but incorrect
+recipient has no recovery or acceptance handshake.
 
-### RLY-SEC-09 — token-fee accounting trusts token semantics
+Relay's executor is nonpayable and performs a zero-value self-call; executor-
+chosen value is not a Relay issue. With a nonzero delay, upgrade initializers
+must work with zero value. The execution flag is consumed before the guarded
+body. Current concrete tests cover migration reinitializers and rejection of
+attempted second guarded calls from an upgrade.
 
-In token mode, `verify()` uses `SafeERC20.safeTransferFrom` after successful
-Merkle verification. SafeERC20 checks call success and supported return
-conventions; Relay does not measure the collector's balance delta. A
-fee-on-transfer or rebasing token can therefore deliver an amount different
-from `protocolFee[protocolId]`, and a callback-capable or adversarial token can
-add availability and reentrancy behavior outside Relay's internal model.
+Consider generation invalidation, finite execution windows, or a two-step
+ownership acceptance only if those semantics are desired. Keep the event-based
+handover procedure mandatory while durable authorizations remain the design.
 
-Configure only a reviewed, standard exact-transfer ERC-20. Treat the token
-contract and its upgrade authority as part of Relay's trusted environment.
-Changing the token and fee table in one owner-timelocked full-replace call avoids
-mixed denominations, but does not validate the selected token's semantics.
+## RLY-SEC-08 — round-zero presence
 
-## Integration boundary for custom messages
+The live pointer advances only for a strictly greater round. A first secure
+round zero can be recorded historically while the live security bit stays false.
+No insecure value is falsely marked secure.
+Evidence: `Relay.sol:1711-1738`.
 
-`verifyCustomSignature` is intentionally stateless. A valid signature set can be
-reused anywhere that interprets the same message hash and source domain. Every
-consumer must bind, in the signed preimage:
+An explicit “local random initialized” flag would separate absence from round
+zero. Deployments whose first valid round is nonzero avoid this edge.
 
-- the destination chain and consuming contract;
-- the operation or protocol purpose;
-- a nonce or unique request identifier;
-- an expiry or freshness condition; and
-- any policy epoch or threshold semantics required by that consumer.
+## RLY-SEC-09 — fee token assumptions
 
-Relay proves only that the submitted digest has enough accepted policy-slot
-weight under its selected policy. It does not supply consumer replay protection.
+Local verification requires a finalized root and valid inclusion before charging.
+Native fee and refund arithmetic conserve the current call's value. Token-mode
+verification rejects native value and uses SafeERC20 to request payment from the
+actual caller. No balance-delta check establishes exact receipt.
+Evidence: `Relay.sol:1788-1872`.
 
-## Reviewed mechanisms with no additional finding
+An owner-selected fee-on-transfer, rebasing, or callback-capable token has behavior
+outside the exact-transfer model. A collector or refund recipient can also
+reject its callback and make the call revert. These trusted dependencies can
+affect availability; no standard-token accounting theft was found.
 
-The current source-domain single-keccak encoding is structurally unambiguous:
-the source prefix is fixed-width, protocol messages are fixed-width, and signing
-policy length is determined by voter count. The high-level and assembly signing
-policy encoders use the same byte layout.
+Configure reviewed exact-transfer tokens, include their upgrade authority in
+the trust model, and test each supported token's real implementation. Token
+and fee-table replacement is atomic, preventing mixed denominations during an
+ordinary configuration change.
 
-The ECDSA gate checks canonical `v`, low `s`, successful precompile execution,
-exact 32-byte return data, a nonzero signer, the selected voter address, and
-strictly increasing policy indices. Those checks do not address duplicate
-addresses in the policy itself.
+## RLY-SEC-10 — custom signatures authenticate eligibility, not age
 
-The transient protocol-1 threshold override is selected only for protocol 1,
-uses the strict comparison consistently, clears on success, and is rolled back
-with the call frame on revert. No callback window was identified between setup
-and consumption.
+The custom-message digest binds the source domain and fixed protocol message
+containing the supplied message hash. It does not bind the selected policy
+epoch or policy hash. Relay returns the epoch of the policy against which the
+signatures were accepted.
+Evidence: `Relay.sol:1085-1089,1124-1126,1212-1225,1579-1591`.
 
-The current UUPS surface exposes no unguarded upgrade route: the public upgrade
-entry is timelocked and proxy-context checks remain active. This conclusion does
-not cover the semantics of a future implementation selected by the owner.
+If the same signing identities still have sufficient weight under a later
+policy, their signatures can remain valid under that policy. This is expected
+for a generic digest-verification API. The returned epoch cannot establish
+when the signatures were produced.
 
-A successful pre-boundary `oldRelay` verification receives no forwarded value,
-and the caller's entire `msg.value` is refunded. This path relies on the migration
-requirement that every source reachable through the configured chain is an
-intended supported Relay in setter mode. Supported setter-mode initialization
-rejects fee configuration, fee mutators (where present) require relay mode, and
-setter mode cannot be cleared, so verification fees remain zero throughout that
-chain.
+The concrete consumer boundary is FDC2:
+`Fdc2ProofVerification.sol:31-45` accepts current/previous selected policy IDs,
+while `TeePaymentsConfigVerifier.sol:144-196,239-267` does not enforce the
+signed header timestamp. Its configuration proofs can therefore remain usable
+through policy rotations if the wallet keys and required cosigners remain
+eligible. Owner authorization still gates registration; no public takeover is
+established. Availability proofs have additional live-challenge checks.
 
-Initialization validates the immediate source's interface-reported mode and
-timing, not its implementation provenance or the provenance of a transitive
-chain. The zero-fee claim therefore shares the migration trust assumption with
-every other delegated read. An arbitrary contract in the `oldRelay` slot answers
-delegated `verify` calls itself and can return `true` for invalid proofs, which
-is an integrity failure, not an availability failure. A supported source that
-unexpectedly enforces a nonzero fee rejects the zero-value delegated call.
+Consumers must bind purpose, destination, request identity, expiry, and any
+required policy epoch into the signed application data, then enforce those
+values. Describe the return value as selected-policy identity. Changing Relay's
+digest itself would affect the intentional FDC2/FSP/cosigner preimage alignment
+and requires coordinated compatibility review.
 
-This version is the first-deployment sequential Solidity storage baseline and
-requires no proxy storage migration. The artifact gate compares the pinned
-compiler's normalized `storageLayout` output with the committed baseline so an
-unreviewed sequential slot, order, offset, or type change fails. The snapshot
-does not enumerate ERC-7201 namespaced state, including OpenZeppelin
-`Initializable`, or EIP-1153 transient slots. That scoped drift check is not a
-proof that future implementation code is storage-compatible.
+## RLY-SEC-11 — deployment composition bounds
 
-## Formal-verification consequence
+Opaque initial-policy admission does not revalidate every voter-count, address,
+weight, epoch and start invariant. The initial epoch input is wider than the
+policy's 24-bit wire epoch. The future-threshold multiplier has an operational
+upper-bound requirement: too large a multiplier can prevent later-round
+acceptance using the last initialized older policy, even when every voter signs.
+Installing the appropriate newer policy restores its ordinary-threshold path.
+These are trusted configuration inputs, not caller-controlled arithmetic overflows.
 
-The formal claims must preserve the distinction between unique policy slots and
-unique signer identities. A proof that constructs voter addresses as distinct,
-assumes positive weights, restricts rounds to an ordinary bounded range, or
-aligns migration boundaries has assumed away the corresponding finding.
-Lean's fee layer covers only the native-coin branch; token-fee claims require
-compiled-bytecode or CVL evidence and retain the standard exact-transfer token
-assumption.
+The packed count/weight sizes keep offset and weight products far below uint256
+wrap. The separate concern is usability and gas when an opaque initial policy
+does not respect the operational voter limit.
 
-Required proof obligations and counterexample regressions are listed in
-[`relay-verification/10-claims-ledger-trust-and-residual.md`](relay-verification/10-claims-ledger-trust-and-residual.md).
-The evidence status is defined by
-[`relay-verification/CURRENT-STATUS.md`](relay-verification/CURRENT-STATUS.md),
-not by prose pass counts in this document.
+Validate the complete deployment manifest: wire-width epoch, bounded count,
+positive weight total, threshold feasibility, source domain, time parameters,
+migration boundary, owner/delay, fee mode, and setter-mode consistency. Preserve
+the full signed manifest with the compiled implementation identity.
+
+## Mechanisms checked with no confirmed bypass
+
+| Mechanism                | Source-level conclusion                                                                             | Remaining assumption                                              |
+| ------------------------ | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Parser and memory layout | Fixed-width counts determine offsets; reviewed scratch regions preserve needed state                | This manual trace is not a proof for every calldata value         |
+| Domain separation        | Policy and protocol-message encodings have distinct lengths and source binding                      | Keccak collision resistance; consumers supply application domains |
+| ECDSA recovery           | v, low s, call success, return length, nonzero recovery and expected address are checked            | ECDSA security and valid policy admission                         |
+| Write-once finalization  | Existing roots/policies are gated; a later signature failure rolls back earlier writes              | No arbitrary authorized upgrade changing these rules              |
+| Custom wrapper           | relay selector and return discriminator/hash are checked; transient override is scoped and cleared  | Future changes preserve the no-callback setup-to-use interval     |
+| Random leaf binding      | Round, value and canonical boolean are tied to the signed root                                      | Merkle/keccak assumptions and authenticated input freshness       |
+| Fee/refund callbacks     | Inclusion precedes external fee operations; no mutable per-user fee credit was found to corrupt     | Dependency behavior and callback availability                     |
+| RelayProxy/UUPS          | Constructor initialization is atomic; implementation initialization and upgrade context are guarded | Selected implementation and future upgrade code are trusted       |
+| Timelock                 | Exact mature calldata is replayed; execution privilege is consumed before body callbacks            | Queue survival and zero-delay mode are intentional                |
+
+## Formal assurance and remaining work
+
+Existing Relay implementation suites passed 104 tests, including two fuzz tests
+with 256 runs each. Owner-timelock and upgrade suites passed another 49 tests:
+153 relevant tests passed, with none failed or skipped. These are concrete
+regression results, not proofs that every calldata or policy is safe. Exact commands and broader
+test coverage are recorded in the [branch review](branch-security-review.md).
+
+The evidence rule is defined by
+[CURRENT-STATUS](relay-verification/CURRENT-STATUS.md), the
+[claims ledger](relay-verification/10-claims-ledger-trust-and-residual.md), and
+[AUDIT-TRAIL](relay-verification/AUDIT-TRAIL.md). Normalized reports in
+`verification-reports/` are generated, gitignored evidence, not committed proof
+inputs. Their manifest, source and toolchain bindings determine applicability.
+An uncommitted working-tree run remains development evidence even when all
+individual properties pass.
+
+The current package includes delayed ownership-transfer lifecycle and queue
+preservation checks; canonical security-byte rejection plus both legal-byte
+success witnesses; finalized-source delegation and refund checks; and bounded
+custom-wrapper selector rejection with genuine relay success controls elsewhere
+in the same fixture. Certora's verification-only source tree is regenerated
+from production with only the declared visibility substitutions. The optimized
+Yul snapshot is compiler-generated, and the sequential storage baseline is
+checked independently. These input-consistency measures do not replace a
+complete run of the manifest-bound gates.
+
+| Proof area                     | What the present package can establish when regenerated and passing | What it does not establish                                            |
+| ------------------------------ | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Halmos signature/parser checks | Bounded bytecode fixtures and selected success/failure paths        | All calldata, all signer counts, or untrusted-policy admission safety |
+| Lean signature loop            | Unbounded abstract/conditional index and weight reasoning           | Unconditional equivalence of the entire deployed Relay to the model   |
+| Random/Merkle checks           | Bounded leaf/fold binding under hashing assumptions                 | Terminal progress, migration continuity, or a future-round policy     |
+| Fees                           | Native arithmetic and selected native/token transitions             | Arbitrary token semantics or a complete hostile-dependency model      |
+| Timelock/UUPS                  | Concrete control checks and bounded modeled transitions             | Semantics of arbitrary owner-selected replacement code                |
+| Artifact/layout gates          | Compiler/settings/source/Yul identity and sequential layout drift   | Compiler correctness or complete future namespace compatibility       |
+| Certora local                  | Solidity scene compilation and CVL front-end acceptance             | Cloud solver proof results                                            |
+
+Certora configurations use finite loop settings, optimistic loop/hash
+abstractions and a hashing-length bound. Generic ABI calls to `relay()` contain
+no raw payload; preservation rules over those calls alone do not prove valid
+relay-message execution. Successful reachability witnesses and the exact rule
+scope matter. Lean refinement retains explicit crypto, setup and composition
+premises and declared local semantic axioms; absence of `sorry` is not an
+assumption-free full-contract proof.
+
+The sequential storage snapshot is the first-deployment baseline. It excludes
+ERC-7201 and transient namespaces; current concrete namespace tests help, but
+future upgrades need review of those namespaces, inherited layout, types and
+semantics as well. A non-append-only change before first deployment does not
+by itself break future upgradeability. Once deployed, that exact storage
+baseline becomes the compatibility reference.
+
+Certora cloud is supplemental under the current bundle policy. Cloud claims
+require current, complete normalized job results with acceptable sanity outcomes.
+The [branch review](branch-security-review.md) records the regression-test scope;
+the generated bundle is authoritative for formal-verification status.
+
+## Recommended hardening order
+
+1. Obtain a passing, release-eligible bundle for the exact clean commit. Keep
+   source-to-proof identity checks and successful-path witnesses mandatory
+   whenever a guarded surface or parser rule changes.
+2. Widen live-random timestamp arithmetic; define and enforce terminal/future
+   round limits and first-random presence behavior.
+3. Validate initial-policy/deployment composition and machine-check the
+   home-producer uniqueness, total-weight and start-bound premises.
+4. Specify migration continuity and require consumer freshness/security checks.
+5. Clarify custom-signature policy identity versus signature age; enforce
+   expiry/request binding in FDC2 and other consumers.
+6. Decide whether durable queues, single-step ownership and exact-transfer-only
+   fee tokens match the deployment threat model. Encode the accepted policy in
+   deployment checks and upgrade procedures.

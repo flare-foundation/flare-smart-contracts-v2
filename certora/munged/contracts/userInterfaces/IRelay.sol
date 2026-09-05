@@ -43,8 +43,12 @@ interface IRelay is RandomNumberV2Interface {
                                                                // (signingPolicySetter set) forces it to
                                                                // equal block.chainid.
         uint256 timelockDurationSeconds;                       // Initial owner-timelock duration applied to
-                                                               // the fee setters and upgrades (see
-                                                               // IOwnableWithTimelock); at most 7 days.
+                                                               // every guarded owner call — fee settings,
+                                                               // upgrades, this duration and ownership
+                                                               // transfer (see IOwnableWithTimelock);
+                                                               // at most 7 days. Zero disables the
+                                                               // timelock: guarded calls then apply
+                                                               // immediately instead of queueing.
     }
 
     // Event is emitted when a new signing policy is initialized by the signing policy setter.
@@ -72,6 +76,9 @@ interface IRelay is RandomNumberV2Interface {
     );
 
     // Event is emitted when a protocol message is relayed.
+    // isSecureRandom is always a canonical bool: the relayed message must carry 0 or 1 for the
+    // random-number protocol and 0 for every other protocol id, so this field never carries a
+    // value a strict ABI decoder would reject. Outside the random-number protocol it is false.
     event ProtocolMessageRelayed(
         uint8 indexed protocolId,           // Protocol id
         uint32 indexed votingRoundId,       // Voting round id
@@ -162,6 +169,10 @@ interface IRelay is RandomNumberV2Interface {
     error NotEnoughWeight();
     error NotFinalized();
     error NotNextRewardEpoch();
+    /// verifyCustomSignature / verifyCustomSignatureWithThreshold were given calldata that does
+    /// not select relay(). The self-call is restricted to relay() so it can never become a
+    /// general-purpose internal entry point.
+    error NotRelayCall();
     error NotWithLastInitialized();
     error OldRelayIncompatible();
     /// Old-relay migration is home-only. A relay-mode mirror uses its local fee and exemption
@@ -201,6 +212,8 @@ interface IRelay is RandomNumberV2Interface {
     error VotersWeightsSizeMismatch();
     error VotingEpochDurationZero();
     error WrongMessageFormat();
+    /// The protocol message's isSecureRandom byte is not a canonical bool for its protocol id:
+    /// it must be 0 or 1 for the random-number protocol and 0 for every other protocol id.
     error WrongMessageFormat2();
     error WrongSignPolicyRewardEpoch();
     error WrongSignature();
@@ -224,6 +237,8 @@ interface IRelay is RandomNumberV2Interface {
      *           must domain-separate `_messageHash` for their application, including every replay
      *           boundary they require (for example destination chain id, consuming contract,
      *           operation and nonce).
+     *           Calldata whose leading four bytes are not the `relay()` selector is rejected
+     *           with `NotRelayCall`, so this path cannot reach any other function on the contract.
      * @param _relayMessage Full calldata for the `relay()` self-call, including its 4-byte selector.
      * @param _messageHash The hash of the message.
      * @return _rewardEpochId The reward epoch id of the signing policy.
@@ -310,8 +325,10 @@ interface IRelay is RandomNumberV2Interface {
      *   there is no refund path.
      * A successful verification delegated to a configured old relay (home deployments only,
      * rounds below the migration boundary) is free: no value is forwarded and the caller's
-     * entire msg.value is refunded. Migration configuration must use an intended supported
-     * setter-mode Relay chain, whose verification fees remain zero.
+     * entire msg.value is refunded. The round must be finalized on that source too, otherwise
+     * the call reverts NotFinalized — an unfinalized round has a zero root there, which an
+     * empty proof over a zero leaf would otherwise satisfy. Migration configuration must use an
+     * intended supported setter-mode Relay chain, whose verification fees remain zero.
      * **NOTE:** A leaf equal to the (finalized, non-zero) root verifies with an empty proof —
      *           a standard Merkle property. Off-chain leaf encoding MUST be domain-separated from internal
      *           and root node hashes so an internal node cannot be presented as a differently-typed leaf.

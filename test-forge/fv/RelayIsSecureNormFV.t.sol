@@ -9,55 +9,24 @@ import {RelayTestBase} from "../unit/protocol/implementation/Relay.t.sol";
 // solhint-disable-next-line no-unused-import
 import {deployRelay, RELAY_TEST_GOVERNANCE} from "../utils/RelayDeploy.sol";
 
-// Symbolic proof of the `isSecure` byte normalization.
+// Canonical security-byte properties over the real Relay bytecode.
 //
-// CLAIM. For the random-number protocol (protocolId == RANDOM_PROTOCOL_ID = 2, a Mode-2 relay carrying the
-// random trailer randomNumber||proof), let `b` be the raw isSecureRandom byte in the signed message
-// (message layout: protocolId(1)||votingRoundId(4)||isSecureRandom(1)||merkleRoot(32)).
-// The contract normalizes it once, `isSecure := iszero(iszero(b))`, i.e. isSecure ==
-// (b != 0), and then uses that SAME local in every sink:
-//   - the Merkle LEAF hash keccak256(abi.encode(votingRoundId, value, isSecure));
-//   - the historical bit isSecureRandomMap[vrid/256] bit (vrid%256), set by setIsSecureRandomBit;
-//   - the live stateData.isSecureRandom field; and
-//   - the emitted ProtocolMessageRelayed / RandomNumberRelayed bool.
-// We prove the three on-chain SINKS that are externally observable all equal (b != 0):
-//   (S1) getRandomNumberHistorical(vrid)._isSecureRandom — reads the stored isSecureRandomMap bit,
-//   (S2) getRandomNumber()._isSecureRandom — reads stateData.isSecureRandom,
-//   (S3) the LEAF isSecure — established BY CONSTRUCTION under the keccak
-//        collision-resistance/injectivity model: the message's signed
-//        merkleRoot is built here as sortedPair(randomLeaf(vrid, value, b != 0), sibling); relay() recomputes
-//        the leaf from ITS normalized isSecure and reverts unless the
-//        recomputed root equals the signed root. So a NON-reverting (accepting) run forces the contract's leaf
-//        to equal randomLeaf(vrid, value, b != 0); injectivity then gives leaf-isSecure == (b != 0).
-//        We do not read the contract's internal leaf word directly (see CAVEATS) — S3 is the "proof verifies
-//        with a root committed to (b != 0)" argument, machine-checked via reachability of the accept path.
+// Random-protocol messages admit only bytes 0 and 1; every other byte must revert
+// with WrongMessageFormat2. Other nonzero protocol IDs admit only byte 0. The
+// success implications keep the raw byte symbolic over 0..255 and establish both
+// canonicality and agreement with the historical/live security bits. An independent
+// symbolic leaf bit checks Merkle binding under the keccak injectivity model.
 //
-// HOW WE PROVE IT. The isSecure byte `b` is a SYMBOLIC uint8 (free over 0..255, so 0,1,2,.. are all covered).
-// Each proof check executes relay() via a low-level call and asserts  success => sink == (b != 0)  as
-// `assert(!ok || sink == (b != 0))`. Because the assertion only constrains the success branch it is VACUOUS
-// unless the accept path is reachable for that `b`; so the proofs are PAIRED with reachability controls that
-// `assert(!ok)` at the SAME shape, EXPECTED TO PRODUCE A COUNTEREXAMPLE (an ok==true witness) — one for b==0
-// (insecure) and one for b!=0 (secure), pinning that BOTH normalization outcomes are reachable. An unexpected
-// reachability PASS means the accept path is unreachable (e.g. loop bound too small) and the paired proof is
-// vacuous — treat it as a hard failure.
+// Separate accepting witnesses for bytes 0 and 1 prevent the success implications
+// from passing merely because no signature set can finalize. High-byte rejection
+// checks the exact error, so invalid symbolic signatures cannot be its reason.
+// Events are covered by concrete tests, not asserted by this harness.
 //
-// WHY THE PROOF VERIFIES FOR ALL b. The signed merkleRoot here is built with the SAME normalization the
-// contract uses (randomLeaf(.., b != 0)). relay()'s leaf recompute uses isSecure == (b != 0) too, so the
-// recomputed root equals the signed root for every b and the proof passes — acceptance does not depend on the
-// concrete byte, exactly the normalization we are checking. The 2-leaf tree [randomLeaf, sibling] gives
-// a 1-node proof, so the Merkle fold loop runs once.
-//
-// CONFIG. Fully-concrete signing policy (no vm.addr/vm.sign/sorting -> single deterministic setUp path under
-// Halmos): N=3 voters weight 100 each (total 300) > threshold 260, so 3 distinct signatures suffice to accept.
-// Only the SIGNATURES (v,r,s) and the isSecure byte are symbolic; ecrecover is the uninterpreted function E
-// at the uninterpreted recovery boundary, so the solver may freely set E(h,v_i,r_i,s_i) = voters[i]
-// (the conservative worst case) and
-// no real keypairs are needed. votingRoundId = START_VOTING_ROUND_ID maps to the policy's own reward epoch via
-// rewardEpochIdFromVotingRoundId ((3360-0)/3360 = 1 = REWARD_EPOCH_ID), so the same-epoch path is taken and the
-// threshold-increase block is never entered; this is the FIRST random relay so
-// randomVotingRoundId starts at 0 < START_VOTING_ROUND_ID and the live-pointer/stateData.isSecureRandom write
-// update fires (S2 is meaningful). The signature loop runs once per signature (3 sigs) and the Merkle
-// fold once (1-node proof): max loop depth 3 <= halmos.toml loop = 6 (loopBoundNeeded = 3).
+// The concrete policy has three distinct voters of weight 100, threshold 260,
+// and same-epoch round START_VOTING_ROUND_ID > 0. Only signature fields, the
+// message byte and (where requested) the leaf bit are symbolic; ECDSA recovery
+// is uninterpreted. Acceptance takes three signature iterations and one Merkle
+// fold, within the configured loop bound. Round-zero behavior is outside this shape.
 contract RelayIsSecureNormFV is RelayTestBase {
     bytes internal policy;
     uint256 internal constant NV = 3;
@@ -107,9 +76,8 @@ contract RelayIsSecureNormFV is RelayTestBase {
 
     // Build the full relay() calldata for a random-protocol message with raw isSecure byte `isSecureByte`,
     // whose signed merkleRoot is the 2-leaf tree over randomLeaf(VRID, VALUE, leafBit). Decoupling the
-    // LEAF bit from the message byte lets us machine-check the contract's leaf normalization (see
-    // check_leafNorm_machineChecked): the contract recomputes its leaf from ITS rule (b != 0) and reverts
-    // unless that reproduces this root, so acceptance forces (b != 0) == leafBit.
+    // LEAF bit from the message byte checks that an accepting message is canonical and
+    // agrees with the Merkle-committed bit (check_leafCanonical_machineChecked).
     // Layout: selector || policy || message(38) || sigs || trailer(value||sibling).
     function _randomCalldataLeaf(uint8 isSecureByte, bool leafBit, bytes memory sigs)
         internal view
@@ -121,9 +89,10 @@ contract RelayIsSecureNormFV is RelayTestBase {
         return abi.encodePacked(Relay.relay.selector, policy, message, sigs, trailer);
     }
 
-    // Default: signed root built with the contract's own normalization (b != 0) — for the S1/S2/cross sinks.
+    // The default leaf uses true only for the canonical secure byte 1. Invalid
+    // message bytes remain in the input domain and must fail at the parser guard.
     function _randomCalldata(uint8 isSecureByte, bytes memory sigs) internal view returns (bytes memory) {
-        return _randomCalldataLeaf(isSecureByte, isSecureByte != 0, sigs);
+        return _randomCalldataLeaf(isSecureByte, isSecureByte == 1, sigs);
     }
 
     function _relay(uint8 isSecureByte, Sig calldata a, Sig calldata b, Sig calldata c) internal returns (bool ok) {
@@ -136,31 +105,31 @@ contract RelayIsSecureNormFV is RelayTestBase {
         (ok, ) = address(relay).call(_randomCalldataLeaf(isSecureByte, leafBit, _threeSigs(a, b, c)));
     }
 
-    // ===================== Every observable isSecure sink equals (b != 0) =====================
-
-    // Historical stored bit: accepting run => getRandomNumberHistorical(VRID)._isSecureRandom == (b != 0).
+    // Historical stored bit: acceptance implies a canonical byte and the matching stored bit.
     // Reads the persisted isSecureRandomMap bit, which is set iff isSecure.
     // EXPECT: PASS.
-    function check_historicalSecure_eq_byteNonZero(
+    function check_historicalSecure_eq_canonicalByte(
         uint8 isSecureByte, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {
         bool ok = _relay(isSecureByte, a, b, c);
         if (ok) {
             (, bool sec, ) = relay.getRandomNumberHistorical(VRID);
-            assert(sec == (isSecureByte != 0));
+            assert(isSecureByte <= 1);
+            assert(sec == (isSecureByte == 1));
         }
     }
 
-    // Live flag: accepting run => getRandomNumber()._isSecureRandom == (b != 0).
+    // Live flag: acceptance implies a canonical byte and the matching stored bit.
     // Reads stateData.isSecureRandom, written from isSecure in the first-round branch
     // (VRID > 0 = initial randomVotingRoundId, so the branch fires). EXPECT: PASS.
-    function check_liveSecure_eq_byteNonZero(
+    function check_liveSecure_eq_canonicalByte(
         uint8 isSecureByte, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {
         bool ok = _relay(isSecureByte, a, b, c);
         if (ok) {
             (, bool sec, ) = relay.getRandomNumber();
-            assert(sec == (isSecureByte != 0));
+            assert(isSecureByte <= 1);
+            assert(sec == (isSecureByte == 1));
         }
     }
 
@@ -177,49 +146,60 @@ contract RelayIsSecureNormFV is RelayTestBase {
         }
     }
 
-    // Machine-checked leaf normalization is exactly (b != 0), for all b in 0..255.
-    // We build the signed root from an INDEPENDENT symbolic leaf bit `lb` (decoupled from the message byte
-    // b). The contract recomputes its leaf from ITS rule and reverts unless the recomputed
-    // root equals this signed root; under the keccak collision-resistance/injectivity model (with the same
-    // VRID and VALUE), acceptance holds iff the
-    // contract's leaf-isSecure equals `lb`. Therefore `accept => (b != 0) == lb` MACHINE-CHECKS that the
-    // contract's leaf rule is exactly (b != 0): a divergent rule (e.g. b & 1) would let some (b, lb) accept
-    // with lb != (b != 0), refuting the assertion. EXPECT: PASS.
-    function check_leafNorm_machineChecked(
+    // The independent leaf bit is Merkle-bound to the canonical message byte on
+    // acceptance. Both values of the leaf are possible; no message-byte assumption
+    // removes noncanonical inputs from this property. EXPECT: PASS.
+    function check_leafCanonical_machineChecked(
         uint8 isSecureByte, uint8 lb, Sig calldata a, Sig calldata b, Sig calldata c
     ) external {
         vm.assume(lb <= 1); // lb is an independent leaf bit in {0,1}
         bool ok = _relayLeaf(isSecureByte, lb == 1, a, b, c);
-        assert(!ok || ((isSecureByte != 0) == (lb == 1)));
+        assert(!ok || (isSecureByte <= 1 && isSecureByte == lb));
     }
 
-    // ===================== reachability controls (anti-vacuity tripwires) =====================
-    // The S1/S2/cross proofs only constrain the success branch, so they are vacuous unless the accept path is
-    // reachable. These assert(!ok) and are EXPECTED TO PRODUCE A COUNTEREXAMPLE (ok==true witness). We pin BOTH
-    // normalization outcomes: b == 0 (insecure leaf) and b == 1 (secure leaf) must each finalize. If either
-    // PASSES, the accept path is unreachable for that branch (loop bound too small / proof obligation broken)
-    // and the paired proofs are vacuous — treat an unexpected reachability PASS as a hard failure.
+    // Noncanonical random bytes fail with the exact parser error, regardless of
+    // the symbolic signature fields or independent leaf bit. EXPECT: PASS.
+    function check_nonCanonicalByte_revertsExactly(
+        uint8 isSecureByte, bool leafBit, Sig calldata a, Sig calldata b, Sig calldata c
+    ) external {
+        vm.assume(isSecureByte > 1);
+        (bool ok, bytes memory data) =
+            address(relay).call(_randomCalldataLeaf(isSecureByte, leafBit, _threeSigs(a, b, c)));
+        assert(!ok);
+        assert(data.length == 4);
+        assert(bytes4(data) == IRelay.WrongMessageFormat2.selector);
+        assert(!relay.isFinalized(RANDOM_PROTOCOL_ID, VRID));
+    }
 
-    // Reachability for the INSECURE normalization (b == 0): leaf uses isSecure = false. EXPECT: COUNTEREXAMPLE.
+    // Protocol 1 and every non-random protocol reject all nonzero security bytes.
+    // The payload includes a valid policy and full message; the exact error shows
+    // that neither a short message nor missing signatures explains rejection.
+    // EXPECT: PASS.
+    function check_nonRandomProtocol_nonzeroByte_revertsExactly(uint8 protocolId, uint8 isSecureByte) external {
+        vm.assume(protocolId > 0 && protocolId != RANDOM_PROTOCOL_ID);
+        vm.assume(isSecureByte > 0);
+        uint32 round = protocolId == 1 ? 0 : VRID;
+        bytes memory message = abi.encodePacked(protocolId, round, isSecureByte, SIBLING);
+        (bool ok, bytes memory data) =
+            address(relay).call(abi.encodePacked(Relay.relay.selector, policy, message, uint16(0)));
+        assert(!ok);
+        assert(data.length == 4);
+        assert(bytes4(data) == IRelay.WrongMessageFormat2.selector);
+        assert(!relay.isFinalized(protocolId, round));
+    }
+
+    // Both legal bytes must have accepting witnesses; otherwise the implications
+    // above are vacuous and the required reachability result must fail the gate.
+    // EXPECT: COUNTEREXAMPLE.
     function check_reach_insecure_canAccept(Sig calldata a, Sig calldata b, Sig calldata c) external {
         bool ok = _relay(0, a, b, c);
         assert(!ok);
     }
 
-    // Reachability for the SECURE normalization (b == 1): leaf uses isSecure = true. EXPECT: COUNTEREXAMPLE.
+    // EXPECT: COUNTEREXAMPLE (canonical secure byte 1).
     function check_reach_secure_canAccept(Sig calldata a, Sig calldata b, Sig calldata c) external {
         bool ok = _relay(1, a, b, c);
         assert(!ok);
     }
 
-    // Reachability at a HIGH byte (b > 1): pins that the secure normalization accept path is reachable for a
-    // representative byte where (b != 0) and low-bit rules would DIVERGE — so check_leafNorm_machineChecked
-    // cannot pass vacuously over b in 2..255. leaf bit = true = (b != 0). EXPECT: COUNTEREXAMPLE.
-    function check_reach_highByte_canAccept(uint8 isSecureByte, Sig calldata a, Sig calldata b, Sig calldata c)
-        external
-    {
-        vm.assume(isSecureByte > 1);
-        bool ok = _relayLeaf(isSecureByte, true, a, b, c); // leafBit = (b != 0) = true
-        assert(!ok);
-    }
 }

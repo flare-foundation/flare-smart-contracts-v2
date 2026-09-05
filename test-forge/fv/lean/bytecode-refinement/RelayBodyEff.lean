@@ -2027,9 +2027,9 @@ relay() runs ~hundreds of assembly lines of setup (calldata decode, message-hash
   the only thing assumed is the setup's aggregate effect, which is exactly the unmodeled boundary.
 
 The accept write (`RelayStorageLayer.sstore_reads_back`) is not folded in here: the loop
-model's D3 deviation returns `return(0,0)` on accept (rather than `break`-then-write), so the write is a
-separate, independently verified piece. The difference between immediate accept and the deployed
-break→write→return path is an explicit model boundary. -/
+model's D3 deviation returns `return(0,0)` immediately on threshold crossing. The production IR instead
+runs mode-specific finalization and returns within that same iteration. Its finalization interior is
+outside this composition; the storage write is a separate, independently verified component. -/
 section CompositionLayer
 open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral
 

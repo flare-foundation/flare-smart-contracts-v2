@@ -8,7 +8,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -355,13 +354,16 @@ def main() -> int:
         all_problems.extend(build_problems)
 
     if not all_problems:
-        for name, (source_path, _) in sources.items():
-            shutil.copy(source_path, evmyul / name)
-
+        # Check the audited originals without leaving proof-source copies in the
+        # pinned dependency checkout: those copies make the next clean build fail.
+        # An explicit source root lets Lean compile outside its dependency cwd
+        # while retaining the module names used by the integration imports.
         for name in [ABSTRACT] + STANDALONE:
             print(f"[lean-fv] checking {name} ...", flush=True)
             source_path, source_record = sources[name]
-            completed = run(["lake", "env", "lean", name], cwd=evmyul)
+            completed = run(
+                ["lake", "env", "lean", f"--root={source_path.parent}", str(source_path)], cwd=evmyul
+            )
             record, problems = audit_lean_output(source_path, completed, source_record, allowed_axioms)
             report_files[name] = record
             all_problems.extend(problems)
@@ -369,8 +371,12 @@ def main() -> int:
         library = evmyul / ".lake" / "build" / "lib" / "lean"
         library.mkdir(parents=True, exist_ok=True)
         for dependency in INTEGRATION_DEPS:
+            dependency_path = sources[f"{dependency}.lean"][0]
             compiled = run(
-                ["lake", "env", "lean", f"{dependency}.lean", "-o", str(library / f"{dependency}.olean")],
+                [
+                    "lake", "env", "lean", f"--root={dependency_path.parent}", str(dependency_path),
+                    "-o", str(library / f"{dependency}.olean"),
+                ],
                 cwd=evmyul,
             )
             if compiled.returncode != 0:
@@ -381,7 +387,9 @@ def main() -> int:
 
         print(f"[lean-fv] checking {INTEGRATION} ...", flush=True)
         source_path, source_record = sources[INTEGRATION]
-        completed = run(["lake", "env", "lean", INTEGRATION], cwd=evmyul)
+        completed = run(
+            ["lake", "env", "lean", f"--root={source_path.parent}", str(source_path)], cwd=evmyul
+        )
         record, problems = audit_lean_output(source_path, completed, source_record, allowed_axioms)
         report_files[INTEGRATION] = record
         all_problems.extend(problems)

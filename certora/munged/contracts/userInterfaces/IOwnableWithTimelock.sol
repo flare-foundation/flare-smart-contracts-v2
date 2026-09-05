@@ -23,7 +23,13 @@ pragma solidity >=0.8.4 <0.9;
  *      calldata hash alone, with no proposer, so a call queued by the
  *      previous owner remains executable after the transfer unless
  *      cancelled first: anyone can execute that exact operation, carrying
- *      its original owner authorization.
+ *      its original owner authorization. `transferOwnership` is itself a
+ *      guarded call, so with a nonzero duration the transfer is visible for
+ *      the delay before it applies, and that window is when the outstanding
+ *      queue must be cleared. With a zero duration there is no window: the
+ *      transfer applies at once and the queue carries over unexamined.
+ *      The queue is not enumerable on-chain, so clearing it means replaying
+ *      `CallTimelocked` and cancelling what is still pending.
  */
 interface IOwnableWithTimelock {
 
@@ -91,7 +97,8 @@ interface IOwnableWithTimelock {
 
     /**
      * @notice Reverts on any `renounceOwnership` call. The role cannot be
-     *         given up; it can still be transferred, in one atomic step.
+     *         given up, only moved with `transferOwnership` — itself a guarded
+     *         call, so it queues and waits whenever a nonzero duration is set.
      */
     error RenounceDisabled();
 

@@ -32,8 +32,9 @@ The current harness tree covers these implementation surfaces:
 | Policy rotation and thresholds | `RelayModeOneFV`, `RelayEpochAdvanceFV`, `RelayThresholdScalingFV`, `RelayThresholdConsistencyFV`, `RelayThresholdOverrideFV` |
 | Randomness and Merkle binding | `RelayRandomBindingFV`, `RelayRandomMonotonicityFV`, `RelayIsSecureNormFV`, `RelayMerkleProofFV`, `RelayMerkleFoldFV` |
 | Fees, fee-table replacement, delegation, and return values | `RelayVerifyFeeFV`, `RelayFeeConservationFV`, `RelayOldRelayFeeFV`, `RelayFeeTokenFV`, `RelayReturnDiscriminatorFV` |
-| Initialization, access, owner/timelock/UUPS | `RelayConstructorFV`, `RelayAccessControlFV`, `RelayOwnerTimelockFV`, including duplicate-queue replacement and queue survival across ownership transfer |
+| Initialization, access, owner/timelock/UUPS | `RelayConstructorFV`, `RelayAccessControlFV`, `RelayOwnerTimelockFV`, including delayed ownership transfer, duplicate-queue replacement, and unrelated queue survival across ownership transfer |
 | Policy digest encoding | `RelayPolicyHashFV`; message source-domain fixtures are supplementary Foundry tests |
+| Custom-signature call boundary | `RelayThresholdOverrideFV` short-input and non-Relay-selector rejection, inner-parser reachability, and accepting quorum controls; `RelayReturnDiscriminatorFV` return shape |
 
 The manifest, not this table, is authoritative for the exact inventory.
 
@@ -58,9 +59,24 @@ rebasing, callback-capable, adversarial, or independently upgradeable token
 semantics.
 
 The `oldRelay` value-flow harness bounds attached value to `uint128` and uses
-compatible observable source fixtures. It proves how the current Relay calls
-those fixtures; it does not establish the bytecode identity or proof integrity
-of an arbitrary configured migration source.
+compatible observable source fixtures that implement `isFinalized()` and
+`verify()`. Acceptance requires the finalized response before the zero-value
+verification call. The harness proves how the current Relay calls those
+fixtures; it does not establish the bytecode identity or proof integrity of an
+arbitrary configured migration source.
+
+Security-byte checks cover canonical `0` and `1` random messages and rejection
+of bytes above `1`; nonrandom protocols require `0`. Accepting witnesses must
+exercise the two permitted random values separately. A fixture treating all
+nonzero bytes as an accepted true value does not model the current parser.
+
+The custom-signature selector checks exercise both wrappers with every input
+length below four and symbolic short contents, and every non-Relay selector
+with a fixed symbolic 32-byte tail. They require the exact `NotRelayCall`
+rejection and a clear threshold-override slot after rollback. The valid-selector
+control reaches the inner parser with selector-only calldata; the separate
+quorum controls establish successful authentication. These shapes do not claim
+arbitrary-length payload coverage.
 
 For example, a harness that constructs distinct addresses proves a theorem under
 address uniqueness. It cannot detect duplicate-identity weight amplification.

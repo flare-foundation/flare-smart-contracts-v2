@@ -85,7 +85,11 @@ assumptions.
 - The committed sequential-storage-layout baseline detects drift in Solidity's
   `storageLayout` output. It excludes ERC-7201 namespaces and transient slots
   and does not prove compatibility of an unknown future implementation.
-- Current open findings remain valid even if every proof in the manifest passes.
+- Ownership transfer is timelocked, but existing queued operations intentionally
+  survive it. Handover requires review and cancellation of unwanted queued
+  calldata; queue expiry and owner-generation binding are not current invariants.
+- A passing inventory does not discharge correctness edges or environmental
+  assumptions outside its property statements.
 
 The precise register is in
 [`10-claims-ledger-trust-and-residual.md`](10-claims-ledger-trust-and-residual.md).

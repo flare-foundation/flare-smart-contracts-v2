@@ -61,6 +61,20 @@ contract RelayHarness is Relay {
         return getState().timelockedCalls[_encodedCallHash];
     }
 
+    /// Computes the exact queue key used by OwnableWithTimelock. Keeping the hash in
+    /// Solidity lets CVL distinguish the entry being executed from every other
+    /// sampled pending entry without reimplementing dynamic-bytes hashing.
+    function timelockedCallHash(bytes calldata _encodedCall) external pure returns (bytes32) {
+        return keccak256(_encodedCall);
+    }
+
+    /// Constructs Solidity's canonical transferOwnership calldata. The transfer-specific
+    /// CVL rule binds this return value once and reuses those exact bytes for both the queue
+    /// key and the inherited production executor, avoiding duplicate symbolic ABI encodings.
+    function canonicalOwnershipTransferCall(address _newOwner) external view returns (bytes memory) {
+        return abi.encodeCall(this.transferOwnership, (_newOwner));
+    }
+
     /// Exposes the single-use self-call authorization bit at transaction boundaries.
     function timelockExecuting() external view returns (bool) {
         return getState().executing;

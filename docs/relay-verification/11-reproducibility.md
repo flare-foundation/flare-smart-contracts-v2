@@ -4,6 +4,12 @@ Run release evidence from a clean checkout. The report wrappers deliberately
 record the Git state at start and finish and reject mutable or imported inputs as
 release evidence.
 
+Confirm the intended branch and its remote tip before starting. Fetch and compare
+the refs; if an update is needed, finish the fast-forward and resolve any local
+work before generating evidence. Do not pull, edit source, regenerate tracked
+inputs, or commit while a proof gate is running. A passing report for a different
+commit is not evidence for the checkout being released.
+
 ## 1. Read the manifest
 
 [`test-forge/fv/verification-manifest.json`](../../test-forge/fv/verification-manifest.json)
@@ -31,7 +37,7 @@ manifest toolchain and settings:
 
 ```bash
 FORGE=/path/to/manifest-pinned-forge
-RELAY_REBASE_DIR=/private/tmp/relay-artifact-rebaseline
+RELAY_REBASE_DIR=$(mktemp -d /private/tmp/relay-artifact-rebaseline.XXXXXX)
 
 $FORGE build contracts/protocol/implementation/Relay.sol \
   --use 0.8.35 --no-auto-detect \
@@ -64,6 +70,14 @@ compatibility has been reviewed. Rerun the gate and require both baseline
 comparisons to pass. Passing sequential-layout parity detects drift only within
 the compiler-emitted scope; it is not a formal compatibility proof for future
 implementation code.
+
+Regenerate the visibility-only Certora tree with `bash certora/munge.sh`, review
+its exact transformation, and commit intended harness/spec/manifest/generated
+baseline changes before the release run. The local gate regenerates that tree;
+stale tracked dependencies can therefore cause a run to finish dirty even when
+compilation succeeds. Do not change a proof expectation merely to accept a
+failure: first reconcile the property with the current contract, preserve
+accepting reachability controls, and validate rejection paths independently.
 
 ## 3. Bootstrap deployment artifact, ABI, artifact parity, and Halmos
 
@@ -119,7 +133,7 @@ CERTORA_RUN=/path/to/certoraRun \
   --report-output verification-reports/relay-certora-local.json
 ```
 
-This command proves that the exact configs compile and typecheck against the
+This command establishes that the exact configs compile and typecheck against the
 expected source transformation. It does not execute the Certora cloud prover.
 
 ## 5. Certora cloud evidence
@@ -127,7 +141,9 @@ expected source transformation. It does not execute the Certora cloud prover.
 Submit every config declared by the manifest with the pinned toolchain and
 capture both the console log and the exact submission archive produced by the
 CLI. An API key is required for submission, but it must never be committed or
-written into a report.
+written into a report. Load it from a restricted secret file or credential
+manager without printing it; rotate a key disclosed in chat, terminal output,
+or repository history.
 
 Normalize the completed jobs:
 

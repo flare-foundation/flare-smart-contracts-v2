@@ -121,6 +121,14 @@ contract RelayOwnerTimelockFV is RelayOwnerTimelockFVBase {
         this.check_timelock_failedExecutionIsAtomic(address(0xA11CE));
     }
 
+    /// Concrete lifecycle checks use the same helpers and assertions as the symbolic proofs.
+    function test_fvTimelockOwnershipLifecycle() external {
+        this.check_timelock_queuedCallSurvivesOwnershipTransfer(address(0xA11CE));
+        this.check_timelock_transferOwnershipRequiresOwner(address(0xB0B));
+        this.check_timelock_transferOwnershipCancellation(address(0xB0B));
+        this.check_timelock_transferOwnershipZeroRejectedAtExecution();
+    }
+
     /// Only the current owner can create a queue entry.
     // EXPECT: PASS (proof).
     function check_timelock_queueRequiresOwner(address recipient) external {
@@ -261,9 +269,9 @@ contract RelayOwnerTimelockFV is RelayOwnerTimelockFVBase {
         assert(relay.feeCollectionAddress() == INITIAL_FEE_COLLECTION);
     }
 
-    /// Ownership transfer does not alter calldata-keyed queue state. The old
-    /// owner loses cancellation authority, while any caller can still execute
-    /// the exact matured operation under the self-call authorization path.
+    /// Ownership transfer first queues and only applies at its own ETA. Applying
+    /// the transfer consumes that entry once, preserves unrelated queue state,
+    /// and removes the old owner's cancellation authority.
     // EXPECT: PASS (proof).
     function check_timelock_queuedCallSurvivesOwnershipTransfer(address recipient) external {
         vm.assume(recipient != address(0));
@@ -276,8 +284,29 @@ contract RelayOwnerTimelockFV is RelayOwnerTimelockFVBase {
         (bool queueOk,) = address(relay).call(encodedCall);
         assert(queueOk);
         uint256 recordedEta = _recordedEta(relay, encodedCall);
-        (bool transferOk,) = address(relay).call(abi.encodeCall(relay.transferOwnership, (address(newOwner))));
-        assert(transferOk);
+        bytes memory transferCall = abi.encodeCall(relay.transferOwnership, (address(newOwner)));
+        (bool transferQueueOk,) = address(relay).call(transferCall);
+        assert(transferQueueOk);
+        uint256 transferEta = _recordedEta(relay, transferCall);
+        assert(transferEta == recordedEta);
+        assert(relay.owner() == address(this));
+
+        vm.warp(transferEta - 1);
+        (bool earlyTransferOk,) =
+            executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
+        assert(!earlyTransferOk);
+        assert(relay.owner() == address(this));
+        assert(_recordedEta(relay, transferCall) == transferEta);
+
+        vm.warp(transferEta);
+        (bool transferExecuteOk,) =
+            executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
+        assert(transferExecuteOk);
+        (bool transferStillQueued,) = _queuedAt(relay, transferCall);
+        assert(!transferStillQueued);
+        (bool transferReplayOk,) =
+            executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
+        assert(!transferReplayOk);
 
         (bool oldOwnerCancelOk,) = address(relay).call(abi.encodeCall(relay.cancelTimelockedCall, (encodedCall)));
         (bool queuedAfterTransfer, uint256 preservedEta) = _queuedAt(relay, encodedCall);
@@ -295,6 +324,81 @@ contract RelayOwnerTimelockFV is RelayOwnerTimelockFVBase {
         assert(!stillQueued);
         assert(relay.owner() == address(newOwner));
         assert(relay.feeCollectionAddress() == recipient);
+    }
+
+    /// A stranger cannot queue any ownership target, including a target that
+    /// would be invalid only when an authorized queued call executes.
+    // EXPECT: PASS (proof).
+    function check_timelock_transferOwnershipRequiresOwner(address recipient) external {
+        (Relay relay,) = _deployRelay(address(0));
+        RelayTimelockCallerFV stranger = new RelayTimelockCallerFV();
+        bytes memory transferCall = abi.encodeCall(relay.transferOwnership, (recipient));
+        (bool ok,) = stranger.callTarget(address(relay), transferCall);
+        (bool queued,) = _queuedAt(relay, transferCall);
+        assert(!ok);
+        assert(!queued);
+        assert(relay.owner() == address(this));
+    }
+
+    /// Nonowners have no cancellation authority before execution. The current
+    /// owner can cancel the transfer and prevent later execution.
+    // EXPECT: PASS (proof).
+    function check_timelock_transferOwnershipCancellation(address recipient) external {
+        (Relay relay,) = _deployRelay(address(0));
+        RelayTimelockCallerFV stranger = new RelayTimelockCallerFV();
+        bytes memory transferCall = abi.encodeCall(relay.transferOwnership, (recipient));
+        relay.transferOwnership(recipient);
+        uint256 transferEta = _recordedEta(relay, transferCall);
+        (bool strangerCancelOk,) =
+            stranger.callTarget(address(relay), abi.encodeCall(relay.cancelTimelockedCall, (transferCall)));
+        assert(!strangerCancelOk);
+        assert(_recordedEta(relay, transferCall) == transferEta);
+        assert(relay.owner() == address(this));
+
+        relay.cancelTimelockedCall(transferCall);
+        (bool stillQueued,) = _queuedAt(relay, transferCall);
+        vm.warp(transferEta);
+        (bool executeOk,) =
+            stranger.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
+        assert(!stillQueued);
+        assert(!executeOk);
+        assert(relay.owner() == address(this));
+    }
+
+    /// Zero-recipient validation runs when the queued body executes, and its
+    /// revert restores the queue entry and leaves ownership intact.
+    // EXPECT: PASS (proof).
+    function check_timelock_transferOwnershipZeroRejectedAtExecution() external {
+        (Relay relay,) = _deployRelay(address(0));
+        bytes memory transferCall = abi.encodeCall(relay.transferOwnership, (address(0)));
+        relay.transferOwnership(address(0));
+        uint256 transferEta = _recordedEta(relay, transferCall);
+        vm.warp(transferEta);
+        (bool executeOk,) = address(relay).call(abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
+        assert(!executeOk);
+        assert(relay.owner() == address(this));
+        assert(_recordedEta(relay, transferCall) == transferEta);
+        // A subsequent guarded owner action must still queue rather than
+        // inheriting execution privilege from the reverted transfer.
+        bytes memory laterCall = abi.encodeCall(relay.setFeeCollectionAddress, (address(0xA11CE)));
+        relay.setFeeCollectionAddress(address(0xA11CE));
+        assert(_recordedEta(relay, laterCall) == transferEta + TIMELOCK);
+        assert(relay.feeCollectionAddress() == INITIAL_FEE_COLLECTION);
+    }
+
+    /// Anti-vacuity: a matured transfer can move ownership to the requested
+    /// distinct account through permissionless execution.
+    // EXPECT: COUNTEREXAMPLE (reachability control).
+    function check_reach_timelock_ownershipTransfer() external {
+        (Relay relay,) = _deployRelay(address(0));
+        RelayTimelockCallerFV newOwner = new RelayTimelockCallerFV();
+        RelayTimelockCallerFV executor = new RelayTimelockCallerFV();
+        bytes memory transferCall = abi.encodeCall(relay.transferOwnership, (address(newOwner)));
+        relay.transferOwnership(address(newOwner));
+        vm.warp(_recordedEta(relay, transferCall));
+        (bool ok,) =
+            executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
+        assert(!(ok && relay.owner() == address(newOwner)));
     }
 
     /// A target revert rolls back the optimistic delete and the one-shot execution flag.

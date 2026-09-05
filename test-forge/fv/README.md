@@ -12,6 +12,12 @@ protocol-1 threshold overrides, source-domain policy hashing, and `oldRelay`
 mode and value-flow behavior. The reproducible gates below establish a verdict for the
 checked-out source; durable prose does not duplicate mutable check counts.
 
+The harnesses must reflect the current implementation: ownership transfer is
+timelocked, random security bytes are canonical `0`/`1` (only `0` for other
+protocols), delegated verification first checks source finalization, and custom
+signature wrappers restrict the self-call selector to `relay()`. Rejection
+properties and accepting witnesses must agree with those boundaries.
+
 ---
 
 ## 1. The one-paragraph mental model
@@ -185,14 +191,18 @@ cp <repo>/test-forge/fv/lean/RelaySigLoop.lean . && lake env lean RelaySigLoop.l
 
 [`../../certora/specs/RelayInvariants.spec`](../../certora/specs/RelayInvariants.spec) specifies storage
   invariants in CVL. External boundaries use explicit summaries: queued execution pessimistically
-  dispatches the five modeled owner calls, while unmatched external calls use an ECF fallback that
+  dispatches the allowlisted modeled non-upgrade owner calls, including ownership
+  transfer, while unmatched external calls use an ECF fallback that
   cannot mutate Relay storage; `ecrecover` remains nondeterministic. The fee-token rules cover
   setter-mode exclusion, native-getter behavior, fee mapping/enumeration lockstep, reserved IDs,
   proof-before-token-call ordering, and the configured token call target. They do not model ERC-20
   balance deltas; the exact-transfer Halmos fixture covers that bounded behavior under the standard-token
   assumption. The write-once/timelock specification also observes zero-value
-  `oldRelay` delegation with a full-refund witness and preservation of sampled
-  queued-call state across ownership transfer. Those are cloud proof claims only
+  `oldRelay` delegation after the source-finalization guard with a full-refund
+  witness, and timelocked ownership transfer with preservation of unrelated
+  queued-call state. The owner execution flag lives in persistent namespaced
+  storage; it is distinct from the transient protocol-1 threshold slot.
+  Those are cloud proof claims only
   when the normalized report is current and complete.
   [`verify_certora_local.py`](verify_certora_local.py) fail-closes on compiler,
   CVL typecheck, config, toolchain, and munge drift. It is not a cloud-proof

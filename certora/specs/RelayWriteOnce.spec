@@ -10,11 +10,14 @@
  * guaranteed distinct from scalar slots and from each other for distinct keys), so a raw assembly store
  * cannot spuriously havoc an unrelated mapping entry.
  *
- * ecrecover stays NONDET as an uninterpreted recovery function. During queued execution, the five
- * non-upgrade owner methods pessimistically dispatch to the real current implementation; the fallback ECF
- * summary cannot alter Relay storage. UUPS does use delegatecall; direct upgrade and queued-upgrade
- * dispatch are filtered from preservation/execution rules and treated as the explicit trusted-upgrade
- * boundary documented in certora/README.md.
+ * ecrecover stays NONDET as an uninterpreted recovery function. During queued execution, the six
+ * non-upgrade owner methods pessimistically dispatch to the real current implementation; if a selector
+ * carried in symbolic dynamic bytes remains unresolved, the fallback ECF summary cannot alter Relay
+ * storage. The transfer-specific rule uses a Solidity `abi.encodeCall` helper to construct canonical
+ * calldata once, then passes those exact bytes to the inherited production executor. This retains exact
+ * recipient binding without replacing queue or dispatch code. UUPS does use delegatecall; direct upgrade
+ * and queued-upgrade dispatch are filtered from preservation/execution rules and treated as the explicit
+ * trusted-upgrade boundary documented in certora/README.md.
  *
  * Parametric preservation calls use @withrevert, so calls that revert remain in the method domain and
  * must preserve the sampled mappings after rollback. This includes ABI-dispatched relay(), whose generic
@@ -37,7 +40,9 @@ persistent ghost uint256 feeVerificationCallValue;
 persistent ghost address watchedOldRelayTarget;
 persistent ghost address watchedRefundTarget;
 persistent ghost uint256 watchedRefundValue;
-persistent ghost bool watchedOldRelayCallTouched;
+persistent ghost bool watchedOldRelayFinalizationCheckTouched;
+persistent ghost bool watchedOldRelayProofCallTouched;
+persistent ghost bool watchedOldRelayProofBeforeFinalizationTouched;
 persistent ghost bool watchedOldRelayNonzeroValueTouched;
 persistent ghost bool watchedFullRefundCallTouched;
 
@@ -54,8 +59,12 @@ hook CALL(
         feeVerificationCallTouched = true;
         feeVerificationCallTarget = target;
         feeVerificationCallValue = value;
-        if (target == watchedOldRelayTarget) {
-            watchedOldRelayCallTouched = true;
+        if (target == watchedOldRelayTarget
+            && selector == sig:verify(uint256, uint256, bytes32, bytes32[]).selector) {
+            if (!watchedOldRelayFinalizationCheckTouched) {
+                watchedOldRelayProofBeforeFinalizationTouched = true;
+            }
+            watchedOldRelayProofCallTouched = true;
             if (value != 0) {
                 watchedOldRelayNonzeroValueTouched = true;
             }
@@ -63,6 +72,21 @@ hook CALL(
         if (target == watchedRefundTarget && value == watchedRefundValue) {
             watchedFullRefundCallTouched = true;
         }
+    }
+}
+
+hook STATICCALL(
+    uint256 gasAmount,
+    address target,
+    uint256 argsOffset,
+    uint256 argsLength,
+    uint256 retOffset,
+    uint256 retLength
+) uint256 result {
+    if (executingContract == currentContract
+        && target == watchedOldRelayTarget
+        && selector == sig:isFinalized(uint256, uint256).selector) {
+        watchedOldRelayFinalizationCheckTouched = true;
     }
 }
 
@@ -74,6 +98,8 @@ methods {
     function getTimelockDurationSeconds() external returns (uint256) envfree;
     function timelockedCallTimestampAt(bytes) external returns (uint256) envfree;
     function timelockedCallTimestampAtHash(bytes32) external returns (uint256) envfree;
+    function timelockedCallHash(bytes) external returns (bytes32) envfree;
+    function canonicalOwnershipTransferCall(address) external returns (bytes) envfree;
     function timelockExecuting() external returns (bool) envfree;
     function signingPolicySetter() external returns (address) envfree;
     function feeCollectionAddress() external returns (address) envfree;
@@ -90,7 +116,8 @@ methods {
         RelayHarness.setFeeExemptions(IIRelay.FeeExemption[]),
         RelayHarness.setFeeCollectionAddress(address),
         RelayHarness.setSigningPolicySetter(address),
-        RelayHarness.setTimelockDuration(uint256)
+        RelayHarness.setTimelockDuration(uint256),
+        RelayHarness.transferOwnership(address)
     ] default HAVOC_ECF;
 
     unresolved external in _._ => DISPATCH [] default HAVOC_ECF;
@@ -102,6 +129,7 @@ definition ownerGuarded(method f) returns bool =
     || f.selector == sig:setFeeCollectionAddress(address).selector
     || f.selector == sig:setSigningPolicySetter(address).selector
     || f.selector == sig:setTimelockDuration(uint256).selector
+    || f.selector == sig:transferOwnership(address).selector
     || f.selector == sig:upgradeToAndCall(address, bytes).selector;
 
 definition nonUpgradeOwnerGuarded(method f) returns bool =
@@ -121,6 +149,13 @@ definition isCanonicalDurationSetterCall(bytes encodedCall) returns bool =
     && encodedCall[1] == to_bytes1(0x0f)
     && encodedCall[2] == to_bytes1(0xea)
     && encodedCall[3] == to_bytes1(0x09);
+
+definition isOwnershipTransferCall(bytes encodedCall) returns bool =
+    encodedCall.length >= 4
+    && encodedCall[0] == to_bytes1(0xf2)
+    && encodedCall[1] == to_bytes1(0xfd)
+    && encodedCall[2] == to_bytes1(0xe3)
+    && encodedCall[3] == to_bytes1(0x8b);
 
 definition isNonUpgradeOwnerGuardedCall(bytes encodedCall) returns bool =
     encodedCall.length >= 4
@@ -155,6 +190,12 @@ definition isNonUpgradeOwnerGuardedCall(bytes encodedCall) returns bool =
             && encodedCall[2] == to_bytes1(0xea)
             && encodedCall[3] == to_bytes1(0x09)
         ) /* setTimelockDuration(uint256) */
+        || (
+            encodedCall[0] == to_bytes1(0xf2)
+            && encodedCall[1] == to_bytes1(0xfd)
+            && encodedCall[2] == to_bytes1(0xe3)
+            && encodedCall[3] == to_bytes1(0x8b)
+        ) /* transferOwnership(address) */
     );
 
 /// A finalized signing-policy hash is WRITE-ONCE: once an epoch's hash is set (non-zero) it is never
@@ -388,8 +429,8 @@ rule tokenModeValidEmptyProofCallsConfiguredToken(
         "the ERC-20 fee call must carry no native value";
 }
 
-/// A pre-boundary verification delegates exactly the proof decision to the
-/// configured old Relay without forwarding native value. If the delegated call
+/// A pre-boundary verification first asks the configured old Relay whether the
+/// round is finalized, then delegates the proof decision, without forwarding native value. If both calls
 /// and the caller's refund both succeed, the caller receives the full attached
 /// value. The old Relay's code provenance and return-value integrity remain the
 /// explicit migration trust boundary.
@@ -416,7 +457,9 @@ rule oldRelayDelegationForwardsNoValueAndRefundsOnSuccess(
     watchedOldRelayTarget = delegate;
     watchedRefundTarget = e.msg.sender;
     watchedRefundValue = e.msg.value;
-    watchedOldRelayCallTouched = false;
+    watchedOldRelayFinalizationCheckTouched = false;
+    watchedOldRelayProofCallTouched = false;
+    watchedOldRelayProofBeforeFinalizationTouched = false;
     watchedOldRelayNonzeroValueTouched = false;
     watchedFullRefundCallTouched = false;
 
@@ -424,21 +467,27 @@ rule oldRelayDelegationForwardsNoValueAndRefundsOnSuccess(
     bool reverted = lastReverted;
 
     satisfy !reverted
-        && watchedOldRelayCallTouched
+        && watchedOldRelayFinalizationCheckTouched
+        && watchedOldRelayProofCallTouched
         && watchedFullRefundCallTouched,
-        "a delegated zero-fee verification and full refund must be reachable";
-    assert watchedOldRelayCallTouched,
-        "pre-boundary verification must call the configured old Relay";
+        "a finalized delegated zero-fee verification and full refund must be reachable";
+    assert watchedOldRelayFinalizationCheckTouched,
+        "pre-boundary verification must query old-Relay finalization first";
     assert !watchedOldRelayNonzeroValueTouched,
-        "pre-boundary verification must not forward native value to the old Relay";
+        "pre-boundary proof verification must not forward native value to the old Relay";
+    assert !watchedOldRelayProofBeforeFinalizationTouched,
+        "the old-Relay proof call must occur only after the finalization query returns";
+    assert reverted || watchedOldRelayProofCallTouched,
+        "successful pre-boundary verification must perform the finalization precheck and proof call";
     assert reverted || watchedFullRefundCallTouched,
         "successful pre-boundary verification must refund the full attached value";
 }
 
 /// At an external transaction boundary, no non-owner can enter any of Relay's
-/// six owner-timelocked mutation entry points. The `executing == false`
-/// assumption is the reachable-state boundary: it is only true transiently
-/// during executeTimelockedCall's self-call.
+/// seven owner-timelocked mutation entry points. The namespaced `executing ==
+/// false` premise selects ordinary external entry: executeTimelockedCall sets
+/// it true immediately before the authorized self-call, and the guarded callee
+/// consumes and clears it on entry.
 rule onlyOwnerCanEnterGuardedSurface(method f)
 filtered { f -> ownerGuarded(f) }
 {
@@ -498,12 +547,15 @@ rule successfulExecutionConsumesQueue(env e, bytes encodedCall) {
     require preTimestamp != 0;
     require e.block.timestamp >= preTimestamp;
     uint256 preDuration = getTimelockDurationSeconds();
+    address preOwner = owner();
     require preDuration <= 604800;
+    require preOwner != 0;
     executeTimelockedCall@withrevert(e, encodedCall);
     bool reverted = lastReverted;
     uint256 postTimestamp = timelockedCallTimestampAt(encodedCall);
     bool postExecuting = timelockExecuting();
     uint256 postDuration = getTimelockDurationSeconds();
+    address postOwner = owner();
     satisfy !reverted
         && isCanonicalDurationSetterCall(encodedCall)
         && postDuration != preDuration
@@ -511,12 +563,14 @@ rule successfulExecutionConsumesQueue(env e, bytes encodedCall) {
         "a real duration-setter self-call must witness successful queue execution";
     assert reverted || postTimestamp == 0, "successful execution must consume the queued call";
     assert reverted || !postExecuting, "execution authorization must not persist";
+    assert reverted || !isOwnershipTransferCall(encodedCall) || postOwner != 0,
+        "a successful ownership transfer must not clear the owner";
 }
 
 /// A successful ready execution of an allowlisted non-upgrade owner call preserves the
 /// current implementation's scalar, write-once, and fee-table invariants. This rule closes
 /// the executeTimelockedCall exclusion used by the generic parametric rules: the exact
-/// queued calldata is pessimistically dispatched to one of the five real owner methods.
+/// queued calldata is pessimistically dispatched to one of the six real owner methods.
 /// Queued UUPS upgrades remain the explicit trusted-upgrade boundary.
 rule successfulNonUpgradeExecutionPreservesRelayInvariants(
     env e,
@@ -524,7 +578,8 @@ rule successfulNonUpgradeExecutionPreservesRelayInvariants(
     uint256 epoch,
     uint256 feeProtocolId,
     uint256 rootProtocolId,
-    uint256 votingRoundId
+    uint256 votingRoundId,
+    bytes32 sampledQueuedCallHash
 ) {
     require isNonUpgradeOwnerGuardedCall(encodedCall);
     require !timelockExecuting();
@@ -532,6 +587,8 @@ rule successfulNonUpgradeExecutionPreservesRelayInvariants(
     uint256 preTimestamp = timelockedCallTimestampAt(encodedCall);
     require preTimestamp != 0;
     require e.block.timestamp >= preTimestamp;
+    bytes32 executedCallHash = timelockedCallHash(encodedCall);
+    uint256 preSampledQueueTimestamp = timelockedCallTimestampAtHash(sampledQueuedCallHash);
 
     uint32 preLastInitialized; uint32 _preStartRound;
     preLastInitialized, _preStartRound = lastInitializedRewardEpochData();
@@ -563,13 +620,14 @@ rule successfulNonUpgradeExecutionPreservesRelayInvariants(
     uint256 postDuration = getTimelockDurationSeconds();
     uint256 postFee = protocolFee(feeProtocolId);
     bool postFeeMember = feeProtocolIdInSet(feeProtocolId);
+    address postOwner = owner();
+    uint256 postSampledQueueTimestamp = timelockedCallTimestampAtHash(sampledQueuedCallHash);
 
     satisfy !reverted
         && isCanonicalDurationSetterCall(encodedCall)
         && postDuration != preDuration
         && postDuration <= 604800,
         "a real delayed non-upgrade execution must witness invariant preservation";
-
     assert reverted || policyHashAt(epoch) == prePolicyHash,
         "delayed non-upgrade execution must preserve every sampled policy hash";
     assert reverted || merkleRootAt(rootProtocolId, votingRoundId) == preMerkleRoot,
@@ -578,8 +636,13 @@ rule successfulNonUpgradeExecutionPreservesRelayInvariants(
         "delayed non-upgrade execution must preserve the source domain";
     assert reverted || postLastInitialized == preLastInitialized,
         "delayed non-upgrade execution must preserve the initialized epoch";
-    assert reverted || owner() == preOwner,
-        "delayed non-upgrade execution must preserve ownership";
+    assert reverted || preOwner == 0 || postOwner != 0,
+        "delayed non-upgrade execution must preserve an established nonzero owner";
+    assert reverted || isOwnershipTransferCall(encodedCall) || postOwner == preOwner,
+        "only an allowlisted ownership-transfer execution may change ownership";
+    assert reverted || sampledQueuedCallHash == executedCallHash
+        || postSampledQueueTimestamp == preSampledQueueTimestamp,
+        "delayed non-upgrade execution must preserve every other sampled queue entry";
     assert reverted || postDuration <= 604800,
         "delayed non-upgrade execution must preserve the duration bound";
     assert reverted || preCollector == 0 || feeCollectionAddress() != 0,
@@ -626,27 +689,63 @@ rule ownershipRenounceAlwaysReverts(env e) {
     assert lastReverted, "renounceOwnership must always revert";
 }
 
-/// Ownership transfer changes the current owner but does not invalidate any
-/// queued calldata hash. Operational handover must therefore cancel unwanted
-/// entries before rotating the owner.
+/// A successful execution of a ready, queued ownership transfer consumes that
+/// transfer's own queue entry but does not invalidate any other queued calldata
+/// hash. The positive-duration premise models the current two-transaction
+/// transfer lifecycle. The harness constructs canonical transfer calldata once
+/// with `abi.encodeCall`; the rule reuses those exact bytes for the queue key and
+/// inherited production executor. Invalid queued targets may still revert at
+/// execution.
 rule ownershipTransferPreservesQueuedCall(
     env e,
-    bytes32 encodedCallHash,
-    address newOwner
+    address requestedRecipient,
+    bytes32 sampledQueuedCallHash
 ) {
     address preOwner = owner();
-    uint256 preTimestamp = timelockedCallTimestampAtHash(encodedCallHash);
+    uint256 preDuration = getTimelockDurationSeconds();
+    bytes encodedTransferCall = canonicalOwnershipTransferCall(requestedRecipient);
+    bytes32 transferCallHash = timelockedCallHash(encodedTransferCall);
+    uint256 transferTimestamp = timelockedCallTimestampAtHash(transferCallHash);
+    uint256 sampledPreTimestamp = timelockedCallTimestampAtHash(sampledQueuedCallHash);
     require preOwner != 0;
-    require preTimestamp != 0;
-    require newOwner != 0;
-    require newOwner != preOwner;
-    require e.msg.sender == preOwner;
+    require preDuration > 0;
+    require preDuration <= 604800;
+    require !timelockExecuting();
+    require transferTimestamp != 0;
+    require e.block.timestamp >= transferTimestamp;
+    require sampledQueuedCallHash != transferCallHash;
+    require sampledPreTimestamp != 0;
     require e.msg.value == 0;
 
-    transferOwnership@withrevert(e, newOwner);
+    executeTimelockedCall@withrevert(e, encodedTransferCall);
+    bool reverted = lastReverted;
+    address postOwner = owner();
+    uint256 transferPostTimestamp = timelockedCallTimestampAtHash(transferCallHash);
+    uint256 sampledPostTimestamp = timelockedCallTimestampAtHash(sampledQueuedCallHash);
 
-    assert !lastReverted, "a valid ownership transfer must succeed";
-    assert owner() == newOwner, "ownership must move to the requested nonzero owner";
-    assert timelockedCallTimestampAtHash(encodedCallHash) == preTimestamp,
-        "ownership transfer must preserve every queued call and its ETA";
+    satisfy !reverted
+        && postOwner != preOwner
+        && postOwner == requestedRecipient
+        && transferPostTimestamp == 0
+        && sampledPostTimestamp == sampledPreTimestamp
+        && !timelockExecuting(),
+        "a real positive-delay ownership rotation must be executable";
+    assert reverted || postOwner != 0,
+        "a successful ownership transfer must not clear the owner";
+    assert reverted || postOwner == requestedRecipient,
+        "a successful ownership transfer must install its encoded recipient";
+    assert reverted || transferPostTimestamp == 0,
+        "a successful ownership transfer must consume its own queued call";
+    assert reverted || sampledPostTimestamp == sampledPreTimestamp,
+        "a successful ownership transfer must preserve every other queued call and its ETA";
+    assert reverted || !timelockExecuting(),
+        "ownership-transfer execution authorization must not persist";
+    assert requestedRecipient != 0 || reverted,
+        "a queued transfer to the zero address must revert at execution";
+    assert requestedRecipient != 0 || postOwner == preOwner,
+        "a rejected zero-address transfer must roll ownership back";
+    assert requestedRecipient != 0 || transferPostTimestamp == transferTimestamp,
+        "a rejected zero-address transfer must restore its queued call";
+    assert requestedRecipient != 0 || sampledPostTimestamp == sampledPreTimestamp,
+        "a rejected zero-address transfer must preserve other queued calls";
 }

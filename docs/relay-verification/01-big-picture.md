@@ -17,8 +17,9 @@ otherwise `msg.value` must be zero and an exact configured ERC-20 amount is
 pulled from a non-exempt caller after proof validation.
 
 Pre-boundary verification through a configured `oldRelay` has a separate value
-flow: Relay calls the trusted source with zero value and refunds the caller's
-entire `msg.value` after a successful delegated result. The fee-free conclusion
+flow: Relay requires the trusted source to report the round finalized, calls its
+verifier with zero value, and refunds the caller's entire `msg.value` after a
+successful delegated result. The fee-free conclusion
 depends on the migration premise that the configured source chain consists of
 intended supported setter-mode Relay deployments.
 
@@ -37,8 +38,9 @@ acceptance implies sum(weights at accepted indices) > effective threshold
 ```
 
 This is a policy-**slot** theorem. It becomes a distinct-signer theorem only if
-policy admission guarantees that each nonzero address occurs once. The current
-security review treats that admission invariant as an open issue.
+policy admission guarantees that each nonzero address occurs once. This is an
+explicit admission assumption: Relay's slot-accounting proof does not validate
+the upstream policy producer or every possible trusted policy input.
 
 ## Why several tools are used
 

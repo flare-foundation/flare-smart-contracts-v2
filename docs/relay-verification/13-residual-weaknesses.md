@@ -4,7 +4,7 @@ This page is the current residual-risk index. Detailed impact and remediation ar
 in [`../relay-security-review.md`](../relay-security-review.md); exact proof gaps
 are in [`10-claims-ledger-trust-and-residual.md`](10-claims-ledger-trust-and-residual.md).
 
-## Contract invariants not established on every input path
+## Correctness edges and conditional invariants
 
 1. **Voter identity uniqueness.** The loop proves no policy-slot reuse, while
    policy admission can represent the same address in several slots.
@@ -20,14 +20,24 @@ are in [`10-claims-ledger-trust-and-residual.md`](10-claims-ledger-trust-and-res
    getter before local random initialization.
 7. **First-round presence.** Zero-valued initialization state is not enough to
    distinguish absence from an accepted round-zero value/security flag.
-8. **Timelock generation binding.** Queued calls survive ownership transfer,
-   are not automatically invalidated by a compatible implementation change,
-   and have no expiry.
+8. **Timelock lifecycle.** Ownership transfer is delayed when the timelock is
+   armed, but unrelated queued calls intentionally survive transfer, are not
+   automatically invalidated by a compatible implementation change, and have
+   no expiry. Operational handover must review and cancel unwanted calls; the
+   proof must not assume an owner-generation invalidation rule.
+
+Policy identity, viability, ordering, and migration partition checks are
+trusted-admission/configuration requirements. Their absence from every Relay
+entry point does not establish a permissionless authorization bypass. The
+security review distinguishes these assumptions from the terminal-round and
+round-zero correctness edges.
 
 ## Environmental and integration residuals
 
 - Custom-message consumers must supply their own destination, purpose, nonce,
-  and freshness domain.
+  and freshness domain. An accepted policy epoch is not a signature timestamp;
+  signatures can remain eligible under a later policy with sufficient retained
+  signing weight.
 - ECDSA and keccak security are trusted cryptographic assumptions.
 - `oldRelay`, the configured owner, signing-policy setter, fee recipient, and
   future implementation are trusted within their documented capability.

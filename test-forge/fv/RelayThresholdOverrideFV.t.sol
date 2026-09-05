@@ -154,6 +154,78 @@ contract RelayThresholdOverrideFV is RelayTestBase {
         }
     }
 
+    /// Concrete smoke for every short-selector length and the non-relay selector boundary.
+    function test_fvCustomSelectorGuards() external {
+        this.check_customCalls_shortCalldataRejected(0, bytes3(0xabcdef), 0);
+        this.check_customCalls_shortCalldataRejected(1, bytes3(0xabcdef), 1);
+        this.check_customCalls_shortCalldataRejected(2, bytes3(0xabcdef), 3999);
+        this.check_customCalls_shortCalldataRejected(3, bytes3(0xabcdef), 9999);
+        this.check_customCalls_nonRelaySelectorRejected(bytes4(0), bytes32(uint256(1)), 1);
+        this.check_customCalls_relaySelectorReachesRelay();
+    }
+
+    /// Every calldata length below four fails with NotRelayCall in both public
+    /// wrappers. Payload bytes and every permitted override remain symbolic.
+    /// The exact selector rules out another revert reason, and the override
+    /// wrapper must roll back its transient write after rejecting the selector.
+    // EXPECT: PASS (proof).
+    function check_customCalls_shortCalldataRejected(uint8 length, bytes3 contents, uint16 thresholdBIPS) external {
+        vm.assume(length < 4);
+        vm.assume(thresholdBIPS < 10000);
+        // Branch on the complete short-length domain so every encoding has a
+        // concrete size for Halmos while all bytes in that encoding stay symbolic.
+        bytes memory relayMessage;
+        if (length == 0) {
+            relayMessage = bytes("");
+        } else if (length == 1) {
+            relayMessage = abi.encodePacked(bytes1(contents));
+        } else if (length == 2) {
+            relayMessage = abi.encodePacked(bytes2(contents));
+        } else {
+            relayMessage = abi.encodePacked(contents);
+        }
+        (bool baselineOk, bytes memory baselineData) = _callPolicyThreshold(relayMessage);
+        (bool overrideOk, bytes memory overrideData) = _callOverride(relayMessage, thresholdBIPS);
+        assert(!baselineOk && !overrideOk);
+        assert(baselineData.length == 4 && overrideData.length == 4);
+        assert(_revertSelector(baselineData) == IRelay.NotRelayCall.selector);
+        assert(_revertSelector(overrideData) == IRelay.NotRelayCall.selector);
+        assert(thresholdRelay.fvLoadThresholdOverride() == 0);
+    }
+
+    /// All non-relay selectors are rejected before a self-call, for a fixed
+    /// 32-byte symbolic tail. The proof covers both wrappers and all permitted
+    /// override values; longer arbitrary tails are outside this bounded shape.
+    // EXPECT: PASS (proof).
+    function check_customCalls_nonRelaySelectorRejected(bytes4 selector, bytes32 tail, uint16 thresholdBIPS) external {
+        vm.assume(selector != IRelay.relay.selector);
+        vm.assume(thresholdBIPS < 10000);
+        bytes memory relayMessage = abi.encodePacked(selector, tail);
+        (bool baselineOk, bytes memory baselineData) = _callPolicyThreshold(relayMessage);
+        (bool overrideOk, bytes memory overrideData) = _callOverride(relayMessage, thresholdBIPS);
+        assert(!baselineOk && !overrideOk);
+        assert(baselineData.length == 4 && overrideData.length == 4);
+        assert(_revertSelector(baselineData) == IRelay.NotRelayCall.selector);
+        assert(_revertSelector(overrideData) == IRelay.NotRelayCall.selector);
+        assert(thresholdRelay.fvLoadThresholdOverride() == 0);
+    }
+
+    /// The allowed selector passes the outer guard and reaches relay's metadata
+    /// check: a selector-only body is wrapped as VerificationFailed, not rejected
+    /// as NotRelayCall. Full success is required by the quorum reachability
+    /// controls elsewhere in this harness.
+    // EXPECT: PASS (proof).
+    function check_customCalls_relaySelectorReachesRelay() external {
+        bytes memory relayMessage = abi.encodePacked(IRelay.relay.selector);
+        (bool baselineOk, bytes memory baselineData) = _callPolicyThreshold(relayMessage);
+        (bool overrideOk, bytes memory overrideData) = _callOverride(relayMessage, 1);
+        assert(!baselineOk && !overrideOk);
+        assert(baselineData.length == 4 && overrideData.length == 4);
+        assert(_revertSelector(baselineData) == IRelay.VerificationFailed.selector);
+        assert(_revertSelector(overrideData) == IRelay.VerificationFailed.selector);
+        assert(thresholdRelay.fvLoadThresholdOverride() == 0);
+    }
+
     // Any accepting two-signature execution satisfies the advertised exact cross-product predicate.
     // EXPECT: PASS (proof).
     function check_override_twoSignerAcceptanceImpliesExactBips(uint16 thresholdBIPS, Sig calldata a, Sig calldata b)

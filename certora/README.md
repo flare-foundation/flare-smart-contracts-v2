@@ -4,15 +4,15 @@ This directory targets the current Relay architecture:
 
 - upgradeable `Relay` implementation compiled with Solidity 0.8.35;
 - per-chain `OwnableUpgradeable` owner;
-- exact-calldata owner timelock in an ERC-7201 namespace;
+- exact-calldata owner timelock in an ERC-7201 namespace, including ownership transfer;
 - UUPS upgrades guarded by that same owner-timelock path; and
 - atomically replaceable native/ERC-20 verification-fee configuration.
 
 ## Evidence outputs
 
-The verification manifest binds three Certora configurations and 30 rules. The
-local preparation gate compiles the Solidity scenes and type-checks every CVL
-rule with:
+[`verification-manifest.json`](../test-forge/fv/verification-manifest.json)
+binds the exact Certora configurations and rule inventory. The local preparation
+gate compiles the Solidity scenes and type-checks every declared CVL rule with:
 
 - `certora-cli 8.16.1`;
 - Java at or above the manifest's minimum version;
@@ -63,14 +63,14 @@ transitions against [`RelayHarness`](harness/RelayHarness.sol):
 | `tokenModeUnfinalizedVerificationDoesNotCallToken`     | a zero stored root reverts before an ERC-20 call                                                                                                                                 |
 | `tokenModeInvalidEmptyProofDoesNotCallToken`           | a nonmatching leaf with an empty proof reverts before an ERC-20 call                                                                                                              |
 | `tokenModeValidEmptyProofCallsConfiguredToken`         | a charged, valid empty-proof path calls the configured token with zero native value and has a successful witness                                                                 |
-| `oldRelayDelegationForwardsNoValueAndRefundsOnSuccess` | a pre-boundary empty-proof call sends no native value to the configured old Relay and, on success, attempts the full caller refund; a successful witness prevents vacuity         |
-| `onlyOwnerCanEnterGuardedSurface`                      | with the transient execution flag clear, a non-owner cannot enter any of the six guarded mutation entry points                                                                   |
-| `delayedOwnerCallDoesNotApply`                         | with a positive delay, a successful non-upgrade owner call cannot apply sampled Relay or fee-table state; concrete queue creation is covered by the manifest-bound `RelayOwnerTimelockFV` concrete/Halmos fixture within its stated bounds |
-| `successfulExecutionConsumesQueue`                     | a ready, successful execution of one of the five non-upgrade guarded calls deletes its exact entry and clears the transient flag; a real applied setter witness prevents vacuity |
-| `successfulNonUpgradeExecutionPreservesRelayInvariants` | a ready, successful allowlisted non-upgrade execution preserves scalar, write-once, fee-table, reserved-id, and setter-mode invariants                                           |
+| `oldRelayDelegationForwardsNoValueAndRefundsOnSuccess` | a pre-boundary empty-proof call observes source finalization separately from delegated verification, sends no native value to the configured old Relay, and on success attempts the full caller refund; a successful witness prevents vacuity         |
+| `onlyOwnerCanEnterGuardedSurface`                      | with the namespaced execution flag clear, a non-owner cannot enter any allowlisted guarded mutation entry point, including ownership transfer                                                                   |
+| `delayedOwnerCallDoesNotApply`                         | with a positive delay, a successful non-upgrade owner call, including ownership transfer, cannot apply sampled owner, Relay, or fee-table state; queue creation is covered by the manifest-bound `RelayOwnerTimelockFV` fixture within its stated bounds |
+| `successfulExecutionConsumesQueue`                     | from an initialized nonzero-owner state, a ready, successful execution of an allowlisted non-upgrade guarded call deletes its exact entry and clears the namespaced execution flag; an applied duration-change witness prevents vacuity |
+| `successfulNonUpgradeExecutionPreservesRelayInvariants` | a ready, successful allowlisted non-upgrade execution preserves scalar, write-once, fee-table, reserved-id, setter-mode, and unrelated sampled queue invariants; only ownership transfer may change the owner                                           |
 | `successfulDurationUpdateIsBounded`                    | a successful duration update respects the seven-day cap; a clean-boundary owner witness proves a zero-delay update is actually applied rather than queued or reverted            |
 | `ownershipRenounceAlwaysReverts`                       | Relay cannot renounce ownership                                                                                                                                                  |
-| `ownershipTransferPreservesQueuedCall`                 | transferring ownership preserves every sampled pending calldata hash and its recorded ETA                                                                                       |
+| `ownershipTransferPreservesQueuedCall`                 | a harness helper encodes a canonical transfer once for queue identity and the real executor: positive-delay execution installs the exact nonzero recipient, consumes its own queue entry, clears the execution flag, and preserves another pending entry; an actual owner-change witness prevents vacuity |
 
 [`Relay-threshold.conf`](Relay-threshold.conf) isolates the wrapper's fail-fast
 opcode checks and the threshold arithmetic lemma from the established
@@ -104,13 +104,13 @@ Raw relay payloads are modeled by the manifest-bound Halmos and Lean layers
 within their stated bounds; the direct `ownershipRenounceAlwaysReverts` rule also
 covers the disabled ownership path.
 
-All three configurations set `loop_iter=3` and `optimistic_loop=true`. Certora may
+Each configuration sets `loop_iter=3` and `optimistic_loop=true`. Certora may
 assume away executions that continue past three loop iterations, so a cloud
 `SUCCESS` is conditional on this bounded loop model and is not an unrestricted
 all-input result for Relay's longer loops. In particular, fee-table replacement
 claims cover only executions that finish within this loop bound.
 
-All three configurations also set `optimistic_hashing=true` with
+Each configuration also sets `optimistic_hashing=true` with
 `hashing_length_bound=512`. The Prover therefore assumes that every unbounded
 byte chunk it hashes is at most 512 bytes. In `Relay-writeonce.conf`, this
 includes the timelock's `encodedCall` and the raw `msg.data` hashed when an owner
@@ -133,10 +133,15 @@ balance semantics remain assumptions about the configured standard token; ECF
 also excludes reentrant effects on Relay state.
 
 The old-Relay value-flow rule covers the pre-boundary branch with an empty Merkle
-proof and nonzero attached value. It requires the modeled sender's native balance
+proof and nonzero attached value. The current implementation first queries
+`isFinalized()` and requires a true result; only then may it invoke the delegated
+`verify()`. A fixture or external summary must permit that finalization query or
+it cannot witness successful delegation. Separate persistent `STATICCALL` and
+`CALL` observations distinguish the source-finalization query from delegated
+proof verification. The rule requires the modeled sender's native balance
 to fund that value, which is the reachable-call condition for entering a payable
-function. Persistent target-specific `CALL` observations prove that Relay attempts
-the delegated `verify` call with zero value even when the operation later reverts,
+function. Persistent target-specific `CALL` observations prove that any attempted
+delegated `verify` call carries zero value even when the operation later reverts,
 and that a successful operation attempts to return the full attached value to the
 caller. The rule does not validate the old Relay's code or proof decision; the
 configured contract's provenance and return value remain the migration trust
@@ -172,7 +177,7 @@ layer does not by itself link that identity to the production
 identity remains mathematical only: production treats zero as the no-override
 sentinel and uses the policy threshold.
 
-All three scenes compile through `viaIR=true`. A “failed to locate internal function” diagnostic
+Each scene compiles through `viaIR=true`. A “failed to locate internal function” diagnostic
 does not by itself omit that code: without an internal summary, the TAC remains
 inlined and attributed to the enclosing external method. It does limit internal
 function attribution, decomposition, and the applicability of an internal
@@ -197,7 +202,8 @@ cannot quantify over arbitrary replacement semantics. The CVL still checks the
 owner entry guard and current-implementation timelock queue behavior. The
 `successfulExecutionConsumesQueue` and
 `successfulNonUpgradeExecutionPreservesRelayInvariants` rules use a positive,
-exact-selector allowlist for the five non-upgrade owner methods; this excludes every
+exact-selector allowlist for the modeled non-upgrade owner methods, including
+`transferOwnership(address)`; this excludes every
 `upgradeToAndCall(address,bytes)` call, whose selector is `0x4f1ef286`. The
 four-byte length guard is load-bearing because out-of-bounds CVL array reads are
 otherwise unconstrained. The rule also requires a clean external boundary,
@@ -206,12 +212,31 @@ outer caller remains unconstrained because execution is permissionless after the
 ETA.
 
 Inside `RelayHarness.executeTimelockedCall(bytes)`, the unresolved self-call uses
-the default pessimistic `DISPATCH` mode and explicitly lists the same five
-methods, so a matching selector executes real current-implementation code; only
-unmatched calls fall back to `HAVOC_ECF`. The explicit success witness further
-requires canonical `setTimelockDuration(uint256)` calldata and an observed
-in-range duration change. Thus neither a queued no-op nor the fallback summary
-can be the sole reachability evidence.
+the default pessimistic `DISPATCH` mode and explicitly lists the same allowlisted
+methods. When the prover cannot resolve the raw-calldata call, the fallback
+`HAVOC_ECF` permits a storage-preserving no-op. The general rules therefore
+establish preservation and queue-consumption claims under this over-approximation;
+they do not establish exact recipient binding for arbitrary raw calldata. The
+queue-consumption rule assumes an initialized, nonzero pre-owner. Its canonical
+duration-change witness, and the separate general-invariant rule's equivalent
+witness, must observe an actual in-range duration change.
+
+`ownershipTransferPreservesQueuedCall` uses the verification-only
+`canonicalOwnershipTransferCall(address)` helper. It constructs
+`abi.encodeCall(this.transferOwnership, (recipient))` in Solidity without writing
+or emulating timelock state. CVL binds that returned byte array once and uses the
+same value for queue identity and the inherited production executor. The rule
+checks the exact recipient, execution flag, consumed entry, unrelated entry,
+and zero-recipient rollback. The executor's outer caller remains unconstrained
+and the rule requires zero native value. This canonical typed-input property is
+distinct from a raw-calldata decoding/composition proof. Its success witness must
+observe a nonzero owner change.
+
+The duration and ownership witnesses are kept in separate rules because CVL's
+default `satisfy` semantics require earlier executed `satisfy` conditions to hold
+on the same path. Thus neither a queued no-op nor the fallback summary can be
+the sole reachability evidence. See the
+[CVL statement semantics](https://docs.certora.com/en/latest/docs/cvl/statements.html#satisfy-statements).
 
 Upgrade arguments are deliberately not parsed or constrained: every call to the
 UUPS entry point is outside the execution rule, including malformed calls that
@@ -219,11 +244,19 @@ would revert.
 
 The delayed-execution claims therefore mean: for a successful non-upgrade
 self-call executed by the currently modeled Relay implementation, the exact queue
-entry is consumed, the transient authorization flag is cleared, and the sampled
+entry is consumed, the namespaced authorization flag is cleared, and the sampled
 current-implementation invariants remain true. They do **not** establish that a
 queued upgrade succeeds through a proxy, that arbitrary replacement or migration
 code preserves the timelock namespace, that a new implementation is
 storage-compatible, or that migration calldata is safe.
+
+Ownership transfer follows the same queue-and-execute model: positive delay
+leaves the owner unchanged while queuing the exact transfer calldata; zero delay
+allows an immediate transfer. The outgoing owner can cancel a pending transfer.
+Successful transfer does not invalidate unrelated queued operations, so handover
+must review and cancel unwanted calls. The execution flag is the persistent
+`OwnableWithTimelock.State.executing` field in its ERC-7201 namespace, not the
+transient threshold-override slot used by Relay's custom-signature wrapper.
 
 Unresolved old-Relay, precompile and external-call boundaries use an ECF summary.
 The rules therefore assume an external callback does not cause an owner-controlled
@@ -281,14 +314,20 @@ command-output hashes are recorded in the normalized report.
 
 ## Run the cloud prover
 
-With a Certora account key:
+Load a Certora account key from a restricted secret file, without placing its
+literal value in the command or committing it. The example below works in Bash
+and Zsh when `/private/tmp/certora.key` already contains only the key:
 
 ```bash
-export CERTORAKEY=<key>
+export CERTORAKEY="$(< /private/tmp/certora.key)"
 certoraRun certora/Relay.conf --solc /path/to/solc-0.8.35
 certoraRun certora/Relay-threshold.conf --solc /path/to/solc-0.8.35
 certoraRun certora/Relay-writeonce.conf --solc /path/to/solc-0.8.35
+unset CERTORAKEY
 ```
+
+Keep the key file owner-readable only, never print the environment, and rotate
+credentials exposed in chat or logs.
 
 Normalize saved logs together with the exact CLI submission archives:
 

@@ -161,7 +161,7 @@ theorem override_product_noOverflow (totalWeight bips : Nat)
   have hconstant : parserTotalWeightMax * 9999 < uint256Modulus := by decide
   exact Nat.lt_of_le_of_lt hproduct hconstant
 
-/-- Faithful threshold-selection seam from optimized Yul lines 1363-1370. -/
+/-- Faithful threshold-selection seam from optimized Yul lines 1420-1428. -/
 def selectThreshold
     (protocolId overrideBIPS totalWeight policyThreshold : Nat) : Nat :=
   if protocolId = 1 then

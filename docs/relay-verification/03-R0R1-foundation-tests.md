@@ -27,17 +27,18 @@ Use the Foundry executable pinned by
 ```bash
 FORGE=/path/to/manifest-pinned-forge
 $FORGE test \
-  --match-path 'test-forge/unit/protocol/implementation/Relay*.t.sol'
+  --match-path 'test-forge/unit/{protocol/implementation/Relay*,governance/Relay*}.t.sol'
 ```
 
 Run the complete repository suite before release because Relay shares proxy,
 governance, deployment, FDC, and consumer-facing interfaces with tests outside
 the focused path.
 
-## Open security-regression obligations
+## Boundary coverage to review
 
-The current focused tests do not cover every finding from the current review.
-The following cases remain missing or incomplete test obligations:
+The focused suites do not establish every possible state-transition sequence.
+Review coverage for the following admission assumptions and correctness edges
+alongside the current security report:
 
 - a repeated address at distinct policy indices;
 - zero and duplicate voters on every policy-admission path;
@@ -48,8 +49,9 @@ The following cases remain missing or incomplete test obligations:
 - current-random continuity during `oldRelay` migration;
 - monotonic policy starts;
 - the first accepted random at round zero; and
-- timelock behavior across owner and implementation generation changes.
+- timelocked ownership transfer, retained unrelated queues, and upgrade
+  behavior under the selected implementation and migration calldata.
 
-Future tests for behavior that remains vulnerable should first be explicit
-counterexample regressions. After remediation, each must become a rejection or
-invariant regression.
+Use explicit rejection or invariant regressions for enforced boundaries, and
+state the trusted-input premise for valid-path fixtures. Queue survival is a
+current lifecycle behavior, not an implicit requirement to invalidate all queues.

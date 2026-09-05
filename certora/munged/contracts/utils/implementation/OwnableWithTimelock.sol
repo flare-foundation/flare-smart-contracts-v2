@@ -8,8 +8,16 @@ import {IOwnableWithTimelock} from "../../userInterfaces/IOwnableWithTimelock.so
  * @title OwnableWithTimelock
  * @notice Ownable extension that timelocks selected owner calls using a dedicated storage slot.
  * @dev Upgradeable: built on `OwnableUpgradeable`; the concrete contract calls
- *      `__Ownable_init` from its `initialize`. Ownership transfer is one-step, atomic, and
- *      immediate; callers must validate the nonzero target because an incorrect target cannot be
+ *      `__Ownable_init` from its `initialize`. Ownership transfer is guarded like every other
+ *      owner call, so while a nonzero duration is configured no owner action can take effect
+ *      without passing through the public queue-and-wait window; a zero duration disarms the
+ *      timelock for every guarded call, transfers included. The one owner power that is
+ *      immediate even with the timelock armed is `cancelTimelockedCall`,
+ *      which can only withdraw a pending action, never enact one — the outgoing owner keeps it
+ *      until execution and may cancel a queued transfer with it. There is no propose/accept
+ *      handshake and no pending-owner state: when the call applies the role moves in one
+ *      write, and a reverted execution moves nothing.
+ *      Callers must validate the nonzero target because an incorrect target cannot be
  *      recovered by this contract. Its own state lives at a fixed ERC-7201 slot, independent
  *      of the inherited namespaced storage.
  *
@@ -17,7 +25,8 @@ import {IOwnableWithTimelock} from "../../userInterfaces/IOwnableWithTimelock.so
  *      cleared by `transferOwnership`, so a call queued by a previous owner stays executable
  *      under the new owner — anyone can execute that exact operation, carrying its original
  *      owner authorization. Cancel every outstanding queued call before transferring
- *      ownership.
+ *      ownership; the queue is not enumerable on-chain, so finding them means replaying
+ *      `CallTimelocked` off-chain.
  */
 abstract contract OwnableWithTimelock is OwnableUpgradeable, IOwnableWithTimelock {
 
@@ -91,6 +100,30 @@ abstract contract OwnableWithTimelock is OwnableUpgradeable, IOwnableWithTimeloc
         require(_timelockDurationSeconds <= MAX_TIMELOCK_DURATION_SECONDS, TimelockDurationTooLong());
         state.timelockDurationSeconds = _timelockDurationSeconds;
         emit TimelockDurationSet(_timelockDurationSeconds);
+    }
+
+    /**
+     * @notice Transfers ownership, under the timelock like every other guarded call.
+     * @dev Not `super.transferOwnership`: on the execute path the call arrives as a self-call
+     *      from `executeTimelockedCall`, `_beforeExecuteTimelockedCall` deliberately skips the
+     *      owner check, and `Ownable`'s own `onlyOwner` would then reject `msg.sender ==
+     *      address(this)`. The internal `_transferOwnership` has no such check, so the
+     *      zero-address guard is reapplied here.
+     *
+     *      With a zero duration this still applies immediately, matching every other guarded
+     *      setter. While a transfer is queued the caller remains the owner and may cancel it.
+     *      Queued calls are not bound to an owner generation and survive the transfer; cancel
+     *      every outstanding one first.
+     * @param _newOwner The new owner. Must be nonzero; an incorrect target cannot be recovered.
+     */
+    function transferOwnership(
+        address _newOwner
+    )
+        public override
+        onlyOwnerWithTimelock
+    {
+        require(_newOwner != address(0), OwnableInvalidOwner(address(0)));
+        _transferOwnership(_newOwner);
     }
 
     /// @inheritdoc IOwnableWithTimelock

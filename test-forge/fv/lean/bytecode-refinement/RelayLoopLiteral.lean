@@ -24,12 +24,14 @@ Deviations from the IR, each deliberate and accounting-irrelevant (fidelity regi
   (sstore / event / return payload); we emit `return(0,0)`. The accept **control flow** (early halt inside
   the first threshold-crossing iteration) is verbatim; the finalization's storage effects are the separate
   "storage effects" work item, out of scope for the accounting theorem.
-* **D4 — loop-invariant scalars as literals.** `numberOfSignatures` (`_18`), `numberOfVoters`
-  (`shr(240,_1)`), `threshold`, and `signatureStart` are computed before the loop in the IR; they enter the
-  AST as parameters (`nSig`, `nVot`, `thr`, `sigStart`), exactly as the folded values the IR loop reads.
+* **D4 — loop-invariant scalars as literals.** `numberOfSignatures` (`_17`), `numberOfVoters`
+  (`shr(240, calldataload(4))`), `threshold`, and `signatureStart` are invariant throughout the IR loop;
+  they enter the AST as parameters (`nSig`, `nVot`, `thr`, `sigStart`). The voter count is an invariant
+  calldata decode rather than a separate compiler local.
 
-Everything else — statement order, expression shapes, slot layout, guard conditions, the `staticcall`
-argument list `(not(0), 1, m, 128, m+64, 32)` — matches the IR token-for-token.
+Apart from D1–D4 and local-name renaming, statement order, expression shapes, slot layout, guard
+conditions, and the `staticcall` argument list `(not(0), 1, m, 128, m+64, 32)` correspond to the IR.
+This correspondence is manually reviewed; it is not a machine-proved extraction from the IR.
 -/
 
 namespace RelayLoopLiteral
@@ -40,7 +42,7 @@ def II  : EvmYul.Identifier := "i"       -- usr$i
 def WW  : EvmYul.Identifier := "weight"  -- usr$weight
 def NUI : EvmYul.Identifier := "nui"     -- usr$nextUnusedIndex
 def IDX : EvmYul.Identifier := "idx"     -- usr$index (fresh each iteration)
-def VV  : EvmYul.Identifier := "v"       -- _19 (the v byte)
+def VV  : EvmYul.Identifier := "v"       -- _18 (the v byte)
 
 /-! ## Expression builders -/
 
@@ -53,7 +55,7 @@ def litU (u : EvmYul.UInt256) : Expr := Expr.Lit u
 /-- Variable read. -/
 def V (x : EvmYul.Identifier) : Expr := Expr.Var x
 
-/-- secp256k1n/2 — the EIP-2 low-`s` bound (IR line 1537). -/
+/-- secp256k1n/2 — the EIP-2 low-`s` bound (IR line 1595). -/
 def SECP_HALF : EvmYul.UInt256 :=
   UInt256.ofNat 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
 
@@ -63,12 +65,13 @@ def revert00 : Stmt := Stmt.ExprStmtCall (bc .REVERT [litN 0, litN 0])
 /-- `if cond { revert }` — the guard shape used by every check in the loop. -/
 def guard' (cond : Expr) : Stmt := Stmt.If cond [revert00]
 
-/-! ## The loop, transliterated (IR lines 1518-1632)
+/-! ## The loop, transliterated (IR lines 1574-1691)
 
 Parameters: `m` = `usr$memPtrFor` (loop-invariant free-memory base), `sigStart` = `usr$signatureStart`,
-`nSig` = `_18` (numberOfSignatures), `nVot` = `shr(240,_1)` (numberOfVoters), `thr` = `usr$threshold`. -/
+`nSig` = `_17` (numberOfSignatures), `nVot` = `shr(240, calldataload(4))` (numberOfVoters),
+`thr` = `usr$threshold`. -/
 
-/-- Loop condition `lt(usr$i, _18)`. -/
+/-- Loop condition `lt(usr$i, _17)`. -/
 def condL (nSig : EvmYul.UInt256) : Expr := bc .LT [V II, litU nSig]
 
 /-- Loop post `usr$i := add(usr$i, 1)`. -/

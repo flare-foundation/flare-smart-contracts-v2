@@ -64,13 +64,31 @@ Even a release-qualified bundle proves only the claims in
 [`10-claims-ledger-trust-and-residual.md`](10-claims-ledger-trust-and-residual.md).
 The current claim-to-evidence map is
 [`AUDIT-TRAIL.md`](AUDIT-TRAIL.md).
-The current implementation has open security boundaries documented in
-[`../relay-security-review.md`](../relay-security-review.md), including duplicate
-voter identities, terminal future randomness, migration-boundary mismatch, and
-current-random discontinuity. Token-mode fee evidence assumes a standard
-exact-transfer ERC-20, and Lean's fee model is native-only. Proof fixtures that
-assume those inputs are valid only under the corresponding assumption; they do
-not close the finding.
+
+The package must model these current implementation boundaries:
+
+- Ownership transfer uses the same owner timelock as the other guarded calls.
+  With positive delay it queues first, and the owner changes only on successful
+  execution. Unrelated queued calls retain their original ETA after transfer.
+- A random-protocol message accepts only security bytes `0` and `1`; every
+  other protocol requires `0`. There is no nonzero-byte normalization path.
+- Pre-boundary verification requires the configured source's `isFinalized()`
+  to return true before delegating `verify()` with zero native value.
+- Custom-signature wrappers require the supplied call to select `relay()`;
+  inputs shorter than four bytes or different selectors fail with `NotRelayCall`.
+  The successful protocol-1 return must still have the expected digest and
+  35-byte format.
+
+The security review distinguishes correctness edges from trusted-input and
+integration requirements. Terminal-round timestamp arithmetic and first-round-
+zero live-state handling remain explicit random-getter limits. Unique policy
+identities, usable weights, policy start metadata, migration configuration, and
+consumer freshness remain admission or integration assumptions unless a listed
+property establishes them. See
+[`../relay-security-review.md`](../relay-security-review.md).
+Token-mode fee evidence assumes a standard exact-transfer ERC-20, and Lean's
+fee model is native-only. A fixture that assumes an input condition proves only
+the corresponding conditional claim.
 
 ## How to obtain the verdict
 
