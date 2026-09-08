@@ -14,22 +14,21 @@ validated transient-storage operations, this file *composes* them into the
 effect of the deployed signature-verification loop body (`RelayLoopLiteral.bodyL`), deriving the
 per-iteration accounting represented by `RelayLoopMemRead.relay_loop_sound`'s `hcorr`/`hvalid` premises.
 
-This file imports four sibling modules, so checking it requires compiling those into the package lib first:
+This file imports four sibling modules. Use the repository wrapper to check the pinned dependency,
+compile the imported modules and audit every declared theorem without modifying dependency sources:
 
 ```bash
-# after preparing EVMYulLean as described in ./README.md
-LIB=/tmp/evmyul2/.lake/build/lib/lean
-for f in DataLayer RelayLoopWindows RelayLoopLiteral RelayStorageLayer; do
-  cp <repo>/test-forge/fv/lean/bytecode-refinement/$f.lean /tmp/evmyul2/
-  lake env lean -o $LIB/$f.olean /tmp/evmyul2/$f.lean            # compile deps into the lib
-done
-cp <repo>/test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean /tmp/evmyul2/
-cd /tmp/evmyul2 && lake env lean RelayBodyEff.lean                # exit 0; prints clean axiom lists
+EVMYUL_DIR=/absolute/path/to/EVMYulLean python test-forge/fv/lean/verify_lean.py
 ```
 
-Everything here is hole-free. The `#print axioms` results contain Lean's standard axioms plus the imported
-semantic assumptions `RelayWindows.zeroes_data` and `RelayDataLayer.toByteArray_size`; this file declares
-no additional axiom.
+Everything here is hole-free. The `#print axioms` results contain Lean's standard axioms and the
+manifest-allowlisted imported semantic assumptions; this file declares no additional axiom.
+
+The literal-body composition theorems are conditional, not accepting-execution existence proofs.
+The pinned interpreter's STATICCALL restoration does not preserve the caller calldata needed by the
+following voter-record copy. That real-call bridge is unresolved. The explicitly named recovery-oracle
+witness below executes the genuine prefix and suffix around a caller-preserving recovery abstraction;
+it must not be substituted for a proof that stock interpreter execution accepts.
 -/
 
 namespace RelayBodyEff
@@ -1157,6 +1156,22 @@ theorem post_effL (f : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarS
     _ = _ := by rw [show f+7 = (f+6)+1 from by omega]; exact RelayLoopLiteral.exec_Block_nil (f+6) _
 
 -- ===================== THE LITERAL LOOP INDUCTION =====================
+/-- A finite trace from one fixed loop-entry state. Each successor is the actual output of the
+    literal body followed by the real counter update. In particular, an iteration premise is never
+    required for an unrelated state that happens to have the same counter and weight. The relation
+    records only continuing iterations; acceptance is a separate terminal effect. -/
+inductive LoopReachable (m sigStart : Nat) (nVot thr : EvmYul.UInt256)
+    (entrySS : EvmYul.SharedState .Yul) (entryVS : EvmYul.Yul.VarStore) :
+    Nat → EvmYul.SharedState .Yul → EvmYul.Yul.VarStore → Prop
+  | entry : LoopReachable m sigStart nVot thr entrySS entryVS 0 entrySS entryVS
+  | advance {k ss vs ssb vsb}
+      (previous : LoopReachable m sigStart nVot thr entrySS entryVS k ss vs)
+      (body : ∀ fuel, EvmYul.Yul.exec (fuel + 130)
+        (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ss vs)
+          = .ok (EvmYul.Yul.State.Ok ssb vsb)) :
+      LoopReachable m sigStart nVot thr entrySS entryVS (k + 1) ssb
+        (vsb.insert II (UInt256.add ((EvmYul.Yul.State.Ok ssb vsb)[II]!) (UInt256.ofNat 1)))
+
 set_option maxHeartbeats 4000000 in
 /-- **Literal loop accumulation.** Drives the deployed signature loop `For (condL nSig) postL bodyL`
     through `NN` iterations, given a per-iteration body-advance `hstep` (exactly the shape
@@ -1167,7 +1182,9 @@ set_option maxHeartbeats 4000000 in
 theorem loop_accL (NN : Nat) (hN : NN < UInt256.size)
     (m sigStart : Nat) (nVot thr : EvmYul.UInt256)
     (acc : Nat → EvmYul.UInt256)
+    (entrySS : EvmYul.SharedState .Yul) (entryVS : EvmYul.Yul.VarStore)
     (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr entrySS entryVS k ssk vsk →
         k < NN →
         (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
         (EvmYul.Yul.State.Ok ssk vsk)[WW]! = acc k →
@@ -1177,6 +1194,7 @@ theorem loop_accL (NN : Nat) (hN : NN < UInt256.size)
           (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
           (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = acc (k+1)) :
     ∀ (j a : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore),
+      LoopReachable m sigStart nVot thr entrySS entryVS a ss vs →
       a + j = NN →
       (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat a →
       (EvmYul.Yul.State.Ok ss vs)[WW]! = acc a →
@@ -1188,7 +1206,7 @@ theorem loop_accL (NN : Nat) (hN : NN < UInt256.size)
   intro j
   induction j with
   | zero =>
-    intro a ss vs hsum hi hw
+    intro a ss vs _hreachable hsum hi hw
     have ha : a = NN := by omega
     refine ⟨ss, vs, ?_, by rw [hw, ha]⟩
     have hc : EvmYul.Yul.eval 137 (condL (UInt256.ofNat NN)) none (EvmYul.Yul.State.mkOk (EvmYul.Yul.State.Ok ss vs))
@@ -1199,7 +1217,7 @@ theorem loop_accL (NN : Nat) (hN : NN < UInt256.size)
     rw [show (3 * 0 + 140) = 137 + 1 + 1 + 1 from rfl, exec_For, loop_base (fuel := 137) (hc := hc)]
     simp [EvmYul.Yul.State.overwrite?]
   | succ j ih =>
-    intro a ss vs hsum hi hw
+    intro a ss vs hreachable hsum hi hw
     have haN : a < NN := by omega
     have ha_sz : a < UInt256.size := by omega
     have hc : EvmYul.Yul.eval (3 * j + 140) (condL (UInt256.ofNat NN)) none (EvmYul.Yul.State.Ok ss vs)
@@ -1208,7 +1226,7 @@ theorem loop_accL (NN : Nat) (hN : NN < UInt256.size)
       rw [show (3 * j + 140) = (3 * j + 134) + 6 from by ring, this, hi]
     have hx : UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN) ≠ ⟨0⟩ := by
       rw [ne_eq, lt_eq_zero_iff, not_not]; exact (ofNat_lt ha_sz hN).mpr haN
-    obtain ⟨ssb, vsb, hbody_all, hib, hwb⟩ := hstep a ss vs haN hi hw
+    obtain ⟨ssb, vsb, hbody_all, hib, hwb⟩ := hstep a ss vs hreachable haN hi hw
     have hb : EvmYul.Yul.exec (3 * j + 140) (Stmt.Block (bodyL m sigStart nVot thr)) none
                 (EvmYul.Yul.State.Ok ss vs) = .ok (EvmYul.Yul.State.Ok ssb vsb) := by
       have := hbody_all (3 * j + 10); rwa [show (3 * j + 10) + 130 = 3 * j + 140 from by ring] at this
@@ -1224,7 +1242,7 @@ theorem loop_accL (NN : Nat) (hN : NN < UInt256.size)
     have hwc : (EvmYul.Yul.State.Ok ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1))))[WW]!
                  = acc (a + 1) := by rw [ge_ne ssb vsb II WW _ (Ne.symm IW), hwb]
     obtain ⟨ss', vs', hexec, hWW⟩ := ih (a + 1) ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1)))
-      (by omega) hic hwc
+      (by simpa only [hib] using LoopReachable.advance hreachable hbody_all) (by omega) hic hwc
     exact ⟨ss', vs', hexec, hWW⟩
 
 
@@ -1493,19 +1511,10 @@ theorem iter_advance_tight (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : 
 
 -- ===================== THE LITERAL CAPSTONE =====================
 set_option maxHeartbeats 4000000 in
-/-- **Relay signature loop soundness, on the validated EVM, with the LITERAL 17-statement body.**
-    If the deployed loop — modeled with its *actual* transliterated body `bodyL` executed by EVMYulLean's
-    validated Yul `exec`, iterated by `loop_accL` — completes with a final tally exceeding the threshold,
-    then the TOTAL indexed policy weight exceeds the threshold. No policy slot is counted twice; distinct
-    signing identities additionally require unique voter addresses in the admitted policy.
-
-    Mirrors `RelayLoopMemRead.relay_loop_sound` but with the genuine loop body (`body_effL`) rather than the
-    abstract masked-read body. The external call remains an **uninterpreted ecrecover assumption**:
-    `hstep` packages, per iteration, exactly what `body_effL` delivers — one turn of `bodyL` preserves the
-    selected voter's registered weight — which is provable from `body_effL` once ecrecover's outcome
-    (`recHypothesis`) and the guard passes (`hvalid`) are supplied. `hvalid` (`ValidRun`) is the
-    strictly-increasing-in-range index discipline (guards passed, no repeated slot); `hnoovf` is the
-    no-overflow premise. -/
+/-- Exact accounting for a normally completing literal loop. Continuation effects are required only
+    along traces reachable from this entry state. Normal completion is not an acceptance claim: the
+    literal body returns immediately at a threshold crossing. The accepting capstone is
+    `relay_loop_sound_literal_early`. Distinct signing identities still require unique policy addresses. -/
 theorem relay_loop_sound_literal
     (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
     (hN : NN < UInt256.size)
@@ -1513,6 +1522,7 @@ theorem relay_loop_sound_literal
     (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
     (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
     (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr ss vs k ssk vsk →
         k < NN →
         (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
         (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
@@ -1522,38 +1532,31 @@ theorem relay_loop_sound_literal
           (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
           (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (k + 1)))
     (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart NN))
-    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size)
-    (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore)
-    (hexec : EvmYul.Yul.exec (3 * NN + 140)
+    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size) :
+    ∃ (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore),
+      EvmYul.Yul.exec (3 * NN + 140)
         (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
-          (EvmYul.Yul.State.Ok ss vs)
-        = .ok (EvmYul.Yul.State.Ok ss' vs'))
-    (haccept : thr < (EvmYul.Yul.State.Ok ss' vs')[WW]!) :
-    thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
-  -- 1. run the literal loop induction
-  obtain ⟨ss2, vs2, hexec2, hWW2⟩ :=
-    RelayBodyEff.loop_accL NN hN m sigStart nVot thr
-      (fun k => UInt256.ofNat (accNat cd sigStart nVotN k)) hstep NN 0 ss vs (by omega) hi hw
-  -- 2. reconcile with the accept hypothesis's final state
-  have heq : EvmYul.Yul.State.Ok ss' vs' = EvmYul.Yul.State.Ok ss2 vs2 := by
-    rw [hexec] at hexec2; exact Except.ok.inj hexec2
-  rw [heq, hWW2] at haccept
-  -- 3. accept: thr.val < accNat NN   (UInt256 `<` is `.val <`; ofNat is identity under no-overflow)
-  have h1 : thr.val < (UInt256.ofNat (accNat cd sigStart nVotN NN)).val := haccept
-  have h2 : (UInt256.ofNat (accNat cd sigStart nVotN NN)).val = accNat cd sigStart nVotN NN :=
-    val_ofNat_of_lt _ hnoovf
-  have h3 : thr.val < accNat cd sigStart nVotN NN := by omega
-  -- 4. accNat NN = abstract sigLoop accumulated weight
-  rw [accNat_eq_sigLoop] at h3
-  -- 5. transfer the abstract indexed-weight soundness (no repeated slot via ValidRun)
-  exact RelayLoopLiteral.threshold_sound (weightsOf cd nVotN) (idxSel cd sigStart NN) thr.val hvalid h3
+          (EvmYul.Yul.State.Ok ss vs) = .ok (EvmYul.Yul.State.Ok ss' vs') ∧
+      (EvmYul.Yul.State.Ok ss' vs')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN NN) ∧
+      (EvmYul.Yul.State.Ok ss' vs')[WW]!.val.val ≤
+        sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+  obtain ⟨ss', vs', hexec, hWW⟩ :=
+    loop_accL NN hN m sigStart nVot thr
+      (fun k => UInt256.ofNat (accNat cd sigStart nVotN k)) ss vs hstep NN 0 ss vs
+      LoopReachable.entry (by omega) hi hw
+  refine ⟨ss', vs', hexec, hWW, ?_⟩
+  rw [hWW, val_ofNat_of_lt _ hnoovf, accNat_eq_sigLoop]
+  obtain ⟨hweight, hbound⟩ := RelayLoopLiteral.loop_inv (weightsOf cd nVotN)
+    (idxSel cd sigStart NN) 0 0 (Nat.zero_le _) (Nat.zero_le _) hvalid
+  exact Nat.le_trans hweight (RelayLoopLiteral.sumTake_mono _ hbound)
 
 
 -- ===================== derived loop soundness =====================
-/-- Per-iteration uninterpreted ecrecover premise: entering the body at index `k` with state `(ssk, vsk)`,
+/-- Per-iteration guard/effect premise: entering the body at index `k` with state `(ssk, vsk)`,
     there exist recovery-output states such that the nine guards pass (execution does not revert) and the accounting
     inputs hold (weight/counter preserved into the update; the masked read is the selected voter's weight).
-    This is the literal, eval-level statement of `relay_loop_sound`'s `hvalid` + the (now derived) `hcorr`. -/
+    This includes the unresolved real-call interpreter effect, not just an assumption about ECDSA.
+    Instantiating it requires caller-frame recovery as well as the stated decode/accounting facts. -/
 def IterPremise (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray) (nVotN k : Nat)
     (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore) : Prop :=
   ∃ (ss10 : EvmYul.SharedState .Yul) (vs10 : EvmYul.Yul.VarStore)
@@ -1592,13 +1595,7 @@ def IterPremise (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray) 
     sigIdxAt cd sigStart k < nVotN
 
 set_option maxHeartbeats 4000000 in
-/-- **Relay signature loop soundness with `hstep` DERIVED.** The literal capstone
-    `relay_loop_sound_literal` assumed a per-iteration advance `hstep`; here it is discharged by
-    `iter_advance`, so the only remaining hypotheses are the per-iteration uninterpreted recovery facts
-    (`hiters`, i.e. `IterPremise` at each valid entering state) plus `hvalid`/`hnoovf`/the accept. If the deployed loop —
-    its ACTUAL transliterated body executed by validated Yul `exec` — completes with a final tally
-    exceeding the threshold, the total indexed policy weight exceeds it; no policy slot is counted twice.
-    This does not prove address uniqueness across distinct slots. -/
+/-- Normal-completion accounting with body effects derived from the guard-level premises on reachable states. This theorem does not describe an accepted execution. -/
 theorem relay_loop_sound_literal_derived
     (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
     (hN : NN < UInt256.size)
@@ -1606,32 +1603,32 @@ theorem relay_loop_sound_literal_derived
     (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
     (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
     (hiters : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr ss vs k ssk vsk →
         k < NN →
         (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
         (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
         IterPremise m sigStart nVot thr cd nVotN k ssk vsk)
     (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart NN))
-    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size)
-    (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore)
-    (hexec : EvmYul.Yul.exec (3 * NN + 140)
+    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size) :
+    ∃ (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore),
+      EvmYul.Yul.exec (3 * NN + 140)
         (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
-          (EvmYul.Yul.State.Ok ss vs)
-        = .ok (EvmYul.Yul.State.Ok ss' vs'))
-    (haccept : thr < (EvmYul.Yul.State.Ok ss' vs')[WW]!) :
-    thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
-  refine relay_loop_sound_literal m sigStart cd nVot thr nVotN NN hN ss vs hi hw ?_ hvalid hnoovf ss' vs' hexec haccept
-  intro k ssk vsk hk hII hWW
+          (EvmYul.Yul.State.Ok ss vs) = .ok (EvmYul.Yul.State.Ok ss' vs') ∧
+      (EvmYul.Yul.State.Ok ss' vs')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN NN) ∧
+      (EvmYul.Yul.State.Ok ss' vs')[WW]!.val.val ≤
+        sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+  refine relay_loop_sound_literal m sigStart cd nVot thr nVotN NN hN ss vs hi hw ?_ hvalid hnoovf
+  intro k ssk vsk hreachable hk hII hWW
   obtain ⟨ss10, vs10, ss15, vs15, hg4, hg5, hg8, hg9, hg10, hg11, hg12, hg15, hg17, hWW15, hII15, hcorr, hidxlt⟩ :=
-    hiters k ssk vsk hk hII hWW
+    hiters k ssk vsk hreachable hk hII hWW
   exact iter_advance m sigStart nVot thr cd nVotN k ssk vsk ss10 vs10 ss15 vs15
     hg4 hg5 hg8 hg9 hg10 hg11 hg12 hg15 hg17 hWW15 hII15 hcorr hidxlt
 
 
-
 -- ===================== loop soundness with structural guards discharged =====================
-/-- Per-iteration premise with the STRUCTURAL guards already discharged: only the cryptographic guards
-    (v/s/ecrecover/signer-match/accept) + the calldata index decode + the ValidRun numeric conditions
-    remain. This is the tightened uninterpreted ecrecover boundary. -/
+/-- Per-iteration premise with the structural guards discharged. The cryptographic guards, the actual
+    call effect and caller-frame preservation, calldata decoding, numeric index discipline and final
+    non-accepting comparison remain obligations. This is not merely an uninterpreted crypto premise. -/
 def IterPremiseT (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray) (nVotN k : Nat)
     (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore) : Prop :=
   ∃ (ss10 : EvmYul.SharedState .Yul) (vs10 : EvmYul.Yul.VarStore)
@@ -1673,9 +1670,7 @@ def IterPremiseT (m sigStart : Nat) (nVot thr : EvmYul.UInt256) (cd : ByteArray)
     sigIdxAt cd sigStart k < nVotN
 
 set_option maxHeartbeats 4000000 in
-/-- **Relay signature loop soundness with hstep DERIVED and the structural guards DISCHARGED.** The
-    tightened end-form: the only assumed per-iteration content (`IterPremiseT`) is the cryptographic
-    ecrecover facts + the calldata index decode + the ValidRun numeric discipline. -/
+/-- Normal-completion accounting with structural guards discharged by the numeric/index premises on reachable states. Crypto and decode premises remain explicit; threshold-crossing acceptance is proved separately. -/
 theorem relay_loop_sound_literal_derived_tight
     (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
     (hN : NN < UInt256.size)
@@ -1683,75 +1678,229 @@ theorem relay_loop_sound_literal_derived_tight
     (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
     (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
     (hiters : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr ss vs k ssk vsk →
         k < NN →
         (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
         (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
         IterPremiseT m sigStart nVot thr cd nVotN k ssk vsk)
     (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart NN))
-    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size)
-    (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore)
-    (hexec : EvmYul.Yul.exec (3 * NN + 140)
+    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size) :
+    ∃ (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore),
+      EvmYul.Yul.exec (3 * NN + 140)
         (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
-          (EvmYul.Yul.State.Ok ss vs)
-        = .ok (EvmYul.Yul.State.Ok ss' vs'))
-    (haccept : thr < (EvmYul.Yul.State.Ok ss' vs')[WW]!) :
-    thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
-  refine relay_loop_sound_literal m sigStart cd nVot thr nVotN NN hN ss vs hi hw ?_ hvalid hnoovf ss' vs' hexec haccept
-  intro k ssk vsk hk hII hWW
+          (EvmYul.Yul.State.Ok ss vs) = .ok (EvmYul.Yul.State.Ok ss' vs') ∧
+      (EvmYul.Yul.State.Ok ss' vs')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN NN) ∧
+      (EvmYul.Yul.State.Ok ss' vs')[WW]!.val.val ≤
+        sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+  refine relay_loop_sound_literal m sigStart cd nVot thr nVotN NN hN ss vs hi hw ?_ hvalid hnoovf
+  intro k ssk vsk hreachable hk hII hWW
   obtain ⟨ss10, vs10, ss15, vs15, nui, hidx, hnui, hnv, horder, hsz,
-    hg8, hg9, hg10, hg11, hg12, hg15, hg17, hWW15, hII15, hcorr, hidxlt⟩ := hiters k ssk vsk hk hII hWW
+    hg8, hg9, hg10, hg11, hg12, hg15, hg17, hWW15, hII15, hcorr, hidxlt⟩ := hiters k ssk vsk hreachable hk hII hWW
   exact iter_advance_tight m sigStart nVot thr cd nVotN k nui ssk vsk ss10 vs10 ss15 vs15
     hidx hnui hnv horder hsz hg8 hg9 hg10 hg11 hg12 hg15 hg17 hWW15 hII15 hcorr hidxlt
 
+
+-- ===================== early-return model =====================
+-- loop propagates a body that HALTS with an error (e.g. a `return`): the accept/early-return step.
+theorem loop_step_accept (fuel : Nat) (c : Expr) (po bo : List Stmt)
+    (sa : EvmYul.SharedState .Yul) (va : EvmYul.Yul.VarStore) (x : EvmYul.UInt256) (e : EvmYul.Yul.Exception)
+    (hc : EvmYul.Yul.eval fuel c none (EvmYul.Yul.State.Ok sa va) = .ok (EvmYul.Yul.State.Ok sa va, x))
+    (hx : x ≠ ⟨0⟩)
+    (hb : EvmYul.Yul.exec fuel (Stmt.Block bo) none (EvmYul.Yul.State.Ok sa va) = .error e) :
+    EvmYul.Yul.loop (fuel + 1 + 1) c po bo none (EvmYul.Yul.State.Ok sa va) = .error e := by
+  unfold EvmYul.Yul.loop
+  simp only [EvmYul.Yul.State.mkOk, hc, if_neg hx, hb]
+
 set_option maxHeartbeats 4000000 in
-/-- **Protocol-1 threshold-override refinement capstone.** This composes the
-validated transient-storage round trip with the existing literal strict-loop
-theorem. The production guard is explicit (`0 < overrideBIPS < 10000`), as is
-the parser-wide total-weight bound used to rule out `UInt256` multiplication
-wrap. The `hsetupThreshold` equality is the precise remaining setup seam: the
-current EVMYulLean development does not extract Relay's complete
-`TSTORE -> self-call -> TLOAD -> threshold-local` call-frame path, so it is
-assumed that the loop local `thr` equals the floor computed from the modeled
-`TLOAD`. Once that seam is supplied, the theorem proves the exact
-cross-product acceptance predicate and reuses
-`relay_loop_sound_literal_derived_tight` for indexed-policy soundness. -/
+/-- Conditional literal-loop composition over a finite reachable prefix. Only steps strictly before
+    `t` continue; the body at `t` accepts. These domains are disjoint and refer to actual states
+    reachable from one entry, not all memories/calldata sharing the same scalar locals.
+    This theorem does not establish that the stock interpreter's recovery-call seam is inhabited. -/
+theorem loop_accL_early (NN t : Nat) (hN : NN < UInt256.size)
+    (m sigStart : Nat) (nVot thr : EvmYul.UInt256)
+    (acc : Nat → EvmYul.UInt256)
+    (entrySS : EvmYul.SharedState .Yul) (entryVS : EvmYul.Yul.VarStore)
+    (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr entrySS entryVS k ssk vsk →
+        k < t →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = acc k →
+        ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130) (Stmt.Block (bodyL m sigStart nVot thr)) none
+              (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = acc (k+1))
+    (haccept : ∀ (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr entrySS entryVS t ssk vsk →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat t →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = acc t →
+        ∃ (hs : EvmYul.Yul.State),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130)
+            (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ssk vsk)
+              = .error (.YulHalt hs ⟨1⟩)) ∧ hs[WW]! = acc (t+1)) :
+    ∀ (d a : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore),
+      LoopReachable m sigStart nVot thr entrySS entryVS a ss vs →
+      a + d = t → t < NN →
+      (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat a →
+      (EvmYul.Yul.State.Ok ss vs)[WW]! = acc a →
+      ∃ (hs : EvmYul.Yul.State), EvmYul.Yul.exec (3 * d + 141)
+        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
+          (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩) ∧ hs[WW]! = acc (t+1) := by
+  intro d
+  induction d with
+  | zero =>
+    intro a ss vs hreachable hsum htNN hi hw
+    have ha : a = t := by omega
+    subst a
+    have ht_sz : t < UInt256.size := by omega
+    have hc : EvmYul.Yul.eval 138 (condL (UInt256.ofNat NN)) none (EvmYul.Yul.State.Ok ss vs)
+        = .ok (EvmYul.Yul.State.Ok ss vs, UInt256.lt (UInt256.ofNat t) (UInt256.ofNat NN)) := by
+      rw [show (138 : Nat) = 132 + 6 from rfl, cond_effL, hi]
+    have hx : UInt256.lt (UInt256.ofNat t) (UInt256.ofNat NN) ≠ ⟨0⟩ := by
+      rw [ne_eq, lt_eq_zero_iff, not_not]; exact (ofNat_lt ht_sz hN).mpr htNN
+    obtain ⟨hs, hbody_all, hfinal⟩ := haccept ss vs hreachable hi hw
+    refine ⟨hs, ?_, hfinal⟩
+    rw [show (3 * 0 + 141) = 138 + 1 + 1 + 1 from rfl, exec_For]
+    exact loop_step_accept 138 (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)
+      ss vs _ _ hc hx (hbody_all 8)
+  | succ d ih =>
+    intro a ss vs hreachable hsum htNN hi hw
+    have haN : a < NN := by omega
+    have ha_sz : a < UInt256.size := by omega
+    have hc : EvmYul.Yul.eval (3 * d + 141) (condL (UInt256.ofNat NN)) none (EvmYul.Yul.State.Ok ss vs)
+        = .ok (EvmYul.Yul.State.Ok ss vs, UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN)) := by
+      rw [show (3 * d + 141) = (3 * d + 135) + 6 from by ring, cond_effL, hi]
+    have hx : UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN) ≠ ⟨0⟩ := by
+      rw [ne_eq, lt_eq_zero_iff, not_not]; exact (ofNat_lt ha_sz hN).mpr haN
+    obtain ⟨ssb, vsb, hbody_all, hib, hwb⟩ := hstep a ss vs hreachable (by omega) hi hw
+    have hb : EvmYul.Yul.exec (3 * d + 141) (Stmt.Block (bodyL m sigStart nVot thr)) none
+        (EvmYul.Yul.State.Ok ss vs) = .ok (EvmYul.Yul.State.Ok ssb vsb) := by
+      simpa only [show (3 * d + 11) + 130 = 3 * d + 141 from by ring] using hbody_all (3 * d + 11)
+    have hp := post_effL (3 * d + 133) ssb vsb
+    rw [show (3 * d + 133) + 8 = 3 * d + 141 from by ring, hib] at hp
+    have hstep' := loop_step (fuel := 3 * d + 141) (c := condL (UInt256.ofNat NN)) (po := postL)
+      (bo := bodyL m sigStart nVot thr) (sa := ss) (va := vs) (sb := ssb) (vb := vsb)
+      (hc := hc) (hx := hx) (hb := hb) (hp := hp)
+    have hic : (EvmYul.Yul.State.Ok ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1))))[II]!
+        = UInt256.ofNat (a + 1) := by rw [ge_self]; exact (ofNat_succ a).symm
+    have hwc : (EvmYul.Yul.State.Ok ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1))))[WW]!
+        = acc (a + 1) := by rw [ge_ne ssb vsb II WW _ (Ne.symm IW), hwb]
+    obtain ⟨hs, hexec, hfinal⟩ := ih (a + 1) ssb
+      (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1)))
+      (by simpa only [hib] using LoopReachable.advance hreachable hbody_all) (by omega) htNN hic hwc
+    refine ⟨hs, ?_, hfinal⟩
+    rw [show (3 * (d + 1) + 141) = (3 * d + 141) + 1 + 1 + 1 from by ring, exec_For, hstep']
+    exact hexec
+
+
+set_option maxHeartbeats 4000000 in
+/-- Conditional composition of a reachable, continuing prefix and one final accepting body effect,
+    together with indexed-policy accounting. The no-overflow premise binds the final halted state's
+    weight exactly to the natural-number prefix accumulator, not just its UInt256 residue.
+    The real recovery-call bridge, decode correspondence and valid-index/threshold
+    premises remain explicit; this is not an existence theorem for stock-interpreter acceptance. -/
+theorem relay_loop_sound_literal_early
+    (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN t : Nat)
+    (hN : NN < UInt256.size)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
+    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
+    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
+    (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr ss vs k ssk vsk →
+        k < t →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
+        ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130) (Stmt.Block (bodyL m sigStart nVot thr)) none
+              (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (k+1)))
+    (haccept : ∀ (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr ss vs t ssk vsk →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat t →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN t) →
+        ∃ (hs : EvmYul.Yul.State),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130)
+            (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ssk vsk)
+              = .error (.YulHalt hs ⟨1⟩)) ∧
+          hs[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (t+1)))
+    (htNN : t < NN)
+    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart (t + 1)))
+    (hacc_thr : thr.val < accNat cd sigStart nVotN (t + 1))
+    (hnoovf : accNat cd sigStart nVotN (t + 1) < UInt256.size) :
+    (∃ (hs : EvmYul.Yul.State), EvmYul.Yul.exec (3 * t + 141)
+        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
+          (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩) ∧
+        hs[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (t+1)) ∧
+        hs[WW]!.val.val = accNat cd sigStart nVotN (t+1))
+      ∧ thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+  refine ⟨?_, ?_⟩
+  · obtain ⟨hs, hexec, hfinal⟩ := loop_accL_early NN t hN m sigStart nVot thr
+      (fun k => UInt256.ofNat (accNat cd sigStart nVotN k)) ss vs
+      hstep haccept t 0 ss vs LoopReachable.entry (by omega) htNN hi hw
+    refine ⟨hs, hexec, hfinal, ?_⟩
+    rw [hfinal, val_ofNat_of_lt _ hnoovf]
+  · rw [accNat_eq_sigLoop] at hacc_thr
+    exact RelayLoopLiteral.threshold_sound (weightsOf cd nVotN)
+      (idxSel cd sigStart (t + 1)) thr.val hvalid hacc_thr
+
+
+set_option maxHeartbeats 4000000 in
+/-- Protocol-1 override arithmetic composed with conditional early-return accounting, not with
+    normal completion. The TSTORE/TLOAD round trip is derived; setup-to-threshold and recovery-call
+    effects remain explicit seams. ValidRun and the policy-total bound establish that the accepted
+    prefix cannot overflow, so the halted state's natural-number weight equals that tally exactly. -/
 theorem protocolOne_tload_override_loop_sound
     (transientState : EvmYul.State .Yul) (slot overrideBIPS : EvmYul.UInt256)
     (owner : EvmYul.Account .Yul)
     (hpresent : transientState.lookupAccount transientState.executionEnv.codeOwner = some owner)
     (hoverride : overrideBIPS.val.val ≠ 0) (hbips : overrideBIPS.val.val < 10000)
-    (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN : Nat)
+    (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN t : Nat)
     (hN : NN < UInt256.size)
     (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
     (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
     (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
-    (hiters : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
-        k < NN →
+    (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr ss vs k ssk vsk →
+        k < t →
         (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
         (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
-        IterPremiseT m sigStart nVot thr cd nVotN k ssk vsk)
-    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart NN))
-    (hnoovf : accNat cd sigStart nVotN NN < UInt256.size)
+        ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130) (Stmt.Block (bodyL m sigStart nVot thr)) none
+              (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
+          (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (k+1)))
+    (haccept : ∀ (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr ss vs t ssk vsk →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat t →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN t) →
+        ∃ (hs : EvmYul.Yul.State),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130)
+            (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ssk vsk)
+              = .error (.YulHalt hs ⟨1⟩)) ∧
+          hs[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (t+1)))
+    (htNN : t < NN)
+    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart (t + 1)))
+    (hacc_thr : thr.val < accNat cd sigStart nVotN (t + 1))
     (htotal : sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length ≤ 65535 * 65535)
     (hsetupThreshold :
       thr.val.val =
         sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length *
-          ((EvmYul.State.tstore transientState slot overrideBIPS).tload slot).2.val.val / 10000)
-    (ss' : EvmYul.SharedState .Yul) (vs' : EvmYul.Yul.VarStore)
-    (hexec : EvmYul.Yul.exec (3 * NN + 140)
-        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
-          (EvmYul.Yul.State.Ok ss vs)
-        = .ok (EvmYul.Yul.State.Ok ss' vs'))
-    (haccept : thr < (EvmYul.Yul.State.Ok ss' vs')[WW]!) :
+          ((EvmYul.State.tstore transientState slot overrideBIPS).tload slot).2.val.val / 10000) :
     let loadedBIPS :=
       ((EvmYul.State.tstore transientState slot overrideBIPS).tload slot).2
     loadedBIPS = overrideBIPS ∧
       0 < loadedBIPS.val.val ∧
       sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length * overrideBIPS.val.val <
-        (EvmYul.Yul.State.Ok ss' vs')[WW]!.val.val * 10000 ∧
+        accNat cd sigStart nVotN (t + 1) * 10000 ∧
       sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length * overrideBIPS.val.val <
         UInt256.size ∧
-      thr.val.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+      thr.val.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length ∧
+      (∃ hs, EvmYul.Yul.exec (3 * t + 141)
+        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
+          (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩) ∧
+        hs[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (t + 1)) ∧
+        hs[WW]!.val.val = accNat cd sigStart nVotN (t + 1)) := by
   dsimp only
   have hloaded :
       ((EvmYul.State.tstore transientState slot overrideBIPS).tload slot).2 = overrideBIPS :=
@@ -1760,10 +1909,10 @@ theorem protocolOne_tload_override_loop_sound
       thr.val.val =
         sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length * overrideBIPS.val.val / 10000 := by
     simpa [hloaded] using hsetupThreshold
-  have hacceptNat : thr.val.val < (EvmYul.Yul.State.Ok ss' vs')[WW]!.val.val := haccept
+  have hacceptNat : thr.val.val < accNat cd sigStart nVotN (t + 1) := hacc_thr
   have hcross :
       sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length * overrideBIPS.val.val <
-        (EvmYul.Yul.State.Ok ss' vs')[WW]!.val.val * 10000 := by
+        accNat cd sigStart nVotN (t + 1) * 10000 := by
     apply (Nat.div_lt_iff_lt_mul (by decide : 0 < 10000)).1
     rw [← hsetup]
     exact hacceptNat
@@ -1781,147 +1930,20 @@ theorem protocolOne_tload_override_loop_sound
       0 < ((EvmYul.State.tstore transientState slot overrideBIPS).tload slot).2.val.val := by
     rw [hloaded]
     exact Nat.pos_of_ne_zero hoverride
-  have hsound := relay_loop_sound_literal_derived_tight
-    m sigStart cd nVot thr nVotN NN hN ss vs hi hw hiters hvalid hnoovf ss' vs' hexec haccept
-  exact ⟨hloaded, hloadedPos, hcross, hnowrap, hsound⟩
+  have hprefixBound :
+      accNat cd sigStart nVotN (t + 1) ≤
+        sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
+    rw [accNat_eq_sigLoop]
+    obtain ⟨hweight, hbound⟩ := RelayLoopLiteral.loop_inv (weightsOf cd nVotN)
+      (idxSel cd sigStart (t + 1)) 0 0 (Nat.zero_le _) (Nat.zero_le _) hvalid
+    exact Nat.le_trans hweight (RelayLoopLiteral.sumTake_mono _ hbound)
+  have hnoovf : accNat cd sigStart nVotN (t + 1) < UInt256.size :=
+    Nat.lt_of_le_of_lt (Nat.le_trans hprefixBound htotal)
+      (by decide : (65535 * 65535 : Nat) < UInt256.size)
+  obtain ⟨hloop, hsound⟩ := relay_loop_sound_literal_early
+    m sigStart cd nVot thr nVotN NN t hN ss vs hi hw hstep haccept htNN hvalid hacc_thr hnoovf
+  exact ⟨hloaded, hloadedPos, hcross, hnowrap, hsound, hloop⟩
 
-
-
--- ===================== early-return model =====================
--- loop propagates a body that HALTS with an error (e.g. a `return`): the accept/early-return step.
-theorem loop_step_accept (fuel : Nat) (c : Expr) (po bo : List Stmt)
-    (sa : EvmYul.SharedState .Yul) (va : EvmYul.Yul.VarStore) (x : EvmYul.UInt256) (e : EvmYul.Yul.Exception)
-    (hc : EvmYul.Yul.eval fuel c none (EvmYul.Yul.State.Ok sa va) = .ok (EvmYul.Yul.State.Ok sa va, x))
-    (hx : x ≠ ⟨0⟩)
-    (hb : EvmYul.Yul.exec fuel (Stmt.Block bo) none (EvmYul.Yul.State.Ok sa va) = .error e) :
-    EvmYul.Yul.loop (fuel + 1 + 1) c po bo none (EvmYul.Yul.State.Ok sa va) = .error e := by
-  unfold EvmYul.Yul.loop
-  simp only [EvmYul.Yul.State.mkOk, hc, if_neg hx, hb]
-
-set_option maxHeartbeats 4000000 in
-/-- **Literal loop with early-return (faithful accept path).** The deployed loop returns at the first
-    iteration whose running weight crosses the threshold; this models exactly that. Given `d` advancing
-    iterations (each supplied by `hstep`, the `body_effL` advance) followed by an accepting iteration
-    (supplied by `haccept`, the `body_effL_accept` halt-with-return), the `For` loop halts with a Yul
-    `return` — `.error (YulHalt _ ⟨1⟩)` — rather than running to completion. -/
-theorem loop_accL_early (NN : Nat) (hN : NN < UInt256.size)
-    (m sigStart : Nat) (nVot thr : EvmYul.UInt256)
-    (acc : Nat → EvmYul.UInt256)
-    (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
-        k < NN →
-        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
-        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = acc k →
-        ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
-          (∀ fuel, EvmYul.Yul.exec (fuel+130) (Stmt.Block (bodyL m sigStart nVot thr)) none
-              (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
-          (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
-          (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = acc (k+1))
-    (haccept : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
-        k < NN →
-        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
-        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = acc k →
-        ∃ (hs : EvmYul.Yul.State), ∀ fuel, EvmYul.Yul.exec (fuel+130)
-          (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ssk vsk)
-            = .error (.YulHalt hs ⟨1⟩)) :
-    ∀ (d a : Nat) (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore),
-      a + d < NN →
-      (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat a →
-      (EvmYul.Yul.State.Ok ss vs)[WW]! = acc a →
-      ∃ (hs : EvmYul.Yul.State), EvmYul.Yul.exec (3 * d + 141)
-        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
-          (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩) := by
-  intro d
-  induction d with
-  | zero =>
-    intro a ss vs hsum hi hw
-    have haN : a < NN := by omega
-    have ha_sz : a < UInt256.size := by omega
-    have hc : EvmYul.Yul.eval (138) (condL (UInt256.ofNat NN)) none (EvmYul.Yul.State.Ok ss vs)
-                = .ok (EvmYul.Yul.State.Ok ss vs, UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN)) := by
-      have := cond_effL (132) (UInt256.ofNat NN) ss vs
-      rw [show (138 : Nat) = 132 + 6 from rfl, this, hi]
-    have hx : UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN) ≠ ⟨0⟩ := by
-      rw [ne_eq, lt_eq_zero_iff, not_not]; exact (ofNat_lt ha_sz hN).mpr haN
-    obtain ⟨hs, hbody_all⟩ := haccept a ss vs haN hi hw
-    have hb : EvmYul.Yul.exec 138 (Stmt.Block (bodyL m sigStart nVot thr)) none
-                (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩) := by
-      have := hbody_all 8; rwa [show (8:Nat)+130 = 138 from rfl] at this
-    refine ⟨hs, ?_⟩
-    rw [show (3 * 0 + 141) = 138 + 1 + 1 + 1 from rfl, exec_For]
-    exact loop_step_accept 138 (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr) ss vs _ _ hc hx hb
-  | succ d ih =>
-    intro a ss vs hsum hi hw
-    have haN : a < NN := by omega
-    have ha_sz : a < UInt256.size := by omega
-    have hc : EvmYul.Yul.eval (3 * d + 141) (condL (UInt256.ofNat NN)) none (EvmYul.Yul.State.Ok ss vs)
-                = .ok (EvmYul.Yul.State.Ok ss vs, UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN)) := by
-      have := cond_effL (3 * d + 135) (UInt256.ofNat NN) ss vs
-      rw [show (3 * d + 141) = (3 * d + 135) + 6 from by ring, this, hi]
-    have hx : UInt256.lt (UInt256.ofNat a) (UInt256.ofNat NN) ≠ ⟨0⟩ := by
-      rw [ne_eq, lt_eq_zero_iff, not_not]; exact (ofNat_lt ha_sz hN).mpr haN
-    obtain ⟨ssb, vsb, hbody_all, hib, hwb⟩ := hstep a ss vs haN hi hw
-    have hb : EvmYul.Yul.exec (3 * d + 141) (Stmt.Block (bodyL m sigStart nVot thr)) none
-                (EvmYul.Yul.State.Ok ss vs) = .ok (EvmYul.Yul.State.Ok ssb vsb) := by
-      have := hbody_all (3 * d + 11); rwa [show (3 * d + 11) + 130 = 3 * d + 141 from by ring] at this
-    have hp := post_effL (3 * d + 133) ssb vsb
-    rw [show (3 * d + 133) + 8 = 3 * d + 141 from by ring, hib] at hp
-    have hstep' := loop_step (fuel := 3 * d + 141) (c := condL (UInt256.ofNat NN)) (po := postL)
-                    (bo := bodyL m sigStart nVot thr)
-                    (sa := ss) (va := vs) (sb := ssb) (vb := vsb)
-                    (hc := hc) (hx := hx) (hb := hb) (hp := hp)
-    have hic : (EvmYul.Yul.State.Ok ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1))))[II]!
-                 = UInt256.ofNat (a + 1) := by rw [ge_self]; exact (ofNat_succ a).symm
-    have hwc : (EvmYul.Yul.State.Ok ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1))))[WW]!
-                 = acc (a + 1) := by rw [ge_ne ssb vsb II WW _ (Ne.symm IW), hwb]
-    obtain ⟨hs, hexec⟩ := ih (a + 1) ssb (vsb.insert II (UInt256.add (UInt256.ofNat a) (UInt256.ofNat 1)))
-      (by omega) hic hwc
-    refine ⟨hs, ?_⟩
-    rw [show (3 * (d + 1) + 141) = (3 * d + 141) + 1 + 1 + 1 from by ring, exec_For, hstep']
-    exact hexec
-
-
-set_option maxHeartbeats 4000000 in
-/-- **Relay signature-loop soundness on the FAITHFUL early-return path.** Removes the run-to-completion
-    idealization of `relay_loop_sound_literal`: here the deployed loop is modeled as it actually runs — it
-    advances for `t` iterations and then, at iteration `t`, the running weight crosses the threshold and the
-    body `return`s, so the `For` loop halts with `.error (YulHalt _ ⟨1⟩)` (early exit). The accepted prefix
-    of `t+1` signatures is a `ValidRun`, and its accumulated weight exceeds `thr`, so — with no monotonicity
-    hand-wave — the total registered voting weight exceeds `thr`. Both facts are concluded together:
-    the loop genuinely early-returns, AND the accounting is sound. -/
-theorem relay_loop_sound_literal_early
-    (m sigStart : Nat) (cd : ByteArray) (nVot thr : EvmYul.UInt256) (nVotN NN t : Nat)
-    (hN : NN < UInt256.size)
-    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore)
-    (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
-    (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
-    (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
-        k < NN →
-        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
-        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
-        ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
-          (∀ fuel, EvmYul.Yul.exec (fuel+130) (Stmt.Block (bodyL m sigStart nVot thr)) none
-              (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
-          (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
-          (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (k+1)))
-    (haccept : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
-        k < NN →
-        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
-        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
-        ∃ (hs : EvmYul.Yul.State), ∀ fuel, EvmYul.Yul.exec (fuel+130)
-          (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ssk vsk)
-            = .error (.YulHalt hs ⟨1⟩))
-    (htNN : t < NN)
-    (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart (t + 1)))
-    (hacc_thr : thr.val < accNat cd sigStart nVotN (t + 1)) :
-    (∃ (hs : EvmYul.Yul.State), EvmYul.Yul.exec (3 * t + 141)
-        (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) none
-          (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩))
-      ∧ thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
-  refine ⟨?_, ?_⟩
-  · exact loop_accL_early NN hN m sigStart nVot thr (fun k => UInt256.ofNat (accNat cd sigStart nVotN k))
-      hstep haccept t 0 ss vs (by omega) hi hw
-  · rw [accNat_eq_sigLoop] at hacc_thr
-    exact RelayLoopLiteral.threshold_sound (weightsOf cd nVotN) (idxSel cd sigStart (t + 1)) thr.val hvalid hacc_thr
 
 end LoopLayer
 
@@ -2072,12 +2094,11 @@ theorem dispatch_setup_loop_accept (fuel : Nat) (setupStmt loopStmt : Stmt) (cus
   exact hloop
 
 set_option maxHeartbeats 4000000 in
-/-- **Dispatch-to-accept theorem.** From the top-level mode dispatch, `protocolId ≠ 1`
-    routes into the verify branch (taken to be the signature loop), and — under the loop's iteration premises
-    (`hstep`/`haccept`, the ecrecover boundary; `hi`/`hw`, the accumulator init) plus a valid signer prefix
-    crossing the threshold at step `t` — relay() halts with the accept `return(0,0)` AND the total registered
-    weight strictly exceeds the threshold. Composes `dispatch_routes_verify` with
-    `relay_loop_sound_literal_early`; the only remaining assumptions are the per-iteration ecrecover premises. -/
+/-- Conditional dispatch-to-accept composition. The verify branch here is the literal loop, with
+    setup elided. Reachable continuation and final acceptance effects are disjoint, and the halted
+    weight equals the selected indexed prefix as a natural number under the no-overflow premise.
+    This does not discharge the real recovery-call,
+    calldata-setup or finalization-storage bridges. -/
 theorem relay_dispatch_loop_accept
     (m sigStart : Nat) (cd : ByteArray) (nVot thr pid : EvmYul.UInt256) (nVotN NN t : Nat)
     (hN : NN < UInt256.size)
@@ -2086,7 +2107,8 @@ theorem relay_dispatch_loop_accept
     (hi : (EvmYul.Yul.State.Ok ss vs)[II]! = UInt256.ofNat 0)
     (hw : (EvmYul.Yul.State.Ok ss vs)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN 0))
     (hstep : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
-        k < NN →
+        LoopReachable m sigStart nVot thr ss vs k ssk vsk →
+        k < t →
         (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
         (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
         ∃ (ssk' : EvmYul.SharedState .Yul) (vsk' : EvmYul.Yul.VarStore),
@@ -2094,25 +2116,30 @@ theorem relay_dispatch_loop_accept
               (EvmYul.Yul.State.Ok ssk vsk) = .ok (EvmYul.Yul.State.Ok ssk' vsk')) ∧
           (EvmYul.Yul.State.Ok ssk' vsk')[II]! = UInt256.ofNat k ∧
           (EvmYul.Yul.State.Ok ssk' vsk')[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (k+1)))
-    (haccept : ∀ (k : Nat) (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
-        k < NN →
-        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat k →
-        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN k) →
-        ∃ (hs : EvmYul.Yul.State), ∀ fuel, EvmYul.Yul.exec (fuel+130)
-          (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ssk vsk)
-            = .error (.YulHalt hs ⟨1⟩))
+    (haccept : ∀ (ssk : EvmYul.SharedState .Yul) (vsk : EvmYul.Yul.VarStore),
+        LoopReachable m sigStart nVot thr ss vs t ssk vsk →
+        (EvmYul.Yul.State.Ok ssk vsk)[II]! = UInt256.ofNat t →
+        (EvmYul.Yul.State.Ok ssk vsk)[WW]! = UInt256.ofNat (accNat cd sigStart nVotN t) →
+        ∃ (hs : EvmYul.Yul.State),
+          (∀ fuel, EvmYul.Yul.exec (fuel+130)
+            (Stmt.Block (bodyL m sigStart nVot thr)) none (EvmYul.Yul.State.Ok ssk vsk)
+              = .error (.YulHalt hs ⟨1⟩)) ∧
+          hs[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (t+1)))
     (htNN : t < NN)
     (hvalid : ValidRun (weightsOf cd nVotN) 0 (idxSel cd sigStart (t + 1)))
-    (hacc_thr : thr.val < accNat cd sigStart nVotN (t + 1)) :
+    (hacc_thr : thr.val < accNat cd sigStart nVotN (t + 1))
+    (hnoovf : accNat cd sigStart nVotN (t + 1) < UInt256.size) :
     (∃ (hs : EvmYul.Yul.State), EvmYul.Yul.exec (3 * t + 145)
         (Stmt.Block (dispatchL customBranch
             [Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)])) none
-          (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩))
+          (EvmYul.Yul.State.Ok ss vs) = .error (.YulHalt hs ⟨1⟩) ∧
+        hs[WW]! = UInt256.ofNat (accNat cd sigStart nVotN (t+1)) ∧
+        hs[WW]!.val.val = accNat cd sigStart nVotN (t+1))
       ∧ thr.val < sumTake (weightsOf cd nVotN) (weightsOf cd nVotN).length := by
-  obtain ⟨⟨hs, hloop⟩, hthr⟩ :=
+  obtain ⟨⟨hs, hloop, hfinal, hfinalNat⟩, hthr⟩ :=
     relay_loop_sound_literal_early m sigStart cd nVot thr nVotN NN t hN ss vs hi hw
-      hstep haccept htNN hvalid hacc_thr
-  refine ⟨⟨hs, ?_⟩, hthr⟩
+      hstep haccept htNN hvalid hacc_thr hnoovf
+  refine ⟨⟨hs, ?_, hfinal, hfinalNat⟩, hthr⟩
   have hd := dispatch_then_loop_accept (3 * t + 132) customBranch
     (Stmt.For (condL (UInt256.ofNat NN)) postL (bodyL m sigStart nVot thr)) pid ss vs hpid hne
     (hs := hs) (by rw [show 3 * t + 132 + 9 = 3 * t + 141 from by omega]; exact hloop)
@@ -2120,6 +2147,437 @@ theorem relay_dispatch_loop_accept
 
 end CompositionLayer
 
+section RecoveryOracleWitness
+open EvmYul.Yul EvmYul.Yul.Ast RelayLoopLiteral
+
+/-- Explicit recovery-output abstraction, not the pinned interpreter's STATICCALL implementation.
+    It preserves the caller frame and locals, copies recovery bytes to the 32-byte output window,
+    and supplies return data. The real suffix checks its size and decoded signer. Cryptographic
+    validity of the supplied bytes is external; no secp256k1 theorem is claimed. -/
+def recoveryOracle (m : Nat) (ret : ByteArray) (s : EvmYul.Yul.State) : EvmYul.Yul.State :=
+  s.setMachineState { s.toMachineState with
+    memory := ByteArray.write ret 0 s.toMachineState.memory (m+64) (min 32 ret.size),
+    activeWords := UInt256.ofNat (EvmYul.MachineState.M s.toMachineState.activeWords.toNat (m+64) 32),
+    returnData := ret }
+
+/-- Execute the actual nine-statement prefix, then an explicit recovery oracle, then the actual
+    seven-statement suffix. Only statement 10 (the STATICCALL guard) is replaced. This is a seam
+    model: equivalence to executing the complete literal body is deliberately not asserted. -/
+def recoveryOracleBody (fuel m sigStart : Nat) (nVot thr : EvmYul.UInt256) (ret : ByteArray)
+    (s : EvmYul.Yul.State) : Except EvmYul.Yul.Exception EvmYul.Yul.State := do
+  let beforeCall ← EvmYul.Yul.exec fuel (Stmt.Block ((bodyL m sigStart nVot thr).take 9)) none s
+  EvmYul.Yul.exec fuel (Stmt.Block ((bodyL m sigStart nVot thr).drop 10)) none
+    (recoveryOracle m ret beforeCall)
+
+/-- Oracle frame preservation is definitional, not an assumed effect of the stock STATICCALL. -/
+theorem recovery_oracle_preserves_caller (m : Nat) (ret : ByteArray)
+    (ss : EvmYul.SharedState .Yul) (vs : EvmYul.Yul.VarStore) :
+    (recoveryOracle m ret (.Ok ss vs)).toSharedState.executionEnv = ss.executionEnv ∧
+    (recoveryOracle m ret (.Ok ss vs)).store = vs := by
+  exact ⟨rfl, rfl⟩
+
+/-- One voter with address 1 and weight 2; one index-0 signature record with v=27 and low s=1.
+    These are coherent loop byte-window/guard inputs for the supplied scalar parameters, not a
+    full-parser-accepted Relay payload, deployment witness, or claimed real ECDSA vector. -/
+def oracleWitnessCalldata : ByteArray :=
+  ⟨(Array.replicate 138 (0 : UInt8)).set! 66 1 |>.set! 68 2 |>.set! 71 27 |>.set! 103 1 |>.set! 135 1⟩
+
+/-- This return word equals the copied r-word: the witness establishes positive slice
+    satisfiability, not coverage of a recovery output that overwrites distinct input bytes. -/
+def oracleWitnessReturn : ByteArray := ⟨(Array.replicate 31 0).push 1⟩
+
+def oracleWitnessEntry : EvmYul.Yul.State :=
+  .Ok { (Inhabited.default : EvmYul.SharedState .Yul) with
+    memory := ⟨Array.replicate 256 0⟩, activeWords := UInt256.ofNat 8,
+    executionEnv := { (Inhabited.default : EvmYul.SharedState .Yul).executionEnv with calldata := oracleWitnessCalldata } }
+    (((Inhabited.default : EvmYul.Yul.VarStore).insert II (UInt256.ofNat 0)).insert WW (UInt256.ofNat 0)
+      |>.insert NUI (UInt256.ofNat 0))
+
+def oracleWitnessPrefix : EvmYul.Yul.State :=
+  match EvmYul.Yul.exec 160 (Stmt.Block ((bodyL 0 69 (UInt256.ofNat 1) (UInt256.ofNat 1)).take 9))
+    none oracleWitnessEntry with
+  | .ok s => s
+  | .error _ => Inhabited.default
+
+private theorem oracleZeroesEq (n : USize) : ffi.ByteArray.zeroes n = ⟨Array.replicate n.toNat 0⟩ :=
+  ByteArray.ext (RelayWindows.zeroes_data n)
+private def oracleWitnessCopiedMemory : ByteArray := ⟨(Array.replicate 256 0).set! 63 27 |>.set! 95 1 |>.set! 127 1⟩
+private def oracleWitnessCopiedMS : EvmYul.MachineState := { oracleWitnessEntry.toMachineState with memory := oracleWitnessCopiedMemory }
+set_option maxRecDepth 100000
+set_option maxHeartbeats 10000000
+private theorem oracleWitnessCopyExact :
+    oracleWitnessEntry.toSharedState.calldatacopy (UInt256.ofNat 63) (UInt256.ofNat 71) (UInt256.ofNat 67) =
+      { oracleWitnessEntry.toSharedState with memory := oracleWitnessCopiedMemory } := by
+  simp only [oracleWitnessEntry, oracleWitnessCalldata, oracleWitnessCopiedMemory, State.toSharedState,
+    EvmYul.SharedState.calldatacopy, ByteArray.write]
+  simp only [oracleZeroesEq, USize.toNat]
+  rfl
+
+private theorem oracleWitnessReadIndex : oracleWitnessCopiedMS.mload (UInt256.ofNat 128) = (UInt256.ofNat 0, oracleWitnessCopiedMS) := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  rw [if_neg (by decide)]
+  rw [RelayDataLayer.readWithPadding_eq_extract _ _ (by decide)]
+  apply Prod.ext
+  · simp only [EvmYul.fromByteArrayBigEndian, RelayDataLayer.toList_data,
+      ByteArray.extract, ByteArray.copySlice]
+    rfl
+  · rfl
+
+private theorem oracleWitnessReadV : oracleWitnessCopiedMS.mload (UInt256.ofNat 32) = (UInt256.ofNat 27, oracleWitnessCopiedMS) := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  rw [if_neg (by decide)]
+  rw [RelayDataLayer.readWithPadding_eq_extract _ _ (by decide)]
+  apply Prod.ext
+  · simp only [EvmYul.fromByteArrayBigEndian, RelayDataLayer.toList_data,
+      ByteArray.extract, ByteArray.copySlice]
+    rfl
+  · rfl
+
+private theorem oracleWitnessReadS : oracleWitnessCopiedMS.mload (UInt256.ofNat 96) = (UInt256.ofNat 1, oracleWitnessCopiedMS) := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  rw [if_neg (by decide)]
+  rw [RelayDataLayer.readWithPadding_eq_extract _ _ (by decide)]
+  apply Prod.ext
+  · simp only [EvmYul.fromByteArrayBigEndian, RelayDataLayer.toList_data,
+      ByteArray.extract, ByteArray.copySlice]
+    rfl
+  · rfl
+
+private theorem oracleWitnessInitialStore : oracleWitnessEntry.toMachineState.mstore (UInt256.ofNat 32) (UInt256.ofNat 0) =
+    oracleWitnessEntry.toMachineState := by
+  simp only [oracleWitnessEntry, State.toMachineState, EvmYul.MachineState.mstore,
+    EvmYul.MachineState.writeWord, EvmYul.writeBytes, RelayDataLayer.mstore_zero_source]
+  simp (disch := decide) [ByteArray.write, EvmYul.MachineState.M,
+    UInt256.toNat, UInt256.ofNat, Id.run]
+  simp only [oracleZeroesEq, USize.toNat]
+  exact ⟨rfl, rfl⟩
+
+private def oracleWitnessCopyState : State := .Ok {oracleWitnessEntry.toSharedState with memory := oracleWitnessCopiedMemory} oracleWitnessEntry.store
+private def oracleWitnessIndexState : State := oracleWitnessCopyState.insert IDX (UInt256.ofNat 0)
+private def oracleWitnessNextState : State := oracleWitnessIndexState.insert NUI (UInt256.ofNat 1)
+private def oracleWitnessPrefixState : State := oracleWitnessNextState.insert VV (UInt256.ofNat 27)
+
+private theorem oracleWitnessPrefixExact :
+    exec 160 (Stmt.Block ((bodyL 0 69 (UInt256.ofNat 1) (UInt256.ofNat 1)).take 9)) none oracleWitnessEntry =
+      .ok oracleWitnessPrefixState := by
+  have hb := body_prefix9 100 0 69 (UInt256.ofNat 1) SECP_HALF oracleWitnessEntry.toSharedState oracleWitnessEntry.store
+  dsimp only at hb
+  rw [show State.Ok oracleWitnessEntry.toSharedState oracleWitnessEntry.store = oracleWitnessEntry from rfl] at hb
+  simp only [Nat.zero_add] at hb
+  rw [oracleWitnessInitialStore] at hb
+  rw [show oracleWitnessEntry.setMachineState oracleWitnessEntry.toMachineState = oracleWitnessEntry from rfl] at hb
+  rw [show UInt256.add (UInt256.add (UInt256.ofNat 69) (UInt256.mul oracleWitnessEntry[II]! (UInt256.ofNat 67)))
+      (UInt256.ofNat 2) = UInt256.ofNat 71 from rfl] at hb
+  rw [oracleWitnessCopyExact] at hb
+  rw [show oracleWitnessEntry.setSharedState {oracleWitnessEntry.toSharedState with memory := oracleWitnessCopiedMemory} = oracleWitnessCopyState from rfl] at hb
+  rw [show oracleWitnessCopyState.toSharedState.toMachineState = oracleWitnessCopiedMS from rfl, oracleWitnessReadIndex] at hb
+  dsimp only at hb
+  rw [show oracleWitnessCopyState.setMachineState oracleWitnessCopiedMS = oracleWitnessCopyState from rfl] at hb
+  rw [show UInt256.shiftRight (UInt256.ofNat 0) (UInt256.ofNat 240) = UInt256.ofNat 0 from rfl] at hb
+  rw [show oracleWitnessCopyState.insert IDX (UInt256.ofNat 0) = oracleWitnessIndexState from rfl] at hb
+  rw [show UInt256.add oracleWitnessIndexState[IDX]! (UInt256.ofNat 1) = UInt256.ofNat 1 from rfl] at hb
+  rw [show oracleWitnessIndexState.insert NUI (UInt256.ofNat 1) = oracleWitnessNextState from rfl] at hb
+  rw [show oracleWitnessNextState.toSharedState.toMachineState = oracleWitnessCopiedMS from rfl, oracleWitnessReadV] at hb
+  dsimp only at hb
+  rw [show oracleWitnessNextState.setMachineState oracleWitnessCopiedMS = oracleWitnessNextState from rfl] at hb
+  rw [show UInt256.land (UInt256.ofNat 27) (UInt256.ofNat 255) = UInt256.ofNat 27 from rfl] at hb
+  rw [show oracleWitnessNextState.insert VV (UInt256.ofNat 27) = oracleWitnessPrefixState from rfl] at hb
+  rw [show oracleWitnessPrefixState.toSharedState.toMachineState = oracleWitnessCopiedMS from rfl, oracleWitnessReadS] at hb
+  dsimp only at hb
+  rw [show oracleWitnessPrefixState.setMachineState oracleWitnessCopiedMS = oracleWitnessPrefixState from rfl] at hb
+  apply hb
+  · exact eval_range_cond 145 (UInt256.ofNat 1) oracleWitnessIndexState.toSharedState oracleWitnessIndexState.store
+  · exact eval_order_cond 148 oracleWitnessIndexState.toSharedState oracleWitnessIndexState.store
+  · exact eval_badv_cond 139 VV (UInt256.ofNat 27) (UInt256.ofNat 28) oracleWitnessPrefixState.toSharedState oracleWitnessPrefixState.store
+  · have h := eval_gt_mload_lit 142 (UInt256.ofNat 96) SECP_HALF oracleWitnessPrefixState
+    rw [show oracleWitnessPrefixState.toSharedState.toMachineState = oracleWitnessCopiedMS from rfl, oracleWitnessReadS] at h
+    exact h
+
+private def oracleWitnessRecoveredState : State :=
+  oracleWitnessPrefixState.setMachineState {oracleWitnessCopiedMS with returnData := oracleWitnessReturn}
+
+private theorem oracleWitnessWriteSame :
+    ByteArray.write oracleWitnessReturn 0 oracleWitnessCopiedMemory 64 (min 32 oracleWitnessReturn.size) =
+      oracleWitnessCopiedMemory := by
+  simp only [oracleWitnessReturn, oracleWitnessCopiedMemory, ByteArray.write]
+  simp only [oracleZeroesEq, USize.toNat]
+  rfl
+
+private theorem oracleWitnessRecoverExact :
+    recoveryOracle 0 oracleWitnessReturn oracleWitnessPrefixState = oracleWitnessRecoveredState := by
+  unfold recoveryOracle
+  rw [show oracleWitnessPrefixState.toMachineState = oracleWitnessCopiedMS from rfl]
+  rw [show 0+64 = 64 from rfl,
+    show oracleWitnessCopiedMS.memory = oracleWitnessCopiedMemory from rfl, oracleWitnessWriteSame]
+  rfl
+
+private theorem oracleEvalGtVarLit (f : Nat) (x : Identifier) (c : UInt256)
+    (ss : SharedState .Yul) (vs : VarStore) :
+    eval (f+6) (bc .GT [V x, Expr.Lit c]) none (.Ok ss vs) =
+      .ok (.Ok ss vs, UInt256.gt (State.Ok ss vs)[x]! c) := by
+  exact eval_primcall (f+5) Operation.GT [V x, Expr.Lit c]
+    (.Ok ss vs) (.Ok ss vs) (.Ok ss vs)
+    [(State.Ok ss vs)[x]!, c] _
+    (evalArgs_rev_pair f (V x) (Expr.Lit c)
+      (.Ok ss vs) (.Ok ss vs) (.Ok ss vs)
+      (State.Ok ss vs)[x]! c
+      (eval_lit (f+3) c _) (eval_var (f+1) x _))
+    (RelayBodyEff.primCall_GT' (f+4) _ _ _)
+
+private theorem oracleSuffixAccept (entry cleared voter weighted : State)
+    (hg11 : eval 158 (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) none entry = .ok (entry, ⟨0⟩))
+    (hg12 : eval 157 (bc .ISZERO [bc .MLOAD [litN 64]]) none entry = .ok (entry, ⟨0⟩))
+    (hclear : exec 157 (Stmt.ExprStmtCall (bc .MSTORE [litN 96, litN 0])) none entry = .ok cleared)
+    (hcopy : exec 156 (Stmt.ExprStmtCall (bc .CALLDATACOPY
+      [litN 106, bc .ADD [litN 47, bc .MUL [V IDX, litN 22]], litN 22])) none cleared = .ok voter)
+    (hwrong : eval 154 (bc .ISZERO [bc .EQ [bc .MLOAD [litN 64], bc .SHR [litN 16, bc .MLOAD [litN 96]]]])
+      none voter = .ok (voter, ⟨0⟩))
+    (hweight : exec 154 (Stmt.Let [WW] (some (bc .ADD [V WW,
+      bc .AND [bc .MLOAD [litN 96], Expr.Lit (UInt256.ofNat 65535)]]))) none voter = .ok weighted)
+    (haccept : eval 152 (bc .GT [V WW, litN 1]) none weighted = .ok (weighted, ⟨1⟩)) :
+    exec 160 (Stmt.Block ((bodyL 0 69 (UInt256.ofNat 1) (UInt256.ofNat 1)).drop 10)) none entry =
+      .error (.YulHalt (weighted.setMachineState (weighted.toMachineState.evmReturn (UInt256.ofNat 0) (UInt256.ofNat 0))) ⟨1⟩) := by
+  have h11 := exec_If_false 158 (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) [revert00] entry entry hg11
+  have h12 := exec_If_false 157 (bc .ISZERO [bc .MLOAD [litN 64]]) [revert00] entry entry hg12
+  have h15 := exec_If_false 154 (bc .ISZERO [bc .EQ [bc .MLOAD [litN 64], bc .SHR [litN 16, bc .MLOAD [litN 96]]]]) [revert00] voter voter hwrong
+  change exec 160 (Stmt.Block [_,_,_,_,_,_,_]) none entry = _
+  calc exec 160 (Stmt.Block [_,_,_,_,_,_,_]) none entry
+      = exec 159 (Stmt.Block [_,_,_,_,_,_]) none entry := exec_Block_cons_ok 159 _ _ _ entry h11
+    _ = exec 158 (Stmt.Block [_,_,_,_,_]) none entry := exec_Block_cons_ok 158 _ _ _ entry h12
+    _ = exec 157 (Stmt.Block [_,_,_,_]) none cleared := exec_Block_cons_ok 157 _ _ _ cleared hclear
+    _ = exec 156 (Stmt.Block [_,_,_]) none voter := exec_Block_cons_ok 156 _ _ _ voter hcopy
+    _ = exec 155 (Stmt.Block [_,_]) none voter := exec_Block_cons_ok 155 _ _ _ voter h15
+    _ = exec 154 (Stmt.Block [_]) none weighted := exec_Block_cons_ok 154 _ _ _ weighted hweight
+    _ = _ := by
+      refine exec_Block_cons_err 153 _ [] weighted _ ?_
+      change exec 153 (Stmt.If (bc .GT [V WW, litN 1])
+        [Stmt.ExprStmtCall (bc .RETURN [litN 0, litN 0])]) none weighted = _
+      rw [show 153 = 152+1 from rfl,
+        exec_If_true 152 (bc .GT [V WW, litN 1])
+          [Stmt.ExprStmtCall (bc .RETURN [litN 0, litN 0])] weighted weighted ⟨1⟩ haccept (by decide)]
+      refine exec_Block_cons_err 151 _ [] weighted _ ?_
+      exact return_eff 145 weighted (UInt256.ofNat 0) (UInt256.ofNat 0)
+
+private def oracleSuffix_suffixMemory : ByteArray :=
+  ⟨(Array.replicate 256 (0 : UInt8)).set! 63 27 |>.set! 95 1 |>.set! 127 1⟩
+
+private def oracleSuffix_clearedMemory : ByteArray :=
+  ⟨(Array.replicate 256 (0 : UInt8)).set! 63 27 |>.set! 95 1⟩
+
+private def oracleSuffix_voterMemory : ByteArray :=
+  ⟨(Array.replicate 256 (0 : UInt8)).set! 63 27 |>.set! 95 1 |>.set! 125 1 |>.set! 127 2⟩
+
+/-- Keep the exact insertion order produced by the independently proved nine-statement prefix. -/
+private def oracleSuffix_suffixVars : EvmYul.Yul.VarStore :=
+  ((((((Inhabited.default : EvmYul.Yul.VarStore).insert II (UInt256.ofNat 0))
+    |>.insert WW (UInt256.ofNat 0))
+    |>.insert NUI (UInt256.ofNat 0))
+    |>.insert IDX (UInt256.ofNat 0))
+    |>.insert NUI (UInt256.ofNat 1))
+    |>.insert VV (UInt256.ofNat 27)
+
+private def oracleSuffix_suffixShared : EvmYul.SharedState .Yul :=
+  { (Inhabited.default : EvmYul.SharedState .Yul) with
+    memory := oracleSuffix_suffixMemory,
+    activeWords := UInt256.ofNat 8,
+    returnData := oracleWitnessReturn,
+    executionEnv := {
+      (Inhabited.default : EvmYul.SharedState .Yul).executionEnv with
+      calldata := oracleWitnessCalldata } }
+
+private def oracleSuffix_suffixEntry : EvmYul.Yul.State := .Ok oracleSuffix_suffixShared oracleSuffix_suffixVars
+
+private def oracleSuffix_clearedState : EvmYul.Yul.State :=
+  .Ok { oracleSuffix_suffixShared with memory := oracleSuffix_clearedMemory } oracleSuffix_suffixVars
+
+private def oracleSuffix_voterState : EvmYul.Yul.State :=
+  .Ok { oracleSuffix_suffixShared with memory := oracleSuffix_voterMemory } oracleSuffix_suffixVars
+
+private def oracleSuffix_weightedState : EvmYul.Yul.State := oracleSuffix_voterState.insert WW (UInt256.ofNat 2)
+
+private def oracleSuffix_returnedState : EvmYul.Yul.State :=
+  oracleSuffix_weightedState.setMachineState
+    (oracleSuffix_weightedState.toMachineState.evmReturn (UInt256.ofNat 0) (UInt256.ofNat 0))
+
+private def oracleSuffix_suffixResult : Except EvmYul.Yul.Exception EvmYul.Yul.State :=
+  EvmYul.Yul.exec 160
+    (Stmt.Block ((bodyL 0 69 (UInt256.ofNat 1) (UInt256.ofNat 1)).drop 10)) none oracleSuffix_suffixEntry
+
+set_option maxRecDepth 100000
+set_option maxHeartbeats 10000000
+
+private theorem oracleSuffix_mload64_entry :
+    oracleSuffix_suffixEntry.toSharedState.toMachineState.mload (UInt256.ofNat 64) =
+      (UInt256.ofNat 1, oracleSuffix_suffixEntry.toSharedState.toMachineState) := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  rw [if_neg (by decide)]
+  rw [RelayDataLayer.readWithPadding_eq_extract _ _ (by decide)]
+  apply Prod.ext
+  · simp only [EvmYul.fromByteArrayBigEndian, RelayDataLayer.toList_data,
+      ByteArray.extract, ByteArray.copySlice]
+    rfl
+  · rfl
+
+private theorem oracleSuffix_mstore96_entry :
+    oracleSuffix_suffixEntry.toMachineState.mstore (UInt256.ofNat 96) (UInt256.ofNat 0) =
+      oracleSuffix_clearedState.toMachineState := by
+  simp only [oracleSuffix_suffixEntry, oracleSuffix_clearedState, oracleSuffix_suffixShared, oracleSuffix_suffixMemory, oracleSuffix_clearedMemory,
+    State.toMachineState, EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord,
+    EvmYul.writeBytes, RelayDataLayer.mstore_zero_source]
+  simp (disch := decide) [ByteArray.write, EvmYul.MachineState.M,
+    UInt256.toNat, UInt256.ofNat, Id.run]
+  simp only [oracleZeroesEq, USize.toNat, BitVec.toNat_ofNat, BitVec.sub_self, Nat.zero_mod]
+  exact ⟨rfl, rfl⟩
+
+private theorem oracleSuffix_copy_voter_exact :
+    oracleSuffix_clearedState.toSharedState.calldatacopy
+        (UInt256.ofNat 106) (UInt256.ofNat 47) (UInt256.ofNat 22) =
+      oracleSuffix_voterState.toSharedState := by
+  simp only [oracleSuffix_clearedState, oracleSuffix_voterState, oracleSuffix_suffixShared, oracleWitnessCalldata,
+    oracleSuffix_clearedMemory, oracleSuffix_voterMemory, State.toSharedState,
+    EvmYul.SharedState.calldatacopy, ByteArray.write]
+  simp only [oracleZeroesEq, USize.toNat]
+  rfl
+
+private theorem oracleSuffix_mload64_voter :
+    oracleSuffix_voterState.toSharedState.toMachineState.mload (UInt256.ofNat 64) =
+      (UInt256.ofNat 1, oracleSuffix_voterState.toSharedState.toMachineState) := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  rw [if_neg (by decide)]
+  rw [RelayDataLayer.readWithPadding_eq_extract _ _ (by decide)]
+  apply Prod.ext
+  · simp only [EvmYul.fromByteArrayBigEndian, RelayDataLayer.toList_data,
+      ByteArray.extract, ByteArray.copySlice]
+    rfl
+  · rfl
+
+private theorem oracleSuffix_mload96_voter :
+    oracleSuffix_voterState.toSharedState.toMachineState.mload (UInt256.ofNat 96) =
+      (UInt256.ofNat 65538, oracleSuffix_voterState.toSharedState.toMachineState) := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  rw [if_neg (by decide)]
+  rw [RelayDataLayer.readWithPadding_eq_extract _ _ (by decide)]
+  apply Prod.ext
+  · simp only [EvmYul.fromByteArrayBigEndian, RelayDataLayer.toList_data,
+      ByteArray.extract, ByteArray.copySlice]
+    rfl
+  · rfl
+
+private theorem oracleSuffix_g11_passes :
+    EvmYul.Yul.eval 158
+      (bc .ISZERO [bc .EQ [bc .RETURNDATASIZE [], litN 32]]) none oracleSuffix_suffixEntry =
+        .ok (oracleSuffix_suffixEntry, UInt256.ofNat 0) := by
+  have h := RelayBodyEff.eval_g11 150 oracleSuffix_suffixEntry
+  rw [show oracleSuffix_suffixEntry.toMachineState.returnData.size = 32 from rfl] at h
+  exact h
+
+private theorem oracleSuffix_g12_passes :
+    EvmYul.Yul.eval 157 (bc .ISZERO [bc .MLOAD [litN 64]]) none oracleSuffix_suffixEntry =
+      .ok (oracleSuffix_suffixEntry, UInt256.ofNat 0) := by
+  have h := RelayBodyEff.eval_g12 151 64 oracleSuffix_suffixEntry.toSharedState oracleSuffix_suffixEntry.store
+  rw [show State.Ok oracleSuffix_suffixEntry.toSharedState oracleSuffix_suffixEntry.store = oracleSuffix_suffixEntry from rfl] at h
+  rw [oracleSuffix_mload64_entry] at h
+  exact h
+
+private theorem oracleSuffix_clear_voter_slot :
+    EvmYul.Yul.exec 157
+      (Stmt.ExprStmtCall (bc .MSTORE [litN 96, litN 0])) none oracleSuffix_suffixEntry =
+        .ok oracleSuffix_clearedState := by
+  have h := RelayLoopLiteral.mstore_lit_eff 151 oracleSuffix_suffixEntry
+    (UInt256.ofNat 96) (UInt256.ofNat 0)
+  rw [oracleSuffix_mstore96_entry] at h
+  exact h
+
+private theorem oracleSuffix_copy_voter_record :
+    EvmYul.Yul.exec 156
+      (Stmt.ExprStmtCall (bc .CALLDATACOPY
+        [litN 106, bc .ADD [litN 47, bc .MUL [V IDX, litN 22]], litN 22]))
+      none oracleSuffix_clearedState = .ok oracleSuffix_voterState := by
+  have h := RelayLoopLiteral.calldatacopy2_eff 125 0
+    oracleSuffix_clearedState.toSharedState oracleSuffix_clearedState.store
+  rw [show State.Ok oracleSuffix_clearedState.toSharedState oracleSuffix_clearedState.store = oracleSuffix_clearedState from rfl] at h
+  rw [show EvmYul.UInt256.add (UInt256.ofNat 47)
+    (EvmYul.UInt256.mul oracleSuffix_clearedState[IDX]! (UInt256.ofNat 22)) = UInt256.ofNat 47 from rfl] at h
+  rw [oracleSuffix_copy_voter_exact] at h
+  exact h
+
+private theorem oracleSuffix_wrong_signature_guard_passes :
+    EvmYul.Yul.eval 154
+      (bc .ISZERO [bc .EQ [bc .MLOAD [litN 64],
+        bc .SHR [litN 16, bc .MLOAD [litN 96]]]]) none oracleSuffix_voterState =
+      .ok (oracleSuffix_voterState, UInt256.ofNat 0) := by
+  have h := RelayBodyEff.eval_wrongsig_cond 142 64 96
+    oracleSuffix_voterState.toSharedState oracleSuffix_voterState.store
+  dsimp only at h
+  rw [show State.Ok oracleSuffix_voterState.toSharedState oracleSuffix_voterState.store = oracleSuffix_voterState from rfl] at h
+  rw [oracleSuffix_mload96_voter] at h
+  simp only [Prod.fst, Prod.snd] at h
+  rw [show oracleSuffix_voterState.setMachineState oracleSuffix_voterState.toSharedState.toMachineState = oracleSuffix_voterState from rfl] at h
+  rw [oracleSuffix_mload64_voter] at h
+  simp only [Prod.fst, Prod.snd] at h
+  exact h
+
+private theorem oracleSuffix_weight_update :
+    EvmYul.Yul.exec 154
+      (Stmt.Let [WW] (some (bc .ADD [V WW,
+        bc .AND [bc .MLOAD [litN 96], Expr.Lit (UInt256.ofNat 65535)]])))
+      none oracleSuffix_voterState = .ok oracleSuffix_weightedState := by
+  have h := RelayBodyEff.let_ww 144 96 (UInt256.ofNat 65535)
+    oracleSuffix_voterState.toSharedState oracleSuffix_voterState.store
+  dsimp only at h
+  rw [show State.Ok oracleSuffix_voterState.toSharedState oracleSuffix_voterState.store = oracleSuffix_voterState from rfl] at h
+  rw [oracleSuffix_mload96_voter] at h
+  exact h
+
+
+private theorem oracleSuffix_accept_guard :
+    eval 152 (bc .GT [V WW, litU (UInt256.ofNat 1)]) none oracleSuffix_weightedState =
+      .ok (oracleSuffix_weightedState, UInt256.ofNat 1) := by
+  have h := oracleEvalGtVarLit 146 WW (UInt256.ofNat 1)
+    oracleSuffix_weightedState.toSharedState oracleSuffix_weightedState.store
+  rw [show State.Ok oracleSuffix_weightedState.toSharedState oracleSuffix_weightedState.store = oracleSuffix_weightedState from rfl] at h
+  exact h
+
+
+private theorem oracleSuffixExecExact :
+    oracleSuffix_suffixResult = .error (.YulHalt oracleSuffix_returnedState ⟨1⟩) := by
+  exact oracleSuffixAccept oracleSuffix_suffixEntry oracleSuffix_clearedState
+    oracleSuffix_voterState oracleSuffix_weightedState oracleSuffix_g11_passes
+    oracleSuffix_g12_passes oracleSuffix_clear_voter_slot oracleSuffix_copy_voter_record
+    oracleSuffix_wrong_signature_guard_passes oracleSuffix_weight_update oracleSuffix_accept_guard
+
+private theorem oracleSuffixReturnedWeight : oracleSuffix_returnedState[WW]! = UInt256.ofNat 2 := by
+  rfl
+
+/-- A nonempty concrete prefix passes the actual range/order/v/s guards and reaches the oracle seam. -/
+theorem recovery_oracle_prefix_reaches_call :
+    EvmYul.Yul.exec 160 (Stmt.Block ((bodyL 0 69 (UInt256.ofNat 1) (UInt256.ofNat 1)).take 9))
+      none oracleWitnessEntry = .ok oracleWitnessPrefix := by
+  simp only [oracleWitnessPrefix, oracleWitnessPrefixExact]
+
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 8000000 in
+/-- Constructive satisfiability witness for the explicitly oracle-composed prefix/suffix model.
+    It accepts with accumulated weight 2 > threshold 1 from initial weight 0. There are no execution
+    hypotheses and no new axioms. This is NOT a witness for the stock full-body interpreter bridge. -/
+theorem recovery_oracle_acceptance_witness :
+    ∃ hs, recoveryOracleBody 160 0 69 (UInt256.ofNat 1) (UInt256.ofNat 1) oracleWitnessReturn
+      oracleWitnessEntry = .error (.YulHalt hs ⟨1⟩) ∧
+      hs[WW]! = UInt256.ofNat 2 ∧ oracleWitnessEntry[WW]! = UInt256.ofNat 0 := by
+  refine ⟨oracleSuffix_returnedState, ?_, oracleSuffixReturnedWeight, rfl⟩
+  unfold recoveryOracleBody
+  rw [oracleWitnessPrefixExact]
+  change exec 160 (Stmt.Block ((bodyL 0 69 (UInt256.ofNat 1) (UInt256.ofNat 1)).drop 10))
+    none (recoveryOracle 0 oracleWitnessReturn oracleWitnessPrefixState) = _
+  rw [oracleWitnessRecoverExact]
+  rw [show oracleWitnessRecoveredState = oracleSuffix_suffixEntry from rfl]
+  exact oracleSuffixExecExact
+
+end RecoveryOracleWitness
+
+#print axioms recovery_oracle_preserves_caller
+#print axioms recovery_oracle_prefix_reaches_call
+#print axioms recovery_oracle_acceptance_witness
 #print axioms relay_dispatch_loop_accept
 #print axioms protocolOne_tload_override_loop_sound
 #print axioms dispatch_then_loop_accept

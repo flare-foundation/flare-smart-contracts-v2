@@ -56,7 +56,12 @@ round-zero correctness edges.
   token value-flow claims come from bounded compiled-bytecode/CVL evidence
   under their stated assumptions.
 - The EVM/Yul refinement is conditional on declared setup and composition
-  premises and the pinned semantics.
+  premises and the pinned semantics. Its literal accepting-execution bridge is
+  unverified: the pinned Yul `STATICCALL` handler does not dispatch the
+  address-1 precompile and clears caller calldata on an ordinary-account
+  return. Recovery-output premises do not establish that this call is
+  executable with Relay's required caller frame. See
+  [`07-R4b-bytecode-refinement.md`](07-R4b-bytecode-refinement.md).
 - solc's Yul-to-bytecode lowering is not verified unboundedly; artifact parity
   and bounded bytecode execution narrow this seam.
 - Certora local evidence is front-end validation only. Cloud claims require a

@@ -31,6 +31,11 @@ solver to refute an assertion on a valid accepting path. The gate validates the
 resulting model so a truncated loop, all-revert fixture, timeout, or malformed
 counterexample cannot masquerade as evidence.
 
+The same concern applies to Lean: an implication with contradictory execution
+premises can be kernel-correct but provide no assurance. A constructive witness
+must exhibit an execution without assuming that same execution succeeds; a
+witness in a simplified model establishes reachability only in that model.
+
 ## Bounded versus unbounded proof
 
 A bounded proof quantifies over every value inside a fixed execution shape, for
@@ -69,6 +74,8 @@ A Lean file can compile while relying on admitted facts or powerful evaluation
 shortcuts. The Relay gate rejects `sorry`, `admit`, `native_decide`, and
 undeclared axioms. `#print axioms` identifies the trusted declarations used by a
 theorem; the gate compares them with an explicit allowlist.
+This audit does not show that the theorem's premises are satisfiable or that an
+interpreter accurately implements every relevant EVM operation.
 
 ## Artifact parity
 

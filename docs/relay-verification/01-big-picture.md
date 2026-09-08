@@ -65,6 +65,8 @@ claims ledger.
 
 It does not establish:
 
+- an executable accepting literal Lean loop across the unresolved recovery-call
+  semantics described in [`07-R4b-bytecode-refinement.md`](07-R4b-bytecode-refinement.md);
 - ECDSA unforgeability or keccak collision resistance;
 - unique voter identities when policy admission permits duplicates;
 - correctness of arbitrary future upgrades;

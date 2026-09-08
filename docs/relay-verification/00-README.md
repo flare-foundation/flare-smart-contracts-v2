@@ -73,7 +73,10 @@ assumptions.
   assumptions, not theorems in this repository.
 - Halmos is bounded by the manifest's loop and fixture shapes.
 - Lean refinement covers the modeled loop and declared composition seams; it is
-  not an extraction proof of the complete optimized contract. Its fee layer is
+  not an extraction proof of the complete optimized contract. The literal
+  accepting-execution bridge is unverified because the pinned Yul recovery-call
+  handler does not model the required precompile and caller-frame behavior.
+  Its fee layer is
   conditional on the local native-fee path and does not model `oldRelay`
   delegation or ERC-20/SafeERC20 behavior.
 - Token-fee conclusions assume a standard exact-transfer ERC-20; fee-on-transfer,

@@ -1,7 +1,7 @@
 # Lean 4 signature-loop verification
 
 The Lean development proves Relay's indexed-weight accounting for arbitrary voter and signature counts.
-It contains an abstract proof and a refinement over EVMYulLean's validated Yul operational semantics.
+It contains an abstract proof and conditional component proofs over the pinned EVMYulLean Yul semantics.
 
 | File | Current proof object | Quantification |
 |---|---|---|
@@ -33,9 +33,16 @@ The same file proves:
 ## EVMYulLean refinement scope
 
 The refinement executes modeled Yul statements with EVMYulLean at the pinned commit recorded in
-`../verification-manifest.json`. Its strongest composition theorem connects mode dispatch to the
-hand-transliterated signature loop and proves the indexed-weight conclusion under its explicit setup,
-cryptographic-call, validity, and no-overflow premises.
+`../verification-manifest.json`. Reachable-state composition distinguishes normal completion, which
+proves exact accounting, from early-return acceptance. Conditional dispatch/acceptance theorems do not
+establish that a literal accepting execution exists under the pinned call semantics.
+
+The pinned Yul `STATICCALL` handler does not dispatch Ethereum's address-1 precompile. Its ordinary-account
+return path clears caller calldata, whereas Relay reads the selected voter from caller calldata after
+recovery. The recovery-output premises preserving that frame are an unresolved semantic interface, not a
+proved instance of the interpreter. The package therefore does not claim an executable literal-loop
+acceptance bridge. Abstract or recovery-seam witnesses do not discharge this interface. See the
+[`refinement tutorial`](../../../docs/relay-verification/07-R4b-bytecode-refinement.md).
 
 The model intentionally leaves these boundaries explicit:
 
@@ -65,6 +72,7 @@ axioms in this repository.
 
 `verify_lean.py` checks every declared axiom, every `#print axioms` directive, forbidden proof-hole tokens,
 the exact EVMYulLean revision, its Lake dependencies, and the toolchain declared in the manifest.
+These checks do not prove satisfiability of theorem premises or correctness of the pinned interpreter.
 
 ## Reproduce
 

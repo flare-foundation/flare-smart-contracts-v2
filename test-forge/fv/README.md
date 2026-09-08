@@ -26,9 +26,9 @@ We prove related properties at increasing fidelity. Foundry runs the **real comp
 concrete and random inputs. **Halmos** runs the Solidity harness **symbolically** — every
 function argument becomes a logical variable and the [SMT solver](../../docs/relay-verification/CONCEPTS.md#smt-solver) either proves the assertion for _all_ inputs
 (in a bounded region) or returns a concrete counterexample. **Lean + EVMYulLean** lifts the signature-loop
-accounting argument to a `∀N` theorem against a validated model of the EVM. Cryptography
-(`ecrecover`, `keccak`) is never proved — it is modeled as
-an **uninterpreted function**, which is the sound, conservative choice (see §5).
+accounting argument to a `∀N` abstract theorem and conditional statements about modeled Yul components.
+Cryptography (`ecrecover`, `keccak`) is never proved. The bounded symbolic layers use cryptographic
+abstractions; Lean retains an unresolved recovery-call interface (see §3 and §5).
 
 New to the vocabulary (SMT, induction, CEX, psAt)? The plain-words FAQ is
 [`docs/relay-verification/CONCEPTS.md`](../../docs/relay-verification/CONCEPTS.md).
@@ -150,15 +150,22 @@ in which case the bundle itself remains development-only.
 
 ## 3. Reading a Lean proof (`lean/…`)
 
-The R4 proofs are in [Lean 4](lean/) and are checked against **EVMYulLean** (NethermindEth's Lean
-formalization of EVM/Yul, itself validated against the standard `ethereum/tests` EVM conformance suite, incl. EEST-generated fixtures). Two entry points:
+The R4 proofs are in [Lean 4](lean/); the conditional refinement uses the pinned **EVMYulLean**
+formalization of EVM/Yul. Two entry points:
 
 - [`lean/RelaySigLoop.lean`](lean/RelaySigLoop.lean) — the abstract `∀N ∀K` accounting proof, pure `ℕ`/`List`,
   no EVM. `threshold_sound` unconditionally says _accept ⟹ total registered policy-slot weight > threshold_
   under its indexed-run premises. Only the stronger distinct-signer interpretation requires unique voter
   addresses at admission.
 - [`lean/bytecode-refinement/`](lean/bytecode-refinement/) — the same soundness lifted onto a loop executed by
-  the _validated EVM semantics_, for all N. See its [`README.md`](lean/bytecode-refinement/README.md).
+  the pinned Yul semantics under explicit premises. See its [`README.md`](lean/bytecode-refinement/README.md).
+
+The literal accepting-execution bridge is not established. The pinned Yul `STATICCALL` handler does not
+dispatch the address-1 precompile and clears caller calldata on an ordinary-account return. Recovery
+premises preserving Relay's caller frame therefore do not constitute a verified executable abstraction.
+Reachable-state composition and any model witnesses retain this explicit interface; they do not prove
+that the whole literal loop accepts. This does not affect the independent abstract accounting theorem
+or the bounded compiled-bytecode checks. A kernel pass and axiom audit alone do not prove non-vacuity.
 
 The Lean fee layer covers the local native-coin branch under
 `feeToken == address(0)`. Pre-boundary `oldRelay` delegation is covered by its
@@ -212,7 +219,8 @@ cp <repo>/test-forge/fv/lean/RelaySigLoop.lean . && lake env lean RelaySigLoop.l
 
 ## 5. Cryptography is assumed, not proved — and why that is sound
 
-`ecrecover` and `keccak256` are modeled as **uninterpreted functions**: deterministic (same inputs → same
+In the symbolic bytecode layers, `ecrecover` and `keccak256` use **uninterpreted-function** abstractions:
+deterministic (same inputs → same
 output) but otherwise unconstrained. For `ecrecover` this hands the _adversary more power than reality_ — when
 hunting a counterexample the solver may freely make the recovered signer equal any voter it likes. Any
 accounting invariant that survives this (e.g. "cannot accept below total policy-slot weight" or "no slot index
@@ -220,6 +228,8 @@ is reused") therefore holds _a fortiori_ under real ECDSA. Distinct voter addres
 are a separate policy-admission premise and are not currently enforced on-chain.
 What is **not** proved is "a non-voter cannot forge a signature" — that is ECDSA
 unforgeability, a cryptographic fact outside the EVM model.
+Lean's recovery interface additionally has the execution-model limitation in §3; this symbolic
+accounting argument does not establish the Lean `STATICCALL` bridge.
 
 One subtlety is load-bearing: the **precompile `0x01` does not
 revert on a bad signature** — it returns _success with empty return data_ (`returndatasize()==0`) and leaves
@@ -240,6 +250,8 @@ The full trust base — every assumption, where it lives, and how it is discharg
 **Signature loop / threshold accounting (the core property).**
 [`RelaySigFV.t.sol`](RelaySigFV.t.sol) · [`RelaySigParamFV.t.sol`](RelaySigParamFV.t.sol) ·
 [`RelayCanonicalityFV.t.sol`](RelayCanonicalityFV.t.sol) (bad-`v`/high-`s` gates) ·
+[`RelayParserGuardsFV.t.sol`](RelayParserGuardsFV.t.sol) (bounded length/count boundaries) ·
+[`RelaySignatureGuardsFV.t.sol`](RelaySignatureGuardsFV.t.sol) (reached record guards and early quorum) ·
 [`RelayModelBridgeFV.t.sol`](RelayModelBridgeFV.t.sol) (bytecode ↔ prefix-sum model).
 
 **ecrecover failure ABI.** [`RelayEcrecoverABI.t.sol`](RelayEcrecoverABI.t.sol) (concrete) ·
@@ -256,6 +268,7 @@ The full trust base — every assumption, where it lives, and how it is discharg
 [`RelayModeOneFV.t.sol`](RelayModeOneFV.t.sol) · [`RelayEpochAdvanceFV.t.sol`](RelayEpochAdvanceFV.t.sol).
 
 **Randomness / Merkle / fees / misc.** [`RelayRandomMonotonicityFV.t.sol`](RelayRandomMonotonicityFV.t.sol) ·
+[`RelayStateFrameFV.t.sol`](RelayStateFrameFV.t.sol) (accepting raw-call target effects and sampled state preservation) ·
 [`RelayRandomBindingFV.t.sol`](RelayRandomBindingFV.t.sol) ·
 [`RelayIsSecureNormFV.t.sol`](RelayIsSecureNormFV.t.sol) ·
 [`RelayMerkleProofFV.t.sol`](RelayMerkleProofFV.t.sol) · [`RelayMerkleFoldFV.t.sol`](RelayMerkleFoldFV.t.sol) ·

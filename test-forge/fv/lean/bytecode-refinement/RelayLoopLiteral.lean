@@ -13,6 +13,11 @@ the full guard cascade (index range/order, canonical `v`, low-`s`, `staticcall`-
 layers, derives its structural index conditions from `ValidRun`, and retains the cryptographic call results
 as explicit premises.
 
+The pinned Yul `STATICCALL` handler does not implement the address-1 precompile and clears caller
+calldata on an ordinary-account return. `recHypothesis` is therefore an unresolved executable-call
+interface, not an established uninterpreted recovery implementation. In particular, these conditional
+component theorems do not establish the existence of a complete accepting literal-body execution.
+
 Deviations from the IR, each deliberate and accounting-irrelevant (fidelity register):
 * **D1 — folded addressing.** The IR writes `add(usr$memPtrFor, 32)` with `memPtrFor` loop-invariant
   (`mload(0x40)`, fixed before the loop); we parameterize the whole AST by the base `m : Nat` and emit the
@@ -495,7 +500,10 @@ def recSuccessShared (ss : EvmYul.SharedState .Yul) (oo os : EvmYul.UInt256) (re
 def recFailShared (ss : EvmYul.SharedState .Yul) : EvmYul.SharedState .Yul :=
   { ss with returnData := ByteArray.empty, H_return := ByteArray.empty }
 
-/-- The per-iteration uninterpreted ecrecover hypothesis, one form per recovery branch. -/
+/-- Required per-iteration recovery effect, one form per branch. This is a proposition about the stock
+    interpreter, not a replacement for its call handler or a proof that the effect has an instance.
+    The success post-state preserves caller calldata; the pinned Yul STATICCALL ordinary-account return
+    does not. The corresponding execution bridge remains unverified. -/
 def recHypothesis (f : Nat) (ss : EvmYul.SharedState .Yul) (vs : VarStore)
     (g a io is oo os : EvmYul.UInt256) : RecOutcome → Prop
   | .success ret _ =>

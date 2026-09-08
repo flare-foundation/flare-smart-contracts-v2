@@ -36,6 +36,13 @@ paired with a reachability control. The control is expected to produce a
 validated counterexample witness. The gate rejects missing checks, all-revert
 paths, invalid models, timeouts, and unexpected results.
 
+Lean kernel checking and axiom audits do not establish that theorem premises
+have an instance. Continuing and accepting execution premises must apply to
+disjoint reachable states, and an acceptance implication is not itself a
+reachability witness. The literal-loop recovery bridge remains explicitly
+unverified under the pinned Yul call semantics; see
+[`07-R4b-bytecode-refinement.md`](07-R4b-bytecode-refinement.md).
+
 ## Proven/assumed boundary
 
 Every claim is recorded as a tuple:

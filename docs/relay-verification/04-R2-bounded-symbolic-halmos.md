@@ -26,11 +26,12 @@ The current harness tree covers these implementation surfaces:
 
 | Group | Representative harnesses |
 | --- | --- |
-| Signature parsing and accounting | `RelaySigFV`, `RelaySigParamFV`, `RelayCanonicalityFV`, `RelayModelBridgeFV` |
+| Signature parsing and accounting | `RelaySigFV`, `RelaySigParamFV`, `RelayCanonicalityFV`, `RelayModelBridgeFV`, `RelayParserGuardsFV`, `RelaySignatureGuardsFV` |
 | Ecrecover return ABI | `RelayEcrecoverABI`, `RelayEcrecoverSymbolicFV` |
 | Policy/epoch selection | `RelayWrongEpochFV`, `RelayDelayedPolicyFV`, `RelayFinalizationWindowFV`, `RelayCrossEpochFV`, `RelayMustUseNewPolicyFV` |
 | Policy rotation and thresholds | `RelayModeOneFV`, `RelayEpochAdvanceFV`, `RelayThresholdScalingFV`, `RelayThresholdConsistencyFV`, `RelayThresholdOverrideFV` |
 | Randomness and Merkle binding | `RelayRandomBindingFV`, `RelayRandomMonotonicityFV`, `RelayIsSecureNormFV`, `RelayMerkleProofFV`, `RelayMerkleFoldFV` |
+| Successful raw-relay storage preservation | `RelayStateFrameFV` ordinary/random accepting paths and sampled unrelated state |
 | Fees, fee-table replacement, delegation, and return values | `RelayVerifyFeeFV`, `RelayFeeConservationFV`, `RelayOldRelayFeeFV`, `RelayFeeTokenFV`, `RelayReturnDiscriminatorFV` |
 | Initialization, access, owner/timelock/UUPS | `RelayConstructorFV`, `RelayAccessControlFV`, `RelayOwnerTimelockFV`, including delayed ownership transfer, duplicate-queue replacement, and unrelated queue survival across ownership transfer |
 | Policy digest encoding | `RelayPolicyHashFV`; message source-domain fixtures are supplementary Foundry tests |
@@ -57,6 +58,43 @@ The token-fee harness executes SafeERC20 against a deterministic standard
 exact-transfer ERC-20 fixture. Its claims do not generalize to fee-on-transfer,
 rebasing, callback-capable, adversarial, or independently upgradeable token
 semantics.
+
+Direct Mode-1 rotation checks use a three-voter current policy and one/two-voter
+replacement policies. They cover symbolic below/above-band thresholds and
+wrong next epochs, selected count/length/total-weight rejection edges, rollback
+of tentative policy writes in the zero-signature insufficient-quorum case, and
+asserted successful policy/epoch effects. Acceptance controls cover the inclusive threshold-band
+edges and total weight 65535. Rejection of a count of 301 does not establish
+acceptance or arbitrary execution with the maximum 300 voters.
+
+The dedicated parser/signature-guard fixtures use protocol 3, a 109-byte
+three-voter policy with weights 100 each, and threshold 180. Selected truncations
+and oversized declared counts fail before signature inspection. Reached-record
+checks require a valid first signature, which cannot alone reach quorum, then
+assert the exact range/order/wrong-signer error and sampled persistent rollback.
+Literal branches enumerate each property's small valid-index domain so the
+symbolic executor can resolve voter-record copy offsets: reached out-of-range
+checks allow first index 0/1/2 and second index 3–65535; decreasing checks cover
+(1,0), (2,0), and (2,1); wrong-signer checks fix the first index at 0 and allow
+second index 1/2. Invalid uint16 indices remain symbolic.
+A positive early-return property and accepting control establish that
+two valid records can finish without authenticating a complete trailing invalid
+record. These properties do not require exact total calldata length after quorum.
+
+Storage-preservation checks execute raw ordinary and secure-random messages with
+three signatures, and one Merkle sibling for random finalization. They assert
+the target root/value effects and preserve sampled unrelated state; the random
+path also masks out only the permitted live-random fields in packed `stateData`.
+The private-slot observations are coupled to the artifact-gated sequential
+layout. These fixed fixtures do not prove preservation of every mapping key in
+an arbitrary state or across arbitrary transaction sequences.
+Sampled unrelated mappings contain nonzero sentinels, including another bit in
+the random-security word. Fee, exemption, and queued-call samples are initialized
+through owner entry points, so clearing those samples cannot pass as preservation.
+The implementation slot is checked directly before any post-call proxy getters;
+the queued-call observation captures success and raw return data without reverting.
+Those boundaries prevent a corrupted implementation or missing queue record from
+silently removing the accepting path from the proof.
 
 The `oldRelay` value-flow harness bounds attached value to `uint128` and uses
 compatible observable source fixtures that implement `isFinalized()` and

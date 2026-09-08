@@ -50,6 +50,20 @@ class LeanGateTest(unittest.TestCase):
             verify_lean.parsed_axiom_output(output),
         )
 
+    def test_required_witness_audit_cannot_be_replaced_by_another_result(self) -> None:
+        # Inventory enforcement, not a semantic non-vacuity detector: Lean checks the witness statement.
+        lean_manifest = {
+            "declared_axioms": {},
+            "axiom_audit_counts": {"Witness.lean": 1},
+            "required_results": {"Witness.lean": ["Scope.acceptance_witness"]},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "Witness.lean"
+            path.write_text("theorem unrelated : True := by trivial\n#print axioms unrelated\n")
+            _, problems = verify_lean.source_audit(path, lean_manifest)
+        self.assertTrue(any("required axiom audit 'Scope.acceptance_witness' is missing" in p for p in problems))
+        self.assertFalse(any("manifest requires" in p for p in problems))
+
     def test_axiom_output_ignores_quoted_linter_warnings(self) -> None:
         output = (
             "Proof.lean:7:3: warning: 'simp [h]' tactic does nothing\n"

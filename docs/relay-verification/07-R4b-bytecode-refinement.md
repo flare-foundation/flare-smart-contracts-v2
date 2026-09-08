@@ -23,10 +23,50 @@ manifest and checked by `verify_lean.py`.
 
 ## Refinement claim
 
-Under the development's explicit setup, valid-run, memory-correlation,
-successful-execution, and acceptance premises, execution of the modeled loop
-refines the abstract prefix-sum algorithm. The abstract unbounded threshold
-theorem can then be transferred to the modeled EVM/Yul execution.
+The normal-completion accounting results relate the accumulator to the selected
+policy weights. Acceptance is a different outcome: the literal body returns
+immediately when weight exceeds the threshold, rather than completing normally.
+The early-return composition results reason about actual reachable intermediate
+states and separate continuing iterations from the accepting iteration.
+
+These are conditional composition statements. A kernel-checked implication does
+not establish that its execution or cryptographic-call premises are satisfiable.
+The abstract unbounded threshold theorem is independent of those execution
+premises; the literal accepting-execution bridge is not established.
+The early capstones also require the selected prefix to cross the threshold;
+they do not derive that fact by extracting an arbitrary accepted execution.
+An exact natural-number tally additionally needs the stated no-wrap bound, not
+only equality after conversion into a 256-bit word.
+
+## Recovery-call model boundary
+
+The pinned EVMYulLean **Yul** `STATICCALL` handler looks up an ordinary account
+and calls its dispatcher; it does not invoke Ethereum's address-1 precompile.
+An absent account returns empty data. On return from a present account, the
+handler sets the caller's calldata to empty instead of restoring it. Relay's
+literal body reads its policy voter record after that call, so a supplied
+recovery outcome preserving caller calldata is not a proved instance of this
+handler.
+
+Consequently, the recovery premises in the literal-body component theorems are
+an unresolved semantic interface, not a verified ECDSA abstraction or evidence
+that the complete literal loop can accept. Prefix/suffix or abstract-model
+witnesses establish only their named modeled executions; they do not discharge
+the actual `STATICCALL` bridge. Closing that bridge requires reviewed call
+semantics with explicit caller-frame preservation and a coherent recovery
+model. The current package does not modify the pinned dependency.
+
+The constructive
+[`RelayBodyEff.recovery_oracle_acceptance_witness`](../../test-forge/fv/lean/bytecode-refinement/RelayBodyEff.lean#L2563)
+executes the actual nine-statement prefix and seven-statement suffix around an
+explicit caller-preserving recovery oracle. Its concrete loop inputs start at
+weight 0 and accept at weight 2 with threshold 1, without execution-success
+hypotheses. This establishes satisfiability of that slice model only: the bytes
+are not a full-parser acceptance witness or a real ECDSA test vector.
+
+This is a verification-model limitation, not evidence of a Relay runtime defect.
+Halmos checks and the concrete precompile ABI tests exercise compiled bytecode
+through their respective EVM models and do not rely on this Lean call handler.
 
 ## Remaining composition boundary
 

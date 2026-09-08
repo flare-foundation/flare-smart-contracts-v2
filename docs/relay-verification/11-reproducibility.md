@@ -145,13 +145,17 @@ written into a report. Load it from a restricted secret file or credential
 manager without printing it; rotate a key disclosed in chat, terminal output,
 or repository history.
 
+Retain the submission archive's exact job-ID filename (`<job-id>.zip`); the
+normalizer binds that filename to the job recorded in its matching log. Human
+labels may name directories or logs, but must not rename the submission archive.
+
 Normalize the completed jobs:
 
 ```bash
 python3 test-forge/fv/verify_certora_cloud.py \
-  --run certora/Relay.conf=/path/to/relay.log=/path/to/relay-submission.zip \
-  --run certora/Relay-threshold.conf=/path/to/threshold.log=/path/to/threshold-submission.zip \
-  --run certora/Relay-writeonce.conf=/path/to/writeonce.log=/path/to/writeonce-submission.zip \
+  --run 'certora/Relay.conf=/path/to/relay.log=/path/to/<relay-job-id>.zip' \
+  --run 'certora/Relay-threshold.conf=/path/to/threshold.log=/path/to/<threshold-job-id>.zip' \
+  --run 'certora/Relay-writeonce.conf=/path/to/writeonce.log=/path/to/<writeonce-job-id>.zip' \
   --report verification-reports/relay-certora-cloud.json
 ```
 

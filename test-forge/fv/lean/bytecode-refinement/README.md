@@ -1,4 +1,4 @@
-# Bytecode-level refinement over validated EVM/Yul semantics
+# Conditional refinement over pinned EVM/Yul semantics
 
 This directory proves Relay signature-loop properties with NethermindEth's EVMYulLean operational
 semantics. The exact EVMYulLean revision and Lean toolchain are pinned in
@@ -20,22 +20,38 @@ semantics. The exact EVMYulLean revision and Lean toolchain are pinned in
 The proof sources contain no `sorry`, `admit`, or `native_decide`. `verify_lean.py` audits every
 `#print axioms` result against the manifest.
 
-## Strongest accounting statement
+## Accounting and acceptance statements
 
-[`RelayBodyEff.relay_loop_sound_literal_derived_tight`](RelayBodyEff.lean#L1679) executes the hand-transliterated body for arbitrary
-loop count and proves:
+[`RelayBodyEff.relay_loop_sound_literal_derived_tight`](RelayBodyEff.lean#L1674) establishes exact accumulation
+and a registered-weight bound for normal completion under reachable-state continuation premises.
+Normal completion is not acceptance: the literal body returns immediately at the first threshold crossing.
+Structural index conditions come from `ValidRun`; voter weights come from the calldata-window model.
+Distinct-address weight additionally requires unique policy addresses at admission.
 
-> if the modeled loop accepts under the theorem's explicit premises, the total indexed policy weight is
-> strictly greater than the threshold.
+`relay_loop_sound_literal_early` and `relay_dispatch_loop_accept` in the same file compose a continuing
+prefix with a final accepting iteration. Continuing and accepting effects apply to disjoint reachable
+states; the halted accumulator must equal the selected prefix weight. These are conditional execution
+results, not a proof that their recovery or execution premises have a literal accepting instance.
+Strict threshold crossing remains an explicit selected-prefix premise rather than a fact extracted
+from an arbitrary successful run. Exact natural-number equality uses a no-wrap bound.
 
-Its structural index conditions are derived from `ValidRun`; the masked voter-weight read is derived from
-the calldata/memory window model. The per-iteration cryptographic facts remain premises. Policy slots are
-therefore counted at most once, while distinct-address weight additionally depends on unique voter
-addresses at policy admission.
+`protocolOne_tload_override_loop_sound` composes the modeled transient read with conditional
+early-return accounting and BIPS arithmetic. It does not infer acceptance from an above-threshold
+normally completed loop. The abstract strict-threshold theorem remains in `RelaySigLoop.lean`.
 
-[`RelayBodyEff.protocolOne_tload_override_loop_sound`](RelayBodyEff.lean#L1718) composes a modeled transient-storage read with the
-strict loop theorem. It proves the cross-product threshold predicate and absence of multiplication wrap
-under the parser-wide total-weight bound and `0 < overrideBIPS < 10000`.
+## Unresolved recovery-call interface
+
+The pinned Yul `STATICCALL` handler uses an ordinary account dispatcher rather than the address-1
+precompile. Its successful ordinary-account return clears caller calldata instead of restoring it.
+Relay's voter-record read occurs after recovery, so the component premises supplying a recovery state
+with preserved caller calldata are not a proved implementation of this handler. The exact literal
+accepting-execution bridge is unverified. Any named recovery-seam witness concerns its explicitly
+constructed model, not that bridge or Ethereum ECDSA correctness.
+
+The dependency is kept at its manifest-pinned revision without a semantic patch. See the
+[`refinement tutorial`](../../../../docs/relay-verification/07-R4b-bytecode-refinement.md) for the scope
+and the distinction from bounded compiled-bytecode checks. An axiom audit checks proof dependencies,
+not the existence of states satisfying theorem premises.
 
 ## Model boundary
 
@@ -53,7 +69,7 @@ The proof set establishes the following within its stated models:
 The following are explicit boundaries, not proved deployment-wide guarantees:
 
 - `ecrecover` and `keccak` behavior is supplied by premises;
-- [`RelayLoopLiteral.bodyL`](RelayLoopLiteral.lean#L81) is a hand transcription, not a mechanically extracted or AST-equivalent copy
+- [`RelayLoopLiteral.bodyL`](RelayLoopLiteral.lean#L86) is a hand transcription, not a mechanically extracted or AST-equivalent copy
   of the complete compiler output;
 - loop-invariant setup values are parameters, and the protocol-1 theorem assumes the equality connecting
   the modeled `TLOAD` result to the loop-local threshold;

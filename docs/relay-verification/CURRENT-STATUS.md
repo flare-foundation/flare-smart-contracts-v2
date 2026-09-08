@@ -90,6 +90,13 @@ Token-mode fee evidence assumes a standard exact-transfer ERC-20, and Lean's
 fee model is native-only. A fixture that assumes an input condition proves only
 the corresponding conditional claim.
 
+Lean's literal-loop acceptance bridge remains unverified. The pinned Yul
+`STATICCALL` handler neither models the address-1 precompile nor preserves
+caller calldata on an ordinary-account return. Conditional recovery premises
+therefore cannot be read as an established executable precompile model. The
+abstract accounting theorem and bounded bytecode checks are separate evidence.
+See [`07-R4b-bytecode-refinement.md`](07-R4b-bytecode-refinement.md).
+
 ## How to obtain the verdict
 
 Run the clean-checkout procedure in

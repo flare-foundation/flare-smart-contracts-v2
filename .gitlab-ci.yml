@@ -380,8 +380,10 @@ test-fv-bundle:
 # upstream-dischargeable local declarations (RelayDataLayer.zeroes_data, RelayDataLayer.toByteArray_size,
 # RelayWindows.zeroes_data). Complements test-fv-halmos: the
 # Halmos harnesses and the Lean refinement are the two FV strands, and this keeps the Lean side — the
-# strongest results (∀N soundness on validated EVM semantics, incl. the literal loop-body model) — from
-# silently regressing. verify_lean.py fails independently of Lake's own success reporting: a proof that
+# abstract ∀N accounting and conditional component/trace composition — from silently regressing.
+# This gate does not establish satisfiability of execution premises or close the pinned Yul STATICCALL
+# precompile/caller-frame gap; see docs/relay-verification/07-R4b-bytecode-refinement.md.
+# verify_lean.py fails independently of Lake's own success reporting: a proof that
 # still builds but acquired a `sorry` passes `lake` yet fails this gate. See docs/relay-verification/00-README.md.
 test-fv-lean:
   needs: []
@@ -422,7 +424,7 @@ test-fv-lean:
   - /tmp/elan-init -y --default-toolchain none
   - export PATH="$ELAN_HOME/bin:$PATH"
   - export EVMYUL_COMMIT="$(python3 -c 'import json; print(json.load(open("test-forge/fv/verification-manifest.json"))["toolchain"]["evmyullean_commit"])')"
-  # build the validated semantics once, pinned; cache get pulls prebuilt Mathlib+deps oleans, then build EvmYul
+  # Build the pinned semantics; cache get pulls prebuilt Mathlib+deps oleans, then build EvmYul.
   - git clone https://github.com/NethermindEth/EVMYulLean /tmp/evmyul
   - git -C /tmp/evmyul checkout "$EVMYUL_COMMIT"
   - (cd /tmp/evmyul && lake exe cache get && lake build)

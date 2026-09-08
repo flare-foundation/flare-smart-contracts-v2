@@ -336,6 +336,16 @@ scope matter. Lean refinement retains explicit crypto, setup and composition
 premises and declared local semantic axioms; absence of `sorry` is not an
 assumption-free full-contract proof.
 
+The literal Lean acceptance bridge is specifically unverified: the pinned Yul
+`STATICCALL` handler dispatches an ordinary account instead of the address-1
+precompile and clears caller calldata on return. Relay reads its voter record
+after that call. Recovery premises with preserved caller calldata are therefore
+an unresolved model interface, not established executable precompile behavior.
+Reachable-state composition and any recovery-seam witnesses do not close that
+interface. This limits the Lean refinement claim, not the independent abstract
+accounting or bounded bytecode checks. See the
+[refinement scope](relay-verification/07-R4b-bytecode-refinement.md).
+
 The sequential storage snapshot is the first-deployment baseline. It excludes
 ERC-7201 and transient namespaces; current concrete namespace tests help, but
 future upgrades need review of those namespaces, inherited layout, types and
