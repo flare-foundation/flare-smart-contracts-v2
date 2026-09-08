@@ -61,7 +61,7 @@ round-zero correctness edges.
   address-1 precompile and clears caller calldata on an ordinary-account
   return. Recovery-output premises do not establish that this call is
   executable with Relay's required caller frame. See
-  [`07-R4b-bytecode-refinement.md`](07-R4b-bytecode-refinement.md).
+  [open gap RLY-FV-GAP-01 and its closure criteria](07-R4b-bytecode-refinement.md#open-gap-rly-fv-gap-01-recovery-call-execution).
 - solc's Yul-to-bytecode lowering is not verified unboundedly; artifact parity
   and bounded bytecode execution narrow this seam.
 - Certora local evidence is front-end validation only. Cloud claims require a

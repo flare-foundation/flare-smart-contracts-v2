@@ -56,6 +56,12 @@ the bundle.
 The manifest is authoritative for the exact harness, theorem, and rule
 inventory; representative names above are navigation aids.
 
+The literal recovery-call bridge is tracked as
+[open gap RLY-FV-GAP-01](07-R4b-bytecode-refinement.md#open-gap-rly-fv-gap-01-recovery-call-execution).
+Passing the conditional Lean checks and aggregate bundle does not close that
+gap. Its entry defines the scope, verification impact, and required closure
+evidence; it is not a completed assurance objective in this matrix.
+
 The storage snapshot is the current first-deployment sequential Solidity layout.
 The comparison is a future-upgrade review tripwire: a slot, offset, order, or
 type change in the compiler-emitted `storageLayout` output is rejected until

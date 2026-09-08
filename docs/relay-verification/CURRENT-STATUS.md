@@ -90,12 +90,14 @@ Token-mode fee evidence assumes a standard exact-transfer ERC-20, and Lean's
 fee model is native-only. A fixture that assumes an input condition proves only
 the corresponding conditional claim.
 
-Lean's literal-loop acceptance bridge remains unverified. The pinned Yul
-`STATICCALL` handler neither models the address-1 precompile nor preserves
-caller calldata on an ordinary-account return. Conditional recovery premises
+Lean's literal-loop acceptance bridge remains unverified under open gap
+[`RLY-FV-GAP-01`](07-R4b-bytecode-refinement.md#open-gap-rly-fv-gap-01-recovery-call-execution).
+The pinned Yul `STATICCALL` handler neither models the address-1 precompile nor
+preserves caller calldata on an ordinary-account return. Conditional recovery premises
 therefore cannot be read as an established executable precompile model. The
 abstract accounting theorem and bounded bytecode checks are separate evidence.
-See [`07-R4b-bytecode-refinement.md`](07-R4b-bytecode-refinement.md).
+A passing release-eligible bundle does not close this gap; its impact and
+objective closure criteria are documented in the linked gap entry.
 
 ## How to obtain the verdict
 

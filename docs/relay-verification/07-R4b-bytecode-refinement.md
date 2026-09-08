@@ -38,7 +38,10 @@ they do not derive that fact by extracting an arbitrary accepted execution.
 An exact natural-number tally additionally needs the stated no-wrap bound, not
 only equality after conversion into a 256-bit word.
 
-## Recovery-call model boundary
+## Open gap RLY-FV-GAP-01: recovery-call execution
+
+Status: open. This gap concerns the literal recovery-call execution bridge in
+the pinned Lean model, not a demonstrated vulnerability in Relay bytecode.
 
 The pinned EVMYulLean **Yul** `STATICCALL` handler looks up an ordinary account
 and calls its dispatcher; it does not invoke Ethereum's address-1 precompile.
@@ -67,6 +70,33 @@ are not a full-parser acceptance witness or a real ECDSA test vector.
 This is a verification-model limitation, not evidence of a Relay runtime defect.
 Halmos checks and the concrete precompile ABI tests exercise compiled bytecode
 through their respective EVM models and do not rely on this Lean call handler.
+
+### Effect on verification results
+
+The Lean gate and aggregate bundle can pass while this gap remains open. They
+check the declared conditional theorems, scoped witnesses, axiom inventory, and
+source/tool provenance. `release_eligible = true` does not establish faithful
+precompile execution or close this gap. Neither that flag nor the oracle witness
+supports a claim of unconditional end-to-end Relay verification.
+
+### Closure criteria
+
+Closing RLY-FV-GAP-01 requires all of the following:
+
+1. Review and pin call semantics that preserve the caller frame, including its
+   calldata, and specify address-1 recovery success/failure, return data, and
+   output-memory behavior. Cryptographic security may remain an explicit
+   assumption; caller-frame correctness must not be hidden in that assumption.
+2. Derive the literal-body recovery interface (`recHypothesis`) from that pinned
+   call handler, rather than substituting a separate recovery oracle.
+3. Kernel-check a concrete, nonempty accepting execution of the complete literal
+   body through that handler without an execution-success premise, and add
+   caller-frame and recovery-failure regression checks.
+4. Regenerate the affected theorem, axiom, artifact/provenance, and aggregate
+   evidence against the reviewed pin and one clean committed source tree.
+
+These criteria close this call bridge only. The other composition boundaries
+below, cryptographic assumptions, and compiler trust remain separate obligations.
 
 ## Remaining composition boundary
 

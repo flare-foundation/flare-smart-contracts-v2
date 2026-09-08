@@ -344,7 +344,9 @@ an unresolved model interface, not established executable precompile behavior.
 Reachable-state composition and any recovery-seam witnesses do not close that
 interface. This limits the Lean refinement claim, not the independent abstract
 accounting or bounded bytecode checks. See the
-[refinement scope](relay-verification/07-R4b-bytecode-refinement.md).
+[open gap RLY-FV-GAP-01](relay-verification/07-R4b-bytecode-refinement.md#open-gap-rly-fv-gap-01-recovery-call-execution)
+for its verification impact and closure criteria. This is a model limitation,
+not a demonstrated Relay runtime vulnerability; a passing bundle does not close it.
 
 The sequential storage snapshot is the first-deployment baseline. It excludes
 ERC-7201 and transient namespaces; current concrete namespace tests help, but
