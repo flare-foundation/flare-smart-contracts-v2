@@ -165,7 +165,10 @@ contract RelayStateFrameFV is RelayTestBase {
         (bool queueObservationOk, bytes memory queueObservation) = address(relay).staticcall(
             abi.encodeCall(relay.getExecuteTimelockedCallTimestamp, (sampledQueuedCall))
         );
-        return keccak256(
+        // Hashed in two halves: this harness inherits RelayTestBase, whose import closure includes a
+        // contracts/mock source pinned to viaIR off, so forge compiles it with the legacy codegen; a
+        // single 14-value abi.encode is "stack too deep" there.
+        bytes32 identity = keccak256(
             abi.encode(
                 relay.owner(),
                 relay.implementation(),
@@ -173,7 +176,12 @@ contract RelayStateFrameFV is RelayTestBase {
                 relay.sourceChainId(),
                 relay.feeCollectionAddress(),
                 relay.feeToken(),
-                relay.protocolFee(7),
+                relay.protocolFee(7)
+            )
+        );
+        return keccak256(
+            abi.encode(
+                identity,
                 relay.feeExemptAddress(SAMPLED_ACCOUNT),
                 address(relay.oldRelay()),
                 relay.initialRewardEpochId(),

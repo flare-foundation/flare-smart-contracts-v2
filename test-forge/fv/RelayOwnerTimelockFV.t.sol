@@ -281,39 +281,52 @@ contract RelayOwnerTimelockFV is RelayOwnerTimelockFVBase {
         RelayTimelockCallerFV executor = new RelayTimelockCallerFV();
         bytes memory encodedCall = abi.encodeCall(relay.setFeeCollectionAddress, (recipient));
 
-        (bool queueOk,) = address(relay).call(encodedCall);
-        assert(queueOk);
+        // Each phase's call results live in their own block: `forge coverage` compiles without viaIR,
+        // and the legacy codegen cannot reach past 16 live stack slots.
+        {
+            (bool queueOk,) = address(relay).call(encodedCall);
+            assert(queueOk);
+        }
         uint256 recordedEta = _recordedEta(relay, encodedCall);
         bytes memory transferCall = abi.encodeCall(relay.transferOwnership, (address(newOwner)));
-        (bool transferQueueOk,) = address(relay).call(transferCall);
-        assert(transferQueueOk);
+        {
+            (bool transferQueueOk,) = address(relay).call(transferCall);
+            assert(transferQueueOk);
+        }
         uint256 transferEta = _recordedEta(relay, transferCall);
         assert(transferEta == recordedEta);
         assert(relay.owner() == address(this));
 
         vm.warp(transferEta - 1);
-        (bool earlyTransferOk,) =
-            executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
-        assert(!earlyTransferOk);
-        assert(relay.owner() == address(this));
-        assert(_recordedEta(relay, transferCall) == transferEta);
+        {
+            (bool earlyTransferOk,) =
+                executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
+            assert(!earlyTransferOk);
+            assert(relay.owner() == address(this));
+            assert(_recordedEta(relay, transferCall) == transferEta);
+        }
 
         vm.warp(transferEta);
-        (bool transferExecuteOk,) =
-            executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
-        assert(transferExecuteOk);
-        (bool transferStillQueued,) = _queuedAt(relay, transferCall);
-        assert(!transferStillQueued);
-        (bool transferReplayOk,) =
-            executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
-        assert(!transferReplayOk);
+        {
+            (bool transferExecuteOk,) =
+                executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
+            assert(transferExecuteOk);
+            (bool transferStillQueued,) = _queuedAt(relay, transferCall);
+            assert(!transferStillQueued);
+            (bool transferReplayOk,) =
+                executor.callTarget(address(relay), abi.encodeCall(relay.executeTimelockedCall, (transferCall)));
+            assert(!transferReplayOk);
+        }
 
-        (bool oldOwnerCancelOk,) = address(relay).call(abi.encodeCall(relay.cancelTimelockedCall, (encodedCall)));
-        (bool queuedAfterTransfer, uint256 preservedEta) = _queuedAt(relay, encodedCall);
+        {
+            (bool oldOwnerCancelOk,) =
+                address(relay).call(abi.encodeCall(relay.cancelTimelockedCall, (encodedCall)));
+            (bool queuedAfterTransfer, uint256 preservedEta) = _queuedAt(relay, encodedCall);
 
-        assert(relay.owner() == address(newOwner));
-        assert(!oldOwnerCancelOk);
-        assert(queuedAfterTransfer && preservedEta == recordedEta);
+            assert(relay.owner() == address(newOwner));
+            assert(!oldOwnerCancelOk);
+            assert(queuedAfterTransfer && preservedEta == recordedEta);
+        }
 
         vm.warp(recordedEta);
         (bool executeOk,) =
