@@ -387,8 +387,10 @@ test-fv-bundle:
 # still builds but acquired a `sorry` passes `lake` yet fails this gate. See docs/relay-verification/00-README.md.
 test-fv-lean:
   needs: []
-  timeout: 60 minutes
-  tags: [ flarenetwork-md ]
+  # Elaborating RelayBodyEff.lean is OOM-killed (exit 137) on the md runner; lg-cpu has 16gb RAM. The
+  # longer wall covers the dependency setup plus that file's proofs on one runner.
+  timeout: 90 minutes
+  tags: [ flarenetwork-lg-cpu ]
   image: python:3.11.6-bookworm@sha256:ba7a7ac30c38e119c4304f98ef0e188f90f4f67a958bb6899da9defb99bfb471
   variables:
     # Keep the pinned Lean toolchain outside the checkout so the provenance gate starts and ends clean.
@@ -424,10 +426,12 @@ test-fv-lean:
   - /tmp/elan-init -y --default-toolchain none
   - export PATH="$ELAN_HOME/bin:$PATH"
   - export EVMYUL_COMMIT="$(python3 -c 'import json; print(json.load(open("test-forge/fv/verification-manifest.json"))["toolchain"]["evmyullean_commit"])')"
-  # Build the pinned semantics; cache get pulls prebuilt Mathlib+deps oleans, then build EvmYul.
+  # Only materialize the pinned semantics' dependencies and pull the prebuilt Mathlib+deps oleans here.
+  # verify_lean.py builds EvmYul itself (`lake exe cache get && lake clean && lake build EvmYul`, recorded
+  # in the report's provenance), so a `lake build` at this point would only be repeated from clean.
   - git clone https://github.com/NethermindEth/EVMYulLean /tmp/evmyul
   - git -C /tmp/evmyul checkout "$EVMYUL_COMMIT"
-  - (cd /tmp/evmyul && lake exe cache get && lake build)
+  - (cd /tmp/evmyul && lake exe cache get)
   script:
   - export PATH="$ELAN_HOME/bin:$PATH"
   - EVMYUL_DIR=/tmp/evmyul python3 test-forge/fv/lean/verify_lean.py --report-output verification-reports/relay-lean.json
