@@ -387,8 +387,9 @@ test-fv-bundle:
 # still builds but acquired a `sorry` passes `lake` yet fails this gate. See docs/relay-verification/00-README.md.
 test-fv-lean:
   needs: []
-  # Elaborating RelayBodyEff.lean is OOM-killed (exit 137) on the md runner; lg-cpu has 16gb RAM. The
-  # longer wall covers the dependency setup plus that file's proofs on one runner.
+  # RelayBodyEff.lean was OOM-killed (exit 137) on both the md and the 16gb lg-cpu runner because Lean
+  # 4.22 elaborates theorem bodies in parallel by default. verify_lean.py disables that parallelism;
+  # the complete gate then peaks at ~7.8 GB, so retain the larger runner for safe memory headroom.
   timeout: 90 minutes
   tags: [ flarenetwork-lg-cpu ]
   image: python:3.11.6-bookworm@sha256:ba7a7ac30c38e119c4304f98ef0e188f90f4f67a958bb6899da9defb99bfb471

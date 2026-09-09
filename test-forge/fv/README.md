@@ -192,6 +192,14 @@ lake exe cache get && lake clean && lake build EvmYul           # Lean 4.22.0
 cp <repo>/test-forge/fv/lean/RelaySigLoop.lean . && lake env lean RelaySigLoop.lean   # exit 0
 ```
 
+`verify_lean.py` runs every proof with `-DElab.async=false`: Lean 4.22's command line otherwise elaborates
+theorem bodies in parallel across the available cores, and `RelayBodyEff.lean` exceeded the 16 GB CI
+runner. Sequential elaboration completed the full gate with a measured peak child RSS of 7,837 MB; the
+gate prints the cumulative peak after each file and remains on the larger CI runner for memory headroom.
+Do not use Lean 4.22's advertised `-M`/`--memory` flag for this pin: upstream
+[lean4#9879](https://github.com/leanprover/lean4/issues/9879) makes it fail with an unknown
+`max_memory` option instead of enforcing a limit.
+
 ---
 
 ## 4. Certora

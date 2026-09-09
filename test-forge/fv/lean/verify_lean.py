@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import resource
 import subprocess
 import sys
 from pathlib import Path
@@ -42,8 +43,26 @@ INTEGRATION_DEPS = ["DataLayer", "RelayLoopWindows", "RelayLoopLiteral", "RelayS
 FORBIDDEN_SOURCE_TOKENS = ("sorry", "admit", "native_decide")
 
 
+# Lean 4.22's command-line frontend turns `Elab.async` on unless the caller sets it, so theorem bodies
+# elaborate in parallel across every core. RelayBodyEff.lean carries several proofs under
+# `maxHeartbeats 4000000`; elaborating them concurrently exceeded the memory of a 16 GB CI runner
+# (OOM-killed, exit 137, no report). Sequential elaboration bounds the peak to one proof at a time.
+LEAN_OPTIONS = ["-DElab.async=false"]
+
+
 def run(command: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False)
+
+
+def lean_command(source: Path, *extra: str) -> list[str]:
+    """`lake env lean` for one proof source, with asynchronous elaboration disabled."""
+    return ["lake", "env", "lean", f"--root={source.parent}", str(source), *extra, *LEAN_OPTIONS]
+
+
+def peak_child_rss_mb() -> int:
+    """Largest resident set of any finished child so far (Linux reports KiB, macOS bytes)."""
+    peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+    return peak // (1024 * 1024) if sys.platform == "darwin" else peak // 1024
 
 
 def strip_lean_comments(source: str) -> str:
@@ -361,8 +380,11 @@ def main() -> int:
         for name in [ABSTRACT] + STANDALONE:
             print(f"[lean-fv] checking {name} ...", flush=True)
             source_path, source_record = sources[name]
-            completed = run(
-                ["lake", "env", "lean", f"--root={source_path.parent}", str(source_path)], cwd=evmyul
+            completed = run(lean_command(source_path), cwd=evmyul)
+            print(
+                f"[lean-fv] {name} exited {completed.returncode}; "
+                f"peak child RSS so far {peak_child_rss_mb()} MB",
+                flush=True,
             )
             record, problems = audit_lean_output(source_path, completed, source_record, allowed_axioms)
             report_files[name] = record
@@ -373,11 +395,7 @@ def main() -> int:
         for dependency in INTEGRATION_DEPS:
             dependency_path = sources[f"{dependency}.lean"][0]
             compiled = run(
-                [
-                    "lake", "env", "lean", f"--root={dependency_path.parent}", str(dependency_path),
-                    "-o", str(library / f"{dependency}.olean"),
-                ],
-                cwd=evmyul,
+                lean_command(dependency_path, "-o", str(library / f"{dependency}.olean")), cwd=evmyul
             )
             if compiled.returncode != 0:
                 all_problems.append(
@@ -387,8 +405,11 @@ def main() -> int:
 
         print(f"[lean-fv] checking {INTEGRATION} ...", flush=True)
         source_path, source_record = sources[INTEGRATION]
-        completed = run(
-            ["lake", "env", "lean", f"--root={source_path.parent}", str(source_path)], cwd=evmyul
+        completed = run(lean_command(source_path), cwd=evmyul)
+        print(
+            f"[lean-fv] {INTEGRATION} exited {completed.returncode}; "
+            f"peak child RSS so far {peak_child_rss_mb()} MB",
+            flush=True,
         )
         record, problems = audit_lean_output(source_path, completed, source_record, allowed_axioms)
         report_files[INTEGRATION] = record

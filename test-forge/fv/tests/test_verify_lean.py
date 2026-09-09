@@ -185,20 +185,38 @@ class LeanGateTest(unittest.TestCase):
                 self.assertEqual(verify_lean.main(), 0)
                 self.assertEqual(prepare.call_count, 2)
 
+            # Every proof process elaborates sequentially; the parallel default blew a 16 GB runner.
+            sequential = "-DElab.async=false"
             expected = [
-                ["lake", "env", "lean", f"--root={sources[name].parent}", str(sources[name])]
+                ["lake", "env", "lean", f"--root={sources[name].parent}", str(sources[name]), sequential]
                 for name in [verify_lean.ABSTRACT] + verify_lean.STANDALONE
             ]
             expected.extend([
                 "lake", "env", "lean", f"--root={sources[f'{dependency}.lean'].parent}",
                 str(sources[f"{dependency}.lean"]),
-                "-o", str(evmyul / ".lake/build/lib/lean" / f"{dependency}.olean"),
+                "-o", str(evmyul / ".lake/build/lib/lean" / f"{dependency}.olean"), sequential,
             ] for dependency in verify_lean.INTEGRATION_DEPS)
             integration = sources[verify_lean.INTEGRATION]
-            expected.append(["lake", "env", "lean", f"--root={integration.parent}", str(integration)])
+            expected.append(
+                ["lake", "env", "lean", f"--root={integration.parent}", str(integration), sequential]
+            )
             self.assertEqual(commands, expected * 2)
             self.assertEqual(list(evmyul.glob("*.lean")), [])
             self.assertEqual({source: source.read_bytes() for source in sources.values()}, originals)
+
+    def test_lean_command_disables_async_elaboration(self) -> None:
+        source = Path("/proofs/bytecode-refinement/RelayBodyEff.lean")
+        self.assertEqual(
+            verify_lean.lean_command(source),
+            ["lake", "env", "lean", "--root=/proofs/bytecode-refinement", str(source), "-DElab.async=false"],
+        )
+        self.assertEqual(
+            verify_lean.lean_command(source, "-o", "/out/RelayBodyEff.olean"),
+            [
+                "lake", "env", "lean", "--root=/proofs/bytecode-refinement", str(source),
+                "-o", "/out/RelayBodyEff.olean", "-DElab.async=false",
+            ],
+        )
 
     def test_clean_build_still_rejects_dirty_dependency_sources(self) -> None:
         provenance = {"packages": [], "problems": [], "release_eligible": True}
