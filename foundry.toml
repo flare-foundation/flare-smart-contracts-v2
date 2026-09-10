@@ -232,3 +232,10 @@ paths = "contracts/utils/implementation/Create3Factory.sol"
 via_ir = true
 optimizer_runs = 200
 bytecode_hash = "None"
+
+# The Relay deploy scripts only compile with viaIR (stack too deep in legacy codegen). They used
+# to ride along in the factory-pin job because the deploy tests imported Create3Factory; those
+# tests now reach the factory through its artifact, so pin the scripts explicitly.
+[[profile.coverage.compilation_restrictions]]
+paths = "deployment/scripts/relay/*.sol"
+via_ir = true

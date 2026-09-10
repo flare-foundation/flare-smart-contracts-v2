@@ -5,7 +5,12 @@ pragma solidity ^0.8.35;
 
 import {Test} from "forge-std/Test.sol";
 import {RelayDeployBase} from "../../../deployment/scripts/relay/RelayDeployBase.s.sol";
-import {Create3Factory} from "../../../contracts/utils/implementation/Create3Factory.sol";
+// Never import the concrete Create3Factory here: it is pinned to bytecode_hash = "None" and solc's
+// metadata setting is per compilation job, so importing it next to the deploy scripts strips the
+// metadata hash from the Relay artifacts the scripts deploy (see deployment/scripts/ICreate3Factory.sol).
+// The tests deploy the FROZEN initcode (as production does); only the compile-vs-pin assertions read
+// the compiled factory, through its artifact.
+import {ICreate3Factory} from "../../../deployment/scripts/ICreate3Factory.sol";
 
 /// Concrete handle exposing the deploy base's internal helpers/constants to the test.
 contract RelayDeployBaseHarness is RelayDeployBase {
@@ -102,7 +107,7 @@ contract RelayDeployAddressTest is Test {
         // that moves the factory address on every not-yet-deployed chain. Decide deliberately
         // (see deployment/create3/README.md), then update the frozen file, the pin and this test.
         assertEq(
-            keccak256(type(Create3Factory).creationCode),
+            keccak256(_compiledFactoryCreationCode()),
             CANONICAL_INITCODE_KECCAK,
             "compiled Create3Factory creation code drifted from the frozen pin"
         );
@@ -151,13 +156,7 @@ contract RelayDeployAddressTest is Test {
     function test_factoryRuntimeCodehashPinned() public {
         // Deploy the FROZEN initcode and hash the runtime it produces — the pin guards what the
         // canonical factory address must actually carry on every chain.
-        bytes memory initCode = harness.frozenInitCode();
-        address deployed;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            deployed := create(0, add(initCode, 0x20), mload(initCode))
-        }
-        assertTrue(deployed != address(0), "frozen initcode failed to deploy");
+        address deployed = _deployFrozenFactory();
         assertEq(
             deployed.codehash,
             harness.factoryRuntimeCodehash(),
@@ -165,7 +164,7 @@ contract RelayDeployAddressTest is Test {
         );
         // The freshly compiled factory still produces identical runtime code (no-metadata
         // profile) — same invariant as test_frozenInitCodeMatchesCompiledFactory, runtime side.
-        assertEq(keccak256(address(new Create3Factory()).code), harness.factoryRuntimeCodehash());
+        assertEq(keccak256(_deployCompiledFactory().code), harness.factoryRuntimeCodehash());
     }
 
     function test_arachnidCodehashPinned() public view {
@@ -224,16 +223,43 @@ contract RelayDeployAddressTest is Test {
     function test_create3AddressIsInitcodeIndependent() public {
         // The factory's CREATE3 address depends only on (factory, deployer, salt) — not on the
         // deployed initcode. This is what makes the mirror address reusable across chains.
-        Create3Factory factory = new Create3Factory();
+        ICreate3Factory factory = ICreate3Factory(_deployFrozenFactory());
         address deployer = address(0xD1);
         bytes32 salt = keccak256("test-salt");
         address predicted = factory.computeAddress(deployer, salt);
 
+        // Any initcode works as payload; the frozen factory bytes are simply a handy non-trivial one.
+        // Fetched BEFORE the prank: the harness call is external and would otherwise consume it.
+        bytes memory payload = harness.frozenInitCode();
         vm.prank(deployer);
-        address deployed = factory.deploy(salt, type(Create3Factory).creationCode);
+        address deployed = factory.deploy(salt, payload);
         assertEq(deployed, predicted, "CREATE3 address must match computeAddress regardless of initcode");
 
         // A different deployer with the same salt gets a different address (deployer-scoped salt).
         assertTrue(factory.computeAddress(address(0xD2), salt) != predicted);
+    }
+
+    /// Deploys the FROZEN factory initcode (what DeployCreate3Factory ships) into the test VM.
+    function _deployFrozenFactory() internal returns (address _factory) {
+        return _deployInitCode(harness.frozenInitCode(), "frozen factory initcode failed to deploy");
+    }
+
+    /// Creation code of the FRESHLY COMPILED Create3Factory, read from its artifact — used only by the
+    /// compile-vs-pin assertions, whose whole purpose is to compare the current compiler output with
+    /// the frozen file. (The factory has a single compiler-profile variant, so the lookup is unambiguous.)
+    function _compiledFactoryCreationCode() internal view returns (bytes memory) {
+        return vm.getCode("Create3Factory.sol:Create3Factory");
+    }
+
+    function _deployCompiledFactory() internal returns (address) {
+        return _deployInitCode(_compiledFactoryCreationCode(), "compiled factory failed to deploy");
+    }
+
+    function _deployInitCode(bytes memory _initCode, string memory _err) internal returns (address _deployed) {
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            _deployed := create(0, add(_initCode, 0x20), mload(_initCode))
+        }
+        require(_deployed != address(0), _err);
     }
 }

@@ -28,6 +28,16 @@ extends that stability across *future* commits, which is what a "same address on
 years later" factory needs. A deliberate solc/optimizer/code change is still expected to change
 the address (and requires a re-freeze).
 
+Because solc's metadata setting is per **compilation job**, nothing that is compiled alongside the
+deploy scripts may import `Create3Factory.sol` — neither the scripts themselves nor the Forge tests
+that exercise them. An importer drags the whole job (including `Relay`/`RelayProxy`) into the
+`no-metadata` profile, and `forge script` then deploys metadata-free bytecode that the explorer can
+only verify as a partial match. Scripts call the factory through `deployment/scripts/ICreate3Factory.sol`;
+tests deploy the frozen initcode (`_frozenFactoryInitCode()`) exactly as production does, and only the
+compile-vs-pin assertions read the compiled factory, through its artifact
+(`vm.getCode("Create3Factory.sol:Create3Factory")`). `RelayDeployAddress.t.sol` and `RelayDeployFlow.t.sol`
+show the pattern.
+
 Deploy scripts read these committed bytes and deploy them verbatim; they never compile the
 factory afresh. [`RelayDeployBase`](../scripts/relay/RelayDeployBase.s.sol) pins the hash in
 `FACTORY_INITCODE_KECCAK` and refuses to proceed if the file's hash drifts.

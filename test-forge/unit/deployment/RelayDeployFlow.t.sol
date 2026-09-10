@@ -13,13 +13,20 @@ import {
 } from "../../../deployment/scripts/relay/DeployRelayHome.s.sol";
 import {IRelay} from "../../../contracts/userInterfaces/IRelay.sol";
 import {IIRelay} from "../../../contracts/protocol/interface/IIRelay.sol";
-import {Create3Factory} from "../../../contracts/utils/implementation/Create3Factory.sol";
+// Never import the concrete Create3Factory here (metadata stripping of the co-compiled deploy
+// scripts and Relay artifacts — see deployment/scripts/ICreate3Factory.sol); the factory is deployed
+// from the frozen initcode instead, exactly as in production.
+import {ICreate3Factory} from "../../../deployment/scripts/ICreate3Factory.sol";
 import {Relay} from "../../../contracts/protocol/implementation/Relay.sol";
 
 /// Exposes the deploy base's internal helpers so the flow can be driven from a test.
 contract FlowHarness is RelayDeployBase {
     function factoryAddress() external pure returns (address) {
         return _factoryAddress();
+    }
+
+    function frozenInitCode() external view returns (bytes memory) {
+        return _frozenFactoryInitCode();
     }
 
     function relayProxySalt(uint256 _sourceChainId) external pure returns (bytes32) {
@@ -165,15 +172,22 @@ contract RelayDeployFlowTest is Test {
         // factory.deploy(), so it is the deployer of record here (the broadcast EOA in the
         // real scripts). Aligning the two keeps computeAddress() and deploy() consistent.
         deployer = address(harness);
-        // Etch the canonical factory address with real Create3Factory code.
-        Create3Factory factory = new Create3Factory();
-        vm.etch(harness.factoryAddress(), address(factory).code);
+        // Etch the canonical factory address with the runtime the FROZEN initcode produces — the
+        // exact bytes DeployCreate3Factory ships, so the flow runs against the production factory.
+        bytes memory initCode = harness.frozenInitCode();
+        address factory;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            factory := create(0, add(initCode, 0x20), mload(initCode))
+        }
+        require(factory != address(0), "frozen factory initcode failed to deploy");
+        vm.etch(harness.factoryAddress(), factory.code);
     }
 
     /// The chain-invariant address every deployment of the given source (home or mirror, on any
     /// chain) must land at.
     function _predictedRelayAddress(uint256 _sourceChainId) internal view returns (address) {
-        return Create3Factory(harness.factoryAddress()).computeAddress(
+        return ICreate3Factory(harness.factoryAddress()).computeAddress(
             deployer, harness.relayProxySalt(_sourceChainId)
         );
     }
@@ -378,7 +392,7 @@ contract RelayDeployFlowTest is Test {
         // own computeAddress — the deploy-time cross-check can therefore never fail spuriously.
         assertEq(
             harness.predictedRelayAddress(deployer, SOURCE_CHAIN),
-            Create3Factory(harness.factoryAddress()).computeAddress(
+            ICreate3Factory(harness.factoryAddress()).computeAddress(
                 deployer, harness.relayProxySalt(SOURCE_CHAIN)
             ),
             "local CREATE3 prediction must equal the factory's computeAddress"
