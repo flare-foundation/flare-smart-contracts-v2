@@ -9,6 +9,7 @@ import {IGovernanceSettings} from
 import {IFlareContractRegistry} from
     "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
 import {IDiamond} from "../../contracts/diamond/interfaces/IDiamond.sol";
+import {AddressUpdatable} from "../../contracts/utils/implementation/AddressUpdatable.sol";
 import {IIFlareTeeManager} from
     "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import {FlareTeeManager} from
@@ -955,6 +956,7 @@ contract DeployTeeContracts is Script {
         _wireFlareTeeManager();
         _wireFdc2Hub();
         _wireFdc2Verification();
+        _wireFdc2RequestFeeConfigurations();
         _wireFdc2InflationConfigurations();
         _wireFdc2RewardOffersManager();
         _wireTeePaymentsConfigVerifier();
@@ -963,6 +965,7 @@ contract DeployTeeContracts is Script {
         _wireTeeRewardOffersManager();
         _wireTeePaymentsFeeScheduleManager();
         _wireTeePaymentsRegistry();
+        _verifyAddressUpdaterHandover();
     }
 
     function _wireTeePaymentsRegistry() internal {
@@ -1020,6 +1023,17 @@ contract DeployTeeContracts is Script {
         addrs[1] = flareTeeManagerAddress;
         addrs[2] = relay;
         Fdc2Verification(fdc2VerificationAddr)
+            .updateContractAddresses(names, addrs);
+    }
+
+    function _wireFdc2RequestFeeConfigurations() internal {
+        // No upstream dependencies; the call only hands the address updater over from the
+        // deployer to the real AddressUpdater (see _verifyAddressUpdaterHandover).
+        bytes32[] memory names = new bytes32[](1);
+        names[0] = _encodeContractName("AddressUpdater");
+        address[] memory addrs = new address[](1);
+        addrs[0] = addressUpdater;
+        Fdc2RequestFeeConfigurations(fdc2FeeAddr)
             .updateContractAddresses(names, addrs);
     }
 
@@ -1406,6 +1420,50 @@ contract DeployTeeContracts is Script {
         // AddressValidator (always deployed)
         AddressValidator(addressValidatorAddr)
             .switchToProductionMode();
+    }
+
+    // =========================================================================
+    // Post-wiring guard
+    // =========================================================================
+    /**
+     * Every proxy is deployed with the deployer as its address updater so the deployer can push
+     * the initial addresses directly; the `AddressUpdater` name in each wiring call then hands
+     * the role over to the real AddressUpdater. A contract missing from _wireUpContractAddresses
+     * would keep the deployer as its updater forever, so the run fails here instead.
+     */
+    function _verifyAddressUpdaterHandover()
+        internal view
+    {
+        address[11] memory fixedUpdatables = [
+            flareTeeManagerAddress,
+            fdc2HubAddr,
+            fdc2FeeAddr,
+            fdc2VerificationAddr,
+            fdc2InflationConfigurationsAddr,
+            fdc2RewardOffersManagerAddr,
+            teeRewardOffersManagerAddr,
+            teePaymentsFeeScheduleManagerAddr,
+            teePaymentsRegistryAddr,
+            teePaymentsConfigVerifierAddr,
+            addressValidatorAddr
+        ];
+        for (uint256 i = 0; i < fixedUpdatables.length; i++) {
+            _requireAddressUpdaterHandedOver(fixedUpdatables[i]);
+        }
+        for (uint256 i = 0; i < teePaymentsAddresses.length; i++) {
+            _requireAddressUpdaterHandedOver(teePaymentsAddresses[i]);
+        }
+    }
+
+    function _requireAddressUpdaterHandedOver(
+        address _updatable
+    )
+        internal view
+    {
+        require(
+            AddressUpdatable(_updatable).getAddressUpdater() == addressUpdater,
+            string.concat("address updater not handed over: ", vm.toString(_updatable))
+        );
     }
 
     // =========================================================================
