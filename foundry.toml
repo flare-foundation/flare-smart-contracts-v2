@@ -53,8 +53,11 @@ via_ir = false
 paths = "contracts/protocol/implementation/NodePossessionVerifier.sol"
 via_ir = false
 
+# ERC20Mock and RelayMainDeployed are deliberately NOT in this list: the Relay unit tests import
+# them, and pinning them would drag Relay/RelayProxy (and the FV suites) into a second, non-viaIR
+# compilation job — the deployed Relay is the viaIR build, and the tests should exercise that one.
 [[profile.default.compilation_restrictions]]
-paths = "contracts/mock/*.sol"
+paths = "contracts/mock/{CChainStake,CChainStakeBase,CChainStakeHistory,GovernanceVotePower,IIFlareSmartContracts,IIIFtsoRegistry,IIIPriceSubmitter,ImportContractMock,Imports,MockTeeGovernanceHashSetter,PChainStakeMirrorVerifier,SuicidalMock}.sol"
 via_ir = false
 
 # Foundry minimizes the compiler count by reusing a previously selected compatible version. The
