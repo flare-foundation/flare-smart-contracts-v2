@@ -291,6 +291,7 @@ contract VerificationFacetTest is Test {
     bytes32 private sourceId;
     uint32 private signingPolicyId;
     bytes32 private instructionId;
+    bytes32 private challenge;
 
     // Wallet-specific state
     bytes32 private walletId;
@@ -309,6 +310,7 @@ contract VerificationFacetTest is Test {
         signingPolicyId = 1;
         rewardEpochId = 1;
         instructionId = bytes32("instructionId");
+        challenge = keccak256("challenge");
 
         proof.requestBody.teeId = teeId;
         proof.responseBody.status = ITeeAvailabilityCheck.AvailabilityCheckStatus.OK;
@@ -317,6 +319,7 @@ contract VerificationFacetTest is Test {
         proof.header.sourceId = sourceId;
         proof.requestBody.teeProxyId = teeProxyId;
         proof.requestBody.url = url;
+        proof.requestBody.challenge = challenge;
         proof.responseBody.initialSigningPolicyId = signingPolicyId;
         proof.responseBody.codeHash = keccak256("codeHash");
         proof.responseBody.platform = keccak256("platform");
@@ -465,6 +468,10 @@ contract VerificationFacetTest is Test {
         // Set key state
         stateHelper.setKeyState(walletId, keyIds[0], publicKey, teeId, multisigThreshold);
 
+        // Outstanding challenge for the machine. challengeTs stays 0 so that the expiry
+        // arithmetic this suite relies on is unchanged.
+        stateHelper.setChallenge(teeId, challenge, 0);
+
         // Fund the test contract (sender of requestTeeAttestation) for the non-zero instruction fee.
         vm.deal(address(this), 1 ether);
     }
@@ -492,15 +499,16 @@ contract VerificationFacetTest is Test {
 
     // requestTeeAttestation
     function testRequestTeeAttestation() public {
-        bytes32 challenge = bytes32(0);
+        // Inside the validity window the outstanding challenge is reused.
         vm.expectEmit();
         emit IVerification.TeeAttestationRequested(teeId, challenge);
         flareTeeManager.requestTeeAttestation{value: 1000}(teeId, address(0));
 
+        // Past it, a fresh one is minted.
         vm.warp(2 minutes);
-        challenge = keccak256(abi.encode(teeId, vm.getBlockTimestamp(), randomNumber));
+        bytes32 freshChallenge = keccak256(abi.encode(teeId, vm.getBlockTimestamp(), randomNumber));
         vm.expectEmit();
-        emit IVerification.TeeAttestationRequested(teeId, challenge);
+        emit IVerification.TeeAttestationRequested(teeId, freshChallenge);
         flareTeeManager.requestTeeAttestation{value: 1000}(teeId, address(0));
     }
 
@@ -868,7 +876,7 @@ contract VerificationFacetTest is Test {
             teeId: teeId,
             teeProxyId: teeProxyId,
             url: url,
-            challenge: bytes32(0),
+            challenge: challenge,
             instructionId: instructionId
         });
         IFdc2Hub.Fdc2AttestationRequest memory attestationRequest = IFdc2Hub.Fdc2AttestationRequest({

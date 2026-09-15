@@ -39,6 +39,10 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
         external payable
     {
         Verification.State storage s = Verification.getState();
+        // Checked ahead of the expiry arithmetic: a cleared challenge leaves `challengeTs` at zero,
+        // which still reads as unexpired until `block.timestamp` grows past the validity duration.
+        // Without this the diamond would build an FDC2 request carrying a zero challenge.
+        require(s.challenges[_teeId] != bytes32(0), NoOutstandingChallenge());
         require(
             s.challengeTs[_teeId] + s.challengeValidityDurationSeconds > block.timestamp,
             ChallengeExpired(s.challengeTs[_teeId])

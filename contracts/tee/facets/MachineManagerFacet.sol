@@ -232,6 +232,10 @@ contract MachineManagerFacet is IMachineManager {
         require(bytes(_url).length > 0, InvalidUrl());
         state.teeProxyId = _teeProxyId;
         state.url = _url;
+        // The machine's attested identity just changed, so any evidence gathered under the old
+        // identity must not be rewrappable into a request made under the new one. Dropping the
+        // challenge forces a fresh `requestTeeAttestation` before the machine can be attested again.
+        Verification.invalidateChallenge(_teeId);
         TeeStatus status = state.status;
         if (status == TeeStatus.PRODUCTION || status == TeeStatus.SUSPENDED) {
             MachineManager.changeStatus(_teeId, TeeStatus.PAUSED);

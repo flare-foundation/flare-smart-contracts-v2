@@ -146,7 +146,10 @@ Setting `_newOwner = address(0)` is how an owner cancels a previously-made propo
 function updateTeeMachineSettings(address _teeId, address _teeProxyId, string calldata _url) external;
 ```
 
-The owner can change the proxy address and URL anytime. **Side effect**: if the machine is `PRODUCTION` or `SUSPENDED`, the change forces it to `PAUSED` (the network needs a fresh availability check at the new endpoint before trusting it again). `INITIALIZED`, `PAUSED`, `BANNED` are unchanged.
+The owner can change the proxy address and URL anytime. **Side effects**:
+
+- If the machine is `PRODUCTION` or `SUSPENDED`, the change forces it to `PAUSED` (the network needs a fresh availability check at the new endpoint before trusting it again). `INITIALIZED`, `PAUSED`, `BANNED` are unchanged.
+- The machine's **outstanding challenge is invalidated** — `Verification.invalidateChallenge(teeId)` clears both `challenges[teeId]` and `challengeTs[teeId]` and emits `ChallengeInvalidated(teeId)`. This applies in every status, including the ones whose status is left alone. Until a fresh `requestTeeAttestation` issues a new challenge, `requestAvailabilityCheckAttestation` and every proof path revert with `NoOutstandingChallenge()`. See [Verification / Challenge invalidation](./Verification.md#challenge-invalidation) for why the proxy/URL change must take the challenge with it.
 
 ## Random selection
 

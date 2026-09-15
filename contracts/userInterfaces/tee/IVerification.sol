@@ -34,6 +34,10 @@ interface IVerification is ITeeCommonErrors {
         bytes32 challenge
     );
 
+    event ChallengeInvalidated(
+        address indexed teeId
+    );
+
     event AvailabilityCheckValidityExtended(
         address indexed teeId,
         address indexed owner,
@@ -43,6 +47,7 @@ interface IVerification is ITeeCommonErrors {
     error ChallengeExpired(uint256 challengeTs);
     error InvalidAttestation();
     error InvalidRequestBody();
+    error NoOutstandingChallenge();
 
     /**
      * Request attestation for a TEE machine.

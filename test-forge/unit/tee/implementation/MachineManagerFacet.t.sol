@@ -8,6 +8,7 @@ import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IMachineManager, TEE_MACHINE_REGISTER } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import {
+    IVerification,
     TEE_SOURCE_ID
 } from "../../../../contracts/userInterfaces/tee/IVerification.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
@@ -645,6 +646,77 @@ contract MachineManagerFacetTest is Test {
     // updateTeeMachineSettings
     // =========================================================================
 
+    /**
+     * Evidence gathered while the machine ran under its previous proxy id / url must not be
+     * rewrappable into a request made under the new ones. `updateTeeMachineSettings` drops the
+     * outstanding challenge, so the rewrapped proof - request body matching the new identity,
+     * header timestamp later than the settings change, and therefore past `lastStatusChangeTs` -
+     * no longer verifies.
+     */
+    function testUpdateTeeMachineSettingsInvalidatesChallenge() public {
+        testToProduction();
+        address rotatedProxyId = makeAddr("rotatedTeeProxyId");
+        string memory rotatedUrl = "rotatedUrl";
+
+        vm.prank(owner);
+        flareTeeManager.updateTeeMachineSettings(teeId, rotatedProxyId, rotatedUrl);
+        assert(flareTeeManager.getTeeMachineStatus(teeId) == IMachineManager.TeeStatus.PAUSED);
+
+        // The replacement proxy re-serves the machine's older attestation result under the new
+        // identity; the FDC2 request that wraps it lands after the settings change.
+        vm.warp(vm.getBlockTimestamp() + 1);
+        ITeeAvailabilityCheck.Proof memory rewrapped =
+            _createValidAvailabilityCheckProof(teeId, rotatedProxyId, rotatedUrl);
+        vm.warp(vm.getBlockTimestamp() + 1);
+
+        vm.prank(owner);
+        vm.expectRevert(IVerification.NoOutstandingChallenge.selector);
+        flareTeeManager.toProduction(rewrapped);
+    }
+
+    /// No availability check can even be requested until a fresh challenge has been issued.
+    function testUpdateTeeMachineSettingsBlocksAvailabilityRequest() public {
+        testToProduction();
+        vm.prank(owner);
+        flareTeeManager.updateTeeMachineSettings(teeId, makeAddr("rotatedTeeProxyId"), "rotatedUrl");
+
+        vm.expectRevert(IVerification.NoOutstandingChallenge.selector);
+        flareTeeManager.requestAvailabilityCheckAttestation{value: 1000}(
+            teeId, bytes32("instructionId"), address(0), address(0), address(0)
+        );
+    }
+
+    /**
+     * The machine still recovers: a fresh `requestTeeAttestation` mints a new challenge - it must
+     * not take the reuse branch on the cleared one - and a proof gathered under that challenge
+     * returns the machine to production.
+     */
+    function testUpdateTeeMachineSettingsChallengeReissued() public {
+        testToProduction();
+        address rotatedProxyId = makeAddr("rotatedTeeProxyId");
+        string memory rotatedUrl = "rotatedUrl";
+
+        vm.prank(owner);
+        flareTeeManager.updateTeeMachineSettings(teeId, rotatedProxyId, rotatedUrl);
+
+        vm.warp(vm.getBlockTimestamp() + 1);
+        bytes32 reissued = keccak256(abi.encode(teeId, vm.getBlockTimestamp(), randomNumber));
+        vm.expectEmit();
+        emit IVerification.TeeAttestationRequested(teeId, reissued);
+        flareTeeManager.requestTeeAttestation{value: 1000}(teeId, address(0));
+
+        // _createValidAvailabilityCheckProof derives the challenge from this timestamp.
+        registerTimestamps[teeId] = vm.getBlockTimestamp();
+        ITeeAvailabilityCheck.Proof memory proof =
+            _createValidAvailabilityCheckProof(teeId, rotatedProxyId, rotatedUrl);
+        vm.warp(vm.getBlockTimestamp() + 1);
+
+        vm.prank(owner);
+        vm.expectEmit();
+        emit IMachineManager.TeeMachineStatusChanged(teeId, IMachineManager.TeeStatus.PRODUCTION);
+        flareTeeManager.toProduction(proof);
+    }
+
     function testUpdateTeeMachineSettingsRevertOnlyOwner() public {
         vm.expectRevert(IMachineManager.TeeNotFound.selector);
         flareTeeManager.updateTeeMachineSettings(teeId, address(0), "newUrl");
@@ -670,10 +742,12 @@ contract MachineManagerFacetTest is Test {
         testRegister();
         vm.prank(owner);
         vm.expectEmit();
+        emit IVerification.ChallengeInvalidated(teeId);
+        vm.expectEmit();
         emit IMachineManager.TeeMachineSettingsUpdated(teeId, newTeeProxyIdLocal, newUrl);
         vm.recordLogs();
         flareTeeManager.updateTeeMachineSettings(teeId, newTeeProxyIdLocal, newUrl);
-        assertEq(vm.getRecordedLogs().length, 1); // no other events emitted
+        assertEq(vm.getRecordedLogs().length, 2); // challenge invalidation + settings update only
         IMachineManager.TeeMachine memory teeMachine = flareTeeManager.getTeeMachine(teeId);
         assertEq(teeMachine.teeProxyId, newTeeProxyIdLocal);
         assertEq(keccak256(bytes(teeMachine.url)), keccak256(bytes(newUrl)));

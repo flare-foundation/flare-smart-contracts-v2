@@ -81,6 +81,11 @@ library Verification {
             header.sourceId == TEE_SOURCE_ID,
             IVerification.InvalidAttestation()
         );
+        // A registered machine normally always carries a challenge, but `invalidateChallenge`
+        // clears it when the machine's attested identity changes. Reject explicitly instead of
+        // relying on the expiry arithmetic below, which only fails closed once `block.timestamp`
+        // has grown past `challengeValidityDurationSeconds`.
+        require(s.challenges[teeId] != bytes32(0), IVerification.NoOutstandingChallenge());
         require(
             header.timestamp < block.timestamp && header.timestamp >= s.challengeTs[teeId],
             ITeeCommonErrors.AvailabilityCheckTimestampInvalid()
@@ -167,9 +172,12 @@ library Verification {
      * Reuses a still-valid challenge for `_teeId` or generates a fresh one, builds the
      * `TEE_ATTESTATION` registration message from `_teeId`'s machine data, dispatches the
      * instruction, and emits `TeeAttestationRequested`.
-     * @dev At registration no challenge exists yet (`challengeTs == 0`), so on a real chain —
-     *      where `block.timestamp` far exceeds `challengeValidityDurationSeconds` — a fresh
-     *      challenge is always generated. Auth (who may request) is the caller's responsibility.
+     * @dev The reuse branch requires an actual outstanding challenge, not merely an unexpired
+     *      `challengeTs`: at registration, and after `invalidateChallenge`, both fields are zero,
+     *      and a zero `challengeTs` still reads as unexpired whenever `block.timestamp` has not yet
+     *      grown past `challengeValidityDurationSeconds`. Without the non-zero test such a call
+     *      would re-issue the attestation instruction under a zero challenge - i.e. no nonce at all.
+     *      Auth (who may request) is the caller's responsibility.
      */
     function requestTeeAttestation(
         address _teeId,
@@ -179,7 +187,9 @@ library Verification {
     {
         State storage s = getState();
         bytes32 challenge;
-        if (s.challengeTs[_teeId] + s.challengeValidityDurationSeconds > block.timestamp) {
+        if (s.challenges[_teeId] != bytes32(0) &&
+            s.challengeTs[_teeId] + s.challengeValidityDurationSeconds > block.timestamp)
+        {
             challenge = s.challenges[_teeId];
         } else {
             (uint256 randomNumber,,) = IRelay(ExternalAddresses.getState().relay).getRandomNumber();
@@ -211,6 +221,28 @@ library Verification {
             )
         );
         emit IVerification.TeeAttestationRequested(_teeId, challenge);
+    }
+
+    /**
+     * Invalidates the outstanding challenge for `_teeId`, if it has one.
+     * @dev Called whenever the machine's attested identity changes, so that evidence gathered
+     *      under the old identity cannot be rewrapped into a request made under the new one.
+     *      Both fields are cleared together: `requestTeeAttestation` branches on `challengeTs`
+     *      while `verifyAvailabilityCheckProof` matches `challenges`, so leaving them disagreeing
+     *      would re-issue the attestation instruction under a zero challenge - i.e. no nonce at all.
+     */
+    function invalidateChallenge(
+        address _teeId
+    )
+        internal
+    {
+        State storage s = getState();
+        if (s.challenges[_teeId] == bytes32(0)) {
+            return;
+        }
+        delete s.challenges[_teeId];
+        delete s.challengeTs[_teeId];
+        emit IVerification.ChallengeInvalidated(_teeId);
     }
 
     // False positive: slither sees the library alone, not its one `external payable` caller,

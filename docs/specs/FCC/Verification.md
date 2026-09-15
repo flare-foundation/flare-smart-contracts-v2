@@ -18,7 +18,7 @@ When a TEE machine registers ([Machine Lifecycle / Registration](./MachineLifecy
    s.challenges[_teeId] = challenge;
    s.challengeTs[_teeId] = block.timestamp;
    ```
-   `randomNumber` comes from `Relay.getRandomNumber()` — the FSP secure random. On registration a fresh challenge is always generated; the public re-attestation path reuses a still-valid challenge instead.
+   `randomNumber` comes from `Relay.getRandomNumber()` — the FSP secure random. The reuse branch requires an **outstanding** challenge (`challenges[teeId] != 0`) that is also still within `challengeValidityDurationSeconds`; otherwise a fresh one is minted. Both conditions matter: at registration, and after an invalidation, `challengeTs` is zero, and a zero `challengeTs` still reads as unexpired until `block.timestamp` grows past the validity duration — so testing the timestamp alone would re-issue the attestation instruction under a zero challenge, i.e. with no nonce at all.
 2. It emits an `F_REG / TEE_ATTESTATION` system instruction directed at the TEE, with the `TeeAttestation` message body containing the machine's data and the challenge.
 3. **Off-chain**: the TEE proxy forwards the instruction to the TEE machine, which:
    - Confirms the challenge is fresh (within the configured availability-check validity window).
@@ -40,6 +40,18 @@ If everything checks, `Verification.extendAvailability(proof)` updates the valid
 - `lastSigningPolicyId = proof.responseBody.lastSigningPolicyId` — the signing policy the machine last attested to; its freshness is bounded by `signingPolicyValidityDurationInRewardEpochs` (see `Verification.isSigningPolicyValid`).
 
 A machine whose availability check has expired (`endTs < block.timestamp`) can be permissionlessly suspended by anyone via `MachineManagerFacet.pause(teeId)` (see [Machine Lifecycle / Pausing](./MachineLifecycle.md#pausing)) — this is what keeps the network of attested machines fresh: TEE owners must re-attest periodically or risk being suspended. `pause` consults **only** `endTs`, not `lastSigningPolicyId`; a machine whose stored signing policy has gone stale can no longer re-attest (see the horizon below), so its `endTs` lapses on its own and it becomes suspendable through this same expiry path.
+
+### Challenge invalidation
+
+The challenge is a per-machine nonce, not a per-request one: `requestAvailabilityCheckAttestation` reuses whatever challenge is outstanding, so several FDC2 requests within one validity window all carry the same value. The freshness the contracts can check is therefore bounded by that window, and the proof's `header.timestamp` — which is the timestamp of the *request* block, a value every attester must agree on byte-for-byte to threshold-sign the same header — says when the check was asked for, not when the machine answered. (`ResponseBody.teeTimestamp` carries the enclave's own clock but is deliberately not consulted on chain, so validity never depends on a clock the contracts cannot bound.)
+
+That combination means evidence gathered under one machine identity could otherwise be re-wrapped into a later request made under a different one: the owner rotates `teeProxyId` / `url`, the replacement proxy re-serves the older attestation result, and the new request's `header.timestamp` clears both `challengeTs` and `lastStatusChangeTs` — returning a machine to `PRODUCTION` without showing that the new endpoint is alive.
+
+[`MachineManagerFacet.updateTeeMachineSettings`](../../../contracts/tee/facets/MachineManagerFacet.sol) therefore calls [`Verification.invalidateChallenge`](../../../contracts/tee/library/Verification.sol), which clears `challenges[teeId]` and `challengeTs[teeId]` together and emits `ChallengeInvalidated(teeId)`. Both fields go at once by necessity: `requestTeeAttestation` branches on `challengeTs` while `verifyAvailabilityCheckProof` matches `challenges`, so clearing only one would leave the two disagreeing — clearing just the challenge value would let the reuse branch hand out a zero nonce.
+
+"No outstanding challenge" is then an explicit, checked state rather than something inferred from timestamp arithmetic. `requestAvailabilityCheckAttestation` and `verifyAvailabilityCheckProof` both require `challenges[teeId] != 0` and revert `NoOutstandingChallenge()` otherwise, ahead of the expiry checks. The machine recovers normally: a fresh `requestTeeAttestation` mints a new challenge whose `challengeTs` necessarily post-dates the settings change, so every subsequent proof is pinned to evidence requested under the new identity.
+
+The residual, accepted: within a single challenge window and with no settings change, a cached response can still be re-submitted through a fresh request, because the nonce spans every request in that window. Closing that on chain would mean rotating the challenge per request, which anyone could use to grief an in-flight attestation — `requestAvailabilityCheckAttestation` is permissionless. The exposure is bounded by `challengeValidityDurationSeconds` (at most one hour, see [Verification settings](#verification-settings)) and only benefits the machine's own owner.
 
 ### Signing-policy freshness horizon
 
