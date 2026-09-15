@@ -1,5 +1,5 @@
 import { readFileSync, globSync } from "fs";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 
 // get network from command line argument (mandatory)
 const network = process.argv[2];
@@ -120,6 +120,15 @@ if (contracts.length === 0) {
 
 console.log(`Found ${contracts.length} TEE contract(s) to verify.`);
 
+// Blockscout's API is Etherscan-compatible, so its key travels in the same flag forge uses for
+// Etherscan. The Flare instances have taken keyless runs; set BLOCKSCOUT_API_KEY if an instance
+// starts rate-limiting a run.
+const blockscoutApiKey = process.env.BLOCKSCOUT_API_KEY;
+const explorerKeyArgs = blockscoutApiKey ? ["--etherscan-api-key", blockscoutApiKey] : [];
+if (!blockscoutApiKey) {
+  console.log("(no BLOCKSCOUT_API_KEY - keyless submissions may be rate-limited, depending on the instance)");
+}
+
 contracts.forEach((contract) => {
   const address = contract.address;
   const contractFile = contract.contractName;
@@ -134,16 +143,30 @@ contracts.forEach((contract) => {
     throw new Error(`Multiple contract files found for ${contractFile}: ${matches.join(", ")}`);
   }
   const contractPath = matches[0];
-  const verifyCmd = `forge verify-contract \
-    --rpc-url ${rpcUrl} \
-    --verifier ${verifier} \
-    --verifier-url ${verifierUrl} \
-    ${address} \
-    ${contractPath}:${contractName} \
-    --skip-is-verified-check`;
+  const args = [
+    "verify-contract",
+    "--rpc-url",
+    rpcUrl,
+    "--verifier",
+    verifier,
+    "--verifier-url",
+    verifierUrl,
+    ...explorerKeyArgs,
+    address,
+    `${contractPath}:${contractName}`,
+    "--skip-is-verified-check",
+  ];
   console.log(`Verifying: ${contract.name} @ ${address} (${contractPath}:${contractName})`);
   try {
-    execSync(verifyCmd, { stdio: "inherit" });
+    // ETHERSCAN_API_KEY is blanked, not left alone: forge falls back to it for ANY verifier's key
+    // flag - from the environment, or from the env file forge loads on its own, which is why
+    // deleting the variable is not enough - so a keyless Blockscout submission would carry the
+    // Etherscan key to Blockscout. Each explorer is handed its own key by argument above, and an
+    // explicit empty value is what stops the fallback.
+    execFileSync("forge", args, {
+      stdio: "inherit",
+      env: { ...process.env, ETHERSCAN_API_KEY: "" },
+    });
   } catch (err) {
     if (err instanceof Error) {
       throw err;
