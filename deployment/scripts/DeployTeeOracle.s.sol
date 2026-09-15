@@ -324,7 +324,7 @@ contract DeployTeeOracle is Script {
         TeeOracleInstructionsSender impl = new TeeOracleInstructionsSender();
         _logDeployed(
             "TeeOracleInstructionsSenderImplementation",
-            "TeeOracleInstructionsSender",
+            "TeeOracleInstructionsSender.sol",
             address(impl)
         );
         // deployer acts as initial governance and address updater; the wiring call
@@ -341,7 +341,7 @@ contract DeployTeeOracle is Script {
         sender = TeeOracleInstructionsSender(address(proxy));
         _logDeployed(
             "TeeOracleInstructionsSender",
-            "TeeOracleInstructionsSender",
+            "TeeOracleInstructionsSenderProxy.sol",
             address(proxy)
         );
     }
@@ -351,7 +351,7 @@ contract DeployTeeOracle is Script {
         TeeOracleFeedStore impl = new TeeOracleFeedStore();
         _logDeployed(
             "TeeOracleFeedStoreImplementation",
-            "TeeOracleFeedStore",
+            "TeeOracleFeedStore.sol",
             address(impl)
         );
 
@@ -373,7 +373,7 @@ contract DeployTeeOracle is Script {
             );
             feedStores.push(TeeOracleFeedStore(address(proxy)));
             _logDeployed(
-                feed.registryName, "TeeOracleFeedStore", address(proxy)
+                feed.registryName, "TeeOracleFeedStoreProxy.sol", address(proxy)
             );
         }
     }

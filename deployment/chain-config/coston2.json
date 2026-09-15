@@ -455,9 +455,7 @@
         {"opType": "TEE_ORACLE", "opCommand": "SET_ADMINS", "feeWei": "1"}
     ],
     "teeOracleExtensionId": 1,
-    "teeOracleFeeds": [
-        {"registryName": "UsdxFeedStore", "feedCategory": 32, "feedName": "USDX/USD", "requiredSignatures": 1, "maxSpreadBIPS": 100, "maxSpreadAbsolute": "0"}
-    ],
+    "teeOracleFeeds": [],
     "teeOracleFeeDestinationAddress": "0x000000000000000000000000000000000000dEaD",
     "teePaymentsConfigurations": [
         {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "testXRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}]}
