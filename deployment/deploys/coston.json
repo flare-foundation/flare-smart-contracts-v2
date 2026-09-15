@@ -272,12 +272,12 @@
   {
     "name": "MachineManagerFacet",
     "contractName": "MachineManagerFacet.sol",
-    "address": "0xDbABDAa643B6BeE9a5854fd95d3c7db127266076"
+    "address": "0x0a0963fdc4bEa2D02EAD71C8D26657d060Db5D96"
   },
   {
     "name": "VerificationFacet",
     "contractName": "VerificationFacet.sol",
-    "address": "0x173059729146C80ce25866E40143bcEA450E244C"
+    "address": "0x80E20Cd4Ba7C98D72D2f741eD4b51a839cA998e4"
   },
   {
     "name": "OperationFeesFacet",
