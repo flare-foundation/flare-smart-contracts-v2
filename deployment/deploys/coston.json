@@ -473,5 +473,25 @@
     "name": "RelayImplementation",
     "contractName": "Relay.sol",
     "address": "0x88C2D06dB810f267681333502E8409107c201Fb2"
+  },
+  {
+    "name": "TeeOracleInstructionsSenderImplementation",
+    "contractName": "TeeOracleInstructionsSender.sol",
+    "address": "0x15a248e1176D8eeb96f0769D55b082564FAb1407"
+  },
+  {
+    "name": "TeeOracleInstructionsSender",
+    "contractName": "TeeOracleInstructionsSenderProxy.sol",
+    "address": "0x79F9bBFD6D0729E251A40BdB7538CdaD8884A7b0"
+  },
+  {
+    "name": "TeeOracleFeedStoreImplementation",
+    "contractName": "TeeOracleFeedStore.sol",
+    "address": "0x941be75958060dd1420a9644e57acBe1E336819a"
+  },
+  {
+    "name": "UsdxFeedStore",
+    "contractName": "TeeOracleFeedStoreProxy.sol",
+    "address": "0x3aAEa2CACD84461536A8e7D43ee4687b057Ed78D"
   }
 ]
