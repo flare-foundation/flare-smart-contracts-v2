@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: deployment/scripts/deploy-tee-oracle.sh <network> [--dry-run]
-# Example: deployment/scripts/deploy-tee-oracle.sh coston2
-# Example: deployment/scripts/deploy-tee-oracle.sh coston2 --dry-run
+# Usage: deployment/scripts/deploy-tee-oracle.sh <network> [--broadcast]
+# Example: deployment/scripts/deploy-tee-oracle.sh coston2               # DRY RUN (simulation only)
+# Example: deployment/scripts/deploy-tee-oracle.sh coston2 --broadcast   # real deployment
+#
+# SAFE BY DEFAULT: a run is a DRY RUN (simulation against a fork of the network, no
+# transactions) unless you pass an explicit --broadcast - same convention as deploy-tee-contracts.sh.
 #
 # Deploys the TEE oracle extension: one TeeOracleInstructionsSender UUPS proxy plus
 # one TeeOracleFeedStore UUPS proxy per feed configured in `teeOracleFeeds` (chain
@@ -45,15 +48,14 @@ set -euo pipefail
 # those same values as their third argument, re-encode them with the version held in storage and
 # check the hash (WrongConfigPayload), so a keeper passes the event's groups/roles straight
 # through. If no one kept the log, governance has to republish.
-# Use --dry-run to simulate against a forked network without broadcasting.
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <network> [--dry-run]" >&2
+  echo "Usage: $0 <network> [--broadcast]" >&2
   exit 2
 fi
 
 NETWORK="$1"
-DRY_RUN="${2:-}"
+MODE="${2:-}"
 
 # Convert network to uppercase and build env var name
 NETWORK_UPPER=$(echo "$NETWORK" | tr '[:lower:]' '[:upper:]')
@@ -83,10 +85,13 @@ FORGE_CMD=(forge script deployment/scripts/DeployTeeOracle.s.sol:DeployTeeOracle
   --private-key "$DEPLOYER_PRIVATE_KEY"
   --sig "run()")
 
-if [[ "$DRY_RUN" == "--dry-run" ]]; then
-  echo "Running in dry-run mode (no broadcast)"
-  "${FORGE_CMD[@]}"
-else
+if [[ "$MODE" == "--broadcast" ]]; then
   "${FORGE_CMD[@]}" --broadcast | tee forge-deploy-output.txt
   npx tsx deployment/scripts/save-deployed-addresses.ts
+elif [[ -z "$MODE" ]]; then
+  echo "DRY RUN (no transactions; pass --broadcast to deploy for real)"
+  "${FORGE_CMD[@]}"
+else
+  echo "Unknown option: $MODE (expected --broadcast)" >&2
+  exit 2
 fi

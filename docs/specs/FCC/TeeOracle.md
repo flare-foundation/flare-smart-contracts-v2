@@ -740,7 +740,8 @@ The store implements `IICustomFeed`, so after governance registers it via
 ## Deployment and lifecycle
 
 [`DeployTeeOracle.s.sol`](../../../deployment/scripts/DeployTeeOracle.s.sol) (wrapper:
-`deployment/scripts/deploy-tee-oracle.sh <network> [--dry-run]`) deploys one sender proxy for
+`deployment/scripts/deploy-tee-oracle.sh <network> [--broadcast]`, a dry run unless `--broadcast`
+is passed) deploys one sender proxy for
 `teeOracleExtensionId` plus one feed store proxy per `teeOracleFeeds` chain-config entry
 (`{registryName, feedCategory, feedName}`; the feed id is
 `bytes21(category byte || name || zero padding)`, category in the custom range `[32, 64)`),
