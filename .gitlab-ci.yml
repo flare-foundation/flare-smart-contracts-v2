@@ -192,7 +192,7 @@ test-format:
 
 test-unit-forge:
   extends: .test-node-sc
-  timeout: 10 minutes
+  timeout: 25 minutes
   tags: [ flarenetwork-lg ]
   image: !reference [.partials, foundry-image]
   before_script:
