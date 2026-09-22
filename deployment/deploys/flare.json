@@ -323,5 +323,10 @@
     "name": "ChainlinkAdapterSFlr",
     "contractName": "ChainlinkAdapterProxy.sol",
     "address": "0x7335684a9b77b1f7aDEf007c95BD292351fAAFa7"
+  },
+  {
+    "name": "Create3Factory",
+    "contractName": "Create3Factory.sol",
+    "address": "0x51a24B38b2a5793F65258Fd37EE92706FadeFE96"
   }
 ]
