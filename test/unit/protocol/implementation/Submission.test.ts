@@ -1,15 +1,16 @@
-
-import { expectRevert } from '@openzeppelin/test-helpers';
-import { Contracts } from '../../../../deployment/scripts/Contracts';
-import { RelayInitialConfig } from '../../../../deployment/utils/RelayInitialConfig';
+import { expectCustomError } from "../../../utils/custom-errors";
+import { deployRelayProxy } from "../../../utils/relay-deploy";
+import { expectRevert } from "@openzeppelin/test-helpers";
+import { Contracts } from "../../../../deployment/scripts/Contracts";
+import { RelayInitialConfig } from "../../../../deployment/utils/RelayInitialConfig";
 import { getTestFile } from "../../../utils/constants";
-import { encodeContractNames } from '../../../utils/test-helpers';
+import { encodeContractNames } from "../../../utils/test-helpers";
 import {
   SubmissionContract,
   RelayContract,
   MockContractContract,
-  SubmissionInstance
-} from '../../../../typechain-truffle'
+  SubmissionInstance,
+} from "../../../../typechain-truffle";
 
 const Submission: SubmissionContract = artifacts.require("Submission");
 const Relay: RelayContract = artifacts.require("Relay");
@@ -17,8 +18,7 @@ const MockContract: MockContractContract = artifacts.require("MockContract");
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-contract(`Submission.sol; ${getTestFile(__filename)}`, accounts => {
-
+contract(`Submission.sol; ${getTestFile(__filename)}`, (accounts) => {
   let submission: SubmissionInstance;
   const ADDRESS_UPDATER = accounts[16];
 
@@ -26,11 +26,13 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, accounts => {
     submission = await Submission.new(accounts[0], accounts[0], ADDRESS_UPDATER, false);
     await submission.updateContractAddresses(
       encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-      [ADDRESS_UPDATER, accounts[2], accounts[3]], { from: ADDRESS_UPDATER });
-
+      [ADDRESS_UPDATER, accounts[2], accounts[3]],
+      { from: ADDRESS_UPDATER }
+    );
   });
 
   it("Should revert 1", async () => {
+    const chainId = await web3.eth.getChainId();
     const relayInitialConfig: RelayInitialConfig = {
       initialRewardEpochId: 0,
       startingVotingRoundIdForInitialRewardEpochId: 0,
@@ -43,18 +45,18 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, accounts => {
       thresholdIncreaseBIPS: 12000,
       messageFinalizationWindowInRewardEpochs: 10,
       feeCollectionAddress: ZERO_ADDRESS,
-      feeConfigs: []
-    }
+      feeConfigs: [],
+      sourceChainId: chainId,
+      timelockDurationSeconds: 0,
+    };
 
-    const relay = await Relay.new(
-      relayInitialConfig,
-      accounts[1],
-      ZERO_ADDRESS
-    );
+    const relay = await deployRelayProxy(relayInitialConfig, accounts[1], ZERO_ADDRESS);
 
     await submission.setSubmitAndPassData(relay.address, web3.utils.keccak256("relay()").slice(0, 10)); // first 4 bytes is function selector
     const startBalance = BigInt(await web3.eth.getBalance(accounts[0]));
-    await expectRevert(submission.submitAndPass(web3.utils.keccak256("some data")), "Invalid sign policy length");
+    // Relay's typed custom errors cannot be decoded by Submission._getRevertMsg (it parses
+    // Error(string) only), so the inner failure surfaces as the generic fallback reason.
+    await expectRevert(submission.submitAndPass(web3.utils.keccak256("some data")), "Transaction reverted silently");
     console.log(`tx fee (wei): ${startBalance - BigInt(await web3.eth.getBalance(accounts[0]))}`);
   });
 
@@ -78,5 +80,4 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, accounts => {
     await expectRevert(submission.submitAndPass(web3.utils.keccak256("some data")), revertMessage);
     console.log(`tx fee (wei): ${startBalance - BigInt(await web3.eth.getBalance(accounts[0]))}`);
   });
-
 });

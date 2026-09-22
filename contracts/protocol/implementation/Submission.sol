@@ -7,7 +7,6 @@ import { IISubmission } from "../interface/IISubmission.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { ISubmission } from "../../userInterfaces/ISubmission.sol";
 import { IRandomProvider } from "../../userInterfaces/IRandomProvider.sol";
-import { RandomNumberV2Interface } from "../../userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**

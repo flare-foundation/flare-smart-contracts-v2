@@ -1,0 +1,36 @@
+{
+  "$schema": "./relay-parameters.json",
+  "expectedDeployer": "0x0952Db7ea2dF3EFA545326cC33443AFe00419981",
+  "home": {
+    "timelockDurationSeconds": 3600
+  },
+  "mirrors": {
+    "sepolia": {
+      "chainId": 11155111,
+      "relayOwner": "0x7F40b5B310c6CCfd6025D9bFc1FE6dB30aa0741b",
+      "feeCollectionAddress": "0x99E0770aa23CAA9071B6112208297E7a8d8F8a4A",
+      "timelockDurationSeconds": 3600,
+      "feeConfigs": [
+        {
+          "protocolId": 100,
+          "fee": "100000000000000"
+        },
+        {
+          "protocolId": 200,
+          "fee": "200000000000000"
+        }
+      ],
+      "feeToken": "0x0000000000000000000000000000000000000000",
+      "feeExemptAddresses": ["0xd4841C8D77CC7565a0A362fCE32fdD3142d2B583"]
+    },
+    "arbitrum-sepolia": {
+      "chainId": 421614,
+      "relayOwner": "0x0000000000000000000000000000000000000000",
+      "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
+      "timelockDurationSeconds": 3600,
+      "feeConfigs": [],
+      "feeToken": "0x0000000000000000000000000000000000000000",
+      "feeExemptAddresses": []
+    }
+  }
+}

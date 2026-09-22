@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";

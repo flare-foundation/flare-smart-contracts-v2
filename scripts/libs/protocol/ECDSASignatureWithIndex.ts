@@ -81,14 +81,14 @@ export namespace ECDSASignatureWithIndex {
    */
   export function decodeSignatureList(encoded: string): IECDSASignatureWithIndex[] {
     const encodedInternal = encoded.startsWith("0x") ? encoded.slice(2) : encoded;
-    if(!/^[0-9a-f]*$/.test(encodedInternal)) {
+    if (!/^[0-9a-f]*$/.test(encodedInternal)) {
       throw Error(`Invalid format - not hex string: ${encoded}`);
     }
-    if(encodedInternal.length < 4) {
+    if (encodedInternal.length < 4) {
       throw Error(`Invalid encoded signature list length: ${encodedInternal.length}`);
     }
     const count = parseInt(encodedInternal.slice(0, 4), 16);
-    if(encodedInternal.length !== 4 + count * 134) {
+    if (encodedInternal.length !== 4 + count * 134) {
       throw Error(`Invalid encoded signature list length: ${encodedInternal.length}`);
     }
     const signatures: IECDSASignatureWithIndex[] = [];
@@ -106,6 +106,7 @@ export namespace ECDSASignatureWithIndex {
    * @param index
    * @returns
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   export async function signMessageHash(
     messageHash: string,
     privateKey: string,
@@ -130,7 +131,9 @@ export namespace ECDSASignatureWithIndex {
    * @returns
    */
   export function recoverSigner(messageHash: string, signature: IECDSASignatureWithIndex): string {
-    return web3.eth.accounts.recover(messageHash, "0x" + signature.v.toString(16), signature.r, signature.s).toLowerCase();
+    return web3.eth.accounts
+      .recover(messageHash, "0x" + signature.v.toString(16), signature.r, signature.s)
+      .toLowerCase();
   }
 
   /**
@@ -142,5 +145,4 @@ export namespace ECDSASignatureWithIndex {
   export function equals(a: IECDSASignatureWithIndex, b: IECDSASignatureWithIndex): boolean {
     return a.v === b.v && a.r === b.r && a.s === b.s && a.index === b.index;
   }
-
 }

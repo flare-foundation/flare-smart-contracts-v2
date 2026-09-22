@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import { IFlareDaemonize } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFlareDaemonize.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -20,6 +20,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { Signature } from "../../userInterfaces/ISignature.sol";
 
 /**
  * FlareSystemsManager is responsible for initialization of reward epochs and voting rounds using FlareDaemon calls.

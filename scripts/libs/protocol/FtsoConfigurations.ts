@@ -4,7 +4,6 @@ export interface IFeedId {
 }
 
 export namespace FtsoConfigurations {
-
   /**
    * Encodes feed id into byte encoding, represented by 0x-prefixed hex string
    * @param feedId
@@ -22,13 +21,14 @@ export namespace FtsoConfigurations {
   export function encodeFeedIds(feedIds: IFeedId[]): string {
     let result = "0x";
     for (const feedId of feedIds) {
-      if (feedId.category < 0 || feedId.category >= 2**8) {
+      if (feedId.category < 0 || feedId.category >= 2 ** 8) {
         throw Error(`Invalid feed category: ${feedId.category}`);
       }
       if (feedId.name.length > 20) {
         throw Error(`Invalid feed name: ${feedId.name} - length: ${feedId.name.length}`);
       }
-      result += feedId.category.toString(16).padStart(2, "0") + Buffer.from(feedId.name).toString("hex").padEnd(40, "0");
+      result +=
+        feedId.category.toString(16).padStart(2, "0") + Buffer.from(feedId.name).toString("hex").padEnd(40, "0");
     }
     return result;
   }
@@ -39,9 +39,7 @@ export namespace FtsoConfigurations {
    * @returns
    */
   export function decodeFeedIds(encodedFeedIds: string): IFeedId[] {
-    const encodedFeedIdsInternal = encodedFeedIds.startsWith("0x")
-      ? encodedFeedIds.slice(2)
-      : encodedFeedIds;
+    const encodedFeedIdsInternal = encodedFeedIds.startsWith("0x") ? encodedFeedIds.slice(2) : encodedFeedIds;
     if (!/^[0-9a-f]*$/.test(encodedFeedIdsInternal)) {
       throw Error(`Invalid format - not hex string: ${encodedFeedIds}`);
     }
@@ -51,10 +49,16 @@ export namespace FtsoConfigurations {
     const result: IFeedId[] = [];
     for (let i = 0; i < encodedFeedIdsInternal.length / 42; i++) {
       const category = parseInt(encodedFeedIdsInternal.slice(i * 42, i * 42 + 2), 16);
-      if (category < 0 || category >= 2**8) { // can never happen
+      if (category < 0 || category >= 2 ** 8) {
+        // can never happen
         throw Error(`Invalid category: ${category}`);
       }
-      result[i] = { category, name: Buffer.from(encodedFeedIdsInternal.slice(i * 42 + 2, (i + 1) * 42), "hex").toString().replaceAll("\0", "") };
+      result[i] = {
+        category,
+        name: Buffer.from(encodedFeedIdsInternal.slice(i * 42 + 2, (i + 1) * 42), "hex")
+          .toString()
+          .replaceAll("\0", ""),
+      };
     }
 
     return result;
@@ -111,11 +115,11 @@ export namespace FtsoConfigurations {
   export function encodeDecimals(values: number[]): string {
     let result = "0x";
     for (let value of values) {
-      if (value < -(2**7) || value >= 2**7) {
+      if (value < -(2 ** 7) || value >= 2 ** 7) {
         throw Error(`Invalid decimals: ${value}`);
       }
       if (value < 0) {
-        value += 2**8;
+        value += 2 ** 8;
       }
       result += value.toString(16).padStart(2, "0");
     }
@@ -128,9 +132,7 @@ export namespace FtsoConfigurations {
    * @returns
    */
   export function decodeDecimals(encodedDecimals: string): number[] {
-    const encodedDecimalsInternal = encodedDecimals.startsWith("0x")
-      ? encodedDecimals.slice(2)
-      : encodedDecimals;
+    const encodedDecimalsInternal = encodedDecimals.startsWith("0x") ? encodedDecimals.slice(2) : encodedDecimals;
     if (!/^[0-9a-f]*$/.test(encodedDecimalsInternal)) {
       throw Error(`Invalid format - not hex string: ${encodedDecimals}`);
     }
@@ -140,11 +142,12 @@ export namespace FtsoConfigurations {
     const result: number[] = [];
     for (let i = 0; i < encodedDecimalsInternal.length / 2; i++) {
       let value = parseInt(encodedDecimalsInternal.slice(i * 2, (i + 1) * 2), 16);
-      if (value < 0 || value >= 2**8) { // can never happen
+      if (value < 0 || value >= 2 ** 8) {
+        // can never happen
         throw Error(`Invalid decimals: ${value}`);
       }
-      if (value >= 2**7) {
-        value -= 2**8;
+      if (value >= 2 ** 7) {
+        value -= 2 ** 8;
       }
       result[i] = value;
     }

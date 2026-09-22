@@ -13,18 +13,18 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract FlareSystemsCalculatorTest is Test {
+    uint256 internal constant MAX = 2 ** 128;
+    uint24 internal constant WNAT_CAP = 10000;
+    uint256 internal constant TOTAL_WNAT_VOTE_POWER = 1e7;
+    uint256 internal constant WNAT_WEIGHT = 2e5;
+    uint16 internal constant DELEGATION_FEE_BIPS = 15;
+
     FlareSystemsCalculator private calculator;
     FlareSystemsCalculator private calculatorNoMirroring;
 
     IGovernanceSettings private govSetting;
     address private governance;
     address private addressUpdater;
-
-    uint256 internal constant MAX = 2 ** 128;
-    uint24 internal constant WNAT_CAP = 10000;
-    uint256 internal constant TOTAL_WNAT_VOTE_POWER = 1e7;
-    uint256 internal constant WNAT_WEIGHT = 2e5;
-    uint16 internal constant DELEGATION_FEE_BIPS = 15;
 
     function setUp() public {
         govSetting = IGovernanceSettings(makeAddr("govSetting"));

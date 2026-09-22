@@ -27,12 +27,12 @@
   {
     "name": "VoterRegistry",
     "contractName": "VoterRegistry.sol",
-    "address": "0x2580101692366e2f331e891180d9ffdF861Fce83"
+    "address": "0xA480457953Af3583E54DCd630b219353B8FC9Af7"
   },
   {
     "name": "FlareSystemsCalculator",
     "contractName": "FlareSystemsCalculator.sol",
-    "address": "0x67c4B11c710D35a279A41cff5eb089Fe72748CF8"
+    "address": "0xf9cCe0Bd286bb38A9A0cD15fDDC5431F03568Db0"
   },
   {
     "name": "FlareSystemsManager",
@@ -57,7 +57,7 @@
   {
     "name": "WNatDelegationFee",
     "contractName": "WNatDelegationFee.sol",
-    "address": "0xb382DC86C06f91ef711703a582D08977b2601726"
+    "address": "0x5A1fDF4e39201Ef847DDcDca1065a9A2BB007600"
   },
   {
     "name": "FtsoInflationConfigurations",
@@ -252,7 +252,7 @@
   {
     "name": "VoterPreRegistry",
     "contractName": "VoterPreRegistry.sol",
-    "address": "0xeFDBf6F31Aa46c62414Aee82aF43036d16885b48"
+    "address": "0x76D49E62B07e52A13b7FBB4602eD942f812c87e2"
   },
   {
     "name": "PollingManagementGroup",
@@ -323,5 +323,10 @@
     "name": "ChainlinkAdapterSFlr",
     "contractName": "ChainlinkAdapterProxy.sol",
     "address": "0x7335684a9b77b1f7aDEf007c95BD292351fAAFa7"
+  },
+  {
+    "name": "Create3Factory",
+    "contractName": "Create3Factory.sol",
+    "address": "0x51a24B38b2a5793F65258Fd37EE92706FadeFE96"
   }
 ]

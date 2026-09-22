@@ -1,0 +1,334 @@
+# Relay owner governance and deterministic deployment
+
+This document describes the current Relay governance, upgrade, and deployment
+model. Security limitations are recorded in
+[`relay-security-review.md`](relay-security-review.md).
+Normative finalization, verification-fee, and randomness behavior is documented
+in [`specs/FSP/Finalization.md`](specs/FSP/Finalization.md) and
+[`specs/FSP/RandomNumber.md`](specs/FSP/RandomNumber.md); this file is the
+owner/deployment/upgrade runbook.
+
+## 1. Governance authority and timelock
+
+Every Relay proxy has one per-chain owner. The owner operates Relay through
+[`OwnableWithTimelock`](../contracts/utils/implementation/OwnableWithTimelock.sol).
+
+For a method protected by `onlyOwnerWithTimelock`:
+
+- with a zero duration, the owner's call executes immediately;
+- with a nonzero duration, the owner's call queues the exact calldata and emits
+  `CallTimelocked` without applying the requested change;
+- after the ETA, anyone may execute that exact calldata through
+  `executeTimelockedCall`;
+- execution is one-shot after success; a reverted execution leaves the queue
+  entry available;
+- re-queuing identical calldata restarts its delay;
+- only the owner may cancel a queued call; and
+- queuing with value is rejected because execution replays a zero-value
+  self-call.
+
+The timelock duration is itself timelocked and capped at seven days.
+`renounceOwnership` is disabled; ownership moves through `transferOwnership`,
+which is **also** guarded by `onlyOwnerWithTimelock`. With a nonzero duration it
+queues publicly and waits like every other owner action. A partially compromised
+signer set therefore cannot take the role in a single transaction and lock the
+honest signers out of cancelling anything. There is no propose/accept handshake
+and no pending-owner state: when the call executes the role moves in one write,
+and a reverted execution moves nothing.
+
+With the transfer guarded, **no owner action can take effect without passing
+through the queue-and-wait window while a nonzero duration is configured**. A
+zero duration disarms the timelock for every guarded call, transfers included:
+they then apply immediately and nothing is queued. The complete owner surface is
+`setProtocolFees`, `setFeeExemptions`, `setFeeCollectionAddress`,
+`setSigningPolicySetter`, `upgradeToAndCall`, `setTimelockDuration` and
+`transferOwnership`, all `onlyOwnerWithTimelock`; `renounceOwnership` reverts;
+`executeTimelockedCall` is permissionless. The single exception is
+`cancelTimelockedCall`, which is plain `onlyOwner` and immediate by design — it
+can only withdraw a pending action, never enact one, so the outgoing owner keeps
+it until execution and may cancel a queued transfer with it. `OwnableUpgradeable`
+and `UUPSUpgradeable` contribute no other mutating entry point.
+
+The owner is a per-chain multisig, and `transferOwnership` exists to **replace
+that multisig** — rotating to a new signer set, migrating to a different safe —
+not to hand the role to an individual. The contract cannot enforce that, and a
+zero target is rejected but a wrong nonzero one is unrecoverable, so the target
+address is a first-class review item on any transfer proposal.
+
+Queued entries are keyed by calldata and timestamp. They are not bound to an
+owner generation or implementation generation, do not expire, and are **not
+enumerable on-chain** — the contract keeps a bare hash-to-timestamp mapping with
+no key set, so nothing on-chain reports what is outstanding. Clearing the queue
+is therefore an off-chain procedure:
+
+1. replay `CallTimelocked` from deployment and collect the emitted hashes;
+2. drop each hash already matched by a later `TimelockedCallExecuted` or
+   `TimelockedCallCanceled`;
+3. confirm every remaining hash with `getExecuteTimelockedCallTimestamp`, which
+   reverts `TimelockInvalidSelector` once an entry is gone;
+4. `cancelTimelockedCall` each operation that must not remain executable.
+
+Run that pass before every ownership transfer and implementation change. Neither
+one invalidates a queued entry, and an incoming owner cannot verify from chain
+state alone that nothing is still pending, so this is a procedural control — the
+structural fix is recorded as RLY-SEC-07 in
+[relay-security-review.md](relay-security-review.md).
+
+## 2. Owner-controlled Relay surface
+
+The owner/timelock controls:
+
+| Method | Available mode | Effect |
+| --- | --- | --- |
+| `setProtocolFees(address,FeeConfig[])` | relay mode | replaces the complete fee configuration — the fee token (zero = native coin) and the entire per-protocol fee table — in one atomic call |
+| `setFeeExemptions(FeeExemption[])` | relay mode | grants or revokes account fee exemptions |
+| `setFeeCollectionAddress(address)` | relay mode | changes the nonzero fee recipient |
+| `setSigningPolicySetter(address)` | setter mode | changes the trusted nonzero signing-policy setter |
+| `upgradeToAndCall(address,bytes)` | both | upgrades the UUPS implementation and optionally runs migration calldata |
+| `transferOwnership(address)` | both | moves the owner role to a new nonzero address (normally a replacement multisig) |
+| `setTimelockDuration(uint256)` | both | changes the timelock duration, capped at seven days |
+
+`setProtocolFees` is a full replace: the previous fee table is cleared before the
+supplied one is applied, so a protocol not listed in the call is free (fee 0)
+afterwards, and fees can never be silently carried over as amounts in a different
+denomination after a token switch. Every listed protocol ID must be greater than
+`1`, unique (`DuplicateProtocolId`), and paired with a nonzero fee
+(`ProtocolFeeZero`) — a free protocol is expressed by omission. Each call (and each
+relay-mode initialization) emits one self-contained `ProtocolFeesSet(feeToken,
+feeConfigs)` event whose latest occurrence fully describes the current fee state.
+The configured token must be a standard exact-transfer ERC-20 with conventional
+`transferFrom` behavior. Fee-on-transfer and rebasing tokens are unsupported,
+and callers need sufficient balance and allowance. The live table is enumerable
+via `getFeeConfigs()`.
+
+Deployment mode is immutable:
+
+- **setter mode** configures a nonzero signing-policy setter and does not permit
+  Relay verification-fee administration; and
+- **relay mode** has no signing-policy setter and permits fee configuration and
+  exemptions.
+
+Initialization and every owner setter fail closed when used in the wrong mode.
+
+## 3. UUPS upgrade semantics
+
+[`RelayProxy`](../contracts/protocol/implementation/RelayProxy.sol) is an ERC-1967
+proxy and Relay is its UUPS implementation. Relay overrides
+`upgradeToAndCall` with `onlyOwnerWithTimelock`; `_authorizeUpgrade` contains no
+second authorization check because the public entry is the guarded operation.
+
+With a nonzero timelock, the exact implementation address and migration calldata
+are queued together. Execution occurs as a proxy self-call. A migration function
+that must be callable from `upgradeToAndCall` must explicitly support that
+self-call context without opening an arbitrary external route.
+
+An upgrade can change every Relay security property. Review storage layout,
+initializer/reinitializer guards, owner/timelock behavior, and the formal proof
+target before queueing it.
+
+### Current sequential storage baseline
+
+This version is the first-deployment sequential Solidity storage baseline. Relay
+proxies initialize this layout directly; deployment includes no proxy-storage
+migration. The optional `oldRelay` is a read-delegation source and does not
+populate or mutate the current proxy's storage.
+
+The artifact-parity gate recompiles Relay with the manifest-pinned compiler,
+normalizes its compiler-emitted sequential Solidity storage layout, and compares
+it with
+[`relay_storage_layout.json`](../test-forge/fv/relay_storage_layout.json). A
+future slot, offset, declaration-order, or type change in that layout fails the
+gate until the baseline is deliberately updated after compatibility review.
+The snapshot does not enumerate state addressed through ERC-7201 namespace
+constants, including OpenZeppelin `Initializable`, or EIP-1153 transient slots.
+Those require separate review. This guard detects scoped layout drift; it does
+not prove that an unknown future implementation is upgrade-compatible.
+
+## 4. Atomic initialization
+
+The proxy constructor invokes `Relay.initialize` atomically, so the proxy is not
+externally observable in an uninitialized state. Initialization fixes:
+
+- source chain/domain;
+- initial reward-epoch and voting-round anchors;
+- nonzero initial signing-policy hash;
+- setter or relay operating mode;
+- fee configuration, fee token, and exemptions where permitted;
+- owner and timelock duration; and
+- optional `oldRelay` migration configuration where permitted.
+
+For migration, the complete initial policy supplied to finalizers must encode the
+same start round as the initialization read boundary. The current contract stores
+the policy hash and boundary independently, so deployment tooling and review must
+enforce this equality.
+
+## 5. Chain-invariant proxy address
+
+Relay uses a deterministic three-stage deployment path:
+
+1. the canonical keyless CREATE2 deployer installs
+   [`Create3Factory`](../contracts/utils/implementation/Create3Factory.sol) from
+   frozen initcode and salt;
+2. `Create3Factory` derives a deployer-scoped, source-scoped salt; and
+3. the factory deploys the Relay proxy at the address determined by factory,
+   designated deployer, and source-chain identity.
+
+The resulting address is independent of target-chain ID, implementation address,
+and initializer bytes. Every mirror of one source can therefore use the same
+Relay address, while different source networks receive different address
+namespaces.
+
+The designated deployer controls the official address on chains where the proxy
+has not yet been deployed. Protect that key and verify it against the source
+configuration before broadcast.
+
+### Pinned addresses and code hashes
+
+The deploy scripts do not merely compute the address — they enforce it against
+compiled-in pins in
+[`RelayDeployBase`](../deployment/scripts/relay/RelayDeployBase.s.sol):
+
+- **Per-source Relay proxy pins** (`EXPECTED_RELAY_FLARE/SONGBIRD/COSTON/COSTON2`),
+  keyed by *source* chain ID, so one pin covers the home chain and every mirror
+  of that source. Enforcement is layered: a canonical source with an unset
+  (zero) pin refuses to deploy at all; a set pin must equal the locally computed
+  CREATE3 prediction for the broadcasting deployer; the on-chain factory's own
+  prediction must agree with the local one; and the deployed address must land
+  exactly on the prediction. Pins are constants rather than configuration
+  because the config path can be redirected via the `RELAY_CONFIG` environment
+  override — a compile-time pin cannot.
+- **Runtime code-hash pins**: the Arachnid keyless CREATE2 deployer's runtime
+  code hash (a chain carrying different code at that well-known address never
+  receives the factory) and the runtime code the frozen factory initcode
+  deploys (checked by `DeployCreate3Factory` on both the fresh and
+  already-deployed paths, and by every home/mirror deploy via
+  `_requireFactory`).
+
+**Activation rule:** each source has its own designated deployer EOA (a
+per-source Google Cloud KMS key), shared by the source's home chain and every
+mirror of that source. A source's proxy pin, its config's `expectedDeployer`
+and the `CANONICAL_DEPLOYER_<SOURCE>` constant in
+[`RelayDeployAddress.t.sol`](../test-forge/unit/deployment/RelayDeployAddress.t.sol)
+start as `address(0)` and must be filled together, in one reviewed commit, once
+that source's deployer is chosen. The test binds them to each other in both
+states: while a source's deployer is unset its pin must be zero, and once set
+the pin must derive from it. Until activation, no home or mirror deployment of
+that canonical source (flare, songbird, coston, coston2) is possible — dry runs
+included. All four sources were activated on 2026-08-26.
+
+## 6. Deployment and migration procedure
+
+### Configuration
+
+Relay deployment configuration is stored per source under
+[`deployment/chain-config/relay/`](../deployment/chain-config/relay/README.md).
+Each source entry defines home settings and a map of mirror targets. The scripts
+enforce the designated deployer, source identity, target chain ID, owner,
+timelock, fee settings (including the per-mirror fee token), and
+deterministic address inputs.
+
+### Signing the deployment
+
+The wrapper (`pnpm deploy_relay`) accepts any forge signer for the home and
+mirror steps and forwards signer flags verbatim: `--ledger`, `--trezor`,
+`--account <keystore name>`, `--gcp` (Google Cloud KMS), `--aws`, and the
+keystore environment variables (`ETH_KEYSTORE` / `ETH_KEYSTORE_ACCOUNT` /
+`ETH_PASSWORD`). Only when no signer is supplied does it fall back to appending
+`--private-key "$DEPLOYER_PRIVATE_KEY"`; the key is required only for a
+broadcast, and is unset again before any post-processing runs. The scripts take
+`msg.sender` as the deployer, so pair hardware/keystore/KMS signers with
+`--sender <expectedDeployer>` — the address is checked against the config's
+`expectedDeployer` and the per-source pin before anything signs, and a dry run
+can simulate as the real deployer with `--sender` alone.
+
+One deliberate restriction: `--resume` is rejected (it would skip the scripts'
+pre-flight checks and the address recorder — re-run instead; the scripts abort
+by themselves if the Relay already has code). The `factory` step accepts the
+same signers; since its address is deployer-independent, any funded account
+works and no deployer-identity check applies there. Broadcasts always add
+`--slow` so transactions are sent serially and an on-chain revert stops the
+sequence.
+
+### Home deployment
+
+The home script reads protocol addresses from the on-chain registry and deploys
+setter mode with the current systems manager as signing-policy setter. It
+reconstructs the complete initial policy from source-chain state and verifies
+that reconstruction against the source Relay's stored commitment before
+computing the canonical target commitment:
+
+```text
+keccak256(sourceChainId || encodedSigningPolicy)
+```
+
+The deployment is valid only while the policy selected as the target initial
+epoch is already available from source state and has not become stale for the
+target initializer. Run the script's preflight immediately before broadcast.
+
+### Mirror deployment
+
+`PrepareRelaySourceSnapshot` captures the source-domain policy commitment and
+epoch anchors. `DeployRelayMirror` checks that the snapshot identifies the
+configured source, that the live target chain matches its mirror entry, and that
+relay mode does not configure `oldRelay` or a signing-policy setter.
+
+### Required post-deployment checks
+
+Before publishing the address or switching consumers, compare the deployment
+manifest and on-chain getters for:
+
+- proxy and implementation address;
+- owner and timelock duration;
+- source chain ID;
+- operating mode and signing-policy setter;
+- initial reward epoch, policy hash, and start round;
+- fee recipient, fees, fee token, and exemptions; and
+- deterministic salt/factory/deployer inputs.
+
+The manifest records the complete fee surface — recipient, token, fee table and
+exemption list — and the mirror deploy script additionally asserts each of these
+against the live contract before writing it.
+
+Also reveal the complete initial policy off-chain and independently confirm:
+
+- canonical encoding and source-domain hash;
+- unique nonzero voters;
+- positive bounded weights and valid threshold;
+- monotonic start metadata; and
+- equality between the policy start and migration read boundary.
+
+### Digest and consumer cutover
+
+All signers, finalizers, and consumers must switch atomically to the canonical
+source-domain digest at the configured voting-round boundary. For FDC/TEE paths:
+
+- deploy signer/enclave software that computes the canonical digest;
+- repoint Relay references to the new proxy;
+- upgrade any consumer whose bytecode inlines the digest library; and
+- regenerate signatures/proofs created for a different digest.
+
+Consumers that delegate digest verification to Relay need only the Relay pointer
+change. Consumers containing an `internal` digest helper need new bytecode.
+
+### Randomness continuity
+
+Do not switch a consumer that requires live randomness until the target Relay
+has a verified local current random or the consumer implements an explicit
+trusted fallback. Delegation for rounds below the `oldRelay` boundary does not
+make `getRandomNumber()` continuous by itself.
+
+## 7. Verification and tests
+
+The current behavior is exercised by:
+
+- [`RelayOwnableWithTimelock.t.sol`](../test-forge/unit/governance/RelayOwnableWithTimelock.t.sol);
+- [`RelayUpgrade.t.sol`](../test-forge/unit/governance/RelayUpgrade.t.sol);
+- [`Relay.t.sol`](../test-forge/unit/protocol/implementation/Relay.t.sol);
+- [`RelayDeployAddress.t.sol`](../test-forge/unit/deployment/RelayDeployAddress.t.sol);
+- [`RelayDeployFlow.t.sol`](../test-forge/unit/deployment/RelayDeployFlow.t.sol); and
+- [`RelayConfigParsing.t.sol`](../test-forge/unit/deployment/RelayConfigParsing.t.sol).
+
+Formal owner/timelock/UUPS claims and their limitations are listed in
+[`relay-verification/10-claims-ledger-trust-and-residual.md`](relay-verification/10-claims-ledger-trust-and-residual.md).
+Use [`relay-verification/CURRENT-STATUS.md`](relay-verification/CURRENT-STATUS.md)
+to determine whether current normalized evidence is release-qualified.

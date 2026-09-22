@@ -2,18 +2,12 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { SortitionCredential } from "./ISortition.sol";
+import {Signature} from "./ISignature.sol";
 
 /**
  * Fast updater interface.
  */
 interface IFastUpdater {
-
-    /// Signature structure
-    struct Signature {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
 
     /// Fast update structure
     struct FastUpdates {
@@ -75,7 +69,8 @@ interface IFastUpdater {
      * Public access to the stored data of each feed, allowing controlled batch access to the lengthy complete data.
      * Feeds should be sorted for better performance.
      * A fee (calculated by the FeeCalculator contract) may need to be paid.
-     * **NOTE:** Overpayment is not refunded.
+     * **NOTE:** Overpayment is not refunded. Callers on the `freeFetchAddresses` allowlist must
+     * send zero value.
      * @param _indices Index numbers of the feeds for which data should be returned, corresponding to `feedIds` in
      * the `FastUpdatesConfiguration` contract.
      * @return _feeds The list of data for the requested feeds, in the same order as the feed indices were given

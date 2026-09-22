@@ -8869,7 +8869,7 @@ contract AddressBinder is IAddressBinder {
     function _publicKeyToCAddress(
         bytes calldata publicKey
     )
-        internal pure
+        internal view
         returns (address)
     {
         (uint256 x, uint256 y) = _extractPublicKeyPair(publicKey);
@@ -8881,7 +8881,7 @@ contract AddressBinder is IAddressBinder {
     function _publicKeyToPAddress(
         bytes calldata publicKey
     )
-        internal pure
+        internal view
         returns (bytes20)
     {
         (uint256 x, uint256 y) = _extractPublicKeyPair(publicKey);
@@ -8895,24 +8895,31 @@ contract AddressBinder is IAddressBinder {
     function _extractPublicKeyPair(
         bytes calldata encodedPublicKey
     )
-        internal pure
+        internal view
         returns (uint256, uint256)
     {
         bytes1 prefix = encodedPublicKey[0];
         if (encodedPublicKey.length == 64) {
             // ethereum specific public key encoding
-            return (
-                uint256(BytesLib.toBytes32(encodedPublicKey, 0)),
-                uint256(BytesLib.toBytes32(encodedPublicKey, 32)));
+            uint256 x = uint256(BytesLib.toBytes32(encodedPublicKey, 0));
+            uint256 y = uint256(BytesLib.toBytes32(encodedPublicKey, 32));
+            _checkPublicKeyValidity(x, y);
+            return (x, y);
         } else if (encodedPublicKey.length == 65 && prefix == bytes1(0x04)) {
-                return (
-                    uint256(BytesLib.toBytes32(encodedPublicKey, 1)),
-                    uint256(BytesLib.toBytes32(encodedPublicKey, 33))
-                );
+            uint256 x = uint256(BytesLib.toBytes32(encodedPublicKey, 1));
+            uint256 y = uint256(BytesLib.toBytes32(encodedPublicKey, 33));
+            _checkPublicKeyValidity(x, y);
+            return (x, y);
         } else if (encodedPublicKey.length == 33) {
                 uint256 x = uint256(BytesLib.toBytes32(encodedPublicKey, 1));
+                uint256 ySquare = mulmod(x, mulmod(x, x, P), P) + 7;                
+                // check if x can be decompressed by checking if ySquare has a square root
+                require(
+                    x < P && x > 0 && _powmod(ySquare, (P - 1) / 2) == 1,
+                    "invalid public key"
+                );
                 // Tonelli–Shanks algorithm for calculating square root modulo prime of x^3 + 7
-                uint256 y = _powmod(mulmod(x, mulmod(x, x, P), P) + 7, (P + 1) / 4, P);
+                uint256 y = _powmod(ySquare, (P + 1) / 4);
                 if (prefix == bytes1(0x02)) {
                     return (x, (y % 2 == 0) ? y : P - y);
                 } else if (prefix == bytes1(0x03)) {
@@ -8930,18 +8937,38 @@ contract AddressBinder is IAddressBinder {
         return abi.encodePacked(evenY ? bytes1(0x02) : bytes1(0x03));
     }
 
-    function _powmod(uint256 x, uint256 n, uint256 p) private pure returns (uint256) {
-        uint256 result = 1;
-        while (n > 0) {
-            if (n & 1 == 1) {
-                result = mulmod(result, x, p);
+    /**
+     * @dev Wrap the modular exponent pre-compile introduced in Byzantium.
+     * Returns base^exponent mod P.
+     */
+    function _powmod(uint256 base, uint256 exponent) internal view returns (uint256 o) {
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            // Args for the precompile: [<length_of_BASE> <length_of_EXPONENT>
+            // <length_of_MODULUS> <BASE> <EXPONENT> <MODULUS>]
+            let output := mload(0x40)
+            let args := add(output, 0x20)
+            mstore(args, 0x20)
+            mstore(add(args, 0x20), 0x20)
+            mstore(add(args, 0x40), 0x20)
+            mstore(add(args, 0x60), base)
+            mstore(add(args, 0x80), exponent)
+            mstore(add(args, 0xa0), P)
+
+            // 0x05 is the modular exponent contract address
+            if iszero(staticcall(not(0), 0x05, args, 0xc0, output, 0x20)) {
+                revert(0, 0)
             }
-            x = mulmod(x, x, p);
-            n >>= 1;
+            o := mload(output)
         }
-        return result;
     }
 
+    function _checkPublicKeyValidity(uint256 x, uint256 y) private pure {
+        require(
+            x < P && x > 0 && y < P && y > 0 && mulmod(y, y, P) == addmod(mulmod(mulmod(x, x, P), x, P), 7, P),
+            "invalid public key"
+        );
+    }
 }
 
 
@@ -11077,5 +11104,261 @@ contract PriceSubmitter is IIPriceSubmitter, GovernedAtGenesis, AddressUpdatable
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRegistry"));
         ftsoManager = IFtsoManagerGenesis(_getContractAddress(_contractNameHashes, _contractAddresses, "FtsoManager"));
         voterWhitelister = _getContractAddress(_contractNameHashes, _contractAddresses, "VoterWhitelister");
+    }
+}
+
+
+// File contracts/addressUpdater/interface/IIAddressUpdater.sol
+
+
+
+/**
+ * Internal interface for AddressUpdater.
+ */
+interface IIAddressUpdater {
+
+    /**
+     * Returns all contract names and corresponding addresses currently being tracked.
+     * @return _contractNames Array of contract names.
+     * @return _contractAddresses Array of contract addresses.
+     */
+    function getContractNamesAndAddresses() external view returns(
+        string[] memory _contractNames,
+        address[] memory _contractAddresses
+    );
+
+    /**
+     * Returns contract address for the given name, which might be address(0).
+     * @param _name Name of the contract to query.
+     * @return Current address for the queried contract.
+     */
+    function getContractAddress(string calldata _name) external view returns(address);
+
+    /**
+     * Returns contract address for the given name hash, which might be address(0).
+     * @param _nameHash Hash of the contract name: `keccak256(abi.encode(name))`
+     * @return Current address for the queried contract.
+     */
+    function getContractAddressByHash(bytes32 _nameHash) external view returns(address);
+
+    /**
+     * Returns contract addresses for the given names, which might be address(0).
+     * @param _names Names of the contracts to query.
+     * @return Current addresses for the queried contracts.
+     */
+    function getContractAddresses(string[] calldata _names) external view returns(address[] memory);
+
+    /**
+     * Returns contract addresses for the given name hashes, which might be address(0).
+     * @param _nameHashes Hashes of the contract names: `keccak256(abi.encode(name))`
+     * @return Current addresses for the queried contracts.
+     */
+    function getContractAddressesByHash(bytes32[] calldata _nameHashes) external view returns(address[] memory);
+}
+
+
+// File contracts/addressUpdater/implementation/AddressUpdater.sol
+
+
+
+
+/**
+ * Keeps track of the current address for all unique and special platform contracts.
+ *
+ * This contract keeps a list of addresses that gets updated by governance every time
+ * any of the tracked contracts is redeployed.
+ * This list is then used by the `FlareContractRegistry`, and also by `AddressUpdatable`
+ * to inform all dependent contracts of any address change.
+ */
+contract AddressUpdater is IIAddressUpdater, Governed {
+
+    string internal constant ERR_ARRAY_LENGTHS = "array lengths do not match";
+    string internal constant ERR_ADDRESS_ZERO = "address zero";
+
+    string[] internal contractNames;
+    mapping(bytes32 => address) internal contractAddresses;
+
+    constructor(address _governance) Governed(_governance) {}
+
+    /**
+     * Set or update contract names and addresses, and then apply changes to specific contracts.
+     *
+     * This is a combination of `addOrUpdateContractNamesAndAddresses` and `updateContractAddresses`.
+     * Can only be called by governance.
+     * @param _contractNames Contracts names.
+     * @param _contractAddresses Addresses of corresponding contracts names.
+     * @param _contractsToUpdate Contracts to be updated.
+     */
+    function update(
+        string[] memory _contractNames,
+        address[] memory _contractAddresses,
+        IIAddressUpdatable[] memory _contractsToUpdate
+    )
+        external onlyGovernance
+    {
+        _addOrUpdateContractNamesAndAddresses(_contractNames, _contractAddresses);
+        _updateContractAddresses(_contractsToUpdate);
+    }
+
+    /**
+     * Updates contract addresses on specific contracts.
+     *
+     * Can only be called by governance.
+     * @param _contractsToUpdate Contracts to be updated, which must implement the
+     * `IIAddressUpdatable` interface.
+     */
+    function updateContractAddresses(IIAddressUpdatable[] memory _contractsToUpdate)
+        external
+        onlyImmediateGovernance
+    {
+        _updateContractAddresses(_contractsToUpdate);
+    }
+
+    /**
+     * Add or update contract names and addresses that are later used in `updateContractAddresses` calls.
+     *
+     * Can only be called by governance.
+     * @param _contractNames Contracts names.
+     * @param _contractAddresses Addresses of corresponding contracts names.
+     */
+    function addOrUpdateContractNamesAndAddresses(
+        string[] memory _contractNames,
+        address[] memory _contractAddresses
+    )
+        external onlyGovernance
+    {
+        _addOrUpdateContractNamesAndAddresses(_contractNames, _contractAddresses);
+    }
+
+    /**
+     * Remove contracts with given names.
+     *
+     * Can only be called by governance.
+     * @param _contractNames Contract names.
+     */
+    function removeContracts(string[] memory _contractNames) external onlyGovernance {
+        for (uint256 i = 0; i < _contractNames.length; i++) {
+            string memory contractName = _contractNames[i];
+            bytes32 nameHash = _keccak256AbiEncode(contractName);
+            require(contractAddresses[nameHash] != address(0), ERR_ADDRESS_ZERO);
+            delete contractAddresses[nameHash];
+            uint256 index = contractNames.length;
+            while (index > 0) {
+                index--;
+                if (nameHash == _keccak256AbiEncode(contractNames[index])) {
+                    break;
+                }
+            }
+            contractNames[index] = contractNames[contractNames.length - 1];
+            contractNames.pop();
+        }
+    }
+
+    /**
+     * @inheritdoc IIAddressUpdater
+     */
+    function getContractNamesAndAddresses() external view override returns(
+        string[] memory _contractNames,
+        address[] memory _contractAddresses
+    ) {
+        _contractNames = contractNames;
+        uint256 len = _contractNames.length;
+        _contractAddresses = new address[](len);
+        while (len > 0) {
+            len--;
+            _contractAddresses[len] = contractAddresses[_keccak256AbiEncode(_contractNames[len])];
+        }
+    }
+
+    /**
+     * @inheritdoc IIAddressUpdater
+     */
+    function getContractAddress(string calldata _name) external view override returns(address) {
+        return contractAddresses[_keccak256AbiEncode(_name)];
+    }
+
+    /**
+     * @inheritdoc IIAddressUpdater
+     */
+    function getContractAddressByHash(bytes32 _nameHash) external view override returns(address) {
+        return contractAddresses[_nameHash];
+    }
+
+    /**
+     * @inheritdoc IIAddressUpdater
+     */
+    function getContractAddresses(string[] calldata _names) external view override returns(address[] memory) {
+        address[] memory addresses = new address[](_names.length);
+        for (uint256 i = 0; i < _names.length; i++) {
+            addresses[i] = contractAddresses[_keccak256AbiEncode(_names[i])];
+        }
+        return addresses;
+    }
+
+    /**
+     * @inheritdoc IIAddressUpdater
+     */
+    function getContractAddressesByHash(
+        bytes32[] calldata _nameHashes
+    )
+        external view override returns(address[] memory)
+    {
+        address[] memory addresses = new address[](_nameHashes.length);
+        for (uint256 i = 0; i < _nameHashes.length; i++) {
+            addresses[i] = contractAddresses[_nameHashes[i]];
+        }
+        return addresses;
+    }
+
+    /**
+     * Add or update contract names and addresses that are later used in updateContractAddresses calls
+     * @param _contractNames                contracts names
+     * @param _contractAddresses            addresses of corresponding contracts names
+     */
+    function _addOrUpdateContractNamesAndAddresses(
+        string[] memory _contractNames,
+        address[] memory _contractAddresses
+    )
+        internal
+    {
+        uint256 len = _contractNames.length;
+        require(len == _contractAddresses.length, ERR_ARRAY_LENGTHS);
+
+        for (uint256 i = 0; i < len; i++) {
+            require(_contractAddresses[i] != address(0), ERR_ADDRESS_ZERO);
+            bytes32 nameHash = _keccak256AbiEncode(_contractNames[i]);
+            // add new contract name if address is not known yet
+            if (contractAddresses[nameHash] == address(0)) {
+                contractNames.push(_contractNames[i]);
+            }
+            // set or update contract address
+            contractAddresses[nameHash] = _contractAddresses[i];
+        }
+    }
+
+    /**
+     * Updates contract addresses on all contracts implementing IIAddressUpdatable interface
+     * @param _contractsToUpdate            contracts to be updated
+     */
+    function _updateContractAddresses(IIAddressUpdatable[] memory _contractsToUpdate) internal {
+        uint256 len = contractNames.length;
+        bytes32[] memory nameHashes = new bytes32[](len);
+        address[] memory addresses = new address[](len);
+        while (len > 0) {
+            len--;
+            nameHashes[len] = _keccak256AbiEncode(contractNames[len]);
+            addresses[len] = contractAddresses[nameHashes[len]];
+        }
+
+        for (uint256 i = 0; i < _contractsToUpdate.length; i++) {
+            _contractsToUpdate[i].updateContractAddresses(nameHashes, addresses);
+        }
+    }
+
+    /**
+     * Returns hash from string value.
+     */
+    function _keccak256AbiEncode(string memory _value) internal pure returns(bytes32) {
+        return keccak256(abi.encode(_value));
     }
 }

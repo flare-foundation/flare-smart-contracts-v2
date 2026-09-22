@@ -22,8 +22,8 @@ export async function getFilteredBlock(
   if (rawBlock.number === null) throw new Error(`Block ${blockNumber} is still pending.`);
 
   const relevantContracts = new Set(contractAddresses);
-  const relevantTransactions = rawBlock.transactions.filter(tx => tx.to != null && relevantContracts.has(tx.to));
-  const receiptPromises = relevantTransactions.map(async tx => {
+  const relevantTransactions = rawBlock.transactions.filter((tx) => tx.to != null && relevantContracts.has(tx.to));
+  const receiptPromises = relevantTransactions.map(async (tx) => {
     let receipt: TransactionReceipt;
     try {
       receipt = await retry(async () => web3.eth.getTransactionReceipt(tx.hash));

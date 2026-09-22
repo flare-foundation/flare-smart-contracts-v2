@@ -1,0 +1,19 @@
+# Halmos config (auto-loaded from ROOT/halmos.toml). Mirrors CLI long-options.
+# This repo builds to a non-default artifacts dir; point Halmos at it.
+[global]
+forge-build-out = "artifacts-forge"
+# Halmos 0.3.3 otherwise defaults to Yices. The FV toolchain and reports pin
+# z3-solver 4.12.6.0, so make the effective solver explicit and auditable.
+solver = "z3"
+# Loop unrolling bound. DEFAULT IS 2, which silently truncates relay()'s signature loop and makes
+# any 3+-signature test pass VACUOUSLY. Must be >= the max loop iterations exercised by a proof
+# (signer count, Merkle proof depth). Keep the reachability controls in the FV tests as a tripwire.
+loop = 6
+# Per-assertion solver timeout, in ms. 0 = no timeout (solve to completion). The default (~60s) is
+# below what a few VALID-but-nonlinear proofs need: RelayThresholdScalingFV's neverWeakens (a symbolic
+# 16-bit product, ~73s) and identityAtBoundary (a symbolic truncating division). Under the default they
+# are cut off and — because Halmos reports an unsolved assertion as a counterexample — misflagged as
+# PROOF FAILED. They are provable theorems (threshold*tib >= threshold*10000 for tib >= 10000;
+# (threshold*10000)/10000 == threshold); they just need the solver to finish. The CI job has a
+# 60-minute wall for cold dependency setup, the exact compiler build, and the complete suite.
+solver-timeout-assertion = 0

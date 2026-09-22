@@ -8,6 +8,8 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 
 contract GovernedTest is Test {
 
+    uint256 private constant HOUR = 3600;
+
     GovernedMock private governedMock;
 
     address private governance;
@@ -16,7 +18,6 @@ contract GovernedTest is Test {
 
     bytes4 private selectorChangeA = bytes4(keccak256("changeA(uint256)"));
     bytes4 private selectorChangeWithRevert = bytes4(keccak256("changeWithRevert(uint256)"));
-    uint256 private constant HOUR = 3600;
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -88,9 +89,9 @@ contract GovernedTest is Test {
         vm.startPrank(governance);
         governedMock.changeA(3);
 
-        vm.warp(block.timestamp + HOUR);
+        vm.warp(vm.getBlockTimestamp() + HOUR);
         vm.expectEmit();
-        emit GovernedBase.TimelockedGovernanceCallExecuted(selectorChangeA, block.timestamp);
+        emit GovernedBase.TimelockedGovernanceCallExecuted(selectorChangeA, vm.getBlockTimestamp());
         governedMock.executeGovernanceCall(selectorChangeA);
         assertEq(governedMock.a(), 3);
         vm.stopPrank();
@@ -124,7 +125,7 @@ contract GovernedTest is Test {
         vm.startPrank(governance);
         governedMock.changeA(3);
 
-        vm.warp(block.timestamp + HOUR - 60);
+        vm.warp(vm.getBlockTimestamp() + HOUR - 60);
         vm.expectRevert("timelock: not allowed yet");
         governedMock.executeGovernanceCall(selectorChangeA);
     }
@@ -140,7 +141,7 @@ contract GovernedTest is Test {
         vm.startPrank(governance);
         governedMock.changeWithRevert(3);
 
-        vm.warp(block.timestamp + HOUR);
+        vm.warp(vm.getBlockTimestamp() + HOUR);
         vm.expectRevert("this is revert");
         governedMock.executeGovernanceCall(selectorChangeWithRevert);
         vm.stopPrank();
@@ -159,9 +160,9 @@ contract GovernedTest is Test {
         vm.startPrank(governance);
         governedMock.changeA(3);
 
-        vm.warp(block.timestamp + HOUR - 60);
+        vm.warp(vm.getBlockTimestamp() + HOUR - 60);
         vm.expectEmit();
-        emit GovernedBase.TimelockedGovernanceCallCanceled(selectorChangeA, block.timestamp);
+        emit GovernedBase.TimelockedGovernanceCallCanceled(selectorChangeA, vm.getBlockTimestamp());
         governedMock.cancelGovernanceCall(selectorChangeA);
         vm.stopPrank();
     }

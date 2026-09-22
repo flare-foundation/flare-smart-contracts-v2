@@ -25,7 +25,10 @@ export class MockDBIndexer {
   private lastProcessedBlockNumber = 0;
   private dataSource!: DataSource;
 
-  constructor(private readonly web3: Web3, private readonly contractAddresses: ContractAddresses) {}
+  constructor(
+    private readonly web3: Web3,
+    private readonly contractAddresses: ContractAddresses
+  ) {}
 
   async run(startBlock: number | undefined = undefined) {
     this.dataSource = await getDataSource();
@@ -36,7 +39,6 @@ export class MockDBIndexer {
       this.lastProcessedBlockNumber = (await this.web3.eth.getBlockNumber()) - 1;
     }
 
-
     const firstDatabaseIndexState = new TLPState();
     firstDatabaseIndexState.id = 1;
     firstDatabaseIndexState.name = FIRST_DATABASE_INDEX_STATE;
@@ -44,14 +46,12 @@ export class MockDBIndexer {
     firstDatabaseIndexState.block_timestamp = 0;
     firstDatabaseIndexState.updated = new Date();
 
-
     const lastDatabaseIndexState = new TLPState();
     lastDatabaseIndexState.id = 2;
     lastDatabaseIndexState.name = LAST_DATABASE_INDEX_STATE;
     lastDatabaseIndexState.index = this.lastProcessedBlockNumber;
     lastDatabaseIndexState.block_timestamp = 0;
     lastDatabaseIndexState.updated = new Date();
-
 
     const lastChainIndexState = new TLPState();
     lastChainIndexState.id = 3;
@@ -66,8 +66,11 @@ export class MockDBIndexer {
     }
   }
 
-
-  async processNewBlocks(firstDatabaseIndexState: TLPState, lastDatabaseIndexState: TLPState, lastChainIndexState: TLPState) {
+  async processNewBlocks(
+    firstDatabaseIndexState: TLPState,
+    lastDatabaseIndexState: TLPState,
+    lastChainIndexState: TLPState
+  ) {
     try {
       const currentBlockNumber = await this.web3.eth.getBlockNumber();
       while (this.lastProcessedBlockNumber < currentBlockNumber) {

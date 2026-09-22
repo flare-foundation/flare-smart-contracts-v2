@@ -7,12 +7,12 @@
  * json defining the created contracts.
  */
 
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { SubmissionContract } from '../../typechain-truffle';
-import { ChainParameters } from '../chain-config/chain-parameters';
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { SubmissionContract } from "../../typechain-truffle";
+import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
-import { spewNewContractInfo } from './deploy-utils';
-import { Account } from 'web3-core';
+import { spewNewContractInfo } from "./deploy-utils";
+import { Account } from "web3-core";
 
 export async function deploySubmissionContract(
   hre: HardhatRuntimeEnvironment,
@@ -50,10 +50,8 @@ export async function deploySubmissionContract(
   );
   spewNewContractInfo(contracts, null, Submission.contractName, `Submission.sol`, submission.address, quiet);
 
-
   contracts.serialize();
   if (!quiet) {
     console.error("Deploy complete.");
   }
-
 }

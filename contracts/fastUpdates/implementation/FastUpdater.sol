@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import { Governed } from "../../governance/implementation/Governed.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
@@ -22,6 +22,7 @@ import { IIFeeCalculator } from "../interface/IIFeeCalculator.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IFlareDaemonize } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFlareDaemonize.sol";
 import { G1Point } from "../../userInterfaces/IBn256.sol";
+import { Signature } from "../../userInterfaces/ISignature.sol";
 
 // The number of units of weight distributed among providers is 1 << VIRTUAL_PROVIDER_BITS
 uint256 constant VIRTUAL_PROVIDER_BITS = 12;

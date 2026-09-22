@@ -54,7 +54,7 @@ contract NodesHistoryTest is Test {
     function testNodeIdsAtEmpty() public {
         vm.roll(990);
 
-        bytes20[] memory nodesAt = emptyState.nodeIdsAt(block.number);
+        bytes20[] memory nodesAt = emptyState.nodeIdsAt(vm.getBlockNumber());
         bytes20[] memory nodesAt70 = emptyState.nodeIdsAt(70);
 
         assertEq(nodesAt.length, 0);
@@ -64,7 +64,7 @@ contract NodesHistoryTest is Test {
     function testNodeIdsAt() public {
         vm.roll(500);
 
-        bytes20[] memory nodesAtNow = checkPointHistoryState.nodeIdsAt(block.number);
+        bytes20[] memory nodesAtNow = checkPointHistoryState.nodeIdsAt(vm.getBlockNumber());
         bytes20[] memory nodesAt101 = checkPointHistoryState.nodeIdsAt(101);
 
         assertEq(nodesAtNow.length, 3);

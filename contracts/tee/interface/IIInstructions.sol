@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.7.6 <0.9;
+
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+
+/**
+ * @title IIInstructions
+ * @notice Internal interface for the InstructionsFacet.
+ * @dev Extends the public interface with governance-only methods and methods
+ *      called by external contracts outside the Diamond (e.g. Fdc2Hub, TeePayments).
+ */
+interface IIInstructions is IInstructions {
+
+    /**
+     * Send instructions to the TEE machines - same as sendInstructions but with instruction ID
+     * (might be bytes32(0)).
+     * Emits TeeInstructionsSent event.
+     * @param _instructionId The instruction ID - auto generated in case of bytes32(0).
+     * @param _teeIds The TEE machine IDs to which the instructions are sent
+     *        (must all belong to the same extension).
+     * @param _instructionParams The instruction parameters.
+     * @return The instruction ID.
+     * Can only be called by the system instructions senders.
+     * @dev No check for duplicated TEE machines is performed.
+     */
+    function sendSystemInstructions(
+        bytes32 _instructionId,
+        address[] memory _teeIds,
+        TeeInstructionParams memory _instructionParams
+    )
+        external payable
+        returns (bytes32);
+
+    /**
+     * Register system instructions sender contracts.
+     * Emits SystemInstructionsSendersRegistered event.
+     * @param _instructionsSenders List of contracts to register.
+     * @dev Only governance can call this method.
+     */
+    function registerSystemInstructionsSenders(
+        address[] calldata _instructionsSenders
+    )
+        external;
+
+    /**
+     * Unregister system instructions sender contracts.
+     * Emits SystemInstructionsSendersUnregistered event.
+     * @param _instructionsSenders List of contracts to unregister.
+     * @dev Only governance can call this method.
+     */
+    function unregisterSystemInstructionsSenders(
+        address[] calldata _instructionsSenders
+    )
+        external;
+}

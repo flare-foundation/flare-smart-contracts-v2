@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import { IAddressUpdatable } from "../../userInterfaces/IAddressUpdatable.sol";
 import {
     IIAddressUpdatable
 } from "@flarenetwork/flare-periphery-contracts/flare/addressUpdater/interfaces/IIAddressUpdatable.sol";
 
-abstract contract AddressUpdatable is IIAddressUpdatable {
+abstract contract AddressUpdatable is IAddressUpdatable, IIAddressUpdatable {
 
     // https://docs.soliditylang.org/en/v0.8.7/contracts.html#constant-and-immutable-state-variables
     // No storage slot is allocated

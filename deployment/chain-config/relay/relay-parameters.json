@@ -1,0 +1,116 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "additionalProperties": false,
+    "definitions": {
+        "RelayFeeConfig": {
+            "additionalProperties": false,
+            "description": "A single protocol-fee configuration for a mirror (relay-mode) Relay deployment.",
+            "properties": {
+                "fee": {
+                    "description": "Fee charged for verify() of this protocol, in native wei — or in base units of `feeToken`\nwhen the mirror configures one. Decimal string (may exceed 2^64). Must be nonzero — a\nfree protocol is expressed by omitting it from feeConfigs.",
+                    "type": "string"
+                },
+                "protocolId": {
+                    "description": "Protocol id the fee applies to. A single byte in relay messages (uint8), and must be > 1.",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "fee",
+                "protocolId"
+            ],
+            "type": "object"
+        },
+        "RelayHomeConfig": {
+            "additionalProperties": false,
+            "description": "The source's own home (setter-mode) Relay deployment settings. Protocol addresses are read\nfrom the on-chain FlareContractRegistry, the epoch/protocol params are inherited from the\ncurrently deployed Relay's stateData() (four are handshake-enforced to match it anyway; the\nrest are preserved across a redeploy), and the initial signing-policy hash is always\nreconstructed from chain state and verified against the old Relay — so the only thing\nconfigured here is the owner-timelock duration.",
+            "properties": {
+                "timelockDurationSeconds": {
+                    "description": "Initial owner-timelock duration in seconds applied to every guarded owner call — fee\nsettings, upgrades, this duration and ownership transfer (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls\nimmediate (reasonable on home chains where the owner is the governance multisig, itself\nbehind Flare's governance timelock).",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "timelockDurationSeconds"
+            ],
+            "type": "object"
+        },
+        "RelayMirrorConfig": {
+            "additionalProperties": false,
+            "description": "One mirror (relay-mode) target of a source. Keyed in `mirrors` by a human blockchain name\n(e.g. \"arbitrum\"); the `chainId` here is asserted against the live `block.chainid` at deploy\ntime, so running the deploy against the wrong RPC fails fast.",
+            "properties": {
+                "chainId": {
+                    "description": "The target chain id. Checked against `block.chainid` at deploy time.",
+                    "type": "integer"
+                },
+                "feeCollectionAddress": {
+                    "description": "Recipient of collected verify() fees. Must be nonzero (a zero recipient would burn fees).",
+                    "type": "string"
+                },
+                "feeConfigs": {
+                    "description": "Per-protocol verify() fees seeded at deployment.",
+                    "items": {
+                        "$ref": "#/definitions/RelayFeeConfig"
+                    },
+                    "type": "array"
+                },
+                "feeExemptAddresses": {
+                    "description": "Accounts exempt from the verify() fee, seeded at deployment (e.g. DVN adapters), so they\nare exempt from block one with no governance round-trip. May be empty.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "feeToken": {
+                    "description": "ERC-20 token address the verify() fee is paid in (via allowance + transferFrom, pulled\nstraight to feeCollectionAddress). For chains without a spendable native token (e.g.\nTempo, where msg.value is always 0). Required — state the zero address explicitly for\nfees in the native coin. When nonzero, every `fee` in feeConfigs is denominated in this\ntoken's base units, and the token must be a standard exact-transfer ERC-20 —\nfee-on-transfer or rebasing tokens are unsupported.",
+                    "type": "string"
+                },
+                "relayOwner": {
+                    "description": "The per-chain owner (Relay.owner()): the chain's designated multisig, authorizing every\nguarded call — fee settings, UUPS upgrades, the timelock duration and ownership transfer —\nthrough the owner-timelock. Does not exist on the Flare registry, so it is configured here.",
+                    "type": "string"
+                },
+                "timelockDurationSeconds": {
+                    "description": "Initial owner-timelock duration in seconds applied to every guarded owner call — fee\nsettings, upgrades, this duration and ownership transfer (see IOwnableWithTimelock). At most 7 days (604800); 0 makes owner calls\nimmediate.",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "chainId",
+                "feeCollectionAddress",
+                "feeConfigs",
+                "feeExemptAddresses",
+                "feeToken",
+                "relayOwner",
+                "timelockDurationSeconds"
+            ],
+            "type": "object"
+        }
+    },
+    "description": "Per-SOURCE parameters for the owner-governed Relay Forge deployment scripts in\ndeployment/scripts/relay/. One file per source chain (flare.json, coston2.json, …): it holds\nthe source's own home deployment plus the full list of mirror targets that mirror this source\n— a single reviewed inventory, so mirror deployments cannot drift from a shared base and every\nfield can be required.\n\nNo protocol ADDRESSES are configured for the home deployment: on a Flare network every address\n(the Relay owner via GovernanceSettings.getGovernanceAddress(), FlareSystemsManager, the old\nRelay) is read from the on-chain FlareContractRegistry. Mirrors carry only their own\nchain-specific values (relayOwner, feeCollectionAddress, timelockDurationSeconds, fees) plus\nthe shared `expectedDeployer`; their protocol parameters come from the live source snapshot,\nso they cannot drift per chain.",
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "expectedDeployer": {
+            "description": "The designated deployer EOA — the permanent address authority for the deployer- and\nsource-scoped Relay proxy CREATE3 salt. Shared by the home deployment and EVERY mirror of\nthis source: the SAME EOA must perform all of them for the source's Relay address to match\nacross chains. Must be present, nonzero, and equal to the broadcasting key.",
+            "type": "string"
+        },
+        "home": {
+            "$ref": "#/definitions/RelayHomeConfig",
+            "description": "This source's own home (setter-mode) deployment."
+        },
+        "mirrors": {
+            "additionalProperties": {
+                "$ref": "#/definitions/RelayMirrorConfig"
+            },
+            "description": "Relay-mode mirror targets of this source, keyed by blockchain name. Optional — a source may\nhave no mirrors. The deploy selects an entry by name and asserts its `chainId` matches the\nlive chain.",
+            "type": "object"
+        }
+    },
+    "required": [
+        "expectedDeployer",
+        "home"
+    ],
+    "type": "object"
+}
+

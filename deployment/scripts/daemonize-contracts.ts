@@ -15,8 +15,8 @@ export async function daemonizeContracts(
   oldContracts: Contracts,
   contracts: Contracts,
   parameters: ChainParameters,
-  quiet: boolean = false) {
-
+  quiet: boolean = false
+) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
 
@@ -42,7 +42,7 @@ export async function daemonizeContracts(
   }
 
   if (!quiet) {
-    console.error(`Set daemonized contracts with address ${deployerAccount.address}`)
+    console.error(`Set daemonized contracts with address ${deployerAccount.address}`);
   }
 
   // Wire up the default account that will do the deployment
@@ -62,8 +62,10 @@ export async function daemonizeContracts(
       console.error(`Registering ${fdc.contractName} with gas limit ${fdc.gasLimit}`);
     }
     registrations.push({
-      daemonizedContract: fdc.oldContract ? oldContracts.getContractAddress(fdc.contractName) : contracts.getContractAddress(fdc.contractName),
-      gasLimit: fdc.gasLimit
+      daemonizedContract: fdc.oldContract
+        ? oldContracts.getContractAddress(fdc.contractName)
+        : contracts.getContractAddress(fdc.contractName),
+      gasLimit: fdc.gasLimit,
     });
   }
 

@@ -133,7 +133,7 @@ contract PollingFoundationTest is Test {
 
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: true,
-            votingStartTs: block.timestamp,
+            votingStartTs: vm.getBlockTimestamp(),
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 6000,
@@ -153,7 +153,7 @@ contract PollingFoundationTest is Test {
 
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: true,
-            votingStartTs: block.timestamp,
+            votingStartTs: vm.getBlockTimestamp(),
             votingPeriodSeconds: 0,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 6000,
@@ -174,7 +174,7 @@ contract PollingFoundationTest is Test {
 
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: true,
-            votingStartTs: block.timestamp,
+            votingStartTs: vm.getBlockTimestamp(),
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: MAX_BIPS + 1,
@@ -195,7 +195,7 @@ contract PollingFoundationTest is Test {
 
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: true,
-            votingStartTs: block.timestamp,
+            votingStartTs: vm.getBlockTimestamp(),
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 3000,
@@ -219,7 +219,7 @@ contract PollingFoundationTest is Test {
 
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: false,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 7500,
@@ -251,7 +251,7 @@ contract PollingFoundationTest is Test {
 
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: false,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 7500,
@@ -272,8 +272,8 @@ contract PollingFoundationTest is Test {
             string memory description) = pollingFoundation.getProposalInfo(proposalId);
         assertEq(proposer, proposers[0]);
         assertEq(accept, false);
-        assertEq(startTime, block.timestamp + 100);
-        assertEq(endTime, block.timestamp + 100 + 3600);
+        assertEq(startTime, vm.getBlockTimestamp() + 100);
+        assertEq(endTime, vm.getBlockTimestamp() + 100 + 3600);
         assertEq(threshold, 7500);
         assertEq(majority, 6000);
         assertEq(supply, 1000);
@@ -306,7 +306,7 @@ contract PollingFoundationTest is Test {
     function testCancelProposalRevertOnlyBeforeVoting() public {
         testCreateRejectProposal();
 
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Active));
 
         vm.prank(proposers[0]);
@@ -325,7 +325,7 @@ contract PollingFoundationTest is Test {
         testCreateRejectProposal();
         _setVotePowers(4, vpBlock);
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         // voter0 votes against
         vm.prank(voters[0]);
@@ -376,7 +376,7 @@ contract PollingFoundationTest is Test {
         testCreateRejectProposal();
         _setVotePowers(4, vpBlock);
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         bytes32 typeHash = keccak256(
             "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
@@ -412,7 +412,7 @@ contract PollingFoundationTest is Test {
         testCreateRejectProposal();
         _setVotePowers(4, vpBlock);
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         vm.prank(voters[0]);
         vm.expectRevert("invalid value for enum VoteType");
@@ -430,13 +430,13 @@ contract PollingFoundationTest is Test {
         testCastVote();
 
         // voting ends
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
 
         // proposal is successful
         // (more vote power is against than in favor but for rejection type
         // it is accepted unless enough vote power is against - majority reached)
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Queued));
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
         vm.prank(proposers[0]);
         vm.expectEmit();
         emit IGovernor.ProposalExecuted(proposalId);
@@ -448,7 +448,7 @@ contract PollingFoundationTest is Test {
         testCastVote();
 
         // voting ends
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
 
         vm.expectRevert("proposal can only be executed by its proposer");
         pollingFoundation.execute(proposalId);
@@ -465,7 +465,7 @@ contract PollingFoundationTest is Test {
 
         _setVotePowers(4, vpBlock);
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         // voter0 votes against
         vm.prank(voters[0]);
@@ -480,7 +480,7 @@ contract PollingFoundationTest is Test {
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.Against));
 
         // voting ends
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
 
         // proposal is successful
         // (majority is against but threshold is not reached)
@@ -493,7 +493,7 @@ contract PollingFoundationTest is Test {
 
         _setVotePowers(4, vpBlock);
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         // voter0 votes against
         vm.prank(voters[0]);
@@ -512,7 +512,7 @@ contract PollingFoundationTest is Test {
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.Against));
 
         // voting ends
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
 
         // proposal is defeated
         // (majority is in against and threshold is reached)
@@ -524,7 +524,7 @@ contract PollingFoundationTest is Test {
         vm.prank(proposers[0]);
            settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: true,
-            votingStartTs: block.timestamp,
+            votingStartTs: vm.getBlockTimestamp(),
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 2000,
@@ -534,7 +534,7 @@ contract PollingFoundationTest is Test {
         uint256 proposalId2 = _getProposalId("proposalReject2");
 
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         // voter0 votes against
         vm.prank(voters[0]);
@@ -553,7 +553,7 @@ contract PollingFoundationTest is Test {
         pollingFoundation.castVote(proposalId2, uint8(GovernorVotes.VoteType.Against));
 
         // voting ends
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
 
         // proposal is not successful.
         // Again all voters voted against but supply increased and
@@ -591,7 +591,7 @@ contract PollingFoundationTest is Test {
 
         settingsExec = IGovernor.GovernorSettings({
             accept: false,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 7500,
@@ -623,7 +623,7 @@ contract PollingFoundationTest is Test {
             string memory description) = pollingFoundation.getProposalInfo(proposalId);
         assertEq(proposer, proposers[1]);
         assertEq(accept, false);
-        assertEq(startTime, block.timestamp + 100);
+        assertEq(startTime, vm.getBlockTimestamp() + 100);
         assertEq(endTime, startTime + 3600);
         assertEq(execStartTime, endTime + 1000);
         assertEq(execEndTime, execStartTime + 2000);
@@ -648,7 +648,7 @@ contract PollingFoundationTest is Test {
 
         settingsExec = IGovernor.GovernorSettings({
             accept: false,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 7500,
@@ -694,7 +694,7 @@ contract PollingFoundationTest is Test {
         _setVotePowers(4, vpBlock);
 
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         // voter0 votes against
         vm.prank(voters[0]);
@@ -713,13 +713,13 @@ contract PollingFoundationTest is Test {
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));
 
         // voting ends
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
 
         // proposal is successful
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Succeeded));
 
         // move to execution period
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Queued));
 
         // execute proposal
@@ -741,19 +741,19 @@ contract PollingFoundationTest is Test {
         testProposeRejectExecOnChain();
 
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         // voting ends
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
 
         // proposal is successful
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Succeeded));
 
         // move to execution period
-        vm.warp(block.timestamp + 1000);
+        vm.warp(vm.getBlockTimestamp() + 1000);
 
         // move to end of execution period
-        vm.warp(block.timestamp + 2000);
+        vm.warp(vm.getBlockTimestamp() + 2000);
 
         // proposal is expired
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Expired));
@@ -767,7 +767,7 @@ contract PollingFoundationTest is Test {
         testProposeRejectExecOnChain();
 
         // move to execution period
-        vm.warp(block.timestamp + 100 + 3600 + 1000);
+        vm.warp(vm.getBlockTimestamp() + 100 + 3600 + 1000);
 
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Queued));
 
@@ -790,7 +790,7 @@ contract PollingFoundationTest is Test {
 
         settingsExec = IGovernor.GovernorSettings({
             accept: false,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 7500,
@@ -814,7 +814,7 @@ contract PollingFoundationTest is Test {
         pollingFoundation.propose(targets, values, calldatas, "proposalRejectExecuteOnChain", settingsExec);
 
         // move to execution period
-        vm.warp(block.timestamp + 100 + 3600 + 1000);
+        vm.warp(vm.getBlockTimestamp() + 100 + 3600 + 1000);
 
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Queued));
 
@@ -841,7 +841,7 @@ contract PollingFoundationTest is Test {
 
         settingsExec = IGovernor.GovernorSettings({
             accept: false,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 7500,
@@ -871,7 +871,7 @@ contract PollingFoundationTest is Test {
         pollingFoundation.propose(targets, values, calldatas, "proposalRejectExecuteOnChain", settingsExec);
 
         // move to execution period
-        vm.warp(block.timestamp + 100 + 3600 + 1000);
+        vm.warp(vm.getBlockTimestamp() + 100 + 3600 + 1000);
 
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Queued));
 
@@ -898,7 +898,7 @@ contract PollingFoundationTest is Test {
 
         settingsExec = IGovernor.GovernorSettings({
             accept: false,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 7500,
@@ -928,7 +928,7 @@ contract PollingFoundationTest is Test {
         pollingFoundation.propose(targets, values, calldatas, "proposalRejectExecuteOnChain", settingsExec);
 
         // move to execution period
-        vm.warp(block.timestamp + 100 + 3600 + 1000);
+        vm.warp(vm.getBlockTimestamp() + 100 + 3600 + 1000);
 
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Queued));
 
@@ -950,7 +950,7 @@ contract PollingFoundationTest is Test {
 
         settingsExec = IGovernor.GovernorSettings({
             accept: false,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 5,
             thresholdConditionBIPS: 7500,
@@ -972,7 +972,7 @@ contract PollingFoundationTest is Test {
 
         (, , , ,  , uint256 executionStartTime, uint256 executionEndTime, , ,  ,) =
             pollingFoundation.getProposalInfo(proposalId);
-        assertEq(executionStartTime, block.timestamp + 100 + 3600 + 1000); // 200 + 4700 = 4900
+        assertEq(executionStartTime, vm.getBlockTimestamp() + 100 + 3600 + 1000); // 200 + 4700 = 4900
         assertEq(executionEndTime, executionStartTime + 2000); // 4900 + 2000 = 6900
 
         vm.warp(500);
@@ -1007,7 +1007,7 @@ contract PollingFoundationTest is Test {
 
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: true,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 1300,
             thresholdConditionBIPS: 7500,
@@ -1021,7 +1021,7 @@ contract PollingFoundationTest is Test {
         _setVotePowers(4, vpBlock);
 
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         // voter0 votes for
         vm.prank(voters[0]);
@@ -1037,7 +1037,7 @@ contract PollingFoundationTest is Test {
 
         // end of voting period
         // all voted in favor but threshold is was not reached -> defeated
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Defeated));
     }
 
@@ -1056,7 +1056,7 @@ contract PollingFoundationTest is Test {
 
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: true,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 1300,
             thresholdConditionBIPS: 7500,
@@ -1070,7 +1070,7 @@ contract PollingFoundationTest is Test {
         _setVotePowers(4, vpBlock);
 
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         // voter0 votes for
         vm.prank(voters[0]);
@@ -1090,7 +1090,7 @@ contract PollingFoundationTest is Test {
 
         // end of voting period
         // all voted in favor but threshold is was not reached -> defeated
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Queued));
     }
 
@@ -1109,7 +1109,7 @@ contract PollingFoundationTest is Test {
 
         settings = IIPollingFoundation.GovernorSettingsWithoutExecParams({
             accept: true,
-            votingStartTs: block.timestamp + 100,
+            votingStartTs: vm.getBlockTimestamp() + 100,
             votingPeriodSeconds: 3600,
             vpBlockPeriodSeconds: 1300,
             thresholdConditionBIPS: 7500,
@@ -1123,7 +1123,7 @@ contract PollingFoundationTest is Test {
         _setVotePowers(4, vpBlock);
 
         // voting starts
-        vm.warp(block.timestamp + 100);
+        vm.warp(vm.getBlockTimestamp() + 100);
 
         // voter0 votes for
         vm.prank(voters[0]);
@@ -1143,7 +1143,7 @@ contract PollingFoundationTest is Test {
 
         // end of voting period
         // all voted in favor but threshold is was not reached -> defeated
-        vm.warp(block.timestamp + 3600);
+        vm.warp(vm.getBlockTimestamp() + 3600);
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Defeated));
     }
 
