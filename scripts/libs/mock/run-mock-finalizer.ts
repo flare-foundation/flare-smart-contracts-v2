@@ -7,9 +7,14 @@ const mf = new MockFinalizer(
   web3,
   contractAddress("Submission"),
   contractAddress("Relay"),
-  contractAddress("FlareSystemsManager"),
+  contractAddress("FlareSystemsManager")
 );
 
 mf.run()
-  .then(() => {console.log("done")})
-  .catch((e) => {console.error(e); process.exit(1)});
+  .then(() => {
+    console.log("done");
+  })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

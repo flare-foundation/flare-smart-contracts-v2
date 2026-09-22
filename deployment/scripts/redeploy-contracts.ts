@@ -7,23 +7,51 @@
  * json defining the created contracts.
  */
 
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { ChainParameters } from '../chain-config/chain-parameters';
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
-import { spewNewContractInfo } from './deploy-utils';
-import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
-import { RelayInitialConfig } from '../utils/RelayInitialConfig';
+import { spewNewContractInfo } from "./deploy-utils";
+import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
+import { RelayInitialConfig } from "../utils/RelayInitialConfig";
 import {
-  PChainStakeMirrorVerifierContract, PChainStakeMirrorVerifierInstance, RNatContract, RNatAccountContract, WNatContract, RelayContract, RelayInstance, RewardManagerContract, RewardManagerInstance,
-  FlareSystemsManagerContract, FlareSystemsManagerInstance, PollingFoundationContract,
-  PollingManagementGroupContract, ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance,
-  FastUpdateIncentiveManagerContract, FastUpdateIncentiveManagerInstance, FastUpdaterContract,
-  FastUpdatesConfigurationContract, FastUpdatesConfigurationInstance, FeeCalculatorContract,
-  FtsoManagerProxyContract, FtsoProxyContract, FtsoV2Contract, FtsoV2ProxyContract,
-  PriceSubmitterProxyContract, VoterWhitelisterProxyContract, FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance, EntityManagerContract, VoterPreRegistryContract, SFlrCustomFeedContract, StXrpCustomFeedContract
-
-} from '../../typechain-truffle';
-import { Account } from 'web3-core';
+  PChainStakeMirrorVerifierContract,
+  PChainStakeMirrorVerifierInstance,
+  RNatContract,
+  RNatAccountContract,
+  WNatContract,
+  RelayContract,
+  RelayInstance,
+  RewardManagerContract,
+  RewardManagerInstance,
+  FlareSystemsManagerContract,
+  FlareSystemsManagerInstance,
+  PollingFoundationContract,
+  PollingManagementGroupContract,
+  ValidatorRewardOffersManagerContract,
+  ValidatorRewardOffersManagerInstance,
+  FastUpdateIncentiveManagerContract,
+  FastUpdateIncentiveManagerInstance,
+  FastUpdaterContract,
+  FastUpdatesConfigurationContract,
+  FastUpdatesConfigurationInstance,
+  FeeCalculatorContract,
+  FtsoManagerProxyContract,
+  FtsoProxyContract,
+  FtsoV2Contract,
+  FtsoV2ProxyContract,
+  PriceSubmitterProxyContract,
+  VoterWhitelisterProxyContract,
+  FtsoRewardManagerProxyContract,
+  FtsoRewardManagerProxyInstance,
+  EntityManagerContract,
+  VoterRegistryContract,
+  VoterPreRegistryContract,
+  SFlrCustomFeedContract,
+  StXrpCustomFeedContract,
+  RelayProxyContract,
+} from "../../typechain-truffle";
+import { Account } from "web3-core";
+import { signingPolicyHashForMigration } from "../utils/SigningPolicyHashMigration";
 
 export async function redeployContracts(
   hre: HardhatRuntimeEnvironment,
@@ -46,9 +74,13 @@ export async function redeployContracts(
   const FlareSystemsManager = artifacts.require("FlareSystemsManager") as FlareSystemsManagerContract;
   const PollingFoundation = artifacts.require("PollingFoundation") as PollingFoundationContract;
   const PollingManagementGroup = artifacts.require("PollingManagementGroup") as PollingManagementGroupContract;
-  const ValidatorRewardOffersManager = artifacts.require("ValidatorRewardOffersManager") as ValidatorRewardOffersManagerContract;
+  const ValidatorRewardOffersManager = artifacts.require(
+    "ValidatorRewardOffersManager"
+  ) as ValidatorRewardOffersManagerContract;
   const PChainStakeMirrorVerifier = artifacts.require("PChainStakeMirrorVerifier") as PChainStakeMirrorVerifierContract;
-  const FastUpdateIncentiveManager = artifacts.require("FastUpdateIncentiveManager") as FastUpdateIncentiveManagerContract;
+  const FastUpdateIncentiveManager = artifacts.require(
+    "FastUpdateIncentiveManager"
+  ) as FastUpdateIncentiveManagerContract;
   const FastUpdater = artifacts.require("FastUpdater") as FastUpdaterContract;
   const FastUpdatesConfiguration = artifacts.require("FastUpdatesConfiguration") as FastUpdatesConfigurationContract;
   const FeeCalculator = artifacts.require("FeeCalculator") as FeeCalculatorContract;
@@ -91,12 +123,16 @@ export async function redeployContracts(
   const supply = oldContracts.getContractAddress(Contracts.SUPPLY);
   const governanceVotePower = oldContracts.getContractAddress(Contracts.GOVERNANCE_VOTE_POWER);
   const inflation = oldContracts.getContractAddress(Contracts.INFLATION);
-  const pChainStakeMirrorMultiSigVoting = parameters.pChainStakeEnabled ? oldContracts.getContractAddress(Contracts.P_CHAIN_STAKE_MIRROR_MULTI_SIG_VOTING) : ZERO_ADDRESS;
+  const pChainStakeMirrorMultiSigVoting = parameters.pChainStakeEnabled
+    ? oldContracts.getContractAddress(Contracts.P_CHAIN_STAKE_MIRROR_MULTI_SIG_VOTING)
+    : ZERO_ADDRESS;
   const flareDaemon = oldContracts.getContractAddress(Contracts.FLARE_DAEMON);
   const wNat = await WNat.at(oldContracts.getContractAddress(Contracts.WNAT));
   const claimSetupManager = oldContracts.getContractAddress(Contracts.CLAIM_SETUP_MANAGER);
 
-  const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER));
+  const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.at(
+    contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER)
+  );
   const submission = contracts.getContractAddress(Contracts.SUBMISSION);
   const entityManager = contracts.getContractAddress(Contracts.ENTITY_MANAGER);
   const voterRegistry = contracts.getContractAddress(Contracts.VOTER_REGISTRY);
@@ -132,7 +168,21 @@ export async function redeployContracts(
     const oldRelay = await Relay.at(contracts.getContractAddress(Contracts.RELAY));
     const currentRewardEpochId = await flareSystemsManager.getCurrentRewardEpochId();
     const startVotingRoundId = await flareSystemsManager.getStartVotingRoundId(currentRewardEpochId);
-    const signingPolicyHash = await oldRelay.toSigningPolicyHash(currentRewardEpochId);
+    const relayChainId = await web3.eth.getChainId();
+    const VoterRegistry = artifacts.require("VoterRegistry") as VoterRegistryContract;
+    // Reconstructs the epoch's signing policy from chain state, verifies it byte-exactly
+    // against the old Relay's stored hash, and hashes it under the single-keccak scheme.
+    const signingPolicyHash = await signingPolicyHashForMigration(
+      {
+        oldRelay,
+        flareSystemsManager,
+        voterRegistry: await VoterRegistry.at(voterRegistry),
+        entityManager: await EntityManager.at(entityManager),
+      },
+      currentRewardEpochId.toNumber(),
+      startVotingRoundId.toNumber(),
+      relayChainId
+    );
     const relayInitialConfig: RelayInitialConfig = {
       initialRewardEpochId: currentRewardEpochId.toNumber(),
       startingVotingRoundIdForInitialRewardEpochId: startVotingRoundId.toNumber(),
@@ -145,14 +195,27 @@ export async function redeployContracts(
       thresholdIncreaseBIPS: parameters.relayThresholdIncreaseBIPS,
       messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
       feeCollectionAddress: ZERO_ADDRESS,
-      feeConfigs: []
-    }
+      feeConfigs: [],
+      // Home deploys via this path put the owner behind Flare governance (itself timelocked),
+      // so the extra owner-timelock stays off; forge scripts are the parameterized path.
+      sourceChainId: relayChainId,
+      timelockDurationSeconds: 0,
+    };
 
-    relay = await Relay.new(
-      relayInitialConfig,
+    const RelayProxy = artifacts.require("RelayProxy") as RelayProxyContract;
+    const relayImplementation = await Relay.new();
+    const relayProxy = await RelayProxy.new(
+      relayImplementation.address,
+      {
+        ...relayInitialConfig,
+        feeExemptAddresses: relayInitialConfig.feeExemptAddresses ?? [],
+        feeToken: relayInitialConfig.feeToken ?? ZERO_ADDRESS,
+      },
       flareSystemsManager.address,
-      oldRelay.address
+      oldRelay.address,
+      parameters.governancePublicKey
     );
+    relay = await Relay.at(relayProxy.address);
     spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 
     rewardManager = await RewardManager.new(
@@ -174,12 +237,20 @@ export async function redeployContracts(
       deployerAccount.address, // tmp address updater
       oldContracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER) // old ftso reward manager
     );
-    spewNewContractInfo(contracts, null, "FtsoRewardManager", `FtsoRewardManagerProxy.sol`, ftsoRewardManagerProxy.address, quiet);
-
+    spewNewContractInfo(
+      contracts,
+      null,
+      "FtsoRewardManager",
+      `FtsoRewardManagerProxy.sol`,
+      ftsoRewardManagerProxy.address,
+      quiet
+    );
   } else {
     relay = await Relay.at(contracts.getContractAddress(Contracts.RELAY));
     rewardManager = await RewardManager.at(contracts.getContractAddress(Contracts.REWARD_MANAGER));
-    ftsoRewardManagerProxy = await FtsoRewardManagerProxy.at(contracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER));
+    ftsoRewardManagerProxy = await FtsoRewardManagerProxy.at(
+      contracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER)
+    );
   }
 
   const pollingFoundation = await PollingFoundation.new(
@@ -188,7 +259,14 @@ export async function redeployContracts(
     deployerAccount.address, // tmp address updater
     parameters.proposers
   );
-  spewNewContractInfo(contracts, null, PollingFoundation.contractName, `PollingFoundation.sol`, pollingFoundation.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    PollingFoundation.contractName,
+    `PollingFoundation.sol`,
+    pollingFoundation.address,
+    quiet
+  );
 
   const pollingManagementGroup = await PollingManagementGroup.new(
     governanceSettings,
@@ -196,7 +274,8 @@ export async function redeployContracts(
     deployerAccount.address // tmp address updater
   );
   await pollingManagementGroup.setMaintainer(deployerAccount.address); // tmp maintainer
-  await pollingManagementGroup.setParameters( // can be called only from maintainer address
+  await pollingManagementGroup.setParameters(
+    // can be called only from maintainer address
     parameters.votingDelaySeconds,
     parameters.votingPeriodSeconds,
     parameters.thresholdConditionBIPS,
@@ -210,10 +289,24 @@ export async function redeployContracts(
     parameters.removeForDays
   );
   await pollingManagementGroup.setMaintainer(parameters.maintainer);
-  spewNewContractInfo(contracts, null, PollingManagementGroup.contractName, `PollingManagementGroup.sol`, pollingManagementGroup.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    PollingManagementGroup.contractName,
+    `PollingManagementGroup.sol`,
+    pollingManagementGroup.address,
+    quiet
+  );
 
   const voterPreRegistry = await VoterPreRegistry.new(deployerAccount.address); // tmp address updater
-  spewNewContractInfo(contracts, null, VoterPreRegistry.contractName, `VoterPreRegistry.sol`, voterPreRegistry.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    VoterPreRegistry.contractName,
+    `VoterPreRegistry.sol`,
+    voterPreRegistry.address,
+    quiet
+  );
 
   if (parameters.pChainStakeEnabled) {
     validatorRewardOffersManager = await ValidatorRewardOffersManager.new(
@@ -221,7 +314,14 @@ export async function redeployContracts(
       deployerAccount.address,
       deployerAccount.address // tmp address updater
     );
-    spewNewContractInfo(contracts, null, ValidatorRewardOffersManager.contractName, `ValidatorRewardOffersManager.sol`, validatorRewardOffersManager.address, quiet);
+    spewNewContractInfo(
+      contracts,
+      null,
+      ValidatorRewardOffersManager.contractName,
+      `ValidatorRewardOffersManager.sol`,
+      validatorRewardOffersManager.address,
+      quiet
+    );
 
     pChainStakeMirrorVerifier = await PChainStakeMirrorVerifier.new(
       pChainStakeMirrorMultiSigVoting,
@@ -231,7 +331,14 @@ export async function redeployContracts(
       BN(parameters.pChainStakeMirrorMinAmountNAT).mul(BN(10).pow(BN(9))),
       BN(parameters.pChainStakeMirrorMaxAmountNAT).mul(BN(10).pow(BN(9)))
     );
-    spewNewContractInfo(contracts, null, PChainStakeMirrorVerifier.contractName, `PChainStakeMirrorVerifier.sol`, pChainStakeMirrorVerifier.address, quiet);
+    spewNewContractInfo(
+      contracts,
+      null,
+      PChainStakeMirrorVerifier.contractName,
+      `PChainStakeMirrorVerifier.sol`,
+      pChainStakeMirrorVerifier.address,
+      quiet
+    );
   }
 
   let fastUpdateIncentiveManager: FastUpdateIncentiveManagerInstance;
@@ -249,17 +356,35 @@ export async function redeployContracts(
       BN(parameters.rangeIncreasePriceNAT).mul(BN(10).pow(BN(18))),
       parameters.incentiveOfferDurationBlocks
     );
-    spewNewContractInfo(contracts, null, FastUpdateIncentiveManager.contractName, `FastUpdateIncentiveManager.sol`, fastUpdateIncentiveManager.address, quiet);
+    spewNewContractInfo(
+      contracts,
+      null,
+      FastUpdateIncentiveManager.contractName,
+      `FastUpdateIncentiveManager.sol`,
+      fastUpdateIncentiveManager.address,
+      quiet
+    );
 
     fastUpdatesConfiguration = await FastUpdatesConfiguration.new(
       governanceSettings,
       deployerAccount.address,
       deployerAccount.address // tmp address updater
     );
-    spewNewContractInfo(contracts, null, FastUpdatesConfiguration.contractName, `FastUpdatesConfiguration.sol`, fastUpdatesConfiguration.address, quiet);
+    spewNewContractInfo(
+      contracts,
+      null,
+      FastUpdatesConfiguration.contractName,
+      `FastUpdatesConfiguration.sol`,
+      fastUpdatesConfiguration.address,
+      quiet
+    );
   } else {
-    fastUpdateIncentiveManager = await FastUpdateIncentiveManager.at(contracts.getContractAddress(Contracts.FAST_UPDATE_INCENTIVE_MANAGER));
-    fastUpdatesConfiguration = await FastUpdatesConfiguration.at(contracts.getContractAddress(Contracts.FAST_UPDATES_CONFIGURATION));
+    fastUpdateIncentiveManager = await FastUpdateIncentiveManager.at(
+      contracts.getContractAddress(Contracts.FAST_UPDATE_INCENTIVE_MANAGER)
+    );
+    fastUpdatesConfiguration = await FastUpdatesConfiguration.at(
+      contracts.getContractAddress(Contracts.FAST_UPDATES_CONFIGURATION)
+    );
   }
 
   const fastUpdater = await FastUpdater.new(
@@ -290,7 +415,8 @@ export async function redeployContracts(
       parameters.rNatSymbol,
       await wNat.decimals(),
       parameters.rNatManager,
-      parameters.rNatFirstMonthStartTs);
+      parameters.rNatFirstMonthStartTs
+    );
     spewNewContractInfo(contracts, null, RNat.contractName, `RNat.sol`, rNat.address, quiet);
 
     const rNatAccount = await RNatAccount.new();
@@ -305,7 +431,12 @@ export async function redeployContracts(
 
     if (parameters.rNatFundedByIncentivePool) {
       await rNat.updateContractAddresses(
-        encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.CLAIM_SETUP_MANAGER, Contracts.WNAT, Contracts.INCENTIVE_POOL]),
+        encodeContractNames([
+          Contracts.ADDRESS_UPDATER,
+          Contracts.CLAIM_SETUP_MANAGER,
+          Contracts.WNAT,
+          Contracts.INCENTIVE_POOL,
+        ]),
         [addressUpdater, claimSetupManager, wNat.address, oldContracts.getContractAddress(Contracts.INCENTIVE_POOL)]
       );
     } else {
@@ -356,38 +487,79 @@ export async function redeployContracts(
   );
   spewNewContractInfo(contracts, null, "PriceSubmitter", `PriceSubmitterProxy.sol`, priceSubmitterProxy.address, quiet);
 
-  const voterWhitelisterProxy = await VoterWhitelisterProxy.new(
-    priceSubmitter
+  const voterWhitelisterProxy = await VoterWhitelisterProxy.new(priceSubmitter);
+  spewNewContractInfo(
+    contracts,
+    null,
+    "VoterWhitelister",
+    `VoterWhitelisterProxy.sol`,
+    voterWhitelisterProxy.address,
+    quiet
   );
-  spewNewContractInfo(contracts, null, "VoterWhitelister", `VoterWhitelisterProxy.sol`, voterWhitelisterProxy.address, quiet);
 
   // Update contract addresses
   await pollingFoundation.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.SUPPLY, Contracts.SUBMISSION, Contracts.GOVERNANCE_VOTE_POWER]),
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.SUPPLY,
+      Contracts.SUBMISSION,
+      Contracts.GOVERNANCE_VOTE_POWER,
+    ]),
     [addressUpdater, flareSystemsManager.address, supply, submission, governanceVotePower]
   );
 
   await pollingManagementGroup.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.VOTER_REGISTRY, Contracts.REWARD_MANAGER, Contracts.ENTITY_MANAGER]),
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.REWARD_MANAGER,
+      Contracts.ENTITY_MANAGER,
+    ]),
     [addressUpdater, flareSystemsManager.address, voterRegistry, rewardManager.address, entityManager]
   );
 
   await voterPreRegistry.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.VOTER_REGISTRY, Contracts.ENTITY_MANAGER]),
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.ENTITY_MANAGER,
+    ]),
     [addressUpdater, flareSystemsManager.address, voterRegistry, entityManager]
   );
 
   if (parameters.pChainStakeEnabled) {
     await validatorRewardOffersManager!.updateContractAddresses(
-      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.INFLATION]),
+      encodeContractNames([
+        Contracts.ADDRESS_UPDATER,
+        Contracts.FLARE_SYSTEMS_MANAGER,
+        Contracts.REWARD_MANAGER,
+        Contracts.INFLATION,
+      ]),
       [addressUpdater, flareSystemsManager.address, rewardManager.address, inflation]
     );
   }
 
   if (initialDeploy) {
     await fastUpdateIncentiveManager.updateContractAddresses(
-      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.REWARD_MANAGER, Contracts.INFLATION]),
-      [addressUpdater, flareSystemsManager.address, fastUpdater.address, fastUpdatesConfiguration.address, rewardManager.address, inflation]
+      encodeContractNames([
+        Contracts.ADDRESS_UPDATER,
+        Contracts.FLARE_SYSTEMS_MANAGER,
+        Contracts.FAST_UPDATER,
+        Contracts.FAST_UPDATES_CONFIGURATION,
+        Contracts.REWARD_MANAGER,
+        Contracts.INFLATION,
+      ]),
+      [
+        addressUpdater,
+        flareSystemsManager.address,
+        fastUpdater.address,
+        fastUpdatesConfiguration.address,
+        rewardManager.address,
+        inflation,
+      ]
     );
 
     await fastUpdatesConfiguration.updateContractAddresses(
@@ -395,21 +567,71 @@ export async function redeployContracts(
       [addressUpdater, fastUpdater.address]
     );
   } else {
-    const pChainStakeMirror = parameters.pChainStakeEnabled ? oldContracts.getContractAddress(Contracts.P_CHAIN_STAKE_MIRROR) : ZERO_ADDRESS;
+    const pChainStakeMirror = parameters.pChainStakeEnabled
+      ? oldContracts.getContractAddress(Contracts.P_CHAIN_STAKE_MIRROR)
+      : ZERO_ADDRESS;
     await rewardManager.updateContractAddresses(
-      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT, Contracts.FTSO_REWARD_MANAGER]),
-      [addressUpdater, voterRegistry, claimSetupManager, flareSystemsManager.address, flareSystemsCalculator, pChainStakeMirror, wNat.address, ftsoRewardManagerProxy.address]
+      encodeContractNames([
+        Contracts.ADDRESS_UPDATER,
+        Contracts.VOTER_REGISTRY,
+        Contracts.CLAIM_SETUP_MANAGER,
+        Contracts.FLARE_SYSTEMS_MANAGER,
+        Contracts.FLARE_SYSTEMS_CALCULATOR,
+        Contracts.P_CHAIN_STAKE_MIRROR,
+        Contracts.WNAT,
+        Contracts.FTSO_REWARD_MANAGER,
+      ]),
+      [
+        addressUpdater,
+        voterRegistry,
+        claimSetupManager,
+        flareSystemsManager.address,
+        flareSystemsCalculator,
+        pChainStakeMirror,
+        wNat.address,
+        ftsoRewardManagerProxy.address,
+      ]
     );
 
     await ftsoRewardManagerProxy.updateContractAddresses(
-      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.WNAT, Contracts.CLAIM_SETUP_MANAGER]),
-      [addressUpdater, rewardManager.address, flareSystemsManager.address, wNatDelegationFee, wNat.address, claimSetupManager]
+      encodeContractNames([
+        Contracts.ADDRESS_UPDATER,
+        Contracts.REWARD_MANAGER,
+        Contracts.FLARE_SYSTEMS_MANAGER,
+        Contracts.WNAT_DELEGATION_FEE,
+        Contracts.WNAT,
+        Contracts.CLAIM_SETUP_MANAGER,
+      ]),
+      [
+        addressUpdater,
+        rewardManager.address,
+        flareSystemsManager.address,
+        wNatDelegationFee,
+        wNat.address,
+        claimSetupManager,
+      ]
     );
   }
 
   await fastUpdater.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATE_INCENTIVE_MANAGER, Contracts.VOTER_REGISTRY, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.FTSO_FEED_PUBLISHER, Contracts.FEE_CALCULATOR]),
-    [addressUpdater, flareSystemsManager.address, fastUpdateIncentiveManager.address, voterRegistry, fastUpdatesConfiguration.address, ftsoFeedPublisher, feeCalculator.address]
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.FAST_UPDATE_INCENTIVE_MANAGER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.FAST_UPDATES_CONFIGURATION,
+      Contracts.FTSO_FEED_PUBLISHER,
+      Contracts.FEE_CALCULATOR,
+    ]),
+    [
+      addressUpdater,
+      flareSystemsManager.address,
+      fastUpdateIncentiveManager.address,
+      voterRegistry,
+      fastUpdatesConfiguration.address,
+      ftsoFeedPublisher,
+      feeCalculator.address,
+    ]
   );
 
   await feeCalculator.updateContractAddresses(
@@ -418,33 +640,65 @@ export async function redeployContracts(
   );
 
   await ftsoManagerProxy.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FTSO_REWARD_MANAGER, Contracts.FTSO_REGISTRY, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.RELAY]),
-    [addressUpdater, ftsoRewardManagerProxy.address, ftsoRegistry, rewardManager.address, flareSystemsManager.address, fastUpdater.address, fastUpdatesConfiguration.address, relay.address]
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FTSO_REWARD_MANAGER,
+      Contracts.FTSO_REGISTRY,
+      Contracts.REWARD_MANAGER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.FAST_UPDATER,
+      Contracts.FAST_UPDATES_CONFIGURATION,
+      Contracts.RELAY,
+    ]),
+    [
+      addressUpdater,
+      ftsoRewardManagerProxy.address,
+      ftsoRegistry,
+      rewardManager.address,
+      flareSystemsManager.address,
+      fastUpdater.address,
+      fastUpdatesConfiguration.address,
+      relay.address,
+    ]
   );
 
   await ftsoV2.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FAST_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.FEE_CALCULATOR, Contracts.RELAY]),
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FAST_UPDATER,
+      Contracts.FAST_UPDATES_CONFIGURATION,
+      Contracts.FEE_CALCULATOR,
+      Contracts.RELAY,
+    ]),
     [addressUpdater, fastUpdater.address, fastUpdatesConfiguration.address, feeCalculator.address, relay.address]
   );
 
   await priceSubmitterProxy.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY, Contracts.FTSO_REGISTRY, Contracts.FTSO_MANAGER, Contracts.VOTER_WHITELISTER]),
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.RELAY,
+      Contracts.FTSO_REGISTRY,
+      Contracts.FTSO_MANAGER,
+      Contracts.VOTER_WHITELISTER,
+    ]),
     [addressUpdater, relay.address, ftsoRegistry, ftsoManagerProxy.address, voterWhitelisterProxy.address]
   );
 
   if (hre.network.name === "flare") {
     const sFlrCustomFeed = await SFlrCustomFeed.new(
-      FtsoConfigurations.encodeFeedId({ "category": 33, "name": "sFLR/USD" }),
-      FtsoConfigurations.encodeFeedId({ "category": 1, "name": "FLR/USD" }),
+      FtsoConfigurations.encodeFeedId({ category: 33, name: "sFLR/USD" }),
+      FtsoConfigurations.encodeFeedId({ category: 1, name: "FLR/USD" }),
       oldContracts.getContractAddress(Contracts.FLARE_CONTRACT_REGISTRY),
-      "0x12e605bc104e93B45e1aD99F9e555f659051c2BB");
+      "0x12e605bc104e93B45e1aD99F9e555f659051c2BB"
+    );
     spewNewContractInfo(contracts, null, "SFlrCustomFeed", `SFlrCustomFeed.sol`, sFlrCustomFeed.address, quiet);
 
     const stXrpCustomFeed = await StXrpCustomFeed.new(
-      FtsoConfigurations.encodeFeedId({ "category": 33, "name": "stXRP/USD" }),
-      FtsoConfigurations.encodeFeedId({ "category": 1, "name": "XRP/USD" }),
+      FtsoConfigurations.encodeFeedId({ category: 33, name: "stXRP/USD" }),
+      FtsoConfigurations.encodeFeedId({ category: 1, name: "XRP/USD" }),
       oldContracts.getContractAddress(Contracts.FLARE_CONTRACT_REGISTRY),
-      "0x4c18ff3c89632c3dd62e796c0afa5c07c4c1b2b3");
+      "0x4c18ff3c89632c3dd62e796c0afa5c07c4c1b2b3"
+    );
     spewNewContractInfo(contracts, null, "StXrpCustomFeed", `StXrpCustomFeed.sol`, stXrpCustomFeed.address, quiet);
 
     await ftsoV2.addCustomFeeds([sFlrCustomFeed.address, stXrpCustomFeed.address]);
@@ -461,13 +715,20 @@ export async function redeployContracts(
     await fastUpdater.resetFeeds([...Array(numberOfFeeds.toNumber()).keys()]);
 
     await ftsoV2.changeFeedIds([
-      { oldFeedId: FtsoConfigurations.encodeFeedId({ "category": 1, "name": "MATIC/USD" }), newFeedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "POL/USD" }) }]
-    );
+      {
+        oldFeedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "MATIC/USD" }),
+        newFeedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "POL/USD" }),
+      },
+    ]);
   }
 
   // set reward offers manager list
   if (parameters.pChainStakeEnabled) {
-    await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager, fastUpdateIncentiveManager.address, validatorRewardOffersManager!.address]);
+    await rewardManager.setRewardOffersManagerList([
+      ftsoRewardOffersManager,
+      fastUpdateIncentiveManager.address,
+      validatorRewardOffersManager!.address,
+    ]);
   } else {
     await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager, fastUpdateIncentiveManager.address]);
   }
@@ -475,9 +736,16 @@ export async function redeployContracts(
   if (initialDeploy) {
     // set rewards offer switchover trigger contracts
     if (parameters.pChainStakeEnabled) {
-      await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager, fastUpdateIncentiveManager.address, validatorRewardOffersManager!.address]);
+      await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([
+        ftsoRewardOffersManager,
+        fastUpdateIncentiveManager.address,
+        validatorRewardOffersManager!.address,
+      ]);
     } else {
-      await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager, fastUpdateIncentiveManager.address]);
+      await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([
+        ftsoRewardOffersManager,
+        fastUpdateIncentiveManager.address,
+      ]);
     }
   } else {
     // set initial data on reward manager
@@ -524,11 +792,10 @@ export async function redeployContracts(
   }
 
   function encodeContractNames(names: string[]): string[] {
-    return names.map(name => encodeString(name));
+    return names.map((name) => encodeString(name));
   }
 
   function encodeString(text: string): string {
     return web3.utils.keccak256(web3.eth.abi.encodeParameters(["string"], [text]));
   }
 }
-

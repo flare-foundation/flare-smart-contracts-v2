@@ -5,11 +5,11 @@ import { IINodePossessionVerifier } from "../../contracts/protocol/interface/IIN
 
 contract MockNodePossessionVerification is IINodePossessionVerifier {
 
-    address public voter;
-    bytes20 public nodeId;
-
     bytes constant public CERTIFICATE_RAW_TEST = hex"01234567";
     bytes constant public SIGNATURE_TEST = hex"89abcdef";
+
+    address public voter;
+    bytes20 public nodeId;
 
     function setVoterAndNodeId(address _voter, bytes20 _nodeId) external {
         voter = _voter;

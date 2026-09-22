@@ -52,9 +52,9 @@ contract EntityManagerTest is Test {
 
     function testRegisterNodeId() public {
         vm.roll(100);
-        assertEq(entityManager.getNodeIdsOfAt(user1, block.number).length, 0);
+        assertEq(entityManager.getNodeIdsOfAt(user1, vm.getBlockNumber()).length, 0);
         assertEq(entityManager.getNodeIdsOf(user1).length, 0);
-        assertEq(entityManager.getVoterForNodeId(nodeId1, block.number), address(0));
+        assertEq(entityManager.getVoterForNodeId(nodeId1, vm.getBlockNumber()), address(0));
 
         vm.prank(user1);
         vm.expectEmit();
@@ -67,7 +67,7 @@ contract EntityManagerTest is Test {
         assertEq(entityManager.getNodeIdsOfAt(user1, 100).length, 0);
         assertEq(entityManager.getNodeIdsOf(user1).length, 1);
         assertEq(entityManager.getVoterForNodeId(nodeId1, 100), address(0));
-        assertEq(entityManager.getVoterForNodeId(nodeId1, block.number), user1);
+        assertEq(entityManager.getVoterForNodeId(nodeId1, vm.getBlockNumber()), user1);
 
         // should revert if trying to register the same node id again
         vm.expectRevert("node id already registered");
@@ -76,9 +76,9 @@ contract EntityManagerTest is Test {
 
     function testRegisterNodeIdWithNodePossessionVerification() public {
         vm.roll(100);
-        assertEq(entityManager.getNodeIdsOfAt(user1, block.number).length, 0);
+        assertEq(entityManager.getNodeIdsOfAt(user1, vm.getBlockNumber()).length, 0);
         assertEq(entityManager.getNodeIdsOf(user1).length, 0);
-        assertEq(entityManager.getVoterForNodeId(nodeId1, block.number), address(0));
+        assertEq(entityManager.getVoterForNodeId(nodeId1, vm.getBlockNumber()), address(0));
 
         MockNodePossessionVerification mockNodePossessionVerification =
             new MockNodePossessionVerification();
@@ -109,7 +109,7 @@ contract EntityManagerTest is Test {
         assertEq(entityManager.getNodeIdsOfAt(user1, 100).length, 0);
         assertEq(entityManager.getNodeIdsOf(user1).length, 1);
         assertEq(entityManager.getVoterForNodeId(nodeId1, 100), address(0));
-        assertEq(entityManager.getVoterForNodeId(nodeId1, block.number), user1);
+        assertEq(entityManager.getVoterForNodeId(nodeId1, vm.getBlockNumber()), user1);
 
         // should revert if trying to register the same node id again
         vm.expectRevert("node id already registered");
@@ -128,7 +128,7 @@ contract EntityManagerTest is Test {
         address[] memory voters = new address[](2);
         voters[0] = user1;
         voters[1] = user2;
-        bytes20[][] memory nodeIds = entityManager.getNodeIds(voters, block.number);
+        bytes20[][] memory nodeIds = entityManager.getNodeIds(voters, vm.getBlockNumber());
         assertEq(nodeIds.length, 2);
         assertEq(nodeIds[0].length, 2);
         assertEq(nodeIds[0][0], nodeId1);
@@ -147,7 +147,8 @@ contract EntityManagerTest is Test {
         voters[0] = user1;
         voters[1] = user2;
 
-        (bytes32[] memory publicKey1, bytes32[] memory publicKey2) = entityManager.getPublicKeys(voters, block.number);
+        (bytes32[] memory publicKey1, bytes32[] memory publicKey2) =
+            entityManager.getPublicKeys(voters, vm.getBlockNumber());
         assertEq(publicKey1.length, 2);
         assertEq(publicKey1[0], bytes32("publicKey11"));
         assertEq(publicKey1[1], bytes32("publicKey21"));
@@ -214,7 +215,7 @@ contract EntityManagerTest is Test {
 
         // register
         entityManager.registerNodeId(nodeId1, "", "");
-        bytes20[] memory nodeIds = entityManager.getNodeIdsOfAt(user1, block.number);
+        bytes20[] memory nodeIds = entityManager.getNodeIdsOfAt(user1, vm.getBlockNumber());
         assertEq(nodeIds.length, 1);
         assertEq(nodeIds[0], nodeId1);
 
@@ -222,7 +223,7 @@ contract EntityManagerTest is Test {
         vm.expectEmit();
         emit IEntityManager.NodeIdUnregistered(user1, nodeId1);
         entityManager.unregisterNodeId(nodeId1);
-        nodeIds = entityManager.getNodeIdsOfAt(user1, block.number);
+        nodeIds = entityManager.getNodeIdsOfAt(user1, vm.getBlockNumber());
         assertEq(nodeIds.length, 0);
     }
 
@@ -540,7 +541,8 @@ contract EntityManagerTest is Test {
     function testGetVoterAddresses() public {
         vm.roll(100);
         EntityManager.VoterAddresses memory voterAddresses = entityManager.getVoterAddresses(user1);
-        EntityManager.VoterAddresses memory voterAddressesAt = entityManager.getVoterAddressesAt(user1, block.number);
+        EntityManager.VoterAddresses memory voterAddressesAt =
+            entityManager.getVoterAddressesAt(user1, vm.getBlockNumber());
         assertEq(voterAddresses.submitAddress, user1);
         assertEq(voterAddresses.submitSignaturesAddress, user1);
         assertEq(voterAddresses.signingPolicyAddress, user1);
@@ -578,7 +580,7 @@ contract EntityManagerTest is Test {
 
         EntityManager.VoterAddresses memory voterAddressesAtNow = entityManager.getVoterAddresses(user1);
         EntityManager.VoterAddresses memory voterAddressesAtBlock200 = entityManager.getVoterAddressesAt(
-            user1, block.number);
+            user1, vm.getBlockNumber());
         assertEq(voterAddressesAtNow.submitAddress, dataProvider1);
         assertEq(voterAddressesAtNow.submitSignaturesAddress, submitSignaturesAddr1);
         assertEq(voterAddressesAtNow.signingPolicyAddress, signingPolicyAddr1);
@@ -715,7 +717,7 @@ contract EntityManagerTest is Test {
         entityManager.switchToProductionMode();
         EntityManager.InitialVoterData[] memory initialVotersData = new EntityManager.InitialVoterData[](0);
         entityManager.setInitialVoterData(initialVotersData);
-        vm.warp(block.timestamp + 2);
+        vm.warp(vm.getBlockTimestamp() + 2);
         vm.expectRevert("already in production mode");
         entityManager.executeGovernanceCall(EntityManager.setInitialVoterData.selector);
         vm.stopPrank();

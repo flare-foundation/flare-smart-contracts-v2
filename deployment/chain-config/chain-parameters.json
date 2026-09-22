@@ -2,6 +2,62 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
     "definitions": {
+        "Fdc2InflationConfiguration": {
+            "additionalProperties": false,
+            "properties": {
+                "attestationType": {
+                    "description": "The attestation type.",
+                    "type": "string"
+                },
+                "inflationShare": {
+                    "description": "Inflation share/weight for this configuration.",
+                    "type": "integer"
+                },
+                "minRequestsThreshold": {
+                    "description": "Minimal reward eligibility threshold in number of requests.",
+                    "type": "integer"
+                },
+                "mode": {
+                    "description": "Mode (additional settings interpreted on the client side off-chain).",
+                    "type": "integer"
+                },
+                "source": {
+                    "description": "The source.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "attestationType",
+                "inflationShare",
+                "minRequestsThreshold",
+                "mode",
+                "source"
+            ],
+            "type": "object"
+        },
+        "Fdc2RequestFee": {
+            "additionalProperties": false,
+            "properties": {
+                "attestationType": {
+                    "description": "The attestation type.",
+                    "type": "string"
+                },
+                "feeWei": {
+                    "description": "The fee per request. In Wei.",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "The source.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "attestationType",
+                "feeWei",
+                "source"
+            ],
+            "type": "object"
+        },
         "FdcInflationConfiguration": {
             "additionalProperties": false,
             "properties": {
@@ -260,6 +316,153 @@
                 "voter"
             ],
             "type": "object"
+        },
+        "TeeKeyTypeWithSigningAlgos": {
+            "additionalProperties": false,
+            "properties": {
+                "keyType": {
+                    "description": "Key type - e.g. EVM, XRP,...",
+                    "type": "string"
+                },
+                "signingAlgos": {
+                    "description": "Supported signing algorithms for the key type - e.g. keccak256-secp256k1-ecdsa, sha512half-secp256k1-ecdsa,...",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "keyType",
+                "signingAlgos"
+            ],
+            "type": "object"
+        },
+        "TeeOperationFee": {
+            "additionalProperties": false,
+            "properties": {
+                "feeWei": {
+                    "description": "The fee per operation type + command. In Wei.",
+                    "type": "string"
+                },
+                "opCommand": {
+                    "description": "The operation command.",
+                    "type": "string"
+                },
+                "opType": {
+                    "description": "The operation type.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "feeWei",
+                "opCommand",
+                "opType"
+            ],
+            "type": "object"
+        },
+        "TeePaymentsConfiguration": {
+            "additionalProperties": false,
+            "properties": {
+                "keyType": {
+                    "description": "Key type - XRP, EVM,...",
+                    "type": "string"
+                },
+                "opType": {
+                    "description": "Payment operation type - F_XRP, F_EVM,...",
+                    "type": "string"
+                },
+                "sourceConfigs": {
+                    "description": "Per-source id configuration (source id + fee schedule limits).",
+                    "items": {
+                        "$ref": "#/definitions/TeePaymentsSourceConfig"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "keyType",
+                "opType",
+                "sourceConfigs"
+            ],
+            "type": "object"
+        },
+        "TeePaymentsSourceConfig": {
+            "additionalProperties": false,
+            "properties": {
+                "maxFeeDelaySeconds": {
+                    "description": "Maximum delay (in seconds) allowed in a fee schedule entry for this source.",
+                    "type": "integer"
+                },
+                "maxFeeSchedules": {
+                    "description": "Maximum number of (factor, delay) pairs allowed in a fee schedule for this source.",
+                    "type": "integer"
+                },
+                "sourceId": {
+                    "description": "Source id string (e.g., \"XRP\", \"ETH\").",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "maxFeeDelaySeconds",
+                "maxFeeSchedules",
+                "sourceId"
+            ],
+            "type": "object"
+        },
+        "TeePaymentsUtxoConfiguration": {
+            "additionalProperties": false,
+            "properties": {
+                "anchorReuseDelaySeconds": {
+                    "description": "Anchor reuse delay in seconds (how long after a batch closes before an anchor can be reused).",
+                    "type": "integer"
+                },
+                "keyType": {
+                    "description": "Key type - BTC, DOGE,...",
+                    "type": "string"
+                },
+                "maxBatchDurationSeconds": {
+                    "description": "Max batch duration in seconds.",
+                    "type": "integer"
+                },
+                "maxBatchSize": {
+                    "description": "Max batch size.",
+                    "type": "integer"
+                },
+                "opType": {
+                    "description": "Payment operation type - F_BTC, F_DOGE,...",
+                    "type": "string"
+                },
+                "sourceConfigs": {
+                    "description": "Per-source id configuration (source id only).",
+                    "items": {
+                        "$ref": "#/definitions/TeePaymentsUtxoSourceConfig"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "anchorReuseDelaySeconds",
+                "keyType",
+                "maxBatchDurationSeconds",
+                "maxBatchSize",
+                "opType",
+                "sourceConfigs"
+            ],
+            "type": "object"
+        },
+        "TeePaymentsUtxoSourceConfig": {
+            "additionalProperties": false,
+            "properties": {
+                "sourceId": {
+                    "description": "Source id string (e.g., \"BTC\", \"DOGE\").",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "sourceId"
+            ],
+            "type": "object"
         }
     },
     "properties": {
@@ -301,6 +504,28 @@
         "deployerPrivateKey": {
             "description": "Deployer private key. Overriden if provided in `.env` file as `DEPLOYER_PRIVATE_KEY`",
             "type": "string"
+        },
+        "fdc2DefaultNumberOfTees": {
+            "description": "The default number of TEEs used in FDC2.",
+            "type": "integer"
+        },
+        "fdc2InflationConfigurations": {
+            "description": "The inflation configurations for the FDC2 protocol.",
+            "items": {
+                "$ref": "#/definitions/Fdc2InflationConfiguration"
+            },
+            "type": "array"
+        },
+        "fdc2MinThresholdBIPS": {
+            "description": "The minimal threshold for FDC2 in BIPS (e.g. 30%).",
+            "type": "integer"
+        },
+        "fdc2RequestFees": {
+            "description": "The supported FDC2 requests fee configurations.",
+            "items": {
+                "$ref": "#/definitions/Fdc2RequestFee"
+            },
+            "type": "array"
         },
         "fdcInflationConfigurations": {
             "description": "The inflation configurations for the FDC protocol.",
@@ -630,6 +855,69 @@
             "description": "The minimal duration of uptime vote submission phase in seconds (e.g. 10 minutes).",
             "type": "integer"
         },
+        "teeAvailabilityCheckValidityDurationSeconds": {
+            "description": "The TEE availability check validity duration, in seconds (e.g. 1 day).\nIn order to receive rewards, TEE must be checked for availability at least once in this period.",
+            "type": "integer"
+        },
+        "teeChallengeValidityDurationSeconds": {
+            "description": "The TEE challenge validity duration (used for TEE availability check), in seconds (e.g. 30 minutes).",
+            "type": "integer"
+        },
+        "teeDefaultFeeWei": {
+            "description": "The default fee for TEE operations. In Wei.",
+            "type": "string"
+        },
+        "teeEmergencyUnpauseGracePeriodSeconds": {
+            "description": "Grace period (in seconds) applied after each per-extension emergency unpause.\nWhile this window is open, the third-party expired-availability branch of\nIMachineManager.pause() is blocked, so machine owners have time to refresh\ntheir availability attestation without anyone immediately suspending their\nstill-PRODUCTION machines. Must be in [30 min (1800s), 24h (86400s)] on-chain.",
+            "type": "integer"
+        },
+        "teeOperationFees": {
+            "description": "The TEE operation fees.",
+            "items": {
+                "$ref": "#/definitions/TeeOperationFee"
+            },
+            "type": "array"
+        },
+        "teeOwnersPPM": {
+            "description": "The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).",
+            "type": "integer"
+        },
+        "teePaymentsConfigurations": {
+            "description": "The account-based TEE payment configurations.",
+            "items": {
+                "$ref": "#/definitions/TeePaymentsConfiguration"
+            },
+            "type": "array"
+        },
+        "teePaymentsUtxoConfigurations": {
+            "description": "The UTXO-based TEE payment configurations.",
+            "items": {
+                "$ref": "#/definitions/TeePaymentsUtxoConfiguration"
+            },
+            "type": "array"
+        },
+        "teePublicExtensionCreationEnabled": {
+            "description": "If true, anyone can call IExtensionManager.register() from day 1 (the global\nextension-owner allowlist starts in \"allow all\" mode). If false, registration\nis closed at deploy time and governance must seed / open the allowlist later.\nReserved-id minting via registerReserved() is always governance-only and is\nunaffected by this flag.",
+            "type": "boolean"
+        },
+        "teeSigningPolicyValidityDurationInRewardEpochs": {
+            "description": "The signing policy validity duration, in reward epochs (e.g. 10).\nUsed when extending availability or putting tee machine into production:\n- in case of registration, the check is done for the initial signing policy,\n- in other cases, the check is done for the last confirmed signing policy.",
+            "type": "integer"
+        },
+        "teeSupportedKeyTypesWithSigningAlgos": {
+            "description": "List of supported TEE key types and signing algorithms",
+            "items": {
+                "$ref": "#/definitions/TeeKeyTypeWithSigningAlgos"
+            },
+            "type": "array"
+        },
+        "teeSupportedPlatforms": {
+            "description": "List of supported TEE platforms ()",
+            "items": {
+                "type": "string"
+            },
+            "type": "array"
+        },
         "testDeployment": {
             "description": "Indicates whether this is a test deployment (local, scdev, etc.)",
             "type": "boolean"
@@ -673,6 +961,10 @@
         "defaultFeePercentageBIPS",
         "defaultFeeWei",
         "deployerPrivateKey",
+        "fdc2DefaultNumberOfTees",
+        "fdc2InflationConfigurations",
+        "fdc2MinThresholdBIPS",
+        "fdc2RequestFees",
         "fdcInflationConfigurations",
         "fdcProtocolId",
         "fdcRequestFees",
@@ -746,6 +1038,18 @@
         "submissionWindowBlocks",
         "submitUptimeVoteMinDurationBlocks",
         "submitUptimeVoteMinDurationSeconds",
+        "teeAvailabilityCheckValidityDurationSeconds",
+        "teeChallengeValidityDurationSeconds",
+        "teeDefaultFeeWei",
+        "teeEmergencyUnpauseGracePeriodSeconds",
+        "teeOperationFees",
+        "teeOwnersPPM",
+        "teePaymentsConfigurations",
+        "teePaymentsUtxoConfigurations",
+        "teePublicExtensionCreationEnabled",
+        "teeSigningPolicyValidityDurationInRewardEpochs",
+        "teeSupportedKeyTypesWithSigningAlgos",
+        "teeSupportedPlatforms",
         "testDeployment",
         "thresholdConditionBIPS",
         "voterRegistrationMinDurationBlocks",

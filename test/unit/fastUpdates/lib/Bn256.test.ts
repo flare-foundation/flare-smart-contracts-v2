@@ -6,7 +6,7 @@ import { Bn256MockInstance } from "../../../../typechain-truffle";
 
 const Bn256Mock = artifacts.require("Bn256Mock");
 
-contract(`Bn256.sol; ${getTestFile(__filename)}`, accounts => {
+contract(`Bn256.sol; ${getTestFile(__filename)}`, (accounts) => {
   let bn256Instance: Bn256MockInstance;
   before(async () => {
     const governance = accounts[0];

@@ -57,6 +57,8 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getRandom(uint256 _votingRoundId) external view returns (uint256 _randomNumber) {
+        // The IFtso V1 return type cannot expose Relay's `isSecureRandom` quality flag.
+        // Consumers that require the flag must use a V2 Relay getter.
         (_randomNumber, , ) = ftsoManager.relay().getRandomNumberHistorical(_votingRoundId);
     }
 
@@ -146,6 +148,7 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getCurrentRandom() external view returns (uint256 _currentRandom) {
+        // The IFtso V1 return type cannot expose Relay's `isSecureRandom` quality flag.
         (_currentRandom, , ) = ftsoManager.relay().getRandomNumber();
     }
 

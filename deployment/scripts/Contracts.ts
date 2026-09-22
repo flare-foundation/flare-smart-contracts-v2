@@ -84,6 +84,17 @@ export class Contracts {
   public static readonly FDC_HUB = "FdcHub";
   public static readonly FDC_INFLATION_CONFIGURATIONS = "FdcInflationConfigurations";
   public static readonly FDC_REQUEST_FEE_CONFIGURATIONS = "FdcRequestFeeConfigurations";
+  public static readonly FLARE_TEE_MANAGER = "FlareTeeManager";
+  public static readonly TEE_REWARD_OFFERS_MANAGER = "TeeRewardOffersManager";
+  public static readonly TEE_PAYMENTS_FEE_SCHEDULE_MANAGER = "TeePaymentsFeeScheduleManager";
+  public static readonly TEE_PAYMENTS_REGISTRY = "TeePaymentsRegistry";
+  public static readonly TEE_PAYMENTS_CONFIG_VERIFIER = "TeePaymentsConfigVerifier";
+  public static readonly ADDRESS_VALIDATOR = "AddressValidator";
+  public static readonly FDC2_HUB = "Fdc2Hub";
+  public static readonly FDC2_INFLATION_CONFIGURATIONS = "Fdc2InflationConfigurations";
+  public static readonly FDC2_REQUEST_FEE_CONFIGURATIONS = "Fdc2RequestFeeConfigurations";
+  public static readonly FDC2_REWARD_OFFERS_MANAGER = "Fdc2RewardOffersManager";
+  public static readonly FDC2_VERIFICATION = "Fdc2Verification";
 
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 
@@ -107,15 +118,26 @@ export class Contracts {
 
   deserializeJson(contractsJson: string, all: boolean = false) {
     if (all) {
-      const parsedContracts = JSON.parse(contractsJson) as Array<{ name: string; contractName: string; addresses: string[] }>;
+      const parsedContracts = JSON.parse(contractsJson) as Array<{
+        name: string;
+        contractName: string;
+        addresses: string[];
+      }>;
       parsedContracts.forEach((contract) => {
-        this.contractsAll.set(contract.name, new ContractList(contract.name, contract.contractName, contract.addresses));
-      })
+        this.contractsAll.set(
+          contract.name,
+          new ContractList(contract.name, contract.contractName, contract.addresses)
+        );
+      });
     } else {
-      const parsedContracts = JSON.parse(contractsJson) as Array<{ name: string; contractName: string; address: string; }>;
+      const parsedContracts = JSON.parse(contractsJson) as Array<{
+        name: string;
+        contractName: string;
+        address: string;
+      }>;
       parsedContracts.forEach((contract) => {
         this.contracts.set(contract.name, contract);
-      })
+      });
     }
   }
 
@@ -131,9 +153,9 @@ export class Contracts {
     }
   }
 
-  async getContractsMap(
-    hre: { artifacts: { require: (name: string) => { at: (address: string) => unknown } } }
-  ): Promise<Record<string, unknown>> {
+  async getContractsMap(hre: {
+    artifacts: { require: (name: string) => { at: (address: string) => unknown } };
+  }): Promise<Record<string, unknown>> {
     const contractsMap: Record<string, unknown> = {};
     for (const con of this.allContracts()) {
       const name = con.contractName.split(".")[0];

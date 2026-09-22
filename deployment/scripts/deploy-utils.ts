@@ -3,8 +3,8 @@ import { pascalCase } from "pascal-case";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contract, Contracts } from "./Contracts";
 import { readFileSync } from "fs";
-import Ajv from "ajv"
-import chainParametersSchema from '../chain-config/chain-parameters.json';
+import Ajv from "ajv";
+import chainParametersSchema from "../chain-config/chain-parameters.json";
 
 const ajv = new Ajv();
 const validateParamaterSchema = ajv.compile(chainParametersSchema);
@@ -31,7 +31,7 @@ export function verifyParameters(parameters: ChainParameters) {
   }
   let totalInitialNormalisedWeight = 0;
   for (const initialNormalisedWeight of parameters.initialNormalisedWeights) {
-    if (initialNormalisedWeight <= 0 || initialNormalisedWeight >= 2**16) {
+    if (initialNormalisedWeight <= 0 || initialNormalisedWeight >= 2 ** 16) {
       throw new Error(`Invalid initialNormalisedWeight: ${initialNormalisedWeight}`);
     }
     totalInitialNormalisedWeight += initialNormalisedWeight;
@@ -39,7 +39,7 @@ export function verifyParameters(parameters: ChainParameters) {
   if (totalInitialNormalisedWeight === 0) {
     throw new Error(`Total initialNormalisedWeight is zero`);
   }
-  if (totalInitialNormalisedWeight >= 2**16) {
+  if (totalInitialNormalisedWeight >= 2 ** 16) {
     throw new Error(`Total initialNormalisedWeight is too large`);
   }
   if (totalInitialNormalisedWeight <= parameters.initialThreshold) {
@@ -52,14 +52,21 @@ export function verifyParameters(parameters: ChainParameters) {
   }
 }
 
-export function spewNewContractInfo(contracts: Contracts, addressUpdaterContracts: string[] | null, name: string, contractName: string, address: string, quiet = false, pascal = true) {
+export function spewNewContractInfo(
+  contracts: Contracts,
+  addressUpdaterContracts: string[] | null,
+  name: string,
+  contractName: string,
+  address: string,
+  quiet = false,
+  pascal = true
+) {
   if (!quiet) {
     console.error(`${name} contract: `, address);
   }
   if (pascal) {
     contracts.add(new Contract(pascalCase(name), contractName, address));
-  }
-  else {
+  } else {
     contracts.add(new Contract(name.replace(/\s/g, ""), contractName, address));
   }
   if (addressUpdaterContracts) {
@@ -74,12 +81,18 @@ export function spewNewContractInfo(contracts: Contracts, addressUpdaterContract
  * @param func
  * @returns
  */
-export async function waitFinalize3<T>(hre: HardhatRuntimeEnvironment, address: string, func: () => Promise<T>): Promise<T> {
+export async function waitFinalize3<T>(
+  hre: HardhatRuntimeEnvironment,
+  address: string,
+  func: () => Promise<T>
+): Promise<T> {
   const web3 = hre.web3;
   const nonce = await web3.eth.getTransactionCount(address);
   const res = await func();
   while ((await web3.eth.getTransactionCount(address)) === nonce) {
-    await new Promise<void>(resolve => { setTimeout(resolve, 1000); });
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 1000);
+    });
   }
   return res;
 }

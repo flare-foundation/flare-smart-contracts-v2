@@ -1,0 +1,27 @@
+{
+  "$schema": "./relay-parameters.json",
+  "expectedDeployer": "0xE5dF05a88d575BB5c86005e1A67C6Af50Ec3a7c1",
+  "home": {
+    "timelockDurationSeconds": 3600
+  },
+  "mirrors": {
+    "ethereum": {
+      "chainId": 1,
+      "relayOwner": "0x0000000000000000000000000000000000000000",
+      "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
+      "timelockDurationSeconds": 3600,
+      "feeConfigs": [],
+      "feeToken": "0x0000000000000000000000000000000000000000",
+      "feeExemptAddresses": []
+    },
+    "arbitrum": {
+      "chainId": 42161,
+      "relayOwner": "0x0000000000000000000000000000000000000000",
+      "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
+      "timelockDurationSeconds": 3600,
+      "feeConfigs": [],
+      "feeToken": "0x0000000000000000000000000000000000000000",
+      "feeExemptAddresses": []
+    }
+  }
+}

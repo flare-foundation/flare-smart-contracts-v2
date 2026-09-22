@@ -5,11 +5,10 @@ export interface IProtocolMessageMerkleRoot {
   votingRoundId: number;
   isSecureRandom: boolean;
   merkleRoot: string;
-  encodedLength?: number;  // used only as a parsing result when parsing signing policy encoded into Relay message
+  encodedLength?: number; // used only as a parsing result when parsing signing policy encoded into Relay message
 }
 
 export namespace ProtocolMessageMerkleRoot {
-
   //////////////////////////////////////////////////////////////////////////////
   // Protocol message merkle root structure
   // 1 byte - protocolId
@@ -67,7 +66,7 @@ export namespace ProtocolMessageMerkleRoot {
     }
     let encodedLengthEntry = {};
     if (!exactEncoding) {
-      encodedLengthEntry = {encodedLength: 76};
+      encodedLengthEntry = { encodedLength: 76 };
     }
     const protocolId = parseInt(encodedMessageInternal.slice(0, 2), 16);
     const votingRoundId = parseInt(encodedMessageInternal.slice(2, 10), 16);
@@ -86,7 +85,7 @@ export namespace ProtocolMessageMerkleRoot {
       votingRoundId,
       isSecureRandom,
       merkleRoot,
-      ...encodedLengthEntry
+      ...encodedLengthEntry,
     };
   }
 
@@ -105,9 +104,15 @@ export namespace ProtocolMessageMerkleRoot {
     );
   }
 
-
-  export function hash(message: IProtocolMessageMerkleRoot): string {
-    return ethers.keccak256(encode(message));
+  /**
+   * The digest voters sign for a protocol message (before the EIP-191 prefix is applied by the
+   * signing routine): keccak256(chainId as 32 bytes ‖ raw 38-byte encoded message) — a single
+   * source-bound keccak.
+   * @param message
+   * @param chainId the configured source chain id (`relay.sourceChainId()`)
+   */
+  export function hash(message: IProtocolMessageMerkleRoot, chainId: number | bigint): string {
+    return ethers.keccak256(ethers.solidityPacked(["uint256", "bytes"], [chainId, encode(message)]));
   }
   /**
    * Provides string representation of protocol message merkle root.
@@ -116,6 +121,6 @@ export namespace ProtocolMessageMerkleRoot {
    * @returns
    */
   export function print(message: IProtocolMessageMerkleRoot) {
-    return `(${message.protocolId}, ${message.votingRoundId}, ${message.isSecureRandom}, ${message.merkleRoot})`
+    return `(${message.protocolId}, ${message.votingRoundId}, ${message.isSecureRandom}, ${message.merkleRoot})`;
   }
 }

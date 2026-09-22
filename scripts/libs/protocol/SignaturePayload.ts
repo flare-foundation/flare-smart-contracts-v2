@@ -5,16 +5,15 @@ import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "./Protoco
 import { ISigningPolicy } from "./SigningPolicy";
 import { ECDSASignatureWithIndex, IECDSASignatureWithIndex } from "./ECDSASignatureWithIndex";
 
-
 export interface ISignaturePayload {
   type: string;
   message: IProtocolMessageMerkleRoot;
   signature: IECDSASignature;
   unsignedMessage: string;
-  signer?: string;
-  index?: number;
-  messageHash?: string;
-  weight?: number;
+  signer?: string | undefined;
+  index?: number | undefined;
+  messageHash?: string | undefined;
+  weight?: number | undefined;
 }
 
 export interface DepositSignatureData {
@@ -117,12 +116,9 @@ export namespace SignaturePayload {
     let totalWeight = 0;
     let nextAllowedSignerIndex = 0;
     for (const signature of signatures) {
-      const signer = web3.eth.accounts.recover(
-        messageHash,
-        "0x" + signature.v.toString(16),
-        signature.r,
-        signature.s
-      ).toLowerCase();
+      const signer = web3.eth.accounts
+        .recover(messageHash, "0x" + signature.v.toString(16), signature.r, signature.s)
+        .toLowerCase();
       const index = signerIndex.get(signer);
       if (index === undefined) {
         throw Error(`Invalid signer: ${signer}. Not in signing policy`);
@@ -132,7 +128,8 @@ export namespace SignaturePayload {
       }
       nextAllowedSignerIndex = index + 1;
       const weight = weightMap.get(signer);
-      if (weight === undefined) { // This should not happen
+      if (weight === undefined) {
+        // This should not happen
         throw Error(`Invalid signer: ${signer}. Not in signing policy`);
       }
       totalWeight += weight;
@@ -153,14 +150,15 @@ export namespace SignaturePayload {
    */
   export function verifySignaturePayloads(
     signaturePayloads: IPayloadMessage<ISignaturePayload>[],
-    signingPolicy: ISigningPolicy
+    signingPolicy: ISigningPolicy,
+    chainId: number | bigint
   ): boolean {
     if (signaturePayloads.length === 0) {
       return false;
     }
-    const web3 = new Web3();
     const message: IProtocolMessageMerkleRoot = signaturePayloads[0].payload.message;
-    const messageHash = web3.utils.keccak256(ProtocolMessageMerkleRoot.encode(message));
+    // Voters sign the source-bound digest keccak256(sourceChainId ‖ 38-byte message).
+    const messageHash = ProtocolMessageMerkleRoot.hash(message, chainId);
     const signatures: IECDSASignature[] = [];
     for (const payload of signaturePayloads) {
       if (!ProtocolMessageMerkleRoot.equals(payload.payload.message, message)) {
@@ -180,23 +178,27 @@ export namespace SignaturePayload {
    */
   export function augment(
     signaturePayload: ISignaturePayload,
-    signerIndices: Map<string, number>
+    signerIndices: Map<string, number>,
+    chainId: number | bigint
   ) {
     const web3 = new Web3();
-    const messageHash = web3.utils.keccak256(ProtocolMessageMerkleRoot.encode(signaturePayload.message));
-    const signer = web3.eth.accounts.recover(
-      messageHash,
-      "0x" + signaturePayload.signature.v.toString(16),
-      signaturePayload.signature.r,
-      signaturePayload.signature.s
-    ).toLowerCase();
+    // Voters sign the source-bound digest keccak256(sourceChainId ‖ 38-byte message).
+    const messageHash = ProtocolMessageMerkleRoot.hash(signaturePayload.message, chainId);
+    const signer = web3.eth.accounts
+      .recover(
+        messageHash,
+        "0x" + signaturePayload.signature.v.toString(16),
+        signaturePayload.signature.r,
+        signaturePayload.signature.s
+      )
+      .toLowerCase();
     const index = signerIndices.get(signer);
     return {
       ...signaturePayload,
       signer,
       index,
-      messageHash
-    }
+      messageHash,
+    };
   }
 
   export function insertInSigningPolicySortedList(
@@ -247,16 +249,16 @@ export namespace SignaturePayload {
     let lastIndex = -1;
     for (const payload of signaturePayloads) {
       if (payload.index === undefined) {
-        throw new Error(`Payload ${JSON.stringify(payload)} does not have index.`)
+        throw new Error(`Payload ${JSON.stringify(payload)} does not have index.`);
       }
       if (payload.index <= lastIndex) {
-        throw new Error(`Payloads are not strictly monotonic sorted by index.`)
+        throw new Error(`Payloads are not strictly monotonic sorted by index.`);
       }
       const signatureWithIndex = {
         r: payload.signature.r,
         s: payload.signature.s,
         v: payload.signature.v,
-        index: payload.index
+        index: payload.index,
       } as IECDSASignatureWithIndex;
       signatures += ECDSASignatureWithIndex.encode(signatureWithIndex).slice(2);
       lastIndex = payload.index;
@@ -274,7 +276,8 @@ export namespace SignaturePayload {
    */
   export function sortedSignaturePayloadsBySigner(
     signaturePayloads: IPayloadMessage<ISignaturePayload>[],
-    signingPolicy: ISigningPolicy
+    signingPolicy: ISigningPolicy,
+    chainId: number | bigint
   ) {
     const signerIndex: Map<string, number> = new Map<string, number>();
     const web3 = new Web3();
@@ -291,14 +294,17 @@ export namespace SignaturePayload {
         throw Error(`Invalid payload message`);
       }
     }
-    const messageHash = web3.utils.keccak256(ProtocolMessageMerkleRoot.encode(signaturePayloads[0].payload.message));
+    // Voters sign the source-bound digest keccak256(sourceChainId ‖ 38-byte message).
+    const messageHash = ProtocolMessageMerkleRoot.hash(signaturePayloads[0].payload.message, chainId);
     let newSignaturePayloads = signaturePayloads.map((value) => {
-      const signer = web3.eth.accounts.recover(
-        messageHash,
-        "0x" + value.payload.signature.v.toString(16),
-        value.payload.signature.r,
-        value.payload.signature.s
-      ).toLowerCase();
+      const signer = web3.eth.accounts
+        .recover(
+          messageHash,
+          "0x" + value.payload.signature.v.toString(16),
+          value.payload.signature.r,
+          value.payload.signature.s
+        )
+        .toLowerCase();
       if (signer === undefined) {
         throw Error(`Undefined signer.`);
       }
@@ -309,18 +315,22 @@ export namespace SignaturePayload {
       return {
         ...value,
         signer,
-        index
-      }
+        index,
+      };
     });
-    newSignaturePayloads = newSignaturePayloads.sort((a, b) => { return a.index - b.index });
+    newSignaturePayloads = newSignaturePayloads.sort((a, b) => {
+      return a.index - b.index;
+    });
 
     return newSignaturePayloads.filter((value, index) => {
-      if (index === 0) { // take first one if no second or different from second
+      if (index === 0) {
+        // take first one if no second or different from second
         return newSignaturePayloads.length === 1 || value.index !== newSignaturePayloads[1].index;
-      } else { // always take the first appearance of the signer
+      } else {
+        // always take the first appearance of the signer
         return value.index !== newSignaturePayloads[index - 1].index;
       }
-    })
+    });
   }
 
   /**
@@ -329,7 +339,7 @@ export namespace SignaturePayload {
    * @returns
    */
   export function sortSignaturePayloads(
-    signaturePayloads: ISignaturePayload[],
+    signaturePayloads: ISignaturePayload[]
   ): Map<number, Map<number, ISignaturePayload[]>> {
     // votingRoundId => protocolId => SignaturePayload[]
     const result = new Map<number, Map<number, ISignaturePayload[]>>();

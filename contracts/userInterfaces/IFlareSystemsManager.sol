@@ -2,18 +2,12 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { ProtocolsV2Interface } from "./LTS/ProtocolsV2Interface.sol";
+import { Signature } from "./ISignature.sol";
 
 /**
  * FlareSystemsManager interface.
  */
 interface IFlareSystemsManager is ProtocolsV2Interface {
-
-    /// Signature structure
-    struct Signature {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
 
     /// Number of weight based claims structure
     struct NumberOfWeightBasedClaims {
@@ -155,7 +149,7 @@ interface IFlareSystemsManager is ProtocolsV2Interface {
         returns(uint16);
 
     /**
-     * Returns voter rgistration data for given reward epoch id.
+     * Returns voter registration data for given reward epoch id.
      * @param _rewardEpochId Reward epoch id.
      * @return _votePowerBlock Vote power block.
      * @return _enabled Indicates if voter registration is enabled.

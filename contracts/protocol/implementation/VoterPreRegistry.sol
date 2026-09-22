@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IIVoterRegistrationTrigger } from "../interface/IIVoterRegistrationTrigger.sol";
 import { IVoterPreRegistry } from "../../userInterfaces/IVoterPreRegistry.sol";
-import { IVoterRegistry } from "../../userInterfaces/IVoterRegistry.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
-import { AddressSet } from "../../utils/lib/AddressSet.sol";
 import { IIVoterRegistry } from "../../protocol/interface/IIVoterRegistry.sol";
-import { IIEntityManager } from "../interface/IIEntityManager.sol";
 import { IIEntityManager } from "../interface/IIEntityManager.sol";
 import { IIFlareSystemsManager } from "../interface/IIFlareSystemsManager.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";

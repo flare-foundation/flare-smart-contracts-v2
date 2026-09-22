@@ -33,6 +33,8 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
      * @inheritdoc IPriceSubmitter
      */
     function getCurrentRandom() external view returns (uint256 _currentRandom) {
+        // The IPriceSubmitter V1 return type cannot expose Relay's `isSecureRandom` quality flag.
+        // Callers that require the flag must use `getCurrentRandomWithQuality()` or a V2 Relay getter.
         (_currentRandom, , ) = relay.getRandomNumber();
     }
 
@@ -40,6 +42,7 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
      * @inheritdoc IPriceSubmitter
      */
     function getRandom(uint256 _votingRoundId) external view returns (uint256 _randomNumber) {
+        // The IPriceSubmitter V1 return type cannot expose Relay's `isSecureRandom` quality flag.
         (_randomNumber, ,) = relay.getRandomNumberHistorical(_votingRoundId);
     }
 

@@ -33,19 +33,19 @@ contract AddressHistoryTest is Test {
         vm.roll(99);
 
         address atNow = emptyState.addressAtNow();
-        address at = emptyState.addressAt(70);
+        address addr = emptyState.addressAt(70);
 
-        assertEq(at, address(0));
+        assertEq(addr, address(0));
         assertEq(atNow, address(0));
     }
 
     function testAddressAt() public {
         vm.roll(99);
 
-        address at = checkPointHistoryState.addressAt(30);
+        address addr = checkPointHistoryState.addressAt(30);
         address atNow = checkPointHistoryState.addressAtNow();
 
-        assertEq(at, makeAddr(string(abi.encode(30))));
+        assertEq(addr, makeAddr(string(abi.encode(30))));
         assertEq(atNow, makeAddr(string(abi.encode(99))));
     }
 
@@ -53,8 +53,8 @@ contract AddressHistoryTest is Test {
         vm.roll(99);
 
         uint256 cleaned = emptyState.cleanupOldCheckpoints(3, 3);
-        address at = emptyState.addressAt(30);
-        assertEq(at, address(0));
+        address addr = emptyState.addressAt(30);
+        assertEq(addr, address(0));
         assertEq(cleaned, 0);
     }
 

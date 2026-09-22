@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
@@ -269,7 +269,10 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
      * requested due to the range limit.
      * @return _sampleSizeIncrease The amount by which the sample size is increased, which is computed from the
      * contribution and the range increase.
+     * @dev Reads `msg.value` deliberately: called exactly once, by the payable `offerIncentive`. A second
+     * call site would double-count the offered value.
      */
+    //slither-disable-next-line msg-value-in-nonpayable
     function _processIncentiveOffer(
         IncentiveOffer calldata _offer
     )

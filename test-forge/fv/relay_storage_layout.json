@@ -1,0 +1,405 @@
+{
+  "storage": [
+    {
+      "label": "toSigningPolicyHashPrivate",
+      "offset": 0,
+      "slot": "0",
+      "type": {
+        "encoding": "mapping",
+        "key": {
+          "encoding": "inplace",
+          "label": "uint256",
+          "numberOfBytes": "32"
+        },
+        "label": "mapping(uint256 => bytes32)",
+        "numberOfBytes": "32",
+        "value": {
+          "encoding": "inplace",
+          "label": "bytes32",
+          "numberOfBytes": "32"
+        }
+      }
+    },
+    {
+      "label": "merkleRootsPrivate",
+      "offset": 0,
+      "slot": "1",
+      "type": {
+        "encoding": "mapping",
+        "key": {
+          "encoding": "inplace",
+          "label": "uint256",
+          "numberOfBytes": "32"
+        },
+        "label": "mapping(uint256 => mapping(uint256 => bytes32))",
+        "numberOfBytes": "32",
+        "value": {
+          "encoding": "mapping",
+          "key": {
+            "encoding": "inplace",
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "label": "mapping(uint256 => bytes32)",
+          "numberOfBytes": "32",
+          "value": {
+            "encoding": "inplace",
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          }
+        }
+      }
+    },
+    {
+      "label": "startingVotingRoundIds",
+      "offset": 0,
+      "slot": "2",
+      "type": {
+        "encoding": "mapping",
+        "key": {
+          "encoding": "inplace",
+          "label": "uint256",
+          "numberOfBytes": "32"
+        },
+        "label": "mapping(uint256 => uint256)",
+        "numberOfBytes": "32",
+        "value": {
+          "encoding": "inplace",
+          "label": "uint256",
+          "numberOfBytes": "32"
+        }
+      }
+    },
+    {
+      "label": "signingPolicySetter",
+      "offset": 0,
+      "slot": "3",
+      "type": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      }
+    },
+    {
+      "label": "protocolFee",
+      "offset": 0,
+      "slot": "4",
+      "type": {
+        "encoding": "mapping",
+        "key": {
+          "encoding": "inplace",
+          "label": "uint256",
+          "numberOfBytes": "32"
+        },
+        "label": "mapping(uint256 => uint256)",
+        "numberOfBytes": "32",
+        "value": {
+          "encoding": "inplace",
+          "label": "uint256",
+          "numberOfBytes": "32"
+        }
+      }
+    },
+    {
+      "label": "feeCollectionAddress",
+      "offset": 0,
+      "slot": "5",
+      "type": {
+        "encoding": "inplace",
+        "label": "address payable",
+        "numberOfBytes": "20"
+      }
+    },
+    {
+      "label": "feeToken",
+      "offset": 0,
+      "slot": "6",
+      "type": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      }
+    },
+    {
+      "label": "feeProtocolIdsPrivate",
+      "offset": 0,
+      "slot": "7",
+      "type": {
+        "encoding": "inplace",
+        "label": "struct EnumerableSet.UintSet",
+        "members": [
+          {
+            "label": "_inner",
+            "offset": 0,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "struct EnumerableSet.Set",
+              "members": [
+                {
+                  "label": "_values",
+                  "offset": 0,
+                  "slot": "0",
+                  "type": {
+                    "base": {
+                      "encoding": "inplace",
+                      "label": "bytes32",
+                      "numberOfBytes": "32"
+                    },
+                    "encoding": "dynamic_array",
+                    "label": "bytes32[]",
+                    "numberOfBytes": "32"
+                  }
+                },
+                {
+                  "label": "_positions",
+                  "offset": 0,
+                  "slot": "1",
+                  "type": {
+                    "encoding": "mapping",
+                    "key": {
+                      "encoding": "inplace",
+                      "label": "bytes32",
+                      "numberOfBytes": "32"
+                    },
+                    "label": "mapping(bytes32 => uint256)",
+                    "numberOfBytes": "32",
+                    "value": {
+                      "encoding": "inplace",
+                      "label": "uint256",
+                      "numberOfBytes": "32"
+                    }
+                  }
+                }
+              ],
+              "numberOfBytes": "64"
+            }
+          }
+        ],
+        "numberOfBytes": "64"
+      }
+    },
+    {
+      "label": "feeExemptAddress",
+      "offset": 0,
+      "slot": "9",
+      "type": {
+        "encoding": "mapping",
+        "key": {
+          "encoding": "inplace",
+          "label": "address",
+          "numberOfBytes": "20"
+        },
+        "label": "mapping(address => bool)",
+        "numberOfBytes": "32",
+        "value": {
+          "encoding": "inplace",
+          "label": "bool",
+          "numberOfBytes": "1"
+        }
+      }
+    },
+    {
+      "label": "isSecureRandomMap",
+      "offset": 0,
+      "slot": "10",
+      "type": {
+        "encoding": "mapping",
+        "key": {
+          "encoding": "inplace",
+          "label": "uint256",
+          "numberOfBytes": "32"
+        },
+        "label": "mapping(uint256 => bytes32)",
+        "numberOfBytes": "32",
+        "value": {
+          "encoding": "inplace",
+          "label": "bytes32",
+          "numberOfBytes": "32"
+        }
+      }
+    },
+    {
+      "label": "stateData",
+      "offset": 0,
+      "slot": "11",
+      "type": {
+        "encoding": "inplace",
+        "label": "struct Relay.StateData",
+        "members": [
+          {
+            "label": "randomNumberProtocolId",
+            "offset": 0,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "uint8",
+              "numberOfBytes": "1"
+            }
+          },
+          {
+            "label": "firstVotingRoundStartTs",
+            "offset": 1,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "uint32",
+              "numberOfBytes": "4"
+            }
+          },
+          {
+            "label": "votingEpochDurationSeconds",
+            "offset": 5,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "uint8",
+              "numberOfBytes": "1"
+            }
+          },
+          {
+            "label": "firstRewardEpochStartVotingRoundId",
+            "offset": 6,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "uint32",
+              "numberOfBytes": "4"
+            }
+          },
+          {
+            "label": "rewardEpochDurationInVotingEpochs",
+            "offset": 10,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "uint16",
+              "numberOfBytes": "2"
+            }
+          },
+          {
+            "label": "thresholdIncreaseBIPS",
+            "offset": 12,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "uint16",
+              "numberOfBytes": "2"
+            }
+          },
+          {
+            "label": "randomVotingRoundId",
+            "offset": 14,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "uint32",
+              "numberOfBytes": "4"
+            }
+          },
+          {
+            "label": "isSecureRandom",
+            "offset": 18,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "bool",
+              "numberOfBytes": "1"
+            }
+          },
+          {
+            "label": "lastInitializedRewardEpoch",
+            "offset": 19,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "uint32",
+              "numberOfBytes": "4"
+            }
+          },
+          {
+            "label": "noSigningPolicyRelay",
+            "offset": 23,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "bool",
+              "numberOfBytes": "1"
+            }
+          },
+          {
+            "label": "messageFinalizationWindowInRewardEpochs",
+            "offset": 24,
+            "slot": "0",
+            "type": {
+              "encoding": "inplace",
+              "label": "uint32",
+              "numberOfBytes": "4"
+            }
+          }
+        ],
+        "numberOfBytes": "32"
+      }
+    },
+    {
+      "label": "toRandomNumberPrivate",
+      "offset": 0,
+      "slot": "12",
+      "type": {
+        "encoding": "mapping",
+        "key": {
+          "encoding": "inplace",
+          "label": "uint256",
+          "numberOfBytes": "32"
+        },
+        "label": "mapping(uint256 => uint256)",
+        "numberOfBytes": "32",
+        "value": {
+          "encoding": "inplace",
+          "label": "uint256",
+          "numberOfBytes": "32"
+        }
+      }
+    },
+    {
+      "label": "oldRelay",
+      "offset": 0,
+      "slot": "13",
+      "type": {
+        "encoding": "inplace",
+        "label": "contract IRelay",
+        "numberOfBytes": "20"
+      }
+    },
+    {
+      "label": "initialRewardEpochId",
+      "offset": 20,
+      "slot": "13",
+      "type": {
+        "encoding": "inplace",
+        "label": "uint32",
+        "numberOfBytes": "4"
+      }
+    },
+    {
+      "label": "startingVotingRoundIdForInitialRewardEpochId",
+      "offset": 24,
+      "slot": "13",
+      "type": {
+        "encoding": "inplace",
+        "label": "uint32",
+        "numberOfBytes": "4"
+      }
+    },
+    {
+      "label": "sourceChainId",
+      "offset": 0,
+      "slot": "14",
+      "type": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    }
+  ]
+}

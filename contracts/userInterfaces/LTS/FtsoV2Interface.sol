@@ -32,7 +32,10 @@ interface FtsoV2Interface {
 
     /**
      * Returns stored data of a feed.
-     * A fee (calculated by the FeeCalculator contract) may need to be paid.
+     * A fee may need to be paid; use `calculateFeeById` to determine it.
+     * NOTE: Overpayment is not refunded.
+     * NOTE: reverts with "value negative" if the requested custom feed reports a negative value -
+     * use the signed `getCurrentFeed` for feeds with a signed source.
      * @param _feedId The id of the feed.
      * @return _value The value for the requested feed.
      * @return _decimals The decimal places for the requested feed.
@@ -48,11 +51,18 @@ interface FtsoV2Interface {
 
     /**
      * Returns stored data of each feed.
-     * A fee (calculated by the FeeCalculator contract) may need to be paid.
+     * A fee may need to be paid; use `calculateFeeByIds` to determine it.
+     * NOTE: Overpayment is not refunded.
+     * Reverts if the requested feeds do not report the same timestamp - only possible if a custom feed
+     * with its own timestamp source is included. It is recommended to use `getCurrentFeeds` instead,
+     * which returns a timestamp for each feed.
+     * NOTE: reverts with "value negative" if a requested custom feed reports a negative value -
+     * use the signed `getCurrentFeeds` for feeds with a signed source.
+     * Reverts if `_feedIds` is empty.
      * @param _feedIds The list of feed ids.
      * @return _values The list of values for the requested feeds.
      * @return _decimals The list of decimal places for the requested feeds.
-     * @return _timestamp The timestamp of the last update.
+     * @return _timestamp The timestamp of the last update, shared by all requested feeds.
      */
     function getFeedsById(bytes21[] memory _feedIds)
         external payable
@@ -64,7 +74,12 @@ interface FtsoV2Interface {
 
     /**
      * Returns value in wei and timestamp of a feed.
-     * A fee (calculated by the FeeCalculator contract) may need to be paid.
+     * A fee may need to be paid; use `calculateFeeById` to determine it.
+     * NOTE: Overpayment is not refunded.
+     * NOTE: reverts with "value negative" if the requested custom feed reports a negative value -
+     * use the signed `getCurrentFeedInWei` for feeds with a signed source.
+     * Panics with arithmetic overflow if the required power-of-ten factor or the scaled-up value
+     * would not fit in a uint256.
      * @param _feedId The id of the feed.
      * @return _value The value for the requested feed in wei (i.e. with 18 decimal places).
      * @return _timestamp The timestamp of the last update.
@@ -77,16 +92,103 @@ interface FtsoV2Interface {
         );
 
     /** Returns value of each feed and a timestamp.
-     * For some feeds, a fee (calculated by the FeeCalculator contract) may need to be paid.
+     * A fee may need to be paid; use `calculateFeeByIds` to determine it.
+     * NOTE: Overpayment is not refunded.
+     * Reverts if the requested feeds do not report the same timestamp - only possible if a custom feed
+     * with its own timestamp source is included. It is recommended to use `getCurrentFeedsInWei` instead,
+     * which returns a timestamp for each feed.
+     * NOTE: reverts with "value negative" if a requested custom feed reports a negative value -
+     * use the signed `getCurrentFeedsInWei` for feeds with a signed source.
+     * Reverts if `_feedIds` is empty. Panics with arithmetic overflow if a required power-of-ten
+     * factor or scaled-up value would not fit in a uint256.
      * @param _feedIds Ids of the feeds.
      * @return _values The list of values for the requested feeds in wei (i.e. with 18 decimal places).
-     * @return _timestamp The timestamp of the last update.
+     * @return _timestamp The timestamp of the last update, shared by all requested feeds.
      */
     function getFeedsByIdInWei(bytes21[] memory _feedIds)
         external payable
         returns (
             uint256[] memory _values,
             uint64 _timestamp
+        );
+
+    /**
+     * Returns stored data of a feed - the signed variant of `getFeedById`.
+     * A fee may need to be paid; use `calculateFeeById` to determine it.
+     * NOTE: Overpayment is not refunded.
+     * Values are signed: fast update feeds are always non-negative, but a custom feed with a
+     * signed source may report negative values.
+     * @param _feedId The id of the feed.
+     * @return _value The value for the requested feed; may be negative for custom feeds.
+     * @return _decimals The decimal places for the requested feed.
+     * @return _timestamp The timestamp of the last update.
+     */
+    function getCurrentFeed(bytes21 _feedId)
+        external payable
+        returns (
+            int256 _value,
+            int8 _decimals,
+            uint64 _timestamp
+        );
+
+    /**
+     * Returns value in wei and timestamp of a feed - the signed variant of `getFeedByIdInWei`.
+     * A fee may need to be paid; use `calculateFeeById` to determine it.
+     * NOTE: Overpayment is not refunded.
+     * Negative values truncate toward zero when scaled down to 18 decimals.
+     * Panics with arithmetic overflow if the required power-of-ten factor or the scaled-up value
+     * would not fit in an int256.
+     * @param _feedId The id of the feed.
+     * @return _value The value for the requested feed in wei (i.e. with 18 decimal places);
+     * may be negative for custom feeds.
+     * @return _timestamp The timestamp of the last update.
+     */
+    function getCurrentFeedInWei(bytes21 _feedId)
+        external payable
+        returns (
+            int256 _value,
+            uint64 _timestamp
+        );
+
+    /**
+     * Returns stored data of each feed, with the timestamp of each feed.
+     * A fee may need to be paid; use `calculateFeeByIds` to determine it.
+     * NOTE: Overpayment is not refunded.
+     * In contrast to `getFeedsById`, the timestamps may differ between feeds - all fast update feeds
+     * share the same timestamp, while custom feeds report their own. Values are signed: fast update
+     * feeds are always non-negative, but a custom feed with a signed source may report negative values.
+     * Reverts if `_feedIds` is empty.
+     * @param _feedIds The list of feed ids.
+     * @return _values The list of values for the requested feeds; may be negative for custom feeds.
+     * @return _decimals The list of decimal places for the requested feeds.
+     * @return _timestamps The list of timestamps of the last update, one for each requested feed.
+     */
+    function getCurrentFeeds(bytes21[] memory _feedIds)
+        external payable
+        returns (
+            int256[] memory _values,
+            int8[] memory _decimals,
+            uint64[] memory _timestamps
+        );
+
+    /** Returns value of each feed, with the timestamp of each feed.
+     * A fee may need to be paid; use `calculateFeeByIds` to determine it.
+     * NOTE: Overpayment is not refunded.
+     * In contrast to `getFeedsByIdInWei`, the timestamps may differ between feeds - all fast update
+     * feeds share the same timestamp, while custom feeds report their own. Values are signed like
+     * in `getCurrentFeeds`; negative values truncate toward zero when scaled down to 18 decimals.
+     * Reverts if `_feedIds` is empty. Panics with arithmetic overflow if a required power-of-ten
+     * factor or scaled-up value would not fit in an int256.
+     * @param _feedIds Ids of the feeds.
+     * @return _values The list of values for the requested feeds in wei (i.e. with 18 decimal
+     * places); may be negative for custom feeds.
+     * @return _timestamps The list of timestamps of the last update, one for each requested feed.
+     */
+    function getCurrentFeedsInWei(bytes21[] memory _feedIds)
+        external payable
+        returns (
+            int256[] memory _values,
+            uint64[] memory _timestamps
         );
 
     /**

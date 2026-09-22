@@ -16,8 +16,8 @@ export async function transferAndWrapFunds(
   privateKeyWithFunds: string,
   contracts: Contracts,
   entities: Entity[],
-  quiet: boolean = false) {
-
+  quiet: boolean = false
+) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
 
@@ -45,11 +45,23 @@ export async function transferAndWrapFunds(
 
   const funds = web3.utils.toWei("1000");
   for (const entity of entities) {
-    await waitFinalize3(hre, accountWithFunds.address, () => web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.identity.address, value: funds }));
-    await waitFinalize3(hre, accountWithFunds.address, () => web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.submit.address, value: funds }));
-    await waitFinalize3(hre, accountWithFunds.address, () => web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.submitSignatures.address, value: funds }));
-    await waitFinalize3(hre, accountWithFunds.address, () => web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.signingPolicy.address, value: funds }));
-    await waitFinalize3(hre, accountWithFunds.address, () => web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.delegation.address, value: funds }));
-    await waitFinalize3(hre, accountWithFunds.address, () => wNat.depositTo(entity.delegation.address, { value: entity.wrapped, from: accountWithFunds.address}));
+    await waitFinalize3(hre, accountWithFunds.address, () =>
+      web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.identity.address, value: funds })
+    );
+    await waitFinalize3(hre, accountWithFunds.address, () =>
+      web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.submit.address, value: funds })
+    );
+    await waitFinalize3(hre, accountWithFunds.address, () =>
+      web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.submitSignatures.address, value: funds })
+    );
+    await waitFinalize3(hre, accountWithFunds.address, () =>
+      web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.signingPolicy.address, value: funds })
+    );
+    await waitFinalize3(hre, accountWithFunds.address, () =>
+      web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.delegation.address, value: funds })
+    );
+    await waitFinalize3(hre, accountWithFunds.address, () =>
+      wNat.depositTo(entity.delegation.address, { value: entity.wrapped, from: accountWithFunds.address })
+    );
   }
 }

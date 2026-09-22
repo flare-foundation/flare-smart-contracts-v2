@@ -43,7 +43,8 @@
     "addresses": [
       "0x51e375fda99181f052C2e28299e166D6984A5B89",
       "0x3BFdbe79BEf39Bae3F85636f525AcD3051Df4f64",
-      "0xc6E40401395DCc648bC4bBb38fE4552423cD9BAC"
+      "0xc6E40401395DCc648bC4bBb38fE4552423cD9BAC",
+      "0x6a0AF07b7972177B176d3D422555cbc98DfDe914"
     ]
   },
   {
@@ -51,7 +52,10 @@
     "contractName": "FlareSystemsCalculator.sol",
     "addresses": [
       "0x9D7207b1410De031523356882637dd01F460E958",
-      "0x9aF60c16192330EC98d04Ec9675d22dBb9892951"
+      "0x9aF60c16192330EC98d04Ec9675d22dBb9892951",
+      "0x93F4C0b43A221Cf0a57faa882Df5E3F6CAa5Aca8",
+      "0x7bF86a936Eac83eb3Ad23642803148Ef46d1A47d",
+      "0x7faEB56E8e98B8507db618631Be65994Ae2065Df"
     ]
   },
   {
@@ -79,12 +83,13 @@
   },
   {
     "name": "Relay",
-    "contractName": "Relay.sol",
+    "contractName": "RelayProxy.sol",
     "addresses": [
       "0x5CdF9eAF3EB8b44fB696984a1420B56A7575D250",
       "0x4087D4B5E009Af9FF41db910205439F82C3dc63c",
       "0x97702e350CaEda540935d92aAf213307e9069784",
-      "0xa10B672D1c62e5457b17af63d4302add6A99d7dE"
+      "0xa10B672D1c62e5457b17af63d4302add6A99d7dE",
+      "0x5017728F117501A24EF9C3756C07f0d564598596"
     ]
   },
   {
@@ -92,7 +97,8 @@
     "contractName": "WNatDelegationFee.sol",
     "addresses": [
       "0x8eeeE00D3f129eb0e93B2d4Cf2f2FF3e13D68A21",
-      "0xd357A191986982CDcb4E093508362a2Ffc412772"
+      "0xd357A191986982CDcb4E093508362a2Ffc412772",
+      "0xe97611e7678CFd534532eBC4f6aD7F142C012501"
     ]
   },
   {
@@ -391,7 +397,8 @@
     "name": "VoterPreRegistry",
     "contractName": "VoterPreRegistry.sol",
     "addresses": [
-      "0x47469Af25c253B4fb9b2a207BF4069574C6CcBd7"
+      "0x47469Af25c253B4fb9b2a207BF4069574C6CcBd7",
+      "0xee963D1867d8B5f3D3E304802B40BC55B3eDeCB8"
     ]
   },
   {
@@ -459,6 +466,394 @@
     "contractName": "ChainlinkAdapterProxy.sol",
     "addresses": [
       "0x2fa3D57fa4ED7cD44443166F240D8223D42cB38B"
+    ]
+  },
+  {
+    "name": "DiamondGovernanceFacet",
+    "contractName": "DiamondGovernanceFacet.sol",
+    "addresses": [
+      "0xb30a3E14E94cD02DEf10DCd8AfB6F3071c1206B7",
+      "0x58e8C512678482b7eF8D97DBcF90238FC7D16645",
+      "0xB9E561DE84B237F7b8f588ef67900e4c02B6c6F6"
+    ]
+  },
+  {
+    "name": "DiamondLoupeFacet",
+    "contractName": "DiamondLoupeFacet.sol",
+    "addresses": [
+      "0xd9094a83c268A136a8f66fC1AC0e09F34e252Cae",
+      "0x1aFDba98059527E1af069490fa009A390eE6303e"
+    ]
+  },
+  {
+    "name": "ExtensionManagerFacet",
+    "contractName": "ExtensionManagerFacet.sol",
+    "addresses": [
+      "0xcd0cC434c6C840Cf83448657A127bbE59aE34C63",
+      "0x13ebf34c3Fd436A657cb0f819c59790dF55CE14B",
+      "0xA3Dff3F426316eBC06cb44B950e44DB71FA82c66"
+    ]
+  },
+  {
+    "name": "InstructionsFacet",
+    "contractName": "InstructionsFacet.sol",
+    "addresses": [
+      "0x91Ae16CF7568d642CaB07876EEB1b902E84518DE",
+      "0xe0958De99d4C9Fcb960AEd936Ba5964506AA62Ff",
+      "0xbB6d3c8BEB717A74b0b02CE0f3FbE7569eeD435C"
+    ]
+  },
+  {
+    "name": "MachineManagerFacet",
+    "contractName": "MachineManagerFacet.sol",
+    "addresses": [
+      "0x28E0140B94974198e2d96bdE0b3190A93f22c9f0",
+      "0xF40B9a2e70EE96042217F10D94A4B1eDf13096a8",
+      "0xcf8314683C69a29cdC0d7BFF6C28297fB6e2E8df",
+      "0xb7DeFeCfe34f378652Ca5DceB2bF1c01604DEA09",
+      "0x1760a5F7c61C858C8BA4C97906129De8F5Fe49aF",
+      "0x7563dE22D8Eb4cF2b8505667BdF3Bd34081AA37E"
+    ]
+  },
+  {
+    "name": "VerificationFacet",
+    "contractName": "VerificationFacet.sol",
+    "addresses": [
+      "0x4A3b76Efef9d7dF1f5F490Bce836D88d57d7aEF3",
+      "0x78203332236cF39A0079746385F33060aCC95778",
+      "0xff45E7E5D1363B62C34eb8f7b1D0db234771034e",
+      "0x12Dc8E628dcBfe3b98C3340620E7941771CEbAE3"
+    ]
+  },
+  {
+    "name": "OperationFeesFacet",
+    "contractName": "OperationFeesFacet.sol",
+    "addresses": [
+      "0xDEb3BCF66103D4395cD2403FAB56d5BA3CCB3429",
+      "0x7747a3012aFCA610Ec519eB8DCFD51dFC154a3dF",
+      "0x2FBAb90c52c42b5b5d08AAF2311F7dABC315771A"
+    ]
+  },
+  {
+    "name": "OwnerAllowlistFacet",
+    "contractName": "OwnerAllowlistFacet.sol",
+    "addresses": [
+      "0xaA189C0fE1DD542FBE2394B3f827Ee8861A8a845",
+      "0xDD692398C91c077798aEE6aC5c0e404FbD15c8C9",
+      "0x17fCbAFE3264c57F4CD2CeF376CB86120776dd27"
+    ]
+  },
+  {
+    "name": "SystemStateVerifierFacet",
+    "contractName": "SystemStateVerifierFacet.sol",
+    "addresses": [
+      "0xF879858fde53c4d3c574293B18CBCdB5D99816F2"
+    ]
+  },
+  {
+    "name": "WalletManagerFacet",
+    "contractName": "WalletManagerFacet.sol",
+    "addresses": [
+      "0xCf77a93ade70c1D519D19CF9BAd9ec7dfc0765aA",
+      "0xcbf21163bC2A47E8a0FF69cC006C94684bC8Dc9b",
+      "0x799fCDf684DC56B512aBBAd141EF31Db8Bfc8873"
+    ]
+  },
+  {
+    "name": "WalletKeyManagerFacet",
+    "contractName": "WalletKeyManagerFacet.sol",
+    "addresses": [
+      "0xe036B7d737f8ADfAB20D491e676649710EF26806",
+      "0x9Aeb4C3959Ba15464241F7b8daf38Ac2Fa1Cca13",
+      "0x10B3e86624C6dE8685E8F9f0AF7Aa10EB271668F"
+    ]
+  },
+  {
+    "name": "WalletProjectManagerFacet",
+    "contractName": "WalletProjectManagerFacet.sol",
+    "addresses": [
+      "0x282FC1Ef8376b13c7338D8A7b8811AF7089d1C14",
+      "0x9B2767BEaFf0d48147390fA15f001162FdcB33e1"
+    ]
+  },
+  {
+    "name": "WalletBackupManagerFacet",
+    "contractName": "WalletBackupManagerFacet.sol",
+    "addresses": [
+      "0x081043EFF151609b5Acf50BA3E2e994eBd5E5109",
+      "0x9391Caba91a99590C87F421A0C3Fb5E92d36DCb4",
+      "0xADa1B13dAC426C8A57Ab026C14Aa1fF8e58Fe0D4",
+      "0xEF67C978465c7f24EcBc20B33245091D997FD269"
+    ]
+  },
+  {
+    "name": "VrfFacet",
+    "contractName": "VrfFacet.sol",
+    "addresses": [
+      "0xB78215f1587f9F96Ee51532a879246621e55aC35",
+      "0x90c2210E899db9f27Eb713aF5acF97226DD7cEa1",
+      "0xcd4400FB00FB8BC53f2f7c647F0adBf72508F620"
+    ]
+  },
+  {
+    "name": "ExternalAddressesFacet",
+    "contractName": "ExternalAddressesFacet.sol",
+    "addresses": [
+      "0x20f6f75744d88317ABD3b9214d38E7eF252e68C2",
+      "0xF515D79df67c549C379E64Ec4Ff8f151906ADB0A"
+    ]
+  },
+  {
+    "name": "FlareTeeManagerInit",
+    "contractName": "FlareTeeManagerInit.sol",
+    "addresses": [
+      "0x7A8285fca0B61b2Aae378c5BA3ffd53DcBc108a6",
+      "0x8025F92764a9e5936A02570c0534F7B3dbFBDf20"
+    ]
+  },
+  {
+    "name": "FlareTeeManager",
+    "contractName": "FlareTeeManager.sol",
+    "addresses": [
+      "0x004224fa1BF1Acd3D233f011FB03b8dd5fA5d41F",
+      "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE"
+    ]
+  },
+  {
+    "name": "Fdc2HubImplementation",
+    "contractName": "Fdc2Hub.sol",
+    "addresses": [
+      "0x1c96f4C9c9a7a7005632750714530d6C859df0B3",
+      "0xF0338A1b9f8902000c562F34f43B4400FCc77A8f",
+      "0xc49F9a4F59811d7cef14D03b7db300b5410223ed"
+    ]
+  },
+  {
+    "name": "Fdc2Hub",
+    "contractName": "Fdc2HubProxy.sol",
+    "addresses": [
+      "0x9b5Af6137A7FBa20a2b9730f381cEB34D88c8d7f",
+      "0x04dd3Ba33aC798d400bEc42A26F82f9812A421dc"
+    ]
+  },
+  {
+    "name": "Fdc2RequestFeeConfigurationsImplementation",
+    "contractName": "Fdc2RequestFeeConfigurations.sol",
+    "addresses": [
+      "0x0120087724012aBF1939b2AdD01b113Bb063cdE8",
+      "0x85884d027d270Ed66801bDe56FBC3F2195A147ca",
+      "0xA1CA0D9ED7004C765cBEd29c3cAeC98f1E51e992"
+    ]
+  },
+  {
+    "name": "Fdc2RequestFeeConfigurations",
+    "contractName": "Fdc2RequestFeeConfigurationsProxy.sol",
+    "addresses": [
+      "0x4acd36168CB3B3C8f5a5cAcd5E6C773764f088FA",
+      "0xbC135843998E0669a603e89599E9D184a713cac7"
+    ]
+  },
+  {
+    "name": "Fdc2VerificationImplementation",
+    "contractName": "Fdc2Verification.sol",
+    "addresses": [
+      "0x6836571b277FF159dB0E949baf65d08CCF576229",
+      "0x49484b974b3bBbF4e22cb5f5f3891EfacF5b1B2F",
+      "0x40aCF854780Ec673F5a193442756478cc314d9F0"
+    ]
+  },
+  {
+    "name": "Fdc2Verification",
+    "contractName": "Fdc2VerificationProxy.sol",
+    "addresses": [
+      "0x5dB65be44b4473A06d3D1D70d72D871B09bff965",
+      "0xA34Ff9be42b2C7782786270a51d33b1baC0462Cd"
+    ]
+  },
+  {
+    "name": "TeePaymentsRegistryImplementation",
+    "contractName": "TeePaymentsRegistry.sol",
+    "addresses": [
+      "0x972E0FB48307aAc31fECf8b46f776752A1D7F202",
+      "0xD205AcEe3a785A4C59f090f71D909DB1F6CAeFf9",
+      "0xE263eF5709Af9Aee1A6BB6c214dc7F291e1EEFE2"
+    ]
+  },
+  {
+    "name": "TeePaymentsRegistry",
+    "contractName": "TeePaymentsRegistryProxy.sol",
+    "addresses": [
+      "0xBEc5C38D5354CEd864b7B736159FaAF722CFAcA7",
+      "0x1A78D02DD19400138f4F3A817E95fC715B6c34Fe"
+    ]
+  },
+  {
+    "name": "TeePaymentsImplementation",
+    "contractName": "TeePayments.sol",
+    "addresses": [
+      "0xaEd46b1Ef1a8346E1f1fdbac015f5A7bAe81d81B",
+      "0xA8b8E5174C2a389ba115cE8C4Ac508374aEBC957",
+      "0x91550b4eB4EfB45F8eb2978D6b29d26Ac8D30FE2",
+      "0x30213FFB4AF89756C1dA1877798Ba648870617Bb"
+    ]
+  },
+  {
+    "name": "TeePaymentsFeeScheduleManagerImplementation",
+    "contractName": "TeePaymentsFeeScheduleManager.sol",
+    "addresses": [
+      "0x952E58a7e607ed54Eb863FfF86c6Ce7B540EA6a9",
+      "0x4df266f37FBdcB6a1FCEd842e284f73B527D4cf2",
+      "0x47191b420ed8475D7CA753255dC5A81748B3fcA4"
+    ]
+  },
+  {
+    "name": "TeePaymentsFeeScheduleManager",
+    "contractName": "TeePaymentsFeeScheduleManagerProxy.sol",
+    "addresses": [
+      "0x265f078f73FdaaF83A44bfd0D20d7165BffC8064",
+      "0x8640E30B0B165FA3F91497fE4AA01e003905681A"
+    ]
+  },
+  {
+    "name": "TeeRewardOffersManager",
+    "contractName": "TeeRewardOffersManagerProxy.sol",
+    "addresses": [
+      "0xB40c6d87C8C3a352513C348E8a9FE5dD21ea67BB",
+      "0x512f156Ff1a3F1E0D8fa8BA112Ff5a35637dbC9A"
+    ]
+  },
+  {
+    "name": "VrfVerifier",
+    "contractName": "VrfVerifier.sol",
+    "addresses": [
+      "0x3AA6968CBF63A7f3d6A2bD561B8C0F20e76bce9F",
+      "0x7214D4c13aaFE0e26F5EC5Fc625a6b60AfF99533",
+      "0x41558Ce96eC0be309224C2Dace1e9B7bcdB38878"
+    ]
+  },
+  {
+    "name": "ExtensionGovernanceFacet",
+    "contractName": "ExtensionGovernanceFacet.sol",
+    "addresses": [
+      "0x8756eF3d5e491c101DC703bf1AeaB1123988dD1B",
+      "0x94B53AA5194415F22d0b4eB20B87883606174288",
+      "0xAD806132cDabAaC4bd3e114568075B4AB8188fE4",
+      "0x290c8D9d9d71c33C932B24CA662561992A6bE6d1"
+    ]
+  },
+  {
+    "name": "MachinePathManagerFacet",
+    "contractName": "MachinePathManagerFacet.sol",
+    "addresses": [
+      "0x2Fc4E122BC234f56a0D05aa24d8CE7c28cD25141",
+      "0xDAF04fdE681fc9DA86476BED61252F6099D921B6",
+      "0x5Da9E6b91a2d0e966c1e3308c44Ae2801d6D79B5",
+      "0x09575e35dF70A8c3A28Bd1BC42819478d3FB0EFE"
+    ]
+  },
+  {
+    "name": "WalletProjectPauseFacet",
+    "contractName": "WalletProjectPauseFacet.sol",
+    "addresses": [
+      "0xc2333fa57d96BeFceB1A45e53C52C533d28eFc74",
+      "0x4EdCDf43106817443e6DA80BEA7E6a037bA76245"
+    ]
+  },
+  {
+    "name": "MachineEmergencyPauseFacet",
+    "contractName": "MachineEmergencyPauseFacet.sol",
+    "addresses": [
+      "0x8F6FBdcC73819CD0a2E71A3E1D40bE036D335E3d",
+      "0xF4922178fB229177e131392A05cD6951E7447068"
+    ]
+  },
+  {
+    "name": "TeePaymentsConfigVerifierImplementation",
+    "contractName": "TeePaymentsConfigVerifier.sol",
+    "addresses": [
+      "0x4ea574f16c87a9474A8Ae8ac65516b5f167B071a",
+      "0x1b41768ec13AB0C68647B2051cDDAcfDe60A189E"
+    ]
+  },
+  {
+    "name": "TeePaymentsConfigVerifier",
+    "contractName": "TeePaymentsConfigVerifierProxy.sol",
+    "addresses": [
+      "0xC2973CEAD7c193e3e915Eeb6b4DA672660d84F7D"
+    ]
+  },
+  {
+    "name": "AddressValidatorImplementation",
+    "contractName": "AddressValidator.sol",
+    "addresses": [
+      "0x4860B2bf6237bF9a1779C60E9Bfb263330930661"
+    ]
+  },
+  {
+    "name": "AddressValidator",
+    "contractName": "AddressValidatorProxy.sol",
+    "addresses": [
+      "0x2dB76e4E0162400747561bD72dE52442897f6dA2"
+    ]
+  },
+  {
+    "name": "TeePayments",
+    "contractName": "TeePaymentsProxy.sol",
+    "addresses": [
+      "0xD02384dcbA8bBb42E4E8b417b8542410AE0CF484",
+      "0x86CB3e2dA1a4Ec30e2Ff2E5bA1A2D5ff9C9D44f4"
+    ]
+  },
+  {
+    "name": "TeeRewardOffersManagerImplementation",
+    "contractName": "TeeRewardOffersManager.sol",
+    "addresses": [
+      "0x2ae91Ff299DF011e1056F2B1BF56C8C53e2D723F",
+      "0xC7839e0Ad779E6Cd5E82034F2555c6ec613A0d7A"
+    ]
+  },
+  {
+    "name": "Fdc2InflationConfigurationsImplementation",
+    "contractName": "Fdc2InflationConfigurations.sol",
+    "addresses": [
+      "0x5bCC1274C3EE4Feae6359f59c9C3965D2c701032",
+      "0x947f20FCe9A21Aa5E718BbD102338364DEA38a47"
+    ]
+  },
+  {
+    "name": "Fdc2InflationConfigurations",
+    "contractName": "Fdc2InflationConfigurationsProxy.sol",
+    "addresses": [
+      "0x54f53294E21C729b98aa095E01BDb2770DB7d96d"
+    ]
+  },
+  {
+    "name": "Fdc2RewardOffersManagerImplementation",
+    "contractName": "Fdc2RewardOffersManager.sol",
+    "addresses": [
+      "0x86470A859EC5F6d91c426488Fc693Ce2C5f09CB1",
+      "0xE9334BAab48632De9AE0a740c7aFda7a6A7412b8"
+    ]
+  },
+  {
+    "name": "Fdc2RewardOffersManager",
+    "contractName": "Fdc2RewardOffersManagerProxy.sol",
+    "addresses": [
+      "0xfa5DE5C1547297F79A974646DA80a625D6FaaD48"
+    ]
+  },
+  {
+    "name": "Create3Factory",
+    "contractName": "Create3Factory.sol",
+    "addresses": [
+      "0x51a24B38b2a5793F65258Fd37EE92706FadeFE96"
+    ]
+  },
+  {
+    "name": "RelayImplementation",
+    "contractName": "Relay.sol",
+    "addresses": [
+      "0xb6578f5bF014249C4b816F4B5E80d315DFb69a3A"
     ]
   }
 ]

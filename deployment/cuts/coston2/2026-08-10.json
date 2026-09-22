@@ -1,0 +1,26 @@
+{
+  "diamond": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE",
+  "facets": [
+    "DiamondGovernanceFacet",
+    "DiamondLoupeFacet",
+    "ExtensionManagerFacet",
+    "ExtensionGovernanceFacet",
+    "InstructionsFacet",
+    "MachineManagerFacet",
+    "VerificationFacet",
+    "OperationFeesFacet",
+    "OwnerAllowlistFacet",
+    "WalletManagerFacet",
+    "WalletKeyManagerFacet",
+    "WalletProjectManagerFacet",
+    "WalletBackupManagerFacet",
+    "VrfFacet",
+    "ExternalAddressesFacet",
+    "MachinePathManagerFacet",
+    "WalletProjectPauseFacet",
+    "MachineEmergencyPauseFacet"
+  ],
+  "deleteAllOldMethods": false,
+  "deleteSelectorSigs": [],
+  "execute": true
+}

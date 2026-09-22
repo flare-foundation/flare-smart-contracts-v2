@@ -62,7 +62,7 @@ contract SFlrCustomFeedTest is Test {
             )
         );
 
-        (uint256 returnValue, int8 returnDecimals, uint64 returnTimestamp) = sFlrCustomFeed.getCurrentFeed();
+        (int256 returnValue, int8 returnDecimals, uint64 returnTimestamp) = sFlrCustomFeed.getCurrentFeed();
         assertEq(returnValue, 100 * 2);
         assertEq(returnDecimals, 18);
         assertEq(returnTimestamp, 987654321);

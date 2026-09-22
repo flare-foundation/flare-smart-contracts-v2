@@ -1,4 +1,7 @@
-import { ECDSASignatureWithIndex, IECDSASignatureWithIndex } from "../../../../scripts/libs/protocol/ECDSASignatureWithIndex";
+import {
+  ECDSASignatureWithIndex,
+  IECDSASignatureWithIndex,
+} from "../../../../scripts/libs/protocol/ECDSASignatureWithIndex";
 import { ISigningPolicy, SigningPolicy } from "../../../../scripts/libs/protocol/SigningPolicy";
 
 export function defaultTestSigningPolicy(accounts: string[], N: number, singleWeight: number): ISigningPolicy {
@@ -24,9 +27,10 @@ export async function generateSignaturesEncoded(
   count: number,
   indices?: number[]
 ): Promise<string> {
-  return ECDSASignatureWithIndex.encodeSignatureList(await generateSignatures(privateKeys, messageHash, count, indices)).slice(2)
+  return ECDSASignatureWithIndex.encodeSignatureList(
+    await generateSignatures(privateKeys, messageHash, count, indices)
+  ).slice(2);
 }
-
 
 export async function generateSignatures(
   privateKeys: string[],
@@ -48,4 +52,3 @@ export async function generateSignatures(
   }
   return signatures;
 }
-

@@ -1,0 +1,439 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.35;
+
+// solhint-disable func-name-mixedcase
+
+import { Relay } from "../../../../contracts/protocol/implementation/Relay.sol";
+import { RelayProxy } from "../../../../contracts/protocol/implementation/RelayProxy.sol";
+// solhint-disable-next-line no-unused-import
+import { deployRelay, RELAY_TEST_GOVERNANCE } from "../../../utils/RelayDeploy.sol";
+import { RelayMainDeployed } from "../../../../contracts/mock/RelayMainDeployed.sol";
+import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
+import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
+import { RelayTestBase } from "./Relay.t.sol";
+
+// Source-domain binding. The signing-policy hash the contract stores/verifies
+// and the digest voters sign both commit to the configured SOURCE network id in a single keccak
+// over the raw content bytes (keccak256(sourceChainId ‖ encoded policy) resp.
+// keccak256(sourceChainId ‖ 38-byte message)) — a deploy-time immutable naming the chain where the
+// protocol's voter consensus is anchored (Flare/Songbird), NOT the chain the Relay runs on. These
+// tests pin:
+//   - the security property: a quorum's signatures minted for one source are inert on a Relay bound
+//     to a different source, even under a fully overlapping voter set;
+//   - mirrors: a Relay deployed on another chain but configured with a foreign source ACCEPTS that
+//     source's messages — the same signatures verify on the home Relay and on every mirror of it;
+//   - the home-force: a deployment with a live signing-policy setter must bind its own chain;
+//   - same-source deployments accept the same consensus messages; and
+//   - changing the execution environment's chain id does not mutate the configured source identity.
+contract RelayChainDomainTest is RelayTestBase {
+    uint256 internal constant FLARE_CHAIN_ID = 14;
+    uint256 internal constant SONGBIRD_CHAIN_ID = 19;
+
+    bytes internal policy;
+
+    function setUp() public override {
+        super.setUp();
+        policy = _buildSigningPolicy(REWARD_EPOCH_ID, START_VOTING_ROUND_ID, THRESHOLD, SEED);
+    }
+
+    // Deploys a relay-mode Relay (no signing-policy setter). _initialConfig sets sourceChainId to the
+    // current block.chainid, and the seeded policy hash uses the same source. Shared voter set.
+    function _deployRelay() internal returns (Relay) {
+        return deployRelay(_initialConfig(_signingPolicyHash(policy)), address(0), IRelay(address(0)));
+    }
+
+    // relay() calldata for a Mode-2 non-random message; digest bound to the CURRENT block.chainid.
+    function _msgRelay(uint8 pid, uint32 vrid, bytes32 root, uint256 numSigners)
+        internal view returns (bytes memory)
+    {
+        bytes memory message = _protocolMessage(pid, vrid, false, root);
+        return abi.encodePacked(
+            Relay.relay.selector, policy, message, _signatures(_ethSignedHash(message), _firstK(numSigners))
+        );
+    }
+
+    // bubbles the inner relay() revert data so vm.expectRevert can match the exact reason
+    function relayTo(Relay r, bytes calldata rm) external {
+        (bool ok, bytes memory ret) = address(r).call(rm);
+        if (!ok) {
+            assembly { revert(add(ret, 0x20), mload(ret)) }
+        }
+    }
+
+    function relayToLegacy(RelayMainDeployed r, bytes calldata rm) external {
+        (bool ok, bytes memory ret) = address(r).call(rm);
+        if (!ok) {
+            assembly { revert(add(ret, 0x20), mload(ret)) }
+        }
+    }
+
+    function _legacySignedHash(bytes memory content) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(content)));
+    }
+
+    function _legacyPolicyRelay(bytes memory oldPolicy, bytes memory newPolicy)
+        internal view returns (bytes memory)
+    {
+        return abi.encodePacked(
+            RelayMainDeployed.relay.selector,
+            oldPolicy,
+            uint8(0),
+            newPolicy,
+            _signatures(_legacySignedHash(newPolicy), _firstK(3))
+        );
+    }
+
+    function _policyStruct(uint24 epoch, uint32 startVotingRoundId)
+        internal view returns (IIRelay.SigningPolicy memory sp)
+    {
+        sp.rewardEpochId = epoch;
+        sp.startVotingRoundId = startVotingRoundId;
+        sp.threshold = THRESHOLD;
+        sp.seed = SEED;
+        sp.voters = voters;
+        sp.weights = weights;
+    }
+
+    // Same fields, typed for the standalone RelayMainDeployed oldRelay compatibility model.
+    function _legacyPolicyStruct(uint24 epoch, uint32 startVotingRoundId)
+        internal view returns (RelayMainDeployed.SigningPolicy memory sp)
+    {
+        sp.rewardEpochId = epoch;
+        sp.startVotingRoundId = startVotingRoundId;
+        sp.threshold = THRESHOLD;
+        sp.seed = SEED;
+        sp.voters = voters;
+        sp.weights = weights;
+    }
+
+    function _mainDeployedConfig(bytes32 signingPolicyHash)
+        internal
+        view
+        returns (RelayMainDeployed.MainDeployedInitialConfig memory c)
+    {
+        IRelay.RelayInitialConfig memory current = _initialConfig(signingPolicyHash);
+        c.initialRewardEpochId = current.initialRewardEpochId;
+        c.startingVotingRoundIdForInitialRewardEpochId =
+            current.startingVotingRoundIdForInitialRewardEpochId;
+        c.initialSigningPolicyHash = current.initialSigningPolicyHash;
+        c.randomNumberProtocolId = current.randomNumberProtocolId;
+        c.firstVotingRoundStartTs = current.firstVotingRoundStartTs;
+        c.votingEpochDurationSeconds = current.votingEpochDurationSeconds;
+        c.firstRewardEpochStartVotingRoundId = current.firstRewardEpochStartVotingRoundId;
+        c.rewardEpochDurationInVotingEpochs = current.rewardEpochDurationInVotingEpochs;
+        c.thresholdIncreaseBIPS = current.thresholdIncreaseBIPS;
+        c.messageFinalizationWindowInRewardEpochs =
+            current.messageFinalizationWindowInRewardEpochs;
+        c.feeCollectionAddress = current.feeCollectionAddress;
+        c.feeConfigs = new RelayMainDeployed.MainDeployedFeeConfig[](current.feeConfigs.length);
+        for (uint256 i; i < current.feeConfigs.length; ++i) {
+            c.feeConfigs[i] = RelayMainDeployed.MainDeployedFeeConfig(
+                current.feeConfigs[i].protocolId,
+                current.feeConfigs[i].fee
+            );
+        }
+    }
+
+    function _legacyMessageRelay(bytes memory signerPolicy, uint32 votingRoundId, bytes32 root)
+        internal view returns (bytes memory)
+    {
+        bytes memory message = _protocolMessage(3, votingRoundId, false, root);
+        return abi.encodePacked(
+            RelayMainDeployed.relay.selector,
+            signerPolicy,
+            message,
+            _signatures(_legacySignedHash(message), _firstK(3))
+        );
+    }
+
+    function _chainBoundMessageRelay(bytes memory signerPolicy, uint32 votingRoundId, bytes32 root)
+        internal view returns (bytes memory)
+    {
+        bytes memory message = _protocolMessage(3, votingRoundId, false, root);
+        return abi.encodePacked(
+            Relay.relay.selector,
+            signerPolicy,
+            message,
+            _signatures(_ethSignedHash(message), _firstK(3))
+        );
+    }
+
+    function _chainBoundPolicyRelay(bytes memory currentPolicy, bytes memory newPolicy)
+        internal view returns (bytes memory)
+    {
+        bytes32 signedHash =
+            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _signingPolicyHash(newPolicy)));
+        return abi.encodePacked(
+            Relay.relay.selector,
+            currentPolicy,
+            uint8(0),
+            newPolicy,
+            _signatures(signedHash, _firstK(3))
+        );
+    }
+
+    // The stored hash is exactly keccak256(sourceChainId ‖ raw encoded policy) — one keccak, no
+    // padding: checked via a setter-mode relay (a home deploy, so sourceChainId == block.chainid).
+    // Both the setSigningPolicy return value and the getter are observable.
+    function test_storedPolicyHash_isChainBound() public {
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(bytes32(uint256(1)));
+        cfg.initialRewardEpochId = 0; // setSigningPolicy requires lastInitialized + 1 == rewardEpochId
+        cfg.feeCollectionAddress = payable(address(0)); // setter mode collects no fees
+        Relay setterRelay = deployRelay(cfg, address(this), IRelay(address(0)));
+
+        IIRelay.SigningPolicy memory sp;
+        sp.rewardEpochId = REWARD_EPOCH_ID;
+        sp.startVotingRoundId = START_VOTING_ROUND_ID;
+        sp.threshold = THRESHOLD;
+        sp.seed = SEED;
+        sp.voters = voters;
+        sp.weights = weights;
+
+        bytes32 stored = setterRelay.setSigningPolicy(sp);
+        assertEq(setterRelay.sourceChainId(), block.chainid, "home deploy must bind its own chain");
+        assertEq(
+            stored,
+            keccak256(abi.encodePacked(setterRelay.sourceChainId(), policy)),
+            "not keccak(sourceChainId || encoded policy)"
+        );
+        assertTrue(stored != keccak256(policy), "stored hash must not be the unbound policy hash");
+        assertTrue(
+            stored != _signingPolicyContentHash(policy),
+            "stored hash must not use the oldRelay chained-fold format"
+        );
+        assertEq(setterRelay.toSigningPolicyHash(REWARD_EPOCH_ID), stored, "getter disagrees with stored hash");
+    }
+
+    // A message finalized on Flare is rejected by a Songbird Relay
+    // carrying the SAME voter set — the signatures recover to non-voters under the other domain.
+    function test_crossChain_message_rejected() public {
+        vm.chainId(FLARE_CHAIN_ID);
+        Relay flareRelay = _deployRelay();
+        bytes memory rm = _msgRelay(3, START_VOTING_ROUND_ID, keccak256("root"), 3); // 300 > 260
+        (bool ok,) = address(flareRelay).call(rm);
+        assertTrue(ok, "flare relay should accept");
+        assertTrue(flareRelay.isFinalized(3, START_VOTING_ROUND_ID), "flare not finalized");
+
+        vm.chainId(SONGBIRD_CHAIN_ID);
+        Relay songbirdRelay = _deployRelay(); // identical (fully overlapping) voter set
+        vm.expectRevert(IRelay.WrongSignature.selector);
+        this.relayTo(songbirdRelay, rm);
+        assertFalse(songbirdRelay.isFinalized(3, START_VOTING_ROUND_ID), "songbird must not finalize");
+    }
+
+    // Same property for Mode-1: a signing-policy rotation quorum for Flare cannot rotate the
+    // policy on a Songbird Relay with the same voters.
+    function test_crossChain_policyRotation_rejected() public {
+        vm.chainId(FLARE_CHAIN_ID);
+        Relay flareRelay = _deployRelay();
+        bytes memory policy2 = _buildSigningPolicy(
+            uint24(REWARD_EPOCH_ID + 1), START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION, THRESHOLD, SEED
+        );
+        bytes32 signedHash =
+            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _signingPolicyHash(policy2)));
+        bytes memory rm =
+            abi.encodePacked(Relay.relay.selector, policy, uint8(0), policy2, _signatures(signedHash, _firstK(3)));
+        (bool ok,) = address(flareRelay).call(rm);
+        assertTrue(ok, "flare rotation should succeed");
+        (uint32 lastEpoch,) = flareRelay.lastInitializedRewardEpochData();
+        assertEq(lastEpoch, REWARD_EPOCH_ID + 1, "flare epoch not advanced");
+
+        vm.chainId(SONGBIRD_CHAIN_ID);
+        Relay songbirdRelay = _deployRelay();
+        // The submitted current policy re-hashes consistently under Songbird's domain (content is
+        // identical), so the gate reached is the signature check — which fails under the new domain.
+        vm.expectRevert(IRelay.WrongSignature.selector);
+        this.relayTo(songbirdRelay, rm);
+        (uint32 sbEpoch,) = songbirdRelay.lastInitializedRewardEpochData();
+        assertEq(sbEpoch, REWARD_EPOCH_ID, "songbird epoch must not advance");
+    }
+
+    // verifyCustomSignature rejects the same relay message on an identical-policy Relay bound to
+    // another source chain.
+    function test_crossChain_customSignature_rejected() public {
+        vm.chainId(FLARE_CHAIN_ID);
+        Relay flareRelay = _deployRelay();
+        bytes32 mh = keccak256("app-action");
+        bytes memory rm = _customSigRelayMessage(policy, mh, 3);
+        assertEq(flareRelay.verifyCustomSignature(rm, mh), REWARD_EPOCH_ID, "flare custom-sig should verify");
+
+        vm.chainId(SONGBIRD_CHAIN_ID);
+        Relay songbirdRelay = _deployRelay();
+        vm.expectRevert(IRelay.VerificationFailed.selector);
+        songbirdRelay.verifyCustomSignature(rm, mh);
+    }
+
+    // Unbound signatures — prefixed(keccak(message)) without the source binding — are rejected.
+    function test_unboundSignatures_rejected() public {
+        bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("root"));
+        bytes32 oldFormatDigest =
+            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(message)));
+        bytes memory rm = abi.encodePacked(
+            Relay.relay.selector, policy, message, _signatures(oldFormatDigest, _firstK(3))
+        );
+        vm.expectRevert(IRelay.WrongSignature.selector);
+        this.relayTo(relay, rm);
+    }
+
+    // A two-step digest — prefixed(keccak(chainid ‖ keccak(message))) — is rejected; only the
+    // single keccak over the raw message verifies.
+    function test_twoStepBoundSignatures_rejected() public {
+        bytes memory message = _protocolMessage(3, START_VOTING_ROUND_ID, false, keccak256("root"));
+        bytes32 twoStepDigest = keccak256(
+            abi.encodePacked(
+                "\x19Ethereum Signed Message:\n32",
+                keccak256(abi.encodePacked(block.chainid, keccak256(message)))
+            )
+        );
+        bytes memory rm = abi.encodePacked(
+            Relay.relay.selector, policy, message, _signatures(twoStepDigest, _firstK(3))
+        );
+        vm.expectRevert(IRelay.WrongSignature.selector);
+        this.relayTo(relay, rm);
+    }
+
+    // Two Relays bound to the same source accept the same consensus message. Consumers must not
+    // interpret Relay address as part of the signed domain.
+    function test_sameChain_secondDeployment_accepts() public {
+        Relay second = _deployRelay(); // same chain id as the setUp relay
+        bytes memory rm = _msgRelay(3, START_VOTING_ROUND_ID, keccak256("root"), 3);
+        (bool ok1,) = address(relay).call(rm);
+        (bool ok2,) = address(second).call(rm);
+        assertTrue(ok1, "first deployment should accept");
+        assertTrue(ok2, "second deployment should accept the same message");
+        assertTrue(relay.isFinalized(3, START_VOTING_ROUND_ID) && second.isFinalized(3, START_VOTING_ROUND_ID));
+    }
+
+    // oldRelay-to-current migration using the RelayMainDeployed compatibility model. The oldRelay
+    // stores a chained-fold policy hash, from which the source-bound single-keccak hash cannot be
+    // derived. Deployment therefore reconstructs the complete policy from source state, verifies
+    // its chained fold against oldRelay, then hashes it as keccak256(sourceChainId ‖ encoded policy).
+    function test_migration_fromMainRelay_reconstructsPolicyAndPreservesLiveRelay() public {
+        vm.chainId(FLARE_CHAIN_ID);
+
+        bytes memory policy2 = _buildSigningPolicy(
+            uint24(REWARD_EPOCH_ID + 1), START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION, THRESHOLD, SEED
+        );
+        bytes memory policy3 = _buildSigningPolicy(
+            uint24(REWARD_EPOCH_ID + 2), START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION, THRESHOLD, SEED
+        );
+
+        // RelayMainDeployed models the full oldRelay interface used by migration, not a reduced
+        // read-only stub. This fixture uses trusted-setter mode; relay-mode and fee migration are out of scope.
+        RelayMainDeployed oldRelay = new RelayMainDeployed(
+            _mainDeployedConfig(_signingPolicyContentHash(policy)),
+            address(this),
+            IRelay(address(0))
+        );
+
+        // Populate oldRelay state with two setter-installed policies and one message under each policy.
+        (bool ok,) = address(oldRelay).call(_legacyMessageRelay(policy, START_VOTING_ROUND_ID, keccak256("old-1")));
+        assertTrue(ok, "legacy message under policy 1 failed");
+        oldRelay.setSigningPolicy(
+            _legacyPolicyStruct(REWARD_EPOCH_ID + 1, START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION)
+        );
+        (ok,) = address(oldRelay).call(
+            _legacyMessageRelay(policy2, START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION, keccak256("old-2"))
+        );
+        assertTrue(ok, "legacy message under policy 2 failed");
+        oldRelay.setSigningPolicy(
+            _legacyPolicyStruct(REWARD_EPOCH_ID + 2, START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION)
+        );
+
+        bytes32 legacyHash = oldRelay.toSigningPolicyHash(REWARD_EPOCH_ID + 2);
+        // The migration's byte-exact reconstruction check: the reconstructed policy's chained fold
+        // must equal oldRelay's stored hash (here policy3 stands in for the
+        // policy the deploy scripts rebuild from VoterRegistry/EntityManager/FSM views).
+        assertEq(legacyHash, _signingPolicyContentHash(policy3), "reconstruction proof against old Relay failed");
+
+        // The verified reconstructed policy is re-hashed under the source-bound single-keccak
+        // scheme and seeds the current Relay. Initialization also validates oldRelay compatibility.
+        IRelay.RelayInitialConfig memory migratedConfig = _initialConfig(_signingPolicyHash(policy3));
+        migratedConfig.initialRewardEpochId = REWARD_EPOCH_ID + 2;
+        migratedConfig.startingVotingRoundIdForInitialRewardEpochId =
+            START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION;
+        migratedConfig.feeCollectionAddress = payable(address(0)); // setter mode collects no fees
+        Relay migrated = deployRelay(migratedConfig, address(this), IRelay(address(oldRelay)));
+
+        bytes memory postCutover = _chainBoundMessageRelay(
+            policy3,
+            START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION,
+            keccak256("new-1")
+        );
+        (ok,) = address(migrated).call(postCutover);
+        assertTrue(ok, "migrated Relay rejected the first chain-bound message");
+        assertTrue(
+            migrated.isFinalized(3, START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION),
+            "migrated Relay did not finalize the post-cutover message"
+        );
+
+        // RelayMainDeployed expects the unbound digest and therefore rejects the source-bound digest,
+        // even though it has the same voters and policy content. Its interface uses string reverts.
+        vm.expectRevert("Wrong signature");
+        this.relayToLegacy(oldRelay, postCutover);
+
+        // A source-bound policy-relay message cannot be used on RelayMainDeployed. In setter mode,
+        // that contract rejects policy relay before processing signatures; policy changes use the setter.
+        bytes memory policy4 = _buildSigningPolicy(
+            uint24(REWARD_EPOCH_ID + 3), START_VOTING_ROUND_ID + 3 * REWARD_EPOCH_DURATION, THRESHOLD, SEED
+        );
+        vm.expectRevert("Sign policy relay disabled");
+        this.relayToLegacy(oldRelay, _chainBoundPolicyRelay(policy3, policy4));
+    }
+
+    // Mirror: a Relay deployed on one chain but configured with a FOREIGN source id accepts that
+    // source's messages. This is the point of origin binding — the SAME signatures the home Flare
+    // Relay accepts are accepted by a Flare mirror running on Songbird's chain.
+    function test_mirror_acceptsForeignSourceMessages() public {
+        // Build a Flare-origin (source = 14) policy hash and message while chain 14 is active, so the
+        // block.chainid-based helpers bind 14.
+        vm.chainId(FLARE_CHAIN_ID);
+        bytes32 flareBoundInitialHash = _signingPolicyHash(policy);
+        bytes memory rm = _msgRelay(3, START_VOTING_ROUND_ID, keccak256("root"), 3);
+
+        // Deploy the mirror on Songbird's chain (19) but explicitly configured with Flare's source id.
+        vm.chainId(SONGBIRD_CHAIN_ID);
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(flareBoundInitialHash);
+        cfg.sourceChainId = FLARE_CHAIN_ID;
+        Relay mirror = deployRelay(cfg, address(0), IRelay(address(0)));
+        assertEq(mirror.sourceChainId(), FLARE_CHAIN_ID, "mirror must bind the configured source");
+
+        // The exact Flare-signed message a home Flare Relay would accept is accepted by the mirror,
+        // even though it runs on chain 19.
+        (bool ok,) = address(mirror).call(rm);
+        assertTrue(ok, "mirror must accept messages from its configured source");
+        assertTrue(mirror.isFinalized(3, START_VOTING_ROUND_ID), "mirror did not finalize the source message");
+    }
+
+    // Home-force: a deployment with a live signing-policy setter (Flare/Songbird home) must bind its
+    // own chain — a foreign source is rejected at construction, so a live setter can never mint
+    // policies under a foreign domain.
+    function test_homeDeploy_forcesMatchingSource() public {
+        vm.chainId(SONGBIRD_CHAIN_ID);
+        IRelay.RelayInitialConfig memory cfg = _initialConfig(_signingPolicyHash(policy));
+        cfg.sourceChainId = FLARE_CHAIN_ID; // foreign source on a setter (home) deployment
+        cfg.feeCollectionAddress = payable(address(0)); // setter mode collects no fees
+        Relay implementation = new Relay();
+        vm.expectRevert(IRelay.SourceChainIdMismatchOnHomeDeploy.selector);
+        new RelayProxy(address(implementation), cfg, address(this), IRelay(address(0)), RELAY_TEST_GOVERNANCE);
+    }
+
+    // sourceChainId is fixed at initialization. Changing block.chainid does not change the signed
+    // domain, so this Relay continues accepting messages bound to its configured source. A deployment
+    // that needs a different source identity must initialize another Relay with that identity.
+    function test_fork_immutableSource_doesNotFailClosed() public {
+        vm.chainId(FLARE_CHAIN_ID);
+        Relay flareRelay = _deployRelay(); // immutable sourceChainId = 14
+        // Both messages are built under chain 14, so both are bound to source 14.
+        bytes memory rm = _msgRelay(3, START_VOTING_ROUND_ID, keccak256("root"), 3);
+        bytes memory rmNew = _msgRelay(3, START_VOTING_ROUND_ID + 1, keccak256("root2"), 3);
+        (bool ok,) = address(flareRelay).call(rm);
+        assertTrue(ok, "pre-fork accept failed");
+
+        vm.chainId(SONGBIRD_CHAIN_ID); // the chain forks / renames its id
+        // The immutable source is still 14, so a fresh source-14-bound message is STILL accepted.
+        (bool ok2,) = address(flareRelay).call(rmNew);
+        assertTrue(ok2, "post-fork: immutable-source Relay must still accept source-bound messages");
+        assertTrue(flareRelay.isFinalized(3, START_VOTING_ROUND_ID + 1), "post-fork finalize failed");
+    }
+}

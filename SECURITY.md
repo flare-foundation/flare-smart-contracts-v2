@@ -27,6 +27,7 @@ system.
 - `contracts/customFeeds/**/*`
 - `contracts/fastUpdates/**/*`
 - `contracts/fdc/**/*`
+- `contracts/fdc2/**/*`
 - `contracts/fscV1/**/*`
 - `contracts/ftso/**/*`
 - `contracts/governance/**/*`
@@ -35,11 +36,13 @@ system.
 - `contracts/protocol/**/*`
 - `contracts/rNat/**/*`
 - `contracts/staking/**/*`
+- `contracts/tee/**/*`
 - `contracts/userInterfaces/**/*`
 - `contracts/utils/**/*`
 
 ### Out of scope
 
+- `contracts/diamond/**/*`
 - `contracts/mock/**/*`
 
 ## Previous audits

@@ -1,0 +1,31 @@
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+nodeLinker: hoisted
+trustPolicyExclude:
+  - 'semver@6.3.1 || 5.7.2'
+  - 'undici@5.29.0 || 6.21.0'
+  - 'undici-types@6.21.0 || 6.19.8'
+  - 'chokidar@4.0.3'
+  - 'detect-port@1.6.1'
+  - 'graphql@15.10.2'
+onlyBuiltDependencies:
+  - sqlite3
+  - keccak
+  - secp256k1
+  - sqlite3
+packages: []
+allowBuilds:
+  '@apollo/protobufjs': false
+  bufferutil: false
+  core-js-pure: false
+  es5-ext: false
+  esbuild: false
+  keccak: true
+  leveldown: false
+  secp256k1: true
+  sqlite3: true
+  truffle: false
+  utf-8-validate: false
+  web3: false
+  web3-bzz: false
+  web3-shh: false

@@ -1,4 +1,5 @@
 {
+    "$schema": "./chain-parameters.json",
     "testDeployment": false,
     "submissionDeployerPrivateKey": "<use .env: SUBMISSION_DEPLOYER_PRIVATE_KEY>",
     "deployerPrivateKey": "<use .env: DEPLOYER_PRIVATE_KEY>",
@@ -137,7 +138,7 @@
                 {"category": 1, "name": "LINK/USD"},
                 {"category": 1, "name": "ATOM/USD"},
                 {"category": 1, "name": "DOT/USD"},
-                {"category": 1, "name": "TON/USD"},
+                {"category": 1, "name": "GRAM/USD"},
                 {"category": 1, "name": "ICP/USD"},
                 {"category": 1, "name": "SHIB/USD"},
                 {"category": 1, "name": "USDS/USD"},
@@ -346,7 +347,7 @@
         {"feedId": {"category": 2, "name": "JPY/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 2, "name": "AUD/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "LINK/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
-        {"feedId": {"category": 1, "name": "TON/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "GRAM/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "USDS/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "BCH/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "LEO/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
@@ -373,7 +374,8 @@
         {"feedId": {"category": 1, "name": "BERA/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "PUMP/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "XPL/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
-        {"feedId": {"category": 1, "name": "MON/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
+        {"feedId": {"category": 1, "name": "MON/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "NIGHT/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
     ],
     "defaultFeeWei": "1",
     "ftsoProxies": [
@@ -426,7 +428,6 @@
         {"attestationType": "EVMTransaction", "source": "testFLR", "feeWei": "1000"},
         {"attestationType": "EVMTransaction", "source": "testSGB", "feeWei": "1000"},
         {"attestationType": "Web2Json", "source": "PublicWeb2", "feeWei": "1000"},
-        {"attestationType": "Web2Json", "source": "testIgnite", "feeWei": "1000000000000000000"},
         {"attestationType": "XRPPayment", "source": "testXRP", "feeWei": "1000"},
         {"attestationType": "XRPPaymentNonexistence", "source": "testXRP", "feeWei": "1000"}
     ],
@@ -449,8 +450,50 @@
         {"attestationType": "EVMTransaction", "source": "testETH", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
         {"attestationType": "EVMTransaction", "source": "testFLR", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
         {"attestationType": "EVMTransaction", "source": "testSGB", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
-        {"attestationType": "Web2Json", "source": "testIgnite", "inflationShare": 1000, "minRequestsThreshold": 2, "mode": 0},
         {"attestationType": "XRPPayment", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
         {"attestationType": "XRPPaymentNonexistence", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0}
+    ],
+
+    "teeSupportedPlatforms": ["GCP_INTEL_TDX", "GCP_AMD_SEV", "GCP_AMD_SEV_ES", "TEST_PLATFORM"],
+    "teeSupportedKeyTypesWithSigningAlgos": [
+        {"keyType": "XRP", "signingAlgos": ["sha512half-secp256k1-ecdsa"]},
+        {"keyType": "EVM", "signingAlgos": ["keccak256-secp256k1-ecdsa", "keccak256-secp256k1-vrf"]}
+    ],
+    "teeDefaultFeeWei": "1000",
+    "teeAvailabilityCheckValidityDurationSeconds": 21600,
+    "teeSigningPolicyValidityDurationInRewardEpochs": 100,
+    "teeChallengeValidityDurationSeconds": 600,
+    "teePublicExtensionCreationEnabled": true,
+    "teeEmergencyUnpauseGracePeriodSeconds": 7200,
+    "teeOwnersPPM": 100000,
+    "teeOperationFees": [
+        {"opType": "F_REG", "opCommand": "TEE_ATTESTATION", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_GENERATE", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_DELETE", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_DATA_PROVIDER_RESTORE", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_DIRECT_BACKUP", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "KEY_DIRECT_RESTORE", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "VRF", "feeWei": "1"},
+        {"opType": "F_XRP", "opCommand": "PAY", "feeWei": "1"},
+        {"opType": "F_XRP", "opCommand": "REISSUE", "feeWei": "1"},
+        {"opType": "F_FDC2", "opCommand": "PROVE", "feeWei": "1"}
+    ],
+    "teePaymentsConfigurations": [
+        {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "testXRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}]}
+    ],
+    "teePaymentsUtxoConfigurations": [],
+    "fdc2MinThresholdBIPS": 4000,
+    "fdc2DefaultNumberOfTees": 1,
+    "fdc2RequestFees": [
+        {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1"},
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "PMWPaymentStatus", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "PMWFeeProof", "source": "testXRP", "feeWei": "1"}
+    ],
+    "fdc2InflationConfigurations": [
+        {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "PMWPaymentStatus", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "PMWFeeProof", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0}
     ]
 }
