@@ -54,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   governance setter for signing policy sign durations, and revert strings replaced with custom errors
 * USDX/USD feed delisted on Flare and Coston2
 * `Web2Json`/`Ignite` FDC attestation source removed on all networks (`testIgnite` on Coston and Coston2)
+* `EVMTransaction` FDC attestation sources `testARB`, `testBASE` and `testHYPE` added on Coston and Coston2
+  (request fees only, no inflation share)
 * `IICustomFeed.getCurrentFeed` return type changed from `uint256` to `int256` — the selector and
   the return ABI encoding are unchanged for non-negative values, so custom feeds deployed against
   the unsigned declaration remain compatible; the published unsigned FtsoV2 read paths
