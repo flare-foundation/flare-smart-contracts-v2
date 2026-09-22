@@ -242,7 +242,7 @@
   {
     "name": "FtsoV2Implementation",
     "contractName": "FtsoV2.sol",
-    "address": "0x2670E59D267e86316419F1a739e11290DAd60d2F"
+    "address": "0xfD3d660a0241CFf213fb7af31c9ab7a84bB091d0"
   },
   {
     "name": "FdcVerificationImplementation",
@@ -472,7 +472,7 @@
   {
     "name": "RelayImplementation",
     "contractName": "Relay.sol",
-    "address": "0x88C2D06dB810f267681333502E8409107c201Fb2"
+    "address": "0x25bfd3d133F2352be3B649Bb138d481c79769221"
   },
   {
     "name": "TeeOracleInstructionsSenderImplementation",

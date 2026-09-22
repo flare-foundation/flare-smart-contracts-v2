@@ -407,7 +407,8 @@
     "addresses": [
       "0x05cd506C97f067aA219BfA7240EF2316Cc6cCadD",
       "0x36E6c6d2d49007d57CE80975afE9049C65a6bcFF",
-      "0x2670E59D267e86316419F1a739e11290DAd60d2F"
+      "0x2670E59D267e86316419F1a739e11290DAd60d2F",
+      "0xfD3d660a0241CFf213fb7af31c9ab7a84bB091d0"
     ]
   },
   {
@@ -852,7 +853,8 @@
     "name": "RelayImplementation",
     "contractName": "Relay.sol",
     "addresses": [
-      "0x88C2D06dB810f267681333502E8409107c201Fb2"
+      "0x88C2D06dB810f267681333502E8409107c201Fb2",
+      "0x25bfd3d133F2352be3B649Bb138d481c79769221"
     ]
   },
   {
