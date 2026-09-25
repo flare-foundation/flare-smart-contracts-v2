@@ -17,17 +17,6 @@ variables:
 ##
 
 .partials:
-  # The Foundry image, in one place. Two requirements: solar >= v0.2.0, since this repo uses solc
-  # 0.8.35's `erc7201` builtin and older solar reports "unresolved symbol erc7201" while solc
-  # compiles fine; and the coverage build-ID fix (foundry-rs/foundry#16084, landed in nightly
-  # eb4bf9b4), without which `forge coverage` silently drops sources whenever one solc version has
-  # two compilation jobs - which our coverage profile deliberately creates.
-  #
-  # `latest` currently serves forge 1.8.0-nightly (eb4bf9b4) and satisfies both; `stable` is still
-  # v1.7.1 and satisfies neither. Note `latest` is mutable - rebuilding the image moves the
-  # toolchain under CI with no commit here explaining it.
-  # `flarefoundation/foundry-custom:forge-nightly-eb4bf9b4` is the same digest under an immutable
-  # name if a run ever needs pinning.
   foundry-image: flarefoundation/foundry-custom:latest
   # Formal evidence remains bound to the manifest-pinned Foundry binary. Keep this separate from
   # the mutable coverage image above: changing it requires regenerating every commit-bound report.
