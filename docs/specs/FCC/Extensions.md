@@ -50,10 +50,12 @@ Further gates that matter later:
 Governance can mint an extension in the reserved range `[1, 65535]` for Flare-managed extensions:
 
 ```solidity
-function registerReserved(uint256 _extensionId, address _owner) external;  // onlyImmediateGovernance
+function registerReserved(uint256 _extensionId, address _owner) external;  // onlyGovernance (timelocked)
 ```
 
 Governance picks both the id and the initial owner. The verifier and instructions-sender are not set at mint time; the owner sets them later via `setExtensionContracts`. The reserved owner is **not** required to be on the global extension-owner allowlist — governance can mint to any address. Ownership transfer afterwards follows the same allowlist gating as public extensions.
+
+Reserved id `1` is used by the [TEE oracle](./TeeOracle.md) extension (USDX/USD and future TEE-backed feeds).
 
 ## Configuring versions
 

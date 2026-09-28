@@ -51,3 +51,5 @@ system.
 | ------- | ---- | ----- | ------ |
 | Zellic | March 2026 | FSP V1 and V2 | [Smart Contract Security Assessment](./audit/2026-03-16-Zellic-FSP_V1_and_V2_Smart_Contract_Security_Assessment.pdf) |
 | Zellic | June 2026 | FIP 16 | [Smart Contract Patch Review](./audit/2026-06-22-Zellic-FIP_16_Smart_Contract_Patch_Review.pdf) |
+| Zellic | September 2026 | rNat Patch | [Smart Contract Patch Review](./audit/2026-09-08-Zellic-rNat_Patch_Smart_Contract_Patch_Review.pdf) |
+| Zellic | September 2026 | Flare Relay Network Diff | [Smart Contract Patch Review](./audit/2026-09-14-Zellic-Flare_Relay_Network_Diff_Smart_Contract_Patch_Review.pdf) |

@@ -67,6 +67,13 @@ const teeContractNames = new Set([
   "TeeRewardOffersManager",
   // VrfVerifier
   "VrfVerifier",
+  // TEE oracle extension: shared sender (impl + proxy), shared store impl, and one proxy per
+  // configured feed - a feed's proxy is registered under its `teeOracleFeeds[].registryName`,
+  // so a new feed needs its registry name added here
+  "TeeOracleInstructionsSenderImplementation",
+  "TeeOracleInstructionsSender",
+  "TeeOracleFeedStoreImplementation",
+  "UsdxFeedStore",
   // FlareTeeManager diamond and facets
   "FlareTeeManager",
   "FlareTeeManagerInit",

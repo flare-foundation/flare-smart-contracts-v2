@@ -95,6 +95,8 @@ export class Contracts {
   public static readonly FDC2_REQUEST_FEE_CONFIGURATIONS = "Fdc2RequestFeeConfigurations";
   public static readonly FDC2_REWARD_OFFERS_MANAGER = "Fdc2RewardOffersManager";
   public static readonly FDC2_VERIFICATION = "Fdc2Verification";
+  public static readonly TEE_ORACLE_INSTRUCTIONS_SENDER = "TeeOracleInstructionsSender";
+  public static readonly USDX_FEED_STORE = "UsdxFeedStore";
 
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 

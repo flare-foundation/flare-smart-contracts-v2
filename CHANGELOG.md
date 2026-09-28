@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `FtsoV2.getCurrentFeed(s)` / `getCurrentFeed(s)InWei` read family with **signed** (`int256`)
   values, the batch variants returning a timestamp **per feed** — for custom feeds that have their
   own timestamp source and/or a signed value source
+* Generic TEE oracle extension contracts (`TeeOracleInstructionsSender`, `TeeOracleFeedStore` —
+  UUPS proxies on the `FlareGovernance` stack): one sender serves an extension's feeds (one
+  feed store per feed, so one machine fleet can serve multiple oracles), governance publishes
+  versioned, hash-committed endpoint and admin-role configuration per feed and machine,
+  machines answer permissionless per-feed update requests with `SignedPayload`-signed values
+  verified through `Fdc2Verification`, and each store implements `IICustomFeed` so it registers
+  with FtsoV2 directly as a (possibly signed) custom feed with its own timestamp
 
 ### Changed
 
@@ -47,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   governance setter for signing policy sign durations, and revert strings replaced with custom errors
 * USDX/USD feed delisted on Flare and Coston2
 * `Web2Json`/`Ignite` FDC attestation source removed on all networks (`testIgnite` on Coston and Coston2)
+* `EVMTransaction` FDC attestation sources `testARB`, `testBASE` and `testHYPE` added on Coston and Coston2
+  (request fees only, no inflation share)
 * `IICustomFeed.getCurrentFeed` return type changed from `uint256` to `int256` — the selector and
   the return ABI encoding are unchanged for non-negative values, so custom feeds deployed against
   the unsigned declaration remain compatible; the published unsigned FtsoV2 read paths

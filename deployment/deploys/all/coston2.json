@@ -414,7 +414,8 @@
     "name": "FtsoV2Implementation",
     "contractName": "FtsoV2.sol",
     "addresses": [
-      "0xA9E744A9dfA9177196816C9B92791065655c74aB"
+      "0xA9E744A9dfA9177196816C9B92791065655c74aB",
+      "0x91CE9bB2E124DAA2FF100F5Bbda7DDcF704d4359"
     ]
   },
   {
@@ -787,7 +788,8 @@
     "name": "AddressValidatorImplementation",
     "contractName": "AddressValidator.sol",
     "addresses": [
-      "0x4860B2bf6237bF9a1779C60E9Bfb263330930661"
+      "0x4860B2bf6237bF9a1779C60E9Bfb263330930661",
+      "0xF6F875Df23BeADf5fe561a5F69394335C70A168B"
     ]
   },
   {

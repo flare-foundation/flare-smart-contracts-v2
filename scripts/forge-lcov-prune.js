@@ -21,7 +21,11 @@ for (let line of forgeLcovFile.split("\n")) {
     // gitignored and installed in the coverage job, not this one. Third-party code should not
     // count toward this repo's coverage anyway.
     line.includes("dependencies/") ||
-    line.includes("node_modules/")
+    line.includes("node_modules/") ||
+    // Deploy scripts are tooling, not deployed protocol code. Only the ones a test happens to
+    // subclass reached the report at all, so the figure moved with which harness existed rather
+    // than with deploy-script quality - and adding one lowered it. They keep their test suites.
+    line.includes("deployment/")
   ) {
     del = true;
   } else if (line.includes("end_of_record") && del) {

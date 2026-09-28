@@ -407,7 +407,8 @@
     "addresses": [
       "0x05cd506C97f067aA219BfA7240EF2316Cc6cCadD",
       "0x36E6c6d2d49007d57CE80975afE9049C65a6bcFF",
-      "0x2670E59D267e86316419F1a739e11290DAd60d2F"
+      "0x2670E59D267e86316419F1a739e11290DAd60d2F",
+      "0xfD3d660a0241CFf213fb7af31c9ab7a84bB091d0"
     ]
   },
   {
@@ -778,7 +779,8 @@
     "contractName": "AddressValidator.sol",
     "addresses": [
       "0xCD1Bb506caa07A4ec4E5e51a686DF5Dc9ef45936",
-      "0xBB910ebf4f6597c681CEcCaeDc222A4Ab29c8645"
+      "0xBB910ebf4f6597c681CEcCaeDc222A4Ab29c8645",
+      "0xB989f68E96f75769aAB57A275615135D039DbFf4"
     ]
   },
   {
@@ -852,7 +854,36 @@
     "name": "RelayImplementation",
     "contractName": "Relay.sol",
     "addresses": [
-      "0x88C2D06dB810f267681333502E8409107c201Fb2"
+      "0x88C2D06dB810f267681333502E8409107c201Fb2",
+      "0x25bfd3d133F2352be3B649Bb138d481c79769221"
+    ]
+  },
+  {
+    "name": "TeeOracleInstructionsSenderImplementation",
+    "contractName": "TeeOracleInstructionsSender.sol",
+    "addresses": [
+      "0x15a248e1176D8eeb96f0769D55b082564FAb1407"
+    ]
+  },
+  {
+    "name": "TeeOracleInstructionsSender",
+    "contractName": "TeeOracleInstructionsSenderProxy.sol",
+    "addresses": [
+      "0x79F9bBFD6D0729E251A40BdB7538CdaD8884A7b0"
+    ]
+  },
+  {
+    "name": "TeeOracleFeedStoreImplementation",
+    "contractName": "TeeOracleFeedStore.sol",
+    "addresses": [
+      "0x941be75958060dd1420a9644e57acBe1E336819a"
+    ]
+  },
+  {
+    "name": "UsdxFeedStore",
+    "contractName": "TeeOracleFeedStoreProxy.sol",
+    "addresses": [
+      "0x3aAEa2CACD84461536A8e7D43ee4687b057Ed78D"
     ]
   }
 ]

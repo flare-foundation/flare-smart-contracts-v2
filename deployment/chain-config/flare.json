@@ -421,6 +421,9 @@
     "teePaymentsConfigurations": [
         {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "XRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}]}
     ],
+    "teeOracleExtensionId": 1,
+    "teeOracleFeeds": [],
+    "teeOracleFeeDestinationAddress": "0x000000000000000000000000000000000000dEaD",
     "teePaymentsUtxoConfigurations": [],
     "fdc2MinThresholdBIPS": 4000,
     "fdc2DefaultNumberOfTees": 1,

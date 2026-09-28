@@ -257,8 +257,16 @@
         {"opType": "F_DOGE", "opCommand": "REISSUE", "feeWei": "1"},
         {"opType": "F_EVM", "opCommand": "PAY", "feeWei": "1"},
         {"opType": "F_EVM", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_FDC2", "opCommand": "PROVE", "feeWei": "1"}
+        {"opType": "F_FDC2", "opCommand": "PROVE", "feeWei": "1"},
+        {"opType": "TEE_ORACLE", "opCommand": "GET_FEED", "feeWei": "1"},
+        {"opType": "TEE_ORACLE", "opCommand": "SET_ENDPOINTS", "feeWei": "1"},
+        {"opType": "TEE_ORACLE", "opCommand": "SET_ADMINS", "feeWei": "1"}
     ],
+    "teeOracleExtensionId": 1,
+    "teeOracleFeeds": [
+        {"registryName": "UsdxFeedStore", "feedCategory": 33, "feedName": "USDX/USD", "requiredSignatures": 1, "maxSpreadBIPS": 100, "maxSpreadAbsolute": "0"}
+    ],
+    "teeOracleFeeDestinationAddress": "0x000000000000000000000000000000000000dEaD",
     "teePaymentsConfigurations": [
         {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "testXRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}]}
     ],

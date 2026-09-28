@@ -558,6 +558,27 @@ export interface ChainParameters {
    */
   teeOperationFees: TeeOperationFee[];
 
+  // TEE oracle settings
+
+  /**
+   * The reserved TEE extension id serving the TEE oracle feeds. Minted by governance via
+   * `IExtensionManager.registerReserved`.
+   */
+  teeOracleExtensionId: integer;
+
+  /**
+   * The TEE oracle feeds. One `TeeOracleFeedStore` is deployed per entry, all served by
+   * a single `TeeOracleInstructionsSender` on `teeOracleExtensionId` — one machine fleet
+   * can serve multiple oracles.
+   */
+  teeOracleFeeds: TeeOracleFeed[];
+
+  /**
+   * The destination address the TEE oracle feed stores forward collected read fees to.
+   * Matches FastUpdater's live fee destination (the burn address) on all networks.
+   */
+  teeOracleFeeDestinationAddress: string;
+
   /**
    * The account-based TEE payment configurations.
    */
@@ -882,6 +903,78 @@ export interface TeeOperationFee {
    * The fee per operation type + command. In Wei.
    */
   feeWei: string;
+}
+
+export interface TeeOracleFeed {
+  /**
+   * The registry name for this feed's TeeOracleFeedStore instance (e.g. "UsdxFeedStore").
+   */
+  registryName: string;
+
+  /**
+   * The feed category (first byte of the feed id). Must be in the FTSO custom feed
+   * range [32, 64).
+   */
+  feedCategory: integer;
+
+  /**
+   * The feed name (up to 20 ASCII characters), e.g. "USDX/USD". The feed id is
+   * `bytes21(category byte || name || zero padding)`.
+   */
+  feedName: string;
+
+  /**
+   * The number of distinct PRODUCTION TEE machine signatures one feed-update submission must
+   * carry, each over that machine's own observation at the same INSTANT — one shared `observedAt`;
+   * responses to different requests emitted in the same block share it and may be combined; the
+   * store stores the
+   * median of them. Must be in [1, 32]. A fresh deployment uses 1 — the fleet must actually
+   * have this many PRODUCTION machines running the feed's latest published configuration, which
+   * nothing on chain can check, so raise it with the governance `setSubmissionPolicy` setter
+   * once it does.
+   */
+  requiredSignatures: integer;
+
+  /**
+   * The relative term of the accepted deviation between the contributed values, in BIPS of
+   * `abs(median)`. The deviation bound is
+   * `allowed = maxSpreadAbsolute (rescaled) + maxSpreadBIPS * abs(median) / 10000`, and a
+   * submission is rejected on the spread AT the median position — not on `max - min`: for four or
+   * more signatures the tails are excluded from this test, still evaluated by the flagging
+   * check, and named in `FeedOutliers` only when their deviation exceeds the bound. That spread
+   * is the gap between the two bracketing values for an EVEN count,
+   * and HALF of it for an ODD one, so a raw bracketing gap of up to `2 * allowed + 1` still
+   * lands at an odd count. Note the two tests use
+   * `allowed` with different metrics and neither dominates the other: at an EVEN count rejection
+   * bites at half the per-machine displacement flagging does, while at an ODD count the judged
+   * spread is the MEAN of the two gaps flanking the median and so bites up to 2x LATER than
+   * flagging — which is why an accepted batch can name an outlier from N = 3 on. Size this from
+   * the rejection side for liveness, but do not read either test as implying the other. Must be at most 10000 (100%). 100 (1%) matches FAssets' live flare configuration.
+   */
+  maxSpreadBIPS: integer;
+
+  /**
+   * The absolute term of the accepted deviation, always in units of `10^-8` — a FIXED reference
+   * scale, rescaled to each submission's own normalisation scale before use, so the setting's
+   * real-world meaning does not move with the `decimals` the enclaves happen to pick. To ask for
+   * a real-world tolerance `T` in the feed's own units, set `T * 1e8`. As a decimal string; at
+   * most 2^64 - 1. Zero gives a purely relative bound; a non-zero value is what keeps the bound
+   * usable for a feed hovering at or near zero, where the relative term alone collapses to zero.
+   * With both terms zero the rule is parity-split: at an ODD count the two values at the median
+   * position may differ by one unit of the batch's scale, because the spread halves and floors;
+   * at an EVEN count the spread is the raw gap, so they must match exactly. Values outside the
+   * bracketing pair (they first exist at an even count of 4 or an odd count of 5) never enter
+   * the rejection spread — the flagging still judges them: every machine further than the bound
+   * from the median is named. Two traps the contract cannot check, because the scale is the
+   * enclaves' choice and is only known per batch: the rescale FLOORS, so a value below one unit
+   * of the batch's own scale (`< 10^(8 - decimals)`) silently becomes zero; and at a batch
+   * the bound goes inert as soon as the RESCALED value reaches the largest reachable deviation
+   * (~4.3e17), i.e. when `maxSpreadAbsolute * 10^(decimals - 8) >= 4.3e17` — which a `T = 1`
+   * setting hits at `decimals >= 18` — disabling the rejection and the flagging alike;
+   * `decimals >= 29` additionally short-circuits straight to that clamp for any non-zero value.
+   * Pin the enclave's `decimals` per feed and size against it.
+   */
+  maxSpreadAbsolute: string;
 }
 
 export interface Fdc2RequestFee {

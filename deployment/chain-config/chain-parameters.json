@@ -361,6 +361,44 @@
             ],
             "type": "object"
         },
+        "TeeOracleFeed": {
+            "additionalProperties": false,
+            "properties": {
+                "feedCategory": {
+                    "description": "The feed category (first byte of the feed id). Must be in the FTSO custom feed\nrange [32, 64).",
+                    "type": "integer"
+                },
+                "feedName": {
+                    "description": "The feed name (up to 20 ASCII characters), e.g. \"USDX/USD\". The feed id is\n`bytes21(category byte || name || zero padding)`.",
+                    "type": "string"
+                },
+                "maxSpreadAbsolute": {
+                    "description": "The absolute term of the accepted deviation, always in units of `10^-8` — a FIXED reference\nscale, rescaled to each submission's own normalisation scale before use, so the setting's\nreal-world meaning does not move with the `decimals` the enclaves happen to pick. To ask for\na real-world tolerance `T` in the feed's own units, set `T * 1e8`. As a decimal string; at\nmost 2^64 - 1. Zero gives a purely relative bound; a non-zero value is what keeps the bound\nusable for a feed hovering at or near zero, where the relative term alone collapses to zero.\nWith both terms zero the rule is parity-split: at an ODD count the two values at the median\nposition may differ by one unit of the batch's scale, because the spread halves and floors;\nat an EVEN count the spread is the raw gap, so they must match exactly. Values outside the\nbracketing pair (they first exist at an even count of 4 or an odd count of 5) never enter\nthe rejection spread — the flagging still judges them: every machine further than the bound\nfrom the median is named. Two traps the contract cannot check, because the scale is the\nenclaves' choice and is only known per batch: the rescale FLOORS, so a value below one unit\nof the batch's own scale (`< 10^(8 - decimals)`) silently becomes zero; and at a batch\nthe bound goes inert as soon as the RESCALED value reaches the largest reachable deviation\n(~4.3e17), i.e. when `maxSpreadAbsolute * 10^(decimals - 8) >= 4.3e17` — which a `T = 1`\nsetting hits at `decimals >= 18` — disabling the rejection and the flagging alike;\n`decimals >= 29` additionally short-circuits straight to that clamp for any non-zero value.\nPin the enclave's `decimals` per feed and size against it.",
+                    "type": "string"
+                },
+                "maxSpreadBIPS": {
+                    "description": "The relative term of the accepted deviation between the contributed values, in BIPS of\n`abs(median)`. The deviation bound is\n`allowed = maxSpreadAbsolute (rescaled) + maxSpreadBIPS * abs(median) / 10000`, and a\nsubmission is rejected on the spread AT the median position — not on `max - min`: for four or\nmore signatures the tails are excluded from this test, still evaluated by the flagging\ncheck, and named in `FeedOutliers` only when their deviation exceeds the bound. That spread\nis the gap between the two bracketing values for an EVEN count,\nand HALF of it for an ODD one, so a raw bracketing gap of up to `2 * allowed + 1` still\nlands at an odd count. Note the two tests use\n`allowed` with different metrics and neither dominates the other: at an EVEN count rejection\nbites at half the per-machine displacement flagging does, while at an ODD count the judged\nspread is the MEAN of the two gaps flanking the median and so bites up to 2x LATER than\nflagging — which is why an accepted batch can name an outlier from N = 3 on. Size this from\nthe rejection side for liveness, but do not read either test as implying the other. Must be at most 10000 (100%). 100 (1%) matches FAssets' live flare configuration.",
+                    "type": "integer"
+                },
+                "registryName": {
+                    "description": "The registry name for this feed's TeeOracleFeedStore instance (e.g. \"UsdxFeedStore\").",
+                    "type": "string"
+                },
+                "requiredSignatures": {
+                    "description": "The number of distinct PRODUCTION TEE machine signatures one feed-update submission must\ncarry, each over that machine's own observation at the same INSTANT — one shared `observedAt`;\nresponses to different requests emitted in the same block share it and may be combined; the\nstore stores the\nmedian of them. Must be in [1, 32]. A fresh deployment uses 1 — the fleet must actually\nhave this many PRODUCTION machines running the feed's latest published configuration, which\nnothing on chain can check, so raise it with the governance `setSubmissionPolicy` setter\nonce it does.",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "feedCategory",
+                "feedName",
+                "maxSpreadAbsolute",
+                "maxSpreadBIPS",
+                "registryName",
+                "requiredSignatures"
+            ],
+            "type": "object"
+        },
         "TeePaymentsConfiguration": {
             "additionalProperties": false,
             "properties": {
@@ -878,6 +916,21 @@
             },
             "type": "array"
         },
+        "teeOracleExtensionId": {
+            "description": "The reserved TEE extension id serving the TEE oracle feeds. Minted by governance via\n`IExtensionManager.registerReserved`.",
+            "type": "integer"
+        },
+        "teeOracleFeeDestinationAddress": {
+            "description": "The destination address the TEE oracle feed stores forward collected read fees to.\nMatches FastUpdater's live fee destination (the burn address) on all networks.",
+            "type": "string"
+        },
+        "teeOracleFeeds": {
+            "description": "The TEE oracle feeds. One `TeeOracleFeedStore` is deployed per entry, all served by\na single `TeeOracleInstructionsSender` on `teeOracleExtensionId` — one machine fleet\ncan serve multiple oracles.",
+            "items": {
+                "$ref": "#/definitions/TeeOracleFeed"
+            },
+            "type": "array"
+        },
         "teeOwnersPPM": {
             "description": "The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).",
             "type": "integer"
@@ -1043,6 +1096,9 @@
         "teeDefaultFeeWei",
         "teeEmergencyUnpauseGracePeriodSeconds",
         "teeOperationFees",
+        "teeOracleExtensionId",
+        "teeOracleFeeDestinationAddress",
+        "teeOracleFeeds",
         "teeOwnersPPM",
         "teePaymentsConfigurations",
         "teePaymentsUtxoConfigurations",
