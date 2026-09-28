@@ -31,8 +31,8 @@
   },
   {
     "name": "Relay",
-    "contractName": "Relay.sol",
-    "address": "0xCB86E8Be709001e01897Bf59847406853da8f14b"
+    "contractName": "RelayProxy.sol",
+    "address": "0xc1BC89b717Af42AE27497C9FFb996002D3AC5031"
   },
   {
     "name": "WNatDelegationFee",
@@ -468,5 +468,10 @@
     "name": "Create3Factory",
     "contractName": "Create3Factory.sol",
     "address": "0x51a24B38b2a5793F65258Fd37EE92706FadeFE96"
+  },
+  {
+    "name": "RelayImplementation",
+    "contractName": "Relay.sol",
+    "address": "0x6d8c0F907311e7761CB0ADFB2A1f0607A323f17A"
   }
 ]

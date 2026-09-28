@@ -47,12 +47,13 @@
   },
   {
     "name": "Relay",
-    "contractName": "Relay.sol",
+    "contractName": "RelayProxy.sol",
     "addresses": [
       "0xbA35e39D01A3f5710d1e43FC61dbb738B68641c4",
       "0x0D462d2Fec11554D64F52D7c5A5C269d748037aD",
       "0x67a916E175a2aF01369294739AA60dDdE1Fad189",
-      "0xCB86E8Be709001e01897Bf59847406853da8f14b"
+      "0xCB86E8Be709001e01897Bf59847406853da8f14b",
+      "0xc1BC89b717Af42AE27497C9FFb996002D3AC5031"
     ]
   },
   {
@@ -687,6 +688,13 @@
     "contractName": "Create3Factory.sol",
     "addresses": [
       "0x51a24B38b2a5793F65258Fd37EE92706FadeFE96"
+    ]
+  },
+  {
+    "name": "RelayImplementation",
+    "contractName": "Relay.sol",
+    "addresses": [
+      "0x6d8c0F907311e7761CB0ADFB2A1f0607A323f17A"
     ]
   }
 ]
