@@ -749,7 +749,12 @@ wires everything through the AddressUpdater (`FlareTeeManager` for the sender;
 `Fdc2Verification` + `FeeCalculator` for the stores), sets the read-fee destination from
 the `teeOracleFeeDestinationAddress` chain parameter (a config setting — currently the burn
 address on all networks, matching FastUpdater's live fee destination; changeable later via the
-governance `setFeeDestination` setter), and switches all proxies to production mode.
+governance `setFeeDestination` setter), and switches all proxies to production mode. The same run
+deploys a fresh [`FtsoV2`](../../../contracts/protocol/implementation/FtsoV2.sol) implementation,
+recorded as `FtsoV2Implementation`, because the stores are read through FtsoV2's signed
+`getCurrentFeed` family: the FtsoV2 proxy only switches to it when governance executes
+`upgradeToAndCall(implementation, "")`, which must land before `addCustomFeeds` registers the
+stores. The script prints the calldata for both.
 
 Each feed's **submission policy** comes from its own chain-config entry and is set in the store's
 initializer, so a store is never live with an unintended policy:
@@ -804,7 +809,9 @@ Steps the script cannot perform:
 | `registerReserved(extensionId, owner)` on the diamond | Flare governance (timelocked) |
 | `setExtensionContracts(extensionId, 0, sender)`, `addTeeVersion`, `addAllowedTeeMachineOwners` | extension owner (direct) |
 | `setOperationFees` `TEE_ORACLE` rows | Flare governance (timelocked; the default fee applies until then) |
+| FtsoV2 proxy `upgradeToAndCall(implementation, "")`, to the implementation the script deployed | Flare governance (timelocked; execute before `addCustomFeeds`) |
 | `FtsoV2.addCustomFeeds([stores])` | Flare governance (timelocked) |
+| `FeeCalculator.setCategoriesFees(categories, [0, …])` for the feeds' categories — free reads, as on coston | Flare governance (timelocked; the FeeCalculator default fee applies until then) |
 | `setSubmissionPolicy` per store (only to CHANGE the initial policy) | Flare governance (timelocked) |
 | `setEndpoints` / `setAdmins` per feed | Flare governance (timelocked; the executor attaches the instruction fee from `get*PublicationFee`, read in the block the execution lands in — too little reverts in the diamond (`FeeTooLow`) and is retryable, and whatever is attached goes to the reward manager in full — a refund, if the off-chain calculation grants one, is claimed later through the `RewardManager`; zero value if and only if the dispatch will be skipped. The version is derived when the call executes; governance cancels a superseded pending call rather than leaving it queued, and names the non-zero `claimBackAddress` — the payer of record for the off-chain reward calculation, normally the wallet funding the execution) |
 | `pushEndpoints` / `pushAdmins` per feed | anyone (pays the instruction fee for the accepted machines, and supplies the configuration values from the publication log) |

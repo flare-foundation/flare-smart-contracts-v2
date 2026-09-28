@@ -20,6 +20,9 @@ import {ITeeOracleFeedStore} from
     "../../contracts/userInterfaces/tee/ITeeOracleFeedStore.sol";
 import {ITeeOracleInstructionsSender} from
     "../../contracts/userInterfaces/tee/ITeeOracleInstructionsSender.sol";
+import {FtsoV2} from "../../contracts/protocol/implementation/FtsoV2.sol";
+import {IICustomFeed} from "../../contracts/customFeeds/interface/IICustomFeed.sol";
+import {IIFeeCalculator} from "../../contracts/fastUpdates/interface/IIFeeCalculator.sol";
 
 // solhint-disable-next-line max-line-length
 // forge script deployment/scripts/DeployTeeOracle.s.sol:DeployTeeOracle --private-key $DEPLOYER_PRIVATE_KEY --rpc-url $COSTON2_RPC_URL --broadcast --sig "run()"
@@ -28,7 +31,8 @@ import {ITeeOracleInstructionsSender} from
  * Deploys the TEE oracle extension: one TeeOracleInstructionsSender UUPS proxy for the
  * extension plus one TeeOracleFeedStore UUPS proxy per configured feed (all reading the
  * same sender, so one machine fleet serves every feed), wired via the AddressUpdater and
- * switched to production mode.
+ * switched to production mode, plus a fresh FtsoV2 implementation for the governance upgrade of
+ * the FtsoV2 proxy.
  *
  * Steps that CANNOT be scripted here (governance / extension owner, see docs/specs/FCC/TeeOracle.md):
  * - FlareTeeManager.registerReserved(extensionId, owner)          - Flare governance (timelocked)
@@ -36,7 +40,13 @@ import {ITeeOracleInstructionsSender} from
  * - addTeeVersion / addAllowedTeeMachineOwners                      - extension owner (direct)
  * - OperationFeesFacet.setOperationFees TEE_ORACLE rows           - Flare governance (timelocked)
  *   NOTE: until the fee rows are executed, the default fee applies
+ * - FtsoV2 proxy.upgradeToAndCall(new FtsoV2 implementation, "")  - Flare governance (timelocked)
+ *   NOTE: the script deploys that implementation (the feed stores need FtsoV2's signed
+ *   getCurrentFeed read family); execute the upgrade BEFORE addCustomFeeds
  * - FtsoV2.addCustomFeeds([feed stores])                          - Flare governance (timelocked)
+ * - FeeCalculator.setCategoriesFees(feed categories, [0, ...])      - Flare governance (timelocked)
+ *   NOTE: zero read fee for the feeds' categories (as on coston); until it executes, reads pay
+ *   the FeeCalculator default fee
  * - sender.setEndpoints / setAdmins per feed + claim-back address
  *                                                                  - Flare governance (timelocked)
  *   NOTE: no machines are named - the call resolves the extension's active set itself and
@@ -138,6 +148,7 @@ contract DeployTeeOracle is Script {
     address private flareTeeManager;
     address private fdc2Verification;
     address private feeCalculator;
+    address private ftsoV2;
 
     string private config;
 
@@ -147,6 +158,7 @@ contract DeployTeeOracle is Script {
 
     TeeOracleInstructionsSender private sender;
     TeeOracleFeedStore[] private feedStores;
+    FtsoV2 private ftsoV2Implementation;
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
@@ -158,10 +170,12 @@ contract DeployTeeOracle is Script {
             string.concat("deployment/chain-config/", network, ".json"));
         _readParams();
         _readDeployedAddresses(network);
+        require(ftsoV2.code.length > 0, "FtsoV2 proxy not found");
 
         vm.startBroadcast();
         _deployInstructionsSender();
         _deployFeedStores();
+        _deployFtsoV2Implementation();
         _wireInstructionsSender();
         _wireFeedStores();
         sender.switchToProductionMode();
@@ -264,12 +278,13 @@ contract DeployTeeOracle is Script {
     }
 
     function _readDeployedAddressesFromRegistry() internal {
-        string[] memory names = new string[](5);
+        string[] memory names = new string[](6);
         names[0] = "GovernanceSettings";
         names[1] = "AddressUpdater";
         names[2] = "FlareTeeManager";
         names[3] = "Fdc2Verification";
         names[4] = "FeeCalculator";
+        names[5] = "FtsoV2";
         address[] memory addrs =
             FLARE_CONTRACT_REGISTRY.getContractAddressesByName(names);
 
@@ -278,6 +293,7 @@ contract DeployTeeOracle is Script {
         flareTeeManager = addrs[2];
         fdc2Verification = addrs[3];
         feeCalculator = addrs[4];
+        ftsoV2 = addrs[5];
     }
 
     function _readDeployedAddressesFromJson(
@@ -298,6 +314,7 @@ contract DeployTeeOracle is Script {
         fdc2Verification =
             _findDeployedAddress(contracts, "Fdc2Verification");
         feeCalculator = _findDeployedAddress(contracts, "FeeCalculator");
+        ftsoV2 = _findDeployedAddress(contracts, "FtsoV2");
     }
 
     function _findDeployedAddress(
@@ -376,6 +393,17 @@ contract DeployTeeOracle is Script {
                 feed.registryName, "TeeOracleFeedStoreProxy.sol", address(proxy)
             );
         }
+    }
+
+    function _deployFtsoV2Implementation() internal {
+        // The feed stores need FtsoV2's signed getCurrentFeed read family. Only the implementation
+        // is deployed here: switching the FtsoV2 proxy to it is a governance upgradeToAndCall
+        // (printed below), so the registry entry names an implementation that is not live until
+        // that call executes.
+        ftsoV2Implementation = new FtsoV2();
+        _logDeployed(
+            "FtsoV2Implementation", "FtsoV2.sol", address(ftsoV2Implementation)
+        );
     }
 
     // =========================================================================
@@ -468,15 +496,55 @@ contract DeployTeeOracle is Script {
         console2.log(
             "3. extension owner: addTeeVersion / addAllowedTeeMachineOwners"
         );
+        IICustomFeed[] memory customFeeds = new IICustomFeed[](feedStores.length);
+        for (uint256 i = 0; i < feedStores.length; i++) {
+            customFeeds[i] = IICustomFeed(address(feedStores[i]));
+        }
+        console2.log(string.concat(
+            "4. governance (legacy timelock, keyed by selector), on the FtsoV2 proxy ",
+            vm.toString(ftsoV2), " - EXECUTE 4a BEFORE 4b:"
+        ));
+        console2.log(string.concat(
+            "   4a. upgradeToAndCall(", vm.toString(address(ftsoV2Implementation)), ", 0x) calldata ",
+            vm.toString(abi.encodeCall(FtsoV2.upgradeToAndCall, (address(ftsoV2Implementation), "")))
+        ));
+        console2.log(string.concat(
+            "   4b. addCustomFeeds(feed stores) calldata ",
+            vm.toString(abi.encodeCall(FtsoV2.addCustomFeeds, (customFeeds)))
+        ));
         for (uint256 i = 0; i < feedStores.length; i++) {
             console2.log(string.concat(
-                "4. governance: FtsoV2.addCustomFeeds([",
-                vm.toString(address(feedStores[i])), "]) // ",
-                feeds[i].registryName
+                "       ", vm.toString(address(feedStores[i])), " // ", feeds[i].registryName
             ));
         }
+        console2.log(string.concat(
+            "   execute with executeGovernanceCall(bytes4): 4a ",
+            vm.toString(abi.encodeWithSignature(
+                "executeGovernanceCall(bytes4)", FtsoV2.upgradeToAndCall.selector
+            )),
+            ", 4b ",
+            vm.toString(abi.encodeWithSignature(
+                "executeGovernanceCall(bytes4)", FtsoV2.addCustomFeeds.selector
+            ))
+        ));
+        (uint8[] memory categories, uint256[] memory zeroFees) = _feedCategoriesWithZeroFees();
+        console2.log(string.concat(
+            "5. governance (legacy timelock): FeeCalculator ", vm.toString(feeCalculator),
+            " setCategoriesFees(feed categories, zero fees) - free reads, as on coston; without it "
+            "the default fee applies. calldata ",
+            vm.toString(abi.encodeCall(IIFeeCalculator.setCategoriesFees, (categories, zeroFees)))
+        ));
+        for (uint256 i = 0; i < categories.length; i++) {
+            console2.log(string.concat("       category ", vm.toString(uint256(categories[i])), " -> 0"));
+        }
+        console2.log(string.concat(
+            "   execute with executeGovernanceCall(bytes4): ",
+            vm.toString(abi.encodeWithSignature(
+                "executeGovernanceCall(bytes4)", IIFeeCalculator.setCategoriesFees.selector
+            ))
+        ));
         console2.log(
-            "5. governance: sender.setEndpoints / setAdmins per feed "
+            "6. governance: sender.setEndpoints / setAdmins per feed "
             "(no machines named; the EXECUTOR ATTACHES THE FEE from "
             "sender.getEndpointsPublicationFee() / getAdminsPublicationFee(), READ IN THE BLOCK "
             "THE EXECUTION LANDS IN, to executeGovernanceCall - too little reverts in the diamond "
@@ -521,7 +589,7 @@ contract DeployTeeOracle is Script {
             ));
         }
         console2.log(
-            "6. anyone: sender.pushEndpoints / pushAdmins per feed "
+            "7. anyone: sender.pushEndpoints / pushAdmins per feed "
             "(for machines added later or a skipped dispatch - build the list from "
             "get*PushTargets; the push dispatches it as given and REVERTS on a target it cannot "
             "deliver to, and the diamond's calculateFeeByTeeIds prices it)"
@@ -532,5 +600,36 @@ contract DeployTeeOracle is Script {
             "contract re-encodes them with the stored version and checks the hash "
             "(WrongConfigPayload)"
         );
+    }
+
+    /// The distinct categories of the configured feeds (a feed id's first byte), each paired with
+    /// a zero read fee.
+    function _feedCategoriesWithZeroFees()
+        internal view
+        returns (
+            uint8[] memory _categories,
+            uint256[] memory _fees
+        )
+    {
+        uint8[] memory all = new uint8[](feeds.length);
+        uint256 count = 0;
+        for (uint256 i = 0; i < feeds.length; i++) {
+            uint8 category = uint8(bytes1(feeds[i].feedId));
+            bool seen = false;
+            for (uint256 j = 0; j < count; j++) {
+                if (all[j] == category) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) {
+                all[count++] = category;
+            }
+        }
+        _categories = new uint8[](count);
+        for (uint256 i = 0; i < count; i++) {
+            _categories[i] = all[i];
+        }
+        _fees = new uint256[](count);
     }
 }
