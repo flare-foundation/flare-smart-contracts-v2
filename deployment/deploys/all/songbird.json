@@ -369,7 +369,8 @@
     "name": "FtsoV2Implementation",
     "contractName": "FtsoV2.sol",
     "addresses": [
-      "0x5878D57Ff2BC773355aEd2831D8dF29AC72Ca0f6"
+      "0x5878D57Ff2BC773355aEd2831D8dF29AC72Ca0f6",
+      "0xeFD858cbEfd56795605070C777ee8daa55b55A06"
     ]
   },
   {
@@ -715,6 +716,34 @@
     "contractName": "Relay.sol",
     "addresses": [
       "0x6d8c0F907311e7761CB0ADFB2A1f0607A323f17A"
+    ]
+  },
+  {
+    "name": "TeeOracleInstructionsSenderImplementation",
+    "contractName": "TeeOracleInstructionsSender.sol",
+    "addresses": [
+      "0x5f08Bcf01D0a10E6608D5f0C1E4ad6a0f5fC69C0"
+    ]
+  },
+  {
+    "name": "TeeOracleInstructionsSender",
+    "contractName": "TeeOracleInstructionsSenderProxy.sol",
+    "addresses": [
+      "0xEa3D5ee6F86C7084faac27FDcB8204B58BBdbc21"
+    ]
+  },
+  {
+    "name": "TeeOracleFeedStoreImplementation",
+    "contractName": "TeeOracleFeedStore.sol",
+    "addresses": [
+      "0x6E9C84eBf887a85F36c69A37ca4545c9cD9D72Da"
+    ]
+  },
+  {
+    "name": "UsdxFeedStore",
+    "contractName": "TeeOracleFeedStoreProxy.sol",
+    "addresses": [
+      "0x56312b655f29e0CC1E9Fb44F9183c453F7e44640"
     ]
   }
 ]
