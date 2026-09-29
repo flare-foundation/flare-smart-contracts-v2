@@ -59,7 +59,8 @@ You only pass a **name**; the RPC is derived from it. Keep the per-network RPC U
 once (`FLARE_RPC`, `COSTON2_RPC`, `ARBITRUM_RPC`, `ARBITRUM_SEPOLIA_RPC`, …) — no per-invocation
 env vars. The wrapper broadcasts and records every deployed address (Create3Factory, Relay proxy,
 implementation) into `deployment/deploys/<name>.json` and `.../all/<name>.json` via
-`save-deployed-addresses.ts`, where `<name>` is the source name (home) or the mirror name (mirror):
+`save-deployed-addresses.ts`, where `<name>` is the network name (factory), the source name (home)
+or the mirror name (mirror), so a factory run and the mirror deploy on the same chain share one file:
 
 A run is a **dry run (simulation) by default**; add `--broadcast` to deploy for real (a misspelled
 flag fails loudly inside forge, so a typo can never silently deploy; `--resume` is rejected

@@ -57,7 +57,8 @@ set -euo pipefail
 # On --broadcast the DEPLOYED:/NETWORK: log lines are piped through save-deployed-addresses.ts,
 # which records every deployed address (Create3Factory, Relay proxy, implementation, …) into
 # deployment/deploys/<name>.json and deployment/deploys/all/<name>.json — where <name> is the
-# source name (home) or the mirror name (mirror).
+# network name (factory), the source name (home) or the mirror name (mirror). The archived forge
+# output is deleted afterwards.
 
 if [[ $# -lt 2 ]]; then
   echo "Usage: $0 <factory|home|prepare-snapshot> <source> [forge args...] [--broadcast]" >&2
@@ -188,6 +189,10 @@ fi
 # that is its purpose, and it never broadcasts.)
 if [[ "$BROADCAST" == "1" ]]; then export RELAY_DRY_RUN=false; else export RELAY_DRY_RUN=true; fi
 
+# The factory step records its address under the name it was given (e.g. arbitrum-sepolia.json,
+# the same file the mirror deploy on that chain writes), not under the chain id.
+export RELAY_NETWORK="$RPC_NAME"
+
 FORGE_CMD=(forge script "$SCRIPT" --rpc-url "$RPC" --sig "run()" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"})
 
 if [[ "$BROADCAST" == "1" ]]; then
@@ -198,6 +203,10 @@ if [[ "$BROADCAST" == "1" ]]; then
   # Harmless when a signer flag was used instead and the variable was never set.
   unset DEPLOYER_PRIVATE_KEY
   npx tsx deployment/scripts/save-deployed-addresses.ts
+  # The relay steps print no governance calldata, so the archived forge output is not a record worth
+  # keeping (forge's own broadcast/ run log still has the transactions). Every broadcasting step
+  # records under $RPC_NAME: factory via RELAY_NETWORK, home under its source, mirror under its name.
+  rm -f "deployment/deploys/${RPC_NAME}-forge-deploy-output.txt"
 else
   echo ">>> DRY RUN [$LABEL] (simulation, no transactions). Pass --broadcast to deploy for real."
   "${FORGE_CMD[@]}"
