@@ -128,7 +128,7 @@ scripts/                # Utility scripts, protocol libs
 Config in `foundry.toml`. Dependencies managed via Soldeer.
 
 Key remappings (in `remappings.txt`):
-- `@openzeppelin/contracts/` → `dependencies/@openzeppelin-contracts-5.6.1/`
+- `@openzeppelin/contracts/` → `dependencies/@openzeppelin-contracts-5.7.0/`
 - `forge-std/` → `dependencies/forge-std-1.10.0/src/`
 - `@flarenetwork/flare-periphery-contracts/flare/` → `dependencies/flare-periphery-0.1.38/src/flare/`
 
@@ -481,7 +481,7 @@ contract DiamondGovernanceFacet is IIDiamondGovernance, FlareGovernedBase {
 
 ### Key Pattern 5: Initialization
 
-The new stack layers OpenZeppelin's [`Initializable`](dependencies/@openzeppelin-contracts-5.4.0/proxy/utils/Initializable.sol) on top of the `FlareGovernance` library. `FlareGovernedAccess` already inherits `Initializable` and calls `_disableInitializers()` in its constructor; concrete `initialize(...)` / `init(...)` external entry points carry the `initializer` modifier; internal helpers like `initializeBase(...)` carry `onlyInitializing`. Future versioned migrations use `reinitializer(uint64 version)`.
+The new stack layers OpenZeppelin's [`Initializable`](dependencies/@openzeppelin-contracts-5.7.0/proxy/utils/Initializable.sol) on top of the `FlareGovernance` library. `FlareGovernedAccess` already inherits `Initializable` and calls `_disableInitializers()` in its constructor; concrete `initialize(...)` / `init(...)` external entry points carry the `initializer` modifier; internal helpers like `initializeBase(...)` carry `onlyInitializing`. Future versioned migrations use `reinitializer(uint64 version)`.
 
 ```solidity
 contract MyInit is Initializable, AddressUpdatable {
