@@ -10,11 +10,9 @@ set -euo pipefail
 #
 # Deploys the TEE oracle extension: one TeeOracleInstructionsSender UUPS proxy plus
 # one TeeOracleFeedStore UUPS proxy per feed configured in `teeOracleFeeds` (chain
-# config), wires them via the AddressUpdater and switches them to production mode. It also deploys
-# a fresh FtsoV2 implementation (the feed stores need its signed read family); switching the FtsoV2
-# proxy to it is a governance upgradeToAndCall, printed with its calldata.
+# config), wires them via the AddressUpdater and switches them to production mode.
 # The follow-up steps that cannot be scripted are printed by the script, and they do NOT all have
-# the same caller: registerReserved, the FtsoV2 upgrade followed by FtsoV2.addCustomFeeds, the
+# the same caller: registerReserved, FtsoV2.addCustomFeeds, the
 # zero FeeCalculator category fee for the feeds, and setEndpoints/setAdmins are Flare governance
 # (timelocked); setExtensionContracts and addTeeVersion/addAllowedTeeMachineOwners are
 # the extension owner (direct, no timelock); pushEndpoints/pushAdmins are permissionless. The
