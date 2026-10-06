@@ -22,7 +22,7 @@
   {
     "name": "NodePossessionVerifier",
     "contractName": "NodePossessionVerifier.sol",
-    "address": "0x54380a03d5fe92bd5D95d31411886Faa85844A1b"
+    "address": "0xB5f77DbfDDc94e683d13A958B03e602F56A49785"
   },
   {
     "name": "VoterRegistry",
@@ -262,7 +262,7 @@
   {
     "name": "FtsoV2Implementation",
     "contractName": "FtsoV2.sol",
-    "address": "0x15f816C9F9b0e80F684C88534c29cd618Be32342"
+    "address": "0x51F615DD0876f1630E69f7434236A4f1e76c3D58"
   },
   {
     "name": "SFlrCustomFeed",
