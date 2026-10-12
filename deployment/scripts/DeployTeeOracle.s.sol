@@ -31,8 +31,7 @@ import {IIFeeCalculator} from "../../contracts/fastUpdates/interface/IIFeeCalcul
  * Deploys the TEE oracle extension: one TeeOracleInstructionsSender UUPS proxy for the
  * extension plus one TeeOracleFeedStore UUPS proxy per configured feed (all reading the
  * same sender, so one machine fleet serves every feed), wired via the AddressUpdater and
- * switched to production mode, plus a fresh FtsoV2 implementation for the governance upgrade of
- * the FtsoV2 proxy.
+ * switched to production mode.
  *
  * Steps that CANNOT be scripted here (governance / extension owner, see docs/specs/FCC/TeeOracle.md):
  * - FlareTeeManager.registerReserved(extensionId, owner)          - Flare governance (timelocked)
@@ -40,9 +39,6 @@ import {IIFeeCalculator} from "../../contracts/fastUpdates/interface/IIFeeCalcul
  * - addTeeVersion / addAllowedTeeMachineOwners                      - extension owner (direct)
  * - OperationFeesFacet.setOperationFees TEE_ORACLE rows           - Flare governance (timelocked)
  *   NOTE: until the fee rows are executed, the default fee applies
- * - FtsoV2 proxy.upgradeToAndCall(new FtsoV2 implementation, "")  - Flare governance (timelocked)
- *   NOTE: the script deploys that implementation (the feed stores need FtsoV2's signed
- *   getCurrentFeed read family); execute the upgrade BEFORE addCustomFeeds
  * - FtsoV2.addCustomFeeds([feed stores])                          - Flare governance (timelocked)
  * - FeeCalculator.setCategoriesFees(feed categories, [0, ...])      - Flare governance (timelocked)
  *   NOTE: zero read fee for the feeds' categories (as on coston); until it executes, reads pay
@@ -158,7 +154,6 @@ contract DeployTeeOracle is Script {
 
     TeeOracleInstructionsSender private sender;
     TeeOracleFeedStore[] private feedStores;
-    FtsoV2 private ftsoV2Implementation;
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
@@ -175,7 +170,6 @@ contract DeployTeeOracle is Script {
         vm.startBroadcast();
         _deployInstructionsSender();
         _deployFeedStores();
-        _deployFtsoV2Implementation();
         _wireInstructionsSender();
         _wireFeedStores();
         sender.switchToProductionMode();
@@ -395,17 +389,6 @@ contract DeployTeeOracle is Script {
         }
     }
 
-    function _deployFtsoV2Implementation() internal {
-        // The feed stores need FtsoV2's signed getCurrentFeed read family. Only the implementation
-        // is deployed here: switching the FtsoV2 proxy to it is a governance upgradeToAndCall
-        // (printed below), so the registry entry names an implementation that is not live until
-        // that call executes.
-        ftsoV2Implementation = new FtsoV2();
-        _logDeployed(
-            "FtsoV2Implementation", "FtsoV2.sol", address(ftsoV2Implementation)
-        );
-    }
-
     // =========================================================================
     // Wiring
     // =========================================================================
@@ -502,14 +485,10 @@ contract DeployTeeOracle is Script {
         }
         console2.log(string.concat(
             "4. governance (legacy timelock, keyed by selector), on the FtsoV2 proxy ",
-            vm.toString(ftsoV2), " - EXECUTE 4a BEFORE 4b:"
+            vm.toString(ftsoV2), ":"
         ));
         console2.log(string.concat(
-            "   4a. upgradeToAndCall(", vm.toString(address(ftsoV2Implementation)), ", 0x) calldata ",
-            vm.toString(abi.encodeCall(FtsoV2.upgradeToAndCall, (address(ftsoV2Implementation), "")))
-        ));
-        console2.log(string.concat(
-            "   4b. addCustomFeeds(feed stores) calldata ",
+            "   addCustomFeeds(feed stores) calldata ",
             vm.toString(abi.encodeCall(FtsoV2.addCustomFeeds, (customFeeds)))
         ));
         for (uint256 i = 0; i < feedStores.length; i++) {
@@ -518,11 +497,7 @@ contract DeployTeeOracle is Script {
             ));
         }
         console2.log(string.concat(
-            "   execute with executeGovernanceCall(bytes4): 4a ",
-            vm.toString(abi.encodeWithSignature(
-                "executeGovernanceCall(bytes4)", FtsoV2.upgradeToAndCall.selector
-            )),
-            ", 4b ",
+            "   execute with executeGovernanceCall(bytes4): ",
             vm.toString(abi.encodeWithSignature(
                 "executeGovernanceCall(bytes4)", FtsoV2.addCustomFeeds.selector
             ))

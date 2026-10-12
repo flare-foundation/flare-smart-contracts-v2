@@ -131,10 +131,11 @@ contract RelayDeployAddressTest is Test {
     function test_readsDeployedAddressFromCommittedDeploysJson() public view {
         // Confirms the persistent deploys-registry reader parses the committed
         // deployment/deploys/<network>.json format (stdJson struct field order). PrepareRelaySourceSnapshot
-        // reads the latest Relay from here rather than a transient manifest.
+        // reads the latest Relay from here rather than a transient manifest. The flare Relay is the
+        // proxy deployed on the pinned CREATE3 address.
         assertEq(
             harness.readDeployedAddress("flare", "Relay"),
-            0xCcF30790A93F15e24EB909548a2C58a9b0a7FBd4
+            harness.expectedRelayAddress(14)
         );
         assertEq(harness.readDeployedAddress("flare", "NoSuchContract"), address(0));
     }

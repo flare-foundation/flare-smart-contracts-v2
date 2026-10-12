@@ -22,7 +22,7 @@
   {
     "name": "NodePossessionVerifier",
     "contractName": "NodePossessionVerifier.sol",
-    "address": "0x54380a03d5fe92bd5D95d31411886Faa85844A1b"
+    "address": "0xB5f77DbfDDc94e683d13A958B03e602F56A49785"
   },
   {
     "name": "VoterRegistry",
@@ -51,8 +51,8 @@
   },
   {
     "name": "Relay",
-    "contractName": "Relay.sol",
-    "address": "0xCcF30790A93F15e24EB909548a2C58a9b0a7FBd4"
+    "contractName": "RelayProxy.sol",
+    "address": "0x5A2Eb0cdB4Aa8253924a488A77EdfD24Bb64407f"
   },
   {
     "name": "WNatDelegationFee",
@@ -262,7 +262,7 @@
   {
     "name": "FtsoV2Implementation",
     "contractName": "FtsoV2.sol",
-    "address": "0x15f816C9F9b0e80F684C88534c29cd618Be32342"
+    "address": "0x51F615DD0876f1630E69f7434236A4f1e76c3D58"
   },
   {
     "name": "SFlrCustomFeed",
@@ -328,5 +328,10 @@
     "name": "Create3Factory",
     "contractName": "Create3Factory.sol",
     "address": "0x51a24B38b2a5793F65258Fd37EE92706FadeFE96"
+  },
+  {
+    "name": "RelayImplementation",
+    "contractName": "Relay.sol",
+    "address": "0xd6595E3Bf808937055d7c22e5CeF4c7985715b23"
   }
 ]

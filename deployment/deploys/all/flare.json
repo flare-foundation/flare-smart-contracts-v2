@@ -33,7 +33,8 @@
     "contractName": "NodePossessionVerifier.sol",
     "addresses": [
       "0x168F316F4f2FEd0AA99C3c73456ed11ba2FF8cB0",
-      "0x54380a03d5fe92bd5D95d31411886Faa85844A1b"
+      "0x54380a03d5fe92bd5D95d31411886Faa85844A1b",
+      "0xB5f77DbfDDc94e683d13A958B03e602F56A49785"
     ]
   },
   {
@@ -75,11 +76,12 @@
   },
   {
     "name": "Relay",
-    "contractName": "Relay.sol",
+    "contractName": "RelayProxy.sol",
     "addresses": [
       "0xea077600E3065F4FAd7161a6D0977741f2618eec",
       "0x57a4c3676d08Aa5d15410b5A6A80fBcEF72f3F45",
-      "0xCcF30790A93F15e24EB909548a2C58a9b0a7FBd4"
+      "0xCcF30790A93F15e24EB909548a2C58a9b0a7FBd4",
+      "0x5A2Eb0cdB4Aa8253924a488A77EdfD24Bb64407f"
     ]
   },
   {
@@ -388,7 +390,8 @@
     "name": "FtsoV2Implementation",
     "contractName": "FtsoV2.sol",
     "addresses": [
-      "0x15f816C9F9b0e80F684C88534c29cd618Be32342"
+      "0x15f816C9F9b0e80F684C88534c29cd618Be32342",
+      "0x51F615DD0876f1630E69f7434236A4f1e76c3D58"
     ]
   },
   {
@@ -482,6 +485,13 @@
     "contractName": "Create3Factory.sol",
     "addresses": [
       "0x51a24B38b2a5793F65258Fd37EE92706FadeFE96"
+    ]
+  },
+  {
+    "name": "RelayImplementation",
+    "contractName": "Relay.sol",
+    "addresses": [
+      "0xd6595E3Bf808937055d7c22e5CeF4c7985715b23"
     ]
   }
 ]
