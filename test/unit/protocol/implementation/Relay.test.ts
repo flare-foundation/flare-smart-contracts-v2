@@ -251,7 +251,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       votingRoundId,
       isSecureRandom: true,
       merkleRoot,
-    } as IProtocolMessageMerkleRoot;
+    };
   });
 
   it("Should initial signing policy be initialized", async () => {

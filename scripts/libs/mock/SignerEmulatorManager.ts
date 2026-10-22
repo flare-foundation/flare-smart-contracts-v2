@@ -1,6 +1,5 @@
 import { sleep } from "../../../deployment/tasks/run-simulation";
-import { IProtocolMessageMerkleRoot } from "../protocol/ProtocolMessageMerkleRoot";
-import { SignDepositMessage, SignerEmulator } from "./SignerEmulator";
+import { SignerEmulator } from "./SignerEmulator";
 import { extractEpochSettings, relaySourceChainId } from "./mock-test-helpers";
 
 export interface SignerEmulationConfig {
@@ -39,9 +38,9 @@ export class SignerEmulatorManager {
           votingRoundId,
           isSecureRandom: false,
           merkleRoot: merkleRoots[subprotocolId],
-        } as IProtocolMessageMerkleRoot,
+        },
         unsignedMessage: this.web3.utils.randomHex(32),
-      } as SignDepositMessage;
+      };
     });
   }
 

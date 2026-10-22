@@ -60,7 +60,7 @@ export namespace ECDSASignature {
       v: parseInt(signatureObject.v.slice(2), 16),
       r: signatureObject.r,
       s: signatureObject.s,
-    } as IECDSASignature;
+    };
   }
 
   /**
