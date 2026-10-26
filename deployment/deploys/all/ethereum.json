@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Create3Factory",
+    "contractName": "Create3Factory.sol",
+    "addresses": [
+      "0x51a24B38b2a5793F65258Fd37EE92706FadeFE96"
+    ]
+  },
+  {
+    "name": "RelayImplementation",
+    "contractName": "Relay.sol",
+    "addresses": [
+      "0x5BB16e0cC39e770b4483e5FB25ec2B4A574e3fbe"
+    ]
+  },
+  {
+    "name": "Relay",
+    "contractName": "RelayProxy.sol",
+    "addresses": [
+      "0x5A2Eb0cdB4Aa8253924a488A77EdfD24Bb64407f"
+    ]
+  }
+]
