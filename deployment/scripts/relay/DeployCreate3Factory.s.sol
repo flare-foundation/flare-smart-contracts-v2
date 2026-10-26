@@ -26,8 +26,10 @@ contract DeployCreate3Factory is RelayDeployBase {
     function run() external {
         bytes memory initCode = _frozenFactoryInitCode();
         address factory = _factoryAddress();
-        // Exact "NETWORK: <label>" line consumed by save-deployed-addresses.ts.
-        console2.log(string.concat("NETWORK: ", _configLabel()));
+        // Exact "NETWORK: <label>" line consumed by save-deployed-addresses.ts. The wrapper passes the
+        // network name it was given (RELAY_NETWORK), so a non-Flare chain is recorded under its name
+        // (e.g. arbitrum-sepolia.json, shared with its mirror deploy) rather than its chain id.
+        console2.log(string.concat("NETWORK: ", vm.envOr("RELAY_NETWORK", _configLabel())));
         console2.log("Canonical Create3Factory address:", factory);
 
         if (factory.code.length > 0) {

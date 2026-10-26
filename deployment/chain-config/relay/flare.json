@@ -7,12 +7,24 @@
   "mirrors": {
     "ethereum": {
       "chainId": 1,
-      "relayOwner": "0x0000000000000000000000000000000000000000",
-      "feeCollectionAddress": "0x0000000000000000000000000000000000000000",
+      "relayOwner": "0x42D660C6C871a9176cEb102E9ad9722459Aa67D3",
+      "feeCollectionAddress": "0x3390E1aDf46568cCC95c3571424937b042094ac2",
       "timelockDurationSeconds": 3600,
-      "feeConfigs": [],
+      "feeConfigs": [
+        {
+          "protocolId": 100,
+          "fee": "100000000000000"
+        },
+        {
+          "protocolId": 200,
+          "fee": "100000000000000"
+        }
+      ],
       "feeToken": "0x0000000000000000000000000000000000000000",
-      "feeExemptAddresses": []
+      "feeExemptAddresses": [
+        "0xCB79B0BD0fF72AC81820e0dd89738BadB1bD820C",
+        "0x6C15C9444fAcBEC835A55131bC68373d88a37e61"
+      ]
     },
     "arbitrum": {
       "chainId": 42161,
