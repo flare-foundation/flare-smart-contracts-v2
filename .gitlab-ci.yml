@@ -179,6 +179,17 @@ test-format:
   script:
   - pnpm format:check
 
+# Fails on any high or critical advisory in the whole lockfile (dev dependencies included); fixes go in
+# pnpm-workspace.yaml overrides.
+test-audit-deps:
+  image: node:24
+  timeout: 10 minutes
+  needs: []
+  before_script:
+  - corepack enable
+  script:
+  - pnpm audit:deps
+
 test-unit-forge:
   extends: .test-node-sc
   timeout: 25 minutes

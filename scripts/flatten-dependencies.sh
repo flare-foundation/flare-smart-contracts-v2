@@ -20,7 +20,11 @@ TMPFILE="/tmp/$(basename "$OUTFILE")"
 
 cd "$SUBPROJECT_DIR"
 # TODO: Unsafe overrides used for compatibility with previous Yarn setup
-pnpm_config_block_exotic_subdeps=false pnpm_config_strict_dep_builds=false pnpm install --ignore-workspace
+# `pnpm run` hands this repo's settings to child scripts as npm_config_* variables. The subproject is installed with
+# its own: this repo's overrides are for this repo's tree, and its trust policy would arrive without its exclusion
+# list (which no variable carries) and refuse the subproject's old dependencies (semver@5.7.2).
+env -u npm_config_overrides -u npm_config_trust_policy \
+    pnpm_config_block_exotic_subdeps=false pnpm_config_strict_dep_builds=false pnpm install --ignore-workspace
 cd - > /dev/null
 
 HHCONFIG=()

@@ -360,10 +360,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, (accounts) => {
                   update,
                 ]
               );
-              const signature = await ECDSASignature.signMessageHash(
-                sha256(msg as BytesLike),
-                privateKeys[i + 1].privateKey
-              );
+              const signature = await ECDSASignature.signMessageHash(sha256(msg), privateKeys[i + 1].privateKey);
 
               const newFastUpdate = {
                 sortitionBlock: submissionBlockNum,

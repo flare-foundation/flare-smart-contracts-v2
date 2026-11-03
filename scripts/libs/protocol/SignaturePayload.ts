@@ -3,7 +3,7 @@ import { ECDSASignature, IECDSASignature } from "./ECDSASignature";
 import { IPayloadMessage, PayloadMessage } from "./PayloadMessage";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "./ProtocolMessageMerkleRoot";
 import { ISigningPolicy } from "./SigningPolicy";
-import { ECDSASignatureWithIndex, IECDSASignatureWithIndex } from "./ECDSASignatureWithIndex";
+import { ECDSASignatureWithIndex } from "./ECDSASignatureWithIndex";
 
 export interface ISignaturePayload {
   type: string;
@@ -259,7 +259,7 @@ export namespace SignaturePayload {
         s: payload.signature.s,
         v: payload.signature.v,
         index: payload.index,
-      } as IECDSASignatureWithIndex;
+      };
       signatures += ECDSASignatureWithIndex.encode(signatureWithIndex).slice(2);
       lastIndex = payload.index;
     }

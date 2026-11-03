@@ -98,7 +98,8 @@ class Web3EventDecoder {
   findEvent<E extends Truffle.AnyEvent, N extends E["name"]>(
     response: Truffle.TransactionResponse<E>,
     name: N
-  ): // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+  ):
+    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
     TruffleExtractEvent<E, N> | undefined {
     const logs = this.decodeEvents(response);
     return logs.find((e) => e.event === name) as any;

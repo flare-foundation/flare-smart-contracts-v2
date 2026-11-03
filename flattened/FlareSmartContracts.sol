@@ -1796,8 +1796,7 @@ library SafePct {
         uint256 resultRoundDown = mulDiv(x, y, z);
         // safe - if z == 0, above mulDiv call would revert
         uint256 remainder = mulmod(x, y, z);
-        // safe - overflow only possible if z == 1, but then remainder == 0
-        return remainder == 0 ? resultRoundDown : resultRoundDown + 1;
+        return remainder == 0 ? resultRoundDown : resultRoundDown.add(1);
     }
 }
 

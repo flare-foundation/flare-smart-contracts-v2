@@ -3,11 +3,8 @@ trustPolicy: no-downgrade
 nodeLinker: hoisted
 trustPolicyExclude:
   - 'semver@6.3.1 || 5.7.2'
-  - 'undici@5.29.0 || 6.21.0'
   - 'undici-types@6.21.0 || 6.19.8'
   - 'chokidar@4.0.3'
-  - 'detect-port@1.6.1'
-  - 'graphql@15.10.2'
 onlyBuiltDependencies:
   - sqlite3
   - keccak
@@ -15,17 +12,71 @@ onlyBuiltDependencies:
   - sqlite3
 packages: []
 allowBuilds:
-  '@apollo/protobufjs': false
   bufferutil: false
-  core-js-pure: false
   es5-ext: false
   esbuild: false
   keccak: true
-  leveldown: false
   secp256k1: true
   sqlite3: true
-  truffle: false
   utf-8-validate: false
   web3: false
   web3-bzz: false
   web3-shh: false
+overrides:
+  # truffle is only a peer of @typechain/truffle-v5, which never loads it (the generated types bring their own
+  # Truffle namespace); auto-installing it pulled in the whole Truffle CLI with its GraphQL server
+  '@typechain/truffle-v5>truffle': '-'
+  # flare-smart-contracts is installed only as a Solidity source tree (flatten-flare-sc runs its own install inside
+  # it; check-contract-usage reads its .sol files): none of its JavaScript dependencies is used here
+  'flare-smart-contracts>@openzeppelin/contracts': '-'
+  'flare-smart-contracts>@tenderly/hardhat-tenderly': '-'
+  'flare-smart-contracts>@typescript-eslint/eslint-plugin': '-'
+  'flare-smart-contracts>@typescript-eslint/parser': '-'
+  'flare-smart-contracts>axios': '-'
+  'flare-smart-contracts>cli-progress': '-'
+  'flare-smart-contracts>csv': '-'
+  'flare-smart-contracts>dotenv': '-'
+  'flare-smart-contracts>eslint': '-'
+  'flare-smart-contracts>ethereum-tx-decoder': '-'
+  'flare-smart-contracts>got': '-'
+  'flare-smart-contracts>hardhat': '-'
+  'flare-smart-contracts>solhint': '-'
+  'flare-smart-contracts>solidity-coverage': '-'
+  'flare-smart-contracts>typescript-json-schema': '-'
+  # transitive dependencies moved to a patched release in the major their parent expects
+  'form-data@<2.5.5': '^2.5.5'
+  'js-yaml@>=3 <3.14.2': '^3.14.2'
+  'js-yaml@>=4 <4.1.1': '^4.1.1'
+  'minimatch@>=3 <3.1.4': '^3.1.4'
+  'minimatch@>=5 <5.1.8': '^5.1.8'
+  'nanoid@>=3 <3.3.18': '^3.3.18'
+  'lodash@<4.18.0': '^4.18.0'
+  'bn.js@>=4 <4.12.3': '^4.12.3'
+  'debug@>=3 <3.2.7': '^3.2.7'
+  'diff@>=3 <3.5.1': '^3.5.1'
+  'diff@>=5 <5.2.2': '^5.2.2'
+  'ws@>=8 <8.21.0': '^8.21.0'
+  'qs@<6.16.0': '^6.16.0'
+  'tough-cookie@<4.1.3': '^4.1.3'
+  'axios@>=1 <1.16.0': '^1.16.0'
+  'elliptic@<6.6.1': '^6.6.1'
+  'body-parser@>=1 <1.20.9': '^1.20.9'
+  'follow-redirects@<1.16.2': '^1.16.2'
+  # no patched release in the parent's major: moved to the next one, checked against how the parent uses it
+  # (tar: sqlite3's extract when building from source; undici: hardhat-verify's request; adm-zip: hardhat's unzip of
+  # Windows solc builds; tmp: the solcjs CLI; serialize-javascript: mocha's parallel mode; ws, yargs-parser, cookie,
+  # @tootallnate/once: the legacy Truffle/web3, Sentry and node-gyp paths, imported the same way)
+  'tar@<7.5.21': '^7.5.21'
+  'undici@>=5 <6.28.1': '^6.28.1'
+  'adm-zip@<0.6.1': '^0.6.1'
+  'tmp@<0.2.6': '^0.2.6'
+  'serialize-javascript@<7.0.5': '^7.0.5'
+  'ws@<5.2.5': '^5.2.5'
+  'yargs-parser@<5.0.1': '^5.0.1'
+  'cookie@<0.7.0': '^0.7.0'
+  '@tootallnate/once@<2.0.1': '^2.0.1'
+  # hardhat reads uuid's v4 only, which uuid 11 still exports to CommonJS (other parents use the removed deep paths)
+  'hardhat>uuid': '^11.1.1'
+  # xhr-request (under web3's Swarm client and eth-lib) uses only query-string's stringify, which qs also provides;
+  # query-string 5 pulls in decode-uri-component, whose fixed release is ESM-only
+  'xhr-request>query-string': 'npm:qs@^6.16.0'

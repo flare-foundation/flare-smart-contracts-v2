@@ -121,7 +121,7 @@ export namespace ECDSASignatureWithIndex {
       r: signatureObject.r,
       s: signatureObject.s,
       index,
-    } as IECDSASignatureWithIndex;
+    };
   }
 
   /**
