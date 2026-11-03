@@ -36,6 +36,7 @@
     "lint-sol-deployment": "solhint \"deployment/**/*.sol\"",
     "format:check": "prettier --check \"{deployment,scripts,test}/**/*.{ts,js}\" hardhat.config.ts",
     "format:fix": "prettier --write \"{deployment,scripts,test}/**/*.{ts,js}\" hardhat.config.ts",
+    "audit:deps": "pnpm audit --audit-level high",
     "typechain-prepare": "env bash scripts/remove-flattened-duplicates.sh",
     "flatten-flare-sc": "pnpm flatten-dependencies node_modules/flare-smart-contracts scripts/flatten-files.txt flattened/FlareSmartContracts.sol scripts/flatten-extra-imports.txt",
     "flatten-dependencies": "env bash scripts/flatten-dependencies.sh",

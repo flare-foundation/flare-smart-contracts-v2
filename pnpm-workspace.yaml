@@ -12,21 +12,20 @@ onlyBuiltDependencies:
   - sqlite3
 packages: []
 allowBuilds:
-  '@apollo/protobufjs': false
   bufferutil: false
-  core-js-pure: false
   es5-ext: false
   esbuild: false
   keccak: true
-  leveldown: false
   secp256k1: true
   sqlite3: true
-  truffle: false
   utf-8-validate: false
   web3: false
   web3-bzz: false
   web3-shh: false
 overrides:
+  # truffle is only a peer of @typechain/truffle-v5, which never loads it (the generated types bring their own
+  # Truffle namespace); auto-installing it pulled in the whole Truffle CLI with its GraphQL server
+  '@typechain/truffle-v5>truffle': '-'
   # flare-smart-contracts is installed only as a Solidity source tree (flatten-flare-sc runs its own install inside
   # it; check-contract-usage reads its .sol files): none of its JavaScript dependencies is used here
   'flare-smart-contracts>@openzeppelin/contracts': '-'
@@ -61,6 +60,8 @@ overrides:
   'tough-cookie@<4.1.3': '^4.1.3'
   'axios@>=1 <1.16.0': '^1.16.0'
   'elliptic@<6.6.1': '^6.6.1'
+  'body-parser@>=1 <1.20.9': '^1.20.9'
+  'follow-redirects@<1.16.2': '^1.16.2'
   # no patched release in the parent's major: moved to the next one, checked against how the parent uses it
   # (tar: sqlite3's extract when building from source; undici: hardhat-verify's request; adm-zip: hardhat's unzip of
   # Windows solc builds; tmp: the solcjs CLI; serialize-javascript: mocha's parallel mode; ws, yargs-parser, cookie,
@@ -76,3 +77,6 @@ overrides:
   '@tootallnate/once@<2.0.1': '^2.0.1'
   # hardhat reads uuid's v4 only, which uuid 11 still exports to CommonJS (other parents use the removed deep paths)
   'hardhat>uuid': '^11.1.1'
+  # xhr-request (under web3's Swarm client and eth-lib) uses only query-string's stringify, which qs also provides;
+  # query-string 5 pulls in decode-uri-component, whose fixed release is ESM-only
+  'xhr-request>query-string': 'npm:qs@^6.16.0'
