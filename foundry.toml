@@ -8,6 +8,7 @@ evm_version = 'cancun'
 fs_permissions = [
     { access = "read", path = "./artifacts-forge/"},
     { access = "read", path = "./deployment/chain-config/"},
+    { access = "read", path = "./test-forge/fixtures/"},
     { access = "read", path = "./deployment/create3/"},
     { access = "read", path = "./deployment/cuts/"},
     { access = "read-write", path = "./deployment/deploys/"},

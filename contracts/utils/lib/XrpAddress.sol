@@ -2,7 +2,7 @@
 pragma solidity ^0.8.35;
 
 /**
- * @title XrplAddress
+ * @title XrpAddress
  * @notice Pure-validation, never-reverting validator for XRPL addresses — classic ("r...") and
  *         X-addresses ("X..." mainnet / "T..." testnet) — verifying the Base58 form and the
  *         double-SHA256 checksum.
@@ -18,7 +18,7 @@ pragma solidity ^0.8.35;
  *      ripple-address-codec. XRPL classic addresses carry no network, so callers that need a network
  *      distinction must rely on the X-address prefix.
  */
-library XrplAddress {
+library XrpAddress {
 
     // Reverse base58 map (XRPL alphabet "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz"):
     // ASCII byte -> value 0..57, or 0xff if not a base58 char. 128-byte ASCII table; bytes > 127 are
@@ -65,6 +65,21 @@ library XrplAddress {
             return _testnet && _isValidXAddress(_address);
         }
         return false;
+    }
+
+    /**
+     * @notice Returns true iff `_address` is a well-formed classic ("r...") address with a valid checksum — the
+     *         one spelling of an XRPL account (an X-address adds a destination tag, meaningless for a sender).
+     * @dev Never reverts.
+     */
+    function isValidClassic(
+        string memory _address
+    )
+        internal view
+        returns (bool)
+    {
+        bytes memory input = bytes(_address);
+        return input.length > 0 && uint8(input[0]) == 0x72 && _isValidClassicAddress(_address);
     }
 
     /**

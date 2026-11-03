@@ -396,6 +396,9 @@
     ],
     "teeOracleFeeDestinationAddress": "0x000000000000000000000000000000000000dEaD",
     "teePaymentsUtxoConfigurations": [],
+    "forbiddenAddressListMaintainers": [],
+    "forbiddenAddressListSources": ["BTC", "XRP"],
+    "forbiddenAddressListPersonalAccountProviders": [{"sourceId": "XRP", "provider": "0x434936d47503353f06750Db1A444DBDC5F0AD37c"}],
     "fdc2MinThresholdBIPS": 4000,
     "fdc2DefaultNumberOfTees": 1,
     "fdc2RequestFees": [

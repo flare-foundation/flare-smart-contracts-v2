@@ -2,11 +2,11 @@
 pragma solidity ^0.8.35;
 
 import {Test} from "forge-std/Test.sol";
-import {XrplAddress} from "../../../../contracts/tee/library/XrplAddress.sol";
-import {XrplXAddress} from "../../../mock/XrplXAddress.sol";
+import {XrpAddress} from "../../../../contracts/utils/lib/XrpAddress.sol";
+import {XrpXAddress} from "../../../mock/XrpXAddress.sol";
 
 // Harness so the (internal) library function gets a real external entry point for the tests.
-contract XrplAddressHarness {
+contract XrpAddressHarness {
     function isValid(
         string memory _address,
         bool _testnet
@@ -14,15 +14,15 @@ contract XrplAddressHarness {
         external view
         returns (bool)
     {
-        return XrplAddress.isValid(_address, _testnet);
+        return XrpAddress.isValid(_address, _testnet);
     }
 }
 
-/// @notice Tests for the inline-assembly XrplAddress validator, routed through the public
+/// @notice Tests for the inline-assembly XrpAddress validator, routed through the public
 ///         `isValid(address, testnet)` surface. Golden vectors are taken from the audited Go
 ///         reference (go-flare-common/pkg/xrpl/address, cross-checked against ripple-address-codec /
 ///         XLS-6); structural rejection cases are mirrored from the xrplAddr library tests.
-contract XrplAddressTest is Test {
+contract XrpAddressTest is Test {
     bytes20 internal constant ACCT_A = bytes20(0xaA066C988c712815Cc37af71472B7cbbbd4E2A0A);
     string internal constant CLASSIC_A = "rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpf";
     string internal constant X_A_NOTAG = "XVLhHMPHU98es4dbozjVtdWzVrDjtV5fdx1mHp98tDMoQXb";
@@ -54,10 +54,10 @@ contract XrplAddressTest is Test {
         "XVPcpSm47b1CZkf5AkKM9a84dQHe3mTCLZc5ZAoh11sd5nY" // other account, tag 42
     ];
 
-    XrplAddressHarness internal harness;
+    XrpAddressHarness internal harness;
 
     function setUp() public {
-        harness = new XrplAddressHarness();
+        harness = new XrpAddressHarness();
     }
 
     // ------------------------------------------------------------------ classic (network-agnostic)
@@ -182,20 +182,20 @@ contract XrplAddressTest is Test {
     /// Anything the codec mock encodes must validate, on the matching network, for both classic and
     /// X-address forms — and be rejected on the wrong network for X-addresses.
     function testCrossCheckAgainstCodec() public view {
-        assertEq(XrplXAddress.accountIdToClassicAddress(ACCT_A), CLASSIC_A);
-        assertTrue(harness.isValid(XrplXAddress.accountIdToClassicAddress(ACCT_A), false));
-        assertTrue(harness.isValid(XrplXAddress.accountIdToClassicAddress(ACCT_A), true));
+        assertEq(XrpXAddress.accountIdToClassicAddress(ACCT_A), CLASSIC_A);
+        assertTrue(harness.isValid(XrpXAddress.accountIdToClassicAddress(ACCT_A), false));
+        assertTrue(harness.isValid(XrpXAddress.accountIdToClassicAddress(ACCT_A), true));
 
-        string memory xMain = XrplXAddress.encode(ACCT_A, 13, true, false);
+        string memory xMain = XrpXAddress.encode(ACCT_A, 13, true, false);
         assertTrue(harness.isValid(xMain, false));
         assertFalse(harness.isValid(xMain, true)); // mainnet X-address rejected on testnet
 
-        string memory xTest = XrplXAddress.encode(ACCT_A, 99, true, true);
+        string memory xTest = XrpXAddress.encode(ACCT_A, 99, true, true);
         assertTrue(harness.isValid(xTest, true));
         assertFalse(harness.isValid(xTest, false)); // testnet X-address rejected on mainnet
 
         // tagless mainnet encoding round-trips to the frozen no-tag vector
-        assertEq(XrplXAddress.encode(ACCT_A, 0, false, false), X_A_NOTAG);
+        assertEq(XrpXAddress.encode(ACCT_A, 0, false, false), X_A_NOTAG);
         assertTrue(harness.isValid(X_A_NOTAG, false));
     }
 
