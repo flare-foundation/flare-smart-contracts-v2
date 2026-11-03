@@ -4489,6 +4489,6 @@ object "Relay_2303" {
                 mstore(0x40, add(add(var_result_mpos, returndatasize()), 0x20))
             }
         }
-        data ".metadata" hex"a2646970667358221220e7b0f2fc1e4416cef29d0e4db30b97acfd7c7bf7b3eb88426cdc96901c67825d64736f6c63430008230033"
+        data ".metadata" hex"a26469706673582212205fc617298e1919aec23e54b59737a5f9c4233fefdc87243cab789ac057eb83bd64736f6c63430008230033"
     }
 }
