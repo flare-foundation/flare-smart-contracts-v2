@@ -333,5 +333,15 @@
     "name": "RelayImplementation",
     "contractName": "Relay.sol",
     "address": "0xd6595E3Bf808937055d7c22e5CeF4c7985715b23"
+  },
+  {
+    "name": "ForbiddenAddressListImplementation",
+    "contractName": "ForbiddenAddressList.sol",
+    "address": "0x1bA3aA8216134b0f4928f6598d21Aef6A8d52932"
+  },
+  {
+    "name": "ForbiddenAddressList",
+    "contractName": "ForbiddenAddressListProxy.sol",
+    "address": "0x0ec0892c78d08E4bA723fE1599eDb6ddBEcEf56F"
   }
 ]
