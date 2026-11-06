@@ -9,6 +9,58 @@
       "addresses": [
         "rrrrrrrrrrrrrrrrrrrrrhoLvTp"
       ]
+    },
+    {
+      "source": "Binance hack of 2026-10-29: attacker-controlled XRPL accounts",
+      "sourceIds": [
+        "XRP",
+        "testXRP"
+      ],
+      "addresses": [
+        "rK21t6nGLy4MNDqhvy3pGwcLFy25qgfzMx",
+        "ryB7NESZcttqzRioiD5L6Kf5tFL87ktmx",
+        "rKxwzjpZj5r9eXnCJQvLVUnebpGEHTDH1F",
+        "rhfA8QzpcDPYX3safySLrvT5afnNjHc9XB",
+        "rsNoNkb1zqMBR1rjbrasUzExqjCDXseisW",
+        "rhXtRtpfZRAKVayWd5Z5kRJ2YXYkcuxNRD",
+        "raoMrxbMFo5xpVfE9VPoEuVpv1CTtebm5t",
+        "rJheAAxFoWNoTrfrt8N5GyAJLa559jWh4b",
+        "rDtGqWTzDbdVzxMPUtZKNaNSNZwKwrzfBz",
+        "rUkFd8SCw1jyQCBNh5BkjCmRsyZLzEj45N",
+        "r4ovzgQLRofU3JmBjkSpHZyNc13oJsmChR",
+        "rnHknW4mZuRhrQhVQzeTNgdjEaKUnq9ctd",
+        "rNzBHhB3Pw1ac471FzUWPznuSvGJ3Mghrn",
+        "rMUzYMJYCAc59guVUCZTGuNb9LYCdB9N4e",
+        "rKbCVAu2HKyvrrzBxN2jvdxJWbU9JNKqTS",
+        "rUaCjntKAZJCNUcpzdNx9ywRZXugTFD5c"
+      ]
+    }
+  ],
+  "evmLists": [
+    {
+      "source": "Binance hack of 2026-10-29: attacker-controlled Flare addresses",
+      "addresses": [
+        "0x116051ea1187a1eab01efa253b62e9b1137b3dbb",
+        "0x1eb576d1df1f9a2d74ec1a571ff18aa0362d605d",
+        "0x22fbb311860b13febf60d772ecc7321fd734d001",
+        "0x32789997f2a901af4b3a7c8418fa70c9817103e5",
+        "0x3eb016cf66449537e1dd1bb10b83f20e832909d5",
+        "0x4d87593512785915611d0991d9ea7958035313e9",
+        "0x5019b44ffad92378c0d9f6caf24b43999f9a90af",
+        "0x6d4b392b32907599656dec5ce10dc6eb6651690e",
+        "0x806edc74d0cfc3c10a3b45759ffff64c1ab8ff2c",
+        "0x8ef7e523ab6a7697b302bf4f754b4f3ff2137806",
+        "0xc9f7d0e8149e2015fb7c30d6a67f4a826937ded0",
+        "0xd28f2a0a93afb2195501ec41269dcbe73c877c6f",
+        "0xe59aa4916d143b15907a7a96f67367a9ea28c8df",
+        "0xecea618a10224804d714c201c516b5763657308e",
+        "0xf6c947497fe97f7af5a7b7c0cec12469f55bf0cc",
+        "0x1fcf5a293ca8249bf734bad44898b29f68ffdcd8",
+        "0x11aec781c0f74348a00641dccb3a98d4cc384694",
+        "0xfff9b496fd7503fca52289973b71c544ffd5438e",
+        "0x3f217aa4db011523ce5a1ad0c323fb9fd8b96500",
+        "0x80890b8671cdb1889151c15c76bb1edcbbf9b44b"
+      ]
     }
   ]
 }
