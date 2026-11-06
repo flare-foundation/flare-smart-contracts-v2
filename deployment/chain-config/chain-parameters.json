@@ -660,7 +660,7 @@
             "type": "array"
         },
         "forbiddenAddressListSources": {
-            "description": "The FDC source ids whose forbidden address strings are loaded when the `ForbiddenAddressList` is deployed, from\nthe one shared `forbidden-addresses.json` (each group of addresses there names the sources it applies to, so no\nnetwork repeats the addresses). Non-EVM sources only, of the deployment's kind of id (no `test` prefix on mainnet),\nand whose addresses in the file are of the deployment's network: the file's Bitcoin is mainnet, so a local\n(regtest) profile names no `BTC`. The file's EVM addresses go to the list's one EVM list, on every network. Empty to\nload none (the test networks: the file has no groups for test sources).",
+            "description": "The FDC source ids whose forbidden address strings are loaded when the `ForbiddenAddressList` is deployed, from\nthe shared `forbidden-addresses.json` (OFAC's) and `forbidden-addresses-manual.json` (added by hand; each group of\naddresses there names the sources it applies to, so no network repeats the addresses). Non-EVM sources only, of the\ndeployment's kind of id (no `test` prefix on mainnet), and whose addresses in the files are of the deployment's\nnetwork: their Bitcoin is mainnet, so a local (regtest) profile and the test networks name no Bitcoin source; their\nXRPL addresses, which name no network, are filed under `testXRP` too, which the test networks load. The files' EVM\naddresses go to the list's one EVM list, on every network. Empty to load none.",
             "items": {
                 "type": "string"
             },

@@ -30,6 +30,10 @@ import {DeployNetwork} from "./lib/DeployNetwork.sol";
  *   forbidden on several chains is written once;
  * - on every network, the file's `evmAddresses` into the EVM list, which covers every EVM chain, in batches of
  *   `BATCH_SIZE` too.
+ * The addresses come from two files of the same shape: forbidden-addresses.json, OFAC's, which
+ * update-forbidden-addresses.ts regenerates whole, and forbidden-addresses-manual.json, the ones added by hand, which
+ * nothing rewrites. Each group of the manual file names its `source` — why its addresses are listed — unique in the
+ * file, and its EVM addresses are grouped the same way (`evmLists`); the script refuses a manual file that does not.
  * The list is initialised with the network of the chains it screens (`_externalChainEnvironment`: flare and songbird
  * mainnet, the costons testnet, scdev local, where Bitcoin is regtest), so each profile names source ids of that kind
  * (`forbiddenAddressListSources`) and the data file's addresses must be of that network.
@@ -56,6 +60,8 @@ contract DeployForbiddenAddressList is Script {
         IFlareContractRegistry(0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019);
     string internal constant CONTRACT_NAME = "ForbiddenAddressList";
     string internal constant FORBIDDEN_ADDRESSES_FILE = "deployment/chain-config/forbidden-addresses.json";
+    string internal constant MANUAL_FORBIDDEN_ADDRESSES_FILE =
+        "deployment/chain-config/forbidden-addresses-manual.json";
     /// The addresses one transaction adds: about 14M gas for 100 of the longest Bitcoin addresses, half a Flare block
     /// (28M); about 20M with a Personal Account derived and listed for each.
     uint256 internal constant BATCH_SIZE = 100;
@@ -84,6 +90,8 @@ contract DeployForbiddenAddressList is Script {
         string[] memory sources = _sources();
         PersonalAccountProvider[] memory providers = _personalAccountProviders();
         string memory data = vm.readFile(_forbiddenAddressesFile());
+        string memory manual = vm.readFile(_manualForbiddenAddressesFile());
+        _checkSources(manual);
 
         vm.startBroadcast(deployer);
         ForbiddenAddressList implementation = new ForbiddenAddressList();
@@ -100,13 +108,13 @@ contract DeployForbiddenAddressList is Script {
             list.setPersonalAccountProvider(providers[i].sourceId, providers[i].provider);
         }
         for (uint256 i = 0; i < sources.length; i++) {
-            _load(_toBytes32(sources[i]), sources[i], _addressesOf(data, sources[i]));
+            _load(
+                _toBytes32(sources[i]),
+                sources[i],
+                _concat(_addressesOf(data, sources[i]), _addressesOf(manual, sources[i]))
+            );
         }
-        _loadEvm(
-            vm.keyExistsJson(data, ".evmAddresses")
-                ? vm.parseJsonAddressArray(data, ".evmAddresses")
-                : new address[](0)
-        );
+        _loadEvm(_concat(_evmAddressesOf(data), _evmAddressesOf(manual)));
         bytes32[] memory names = new bytes32[](1);
         names[0] = keccak256(abi.encode("AddressUpdater"));
         address[] memory addrs = new address[](1);
@@ -334,6 +342,14 @@ contract DeployForbiddenAddressList is Script {
         return FORBIDDEN_ADDRESSES_FILE;
     }
 
+    /// The shared file of the addresses added by hand; virtual so a test can load its own.
+    function _manualForbiddenAddressesFile()
+        internal view virtual
+        returns (string memory)
+    {
+        return MANUAL_FORBIDDEN_ADDRESSES_FILE;
+    }
+
     /// The network's deployment record (empty for a network with none yet). Virtual so a test can supply its own.
     function _readDeploysFile(
         string memory _network
@@ -346,6 +362,65 @@ contract DeployForbiddenAddressList is Script {
             return new DeployedContract[](0);
         }
         return abi.decode(vm.parseJson(vm.readFile(path)), (DeployedContract[]));
+    }
+
+    /// Refuses a manual data file with a group (of `lists` or `evmLists`) that names no `source`, or one another group
+    /// names: the source says why its addresses are listed.
+    function _checkSources(
+        string memory _data
+    )
+        internal view
+    {
+        uint256 lists = _groupCount(_data, ".lists");
+        uint256 total = lists + _groupCount(_data, ".evmLists");
+        string[] memory names = new string[](total);
+        for (uint256 g = 0; g < total; g++) {
+            string memory key = g < lists
+                ? string.concat(".lists[", vm.toString(g), "].source")
+                : string.concat(".evmLists[", vm.toString(g - lists), "].source");
+            require(
+                vm.keyExistsJson(_data, key) && bytes(names[g] = vm.parseJsonString(_data, key)).length > 0,
+                string.concat("forbidden addresses: ", key, " missing")
+            );
+            for (uint256 h = 0; h < g; h++) {
+                require(
+                    keccak256(bytes(names[h])) != keccak256(bytes(names[g])),
+                    string.concat("forbidden addresses: ", key, " repeats ", names[g])
+                );
+            }
+        }
+    }
+
+    /// The data file's EVM addresses: its `evmAddresses`, then each group's of its `evmLists`.
+    function _evmAddressesOf(
+        string memory _data
+    )
+        internal view
+        returns (address[] memory _addresses)
+    {
+        _addresses = vm.keyExistsJson(_data, ".evmAddresses")
+            ? vm.parseJsonAddressArray(_data, ".evmAddresses")
+            : new address[](0);
+        uint256 groups = _groupCount(_data, ".evmLists");
+        for (uint256 g = 0; g < groups; g++) {
+            _addresses = _concat(
+                _addresses,
+                vm.parseJsonAddressArray(_data, string.concat(".evmLists[", vm.toString(g), "].addresses"))
+            );
+        }
+    }
+
+    /// The number of groups in the data file's array at `_key` (none when it has no such key).
+    function _groupCount(
+        string memory _data,
+        string memory _key
+    )
+        internal view
+        returns (uint256 _count)
+    {
+        while (vm.keyExistsJson(_data, string.concat(_key, "[", vm.toString(_count), "]"))) {
+            _count++;
+        }
     }
 
     /// Every address the data file lists for `_source`, in the file's order (an address in two groups for the same
@@ -454,6 +529,40 @@ contract DeployForbiddenAddressList is Script {
             }
         }
         return address(0);
+    }
+
+    /// `_first` followed by `_second`.
+    function _concat(
+        string[] memory _first,
+        string[] memory _second
+    )
+        internal pure
+        returns (string[] memory _joined)
+    {
+        _joined = new string[](_first.length + _second.length);
+        for (uint256 i = 0; i < _first.length; i++) {
+            _joined[i] = _first[i];
+        }
+        for (uint256 i = 0; i < _second.length; i++) {
+            _joined[_first.length + i] = _second[i];
+        }
+    }
+
+    /// `_first` followed by `_second`.
+    function _concat(
+        address[] memory _first,
+        address[] memory _second
+    )
+        internal pure
+        returns (address[] memory _joined)
+    {
+        _joined = new address[](_first.length + _second.length);
+        for (uint256 i = 0; i < _first.length; i++) {
+            _joined[i] = _first[i];
+        }
+        for (uint256 i = 0; i < _second.length; i++) {
+            _joined[_first.length + i] = _second[i];
+        }
     }
 
     /// A profile identifier as right-padded ASCII bytes32; 1..32 BYTES. A silent truncation would deploy a different

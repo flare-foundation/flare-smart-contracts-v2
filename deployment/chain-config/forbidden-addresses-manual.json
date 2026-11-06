@@ -1,0 +1,14 @@
+{
+  "lists": [
+    {
+      "source": "XRPL ACCOUNT_ZERO (no one holds its key; the XRPL rejects every transaction to it, so an FAssets redemption to it cannot work)",
+      "sourceIds": [
+        "XRP",
+        "testXRP"
+      ],
+      "addresses": [
+        "rrrrrrrrrrrrrrrrrrrrrhoLvTp"
+      ]
+    }
+  ]
+}

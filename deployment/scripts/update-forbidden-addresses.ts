@@ -6,7 +6,8 @@ import { FORBIDDEN_ADDRESSES_FILE } from "../utils/forbidden-address-list";
 // (https://sanctionslist.ofac.treas.gov/Home/SdnList), whose entries carry their digital currency addresses as
 // `Digital Currency Address - <currency>` ids:
 // - BTC: the `XBT` addresses, and the `USDT` ones that are Bitcoin addresses (USDT issued on Bitcoin through Omni);
-// - XRP: the `XRP` addresses;
+// - XRP: the `XRP` addresses, for `testXRP` too — an XRPL classic address names no network, so the same strings are
+//   canonical on the test networks, where the costons load them (Bitcoin's name theirs, so `BTC` is mainnet only);
 // - the EVM list (`evmAddresses`, one for every EVM chain): every `0x` address, whatever currency OFAC files it under
 //   (ETH, USDT, USDC, ETC, BSC, ARB, …) — an EVM address is the same holder on every EVM chain.
 // BTC and XRP addresses are written in the form the FDC hashes (lowercase Bech32, Base58 as written); EVM addresses as
@@ -112,7 +113,7 @@ async function main(): Promise<void> {
       ),
     },
     {
-      sourceIds: ["XRP"],
+      sourceIds: ["XRP", "testXRP"],
       addresses: collect(
         entries.filter((entry) => entry.currency === "XRP"),
         xrp,

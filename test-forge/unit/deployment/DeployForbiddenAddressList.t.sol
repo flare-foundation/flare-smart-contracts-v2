@@ -8,6 +8,7 @@ import {IFlareGovernance} from "../../../contracts/userInterfaces/IFlareGovernan
 import {AddressUpdatable} from "../../../contracts/utils/implementation/AddressUpdatable.sol";
 import {ForbiddenAddressListProxy} from "../../../contracts/compliance/proxy/ForbiddenAddressListProxy.sol";
 import {IExternalNetwork} from "../../../contracts/userInterfaces/IExternalNetwork.sol";
+import {SourceIds} from "../../../contracts/utils/lib/SourceIds.sol";
 import {IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import {DerivingProvider} from "../compliance/implementation/ForbiddenAddressList.t.sol";
 
@@ -76,6 +77,10 @@ contract ForbiddenAddressListStep is DeployForbiddenAddressList {
         return "test-forge/fixtures/forbidden-addresses.json";
     }
 
+    function _manualForbiddenAddressesFile() internal pure override returns (string memory) {
+        return "test-forge/fixtures/forbidden-addresses-manual.json";
+    }
+
     /// The fixture's regtest Bitcoin, which the local profile does not load from the shared (mainnet) file.
     function _sources() internal pure override returns (string[] memory _names) {
         _names = new string[](2);
@@ -101,7 +106,8 @@ contract ProviderStep is ForbiddenAddressListStep {
     }
 }
 
-/// The same step reading the shared deployment/chain-config/forbidden-addresses.json.
+/// The same step reading the shared deployment/chain-config/forbidden-addresses.json and
+/// forbidden-addresses-manual.json.
 contract SharedFileStep is DeployForbiddenAddressList {
     DeployRecord private record;
 
@@ -119,10 +125,22 @@ contract SharedFileStep is DeployForbiddenAddressList {
     }
 }
 
+/// The script's check of the manual data file's group sources, on a given JSON.
+contract SourceCheckStep is DeployForbiddenAddressList {
+    function checkSources(string memory _data) external view {
+        _checkSources(_data);
+    }
+
+    function evmAddressesOf(string memory _data) external view returns (address[] memory) {
+        return _evmAddressesOf(_data);
+    }
+}
+
 /**
  * DeployForbiddenAddressList on the local (scdev) profile, a Local deployment — sources BTC and XRP, batches of 100 —
  * against test-forge/fixtures/forbidden-addresses.json: 205 regtest Bitcoin addresses and a second BTC group repeating
- * one of them, two XRP addresses, and 104 EVM addresses in mixed spellings with one repeated in another spelling.
+ * one of them, two XRP addresses, and 104 EVM addresses in mixed spellings with one repeated in another spelling; and
+ * test-forge/fixtures/forbidden-addresses-manual.json: two XRP and two EVM addresses, one of each also in the first.
  */
 contract DeployForbiddenAddressListTest is Test {
     uint256 private constant DEPLOYER_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
@@ -157,10 +175,12 @@ contract DeployForbiddenAddressListTest is Test {
         assertTrue(list.isForbidden(bytes32("BTC"), "2N95GDiZFt7F2rBUTFXYi1BRMrxibToBauw"), "the second group's");
         assertEq(uint256(list.getNetwork()), uint256(IExternalNetwork.Network.Local), "scdev is a Local deployment");
         (, uint256 xrpTotal, ) = list.getForbiddenAddressHashes(bytes32("XRP"), 0, 0);
-        assertEq(xrpTotal, 2);
+        assertEq(xrpTotal, 3, "the manual file's new one; its repeat is skipped");
+        assertTrue(list.isForbidden(bytes32("XRP"), "rrrrrrrrrrrrrrrrrrrrBZbvji"), "from the manual file");
         (, uint256 evmTotal, uint64 evmVersion) = list.getForbiddenEvmAddresses(0, 0);
-        assertEq(evmTotal, 104, "an address in two spellings is one address");
+        assertEq(evmTotal, 105, "an address in two spellings is one address; the manual file's repeat is skipped");
         assertEq(evmVersion, 2, "two batches of at most 100");
+        assertTrue(list.isForbiddenEvmAddress(address(0xF0A0)), "from the manual file");
         assertTrue(list.isForbiddenEvmAddress(address(0xF001)));
         assertTrue(list.isForbiddenEvmAddress(address(0xF068)));
         assertFalse(list.isForbiddenEvmAddress(address(0xF069)));
@@ -185,7 +205,7 @@ contract DeployForbiddenAddressListTest is Test {
         assertTrue(list.isForbiddenEvmAddress(provider.getPersonalAccount("miVvPZUZqGn91tCrcR5CnvPtyGmL9piYV2")));
         assertTrue(list.isForbiddenEvmAddress(provider.getPersonalAccount("2N95GDiZFt7F2rBUTFXYi1BRMrxibToBauw")));
         (, uint256 evmTotal, uint64 evmVersion) = list.getForbiddenEvmAddresses(0, 0);
-        assertEq(evmTotal, 104 + 206, "the EVM file's and one Personal Account per Bitcoin address");
+        assertEq(evmTotal, 105 + 206, "the files' EVM addresses and one Personal Account per Bitcoin address");
         assertEq(evmVersion, 3 + 2, "each Bitcoin batch moved the EVM list, then the EVM batches");
     }
 
@@ -242,37 +262,71 @@ contract DeployForbiddenAddressListTest is Test {
         again.run();
     }
 
-    /// The shared file loads on mainnet, the network its Bitcoin addresses are of: the list refuses an address not in
-    /// its chain's canonical form, so a regeneration that wrote another form fails here, before a real deploy.
-    function testTheSharedFileLoadsOnMainnet() public {
+    /// The shared files load on the networks their groups name: mainnet ids into a `Mainnet` list, `test…` ids into a
+    /// `Testnet` one. The list refuses an address not in its chain's canonical form for that network, so a
+    /// regeneration or a hand edit that wrote another form, or filed an address under a network it is not of, fails
+    /// here, before a real deploy.
+    function testTheSharedFilesLoadOnTheirNetworks() public {
         string memory data = vm.readFile("deployment/chain-config/forbidden-addresses.json");
+        string memory manual = vm.readFile("deployment/chain-config/forbidden-addresses-manual.json");
+        SourceCheckStep files = new SourceCheckStep();
+        files.checkSources(manual);
         address implementation = address(new ForbiddenAddressList());
         ForbiddenAddressList mainnetList = ForbiddenAddressList(address(new ForbiddenAddressListProxy(
             IGovernanceSettings(GOVERNANCE_SETTINGS), address(this), ADDRESS_UPDATER, IExternalNetwork.Network.Mainnet,
             implementation
         )));
-        string[2] memory sources = ["BTC", "XRP"];
-        for (uint256 g = 0; vm.keyExistsJson(data, string.concat(".lists[", vm.toString(g), "]")); g++) {
-            string memory base = string.concat(".lists[", vm.toString(g), "]");
-            string[] memory sourceIds = vm.parseJsonStringArray(data, string.concat(base, ".sourceIds"));
-            string[] memory addresses = vm.parseJsonStringArray(data, string.concat(base, ".addresses"));
-            for (uint256 s = 0; s < sourceIds.length; s++) {
-                bool known = keccak256(bytes(sourceIds[s])) == keccak256(bytes(sources[0]))
-                    || keccak256(bytes(sourceIds[s])) == keccak256(bytes(sources[1]));
-                assertTrue(known, string.concat("a source this test does not load: ", sourceIds[s]));
-                for (uint256 start = 0; start < addresses.length; start += 100) {
-                    uint256 end = start + 100 < addresses.length ? start + 100 : addresses.length;
-                    string[] memory batch = new string[](end - start);
-                    for (uint256 i = start; i < end; i++) {
-                        batch[i - start] = addresses[i];
-                    }
-                    mainnetList.addForbiddenAddresses(bytes32(bytes(sourceIds[s])), batch);
-                }
-            }
-        }
-        mainnetList.addForbiddenEvmAddresses(vm.parseJsonAddressArray(data, ".evmAddresses"));
+        ForbiddenAddressList testnetList = ForbiddenAddressList(address(new ForbiddenAddressListProxy(
+            IGovernanceSettings(GOVERNANCE_SETTINGS), address(this), ADDRESS_UPDATER, IExternalNetwork.Network.Testnet,
+            implementation
+        )));
+        _loadGroups(data, mainnetList, testnetList);
+        (, uint256 ofacXrpTotal, ) = mainnetList.getForbiddenAddressHashes(bytes32("XRP"), 0, 0);
+        _loadGroups(manual, mainnetList, testnetList);
+        mainnetList.addForbiddenEvmAddresses(files.evmAddressesOf(data));
+        mainnetList.addForbiddenEvmAddresses(files.evmAddressesOf(manual));
         (, uint256 btcTotal, ) = mainnetList.getForbiddenAddressHashes(bytes32("BTC"), 0, 0);
         assertGt(btcTotal, 0);
+        assertGt(ofacXrpTotal, 0);
+        // the costons load the XRPL addresses under testXRP: every XRP address is in that group too
+        (, uint256 xrpTotal, ) = mainnetList.getForbiddenAddressHashes(bytes32("XRP"), 0, 0);
+        (, uint256 testXrpTotal, ) = testnetList.getForbiddenAddressHashes(bytes32("testXRP"), 0, 0);
+        assertGt(xrpTotal, ofacXrpTotal, "the manual file adds XRPL addresses");
+        assertEq(testXrpTotal, xrpTotal);
+        assertTrue(mainnetList.isForbidden(bytes32("XRP"), "rrrrrrrrrrrrrrrrrrrrrhoLvTp"));
+        assertTrue(testnetList.isForbidden(bytes32("testXRP"), "rrrrrrrrrrrrrrrrrrrrrhoLvTp"));
+        (, uint256 evmTotal, ) = mainnetList.getForbiddenEvmAddresses(0, 0);
+        assertGe(evmTotal, files.evmAddressesOf(data).length);
+    }
+
+    /// Every group of the manual data file names its source: why its addresses are listed.
+    function testRevertManualFileGroupWithoutSource() public {
+        SourceCheckStep check = new SourceCheckStep();
+        vm.expectRevert(bytes("forbidden addresses: .lists[1].source missing"));
+        check.checkSources(
+            "{\"lists\":[{\"source\":\"a\",\"sourceIds\":[\"XRP\"],\"addresses\":[]},"
+            "{\"sourceIds\":[\"XRP\"],\"addresses\":[]}]}"
+        );
+        vm.expectRevert(bytes("forbidden addresses: .lists[0].source missing"));
+        check.checkSources("{\"lists\":[{\"source\":\"\",\"sourceIds\":[\"XRP\"],\"addresses\":[]}]}");
+        vm.expectRevert(bytes("forbidden addresses: .evmLists[0].source missing"));
+        check.checkSources("{\"evmLists\":[{\"addresses\":[]}]}");
+    }
+
+    /// No two groups of the manual data file name the same source, across `lists` and `evmLists`.
+    function testRevertManualFileRepeatedSource() public {
+        SourceCheckStep check = new SourceCheckStep();
+        vm.expectRevert(bytes("forbidden addresses: .lists[2].source repeats a"));
+        check.checkSources(
+            "{\"lists\":[{\"source\":\"a\",\"sourceIds\":[\"XRP\"],\"addresses\":[]},"
+            "{\"source\":\"b\",\"sourceIds\":[\"BTC\"],\"addresses\":[]},"
+            "{\"source\":\"a\",\"sourceIds\":[\"BTC\"],\"addresses\":[]}]}"
+        );
+        vm.expectRevert(bytes("forbidden addresses: .evmLists[0].source repeats a"));
+        check.checkSources(
+            "{\"lists\":[{\"source\":\"a\",\"sourceIds\":[\"XRP\"],\"addresses\":[]}],"
+            "\"evmLists\":[{\"source\":\"a\",\"addresses\":[]}]}"
+        );
     }
 
     /// The shared file deploys through the script on the local profile: XRP and the EVM list (its Bitcoin is mainnet).
@@ -281,6 +335,33 @@ contract DeployForbiddenAddressListTest is Test {
         shared.setRecord(record);
         shared.run();
         assertTrue(record.addressOf("ForbiddenAddressList").code.length > 0);
+    }
+
+    /// Adds every group of a data file to the list of its source id's network, 100 addresses per call.
+    function _loadGroups(
+        string memory _data,
+        ForbiddenAddressList _mainnetList,
+        ForbiddenAddressList _testnetList
+    )
+        private
+    {
+        for (uint256 g = 0; vm.keyExistsJson(_data, string.concat(".lists[", vm.toString(g), "]")); g++) {
+            string memory base = string.concat(".lists[", vm.toString(g), "]");
+            string[] memory sourceIds = vm.parseJsonStringArray(_data, string.concat(base, ".sourceIds"));
+            string[] memory addresses = vm.parseJsonStringArray(_data, string.concat(base, ".addresses"));
+            for (uint256 s = 0; s < sourceIds.length; s++) {
+                bytes32 sourceId = bytes32(bytes(sourceIds[s]));
+                ForbiddenAddressList list = SourceIds.isTestId(sourceId) ? _testnetList : _mainnetList;
+                for (uint256 start = 0; start < addresses.length; start += 100) {
+                    uint256 end = start + 100 < addresses.length ? start + 100 : addresses.length;
+                    string[] memory batch = new string[](end - start);
+                    for (uint256 i = start; i < end; i++) {
+                        batch[i - start] = addresses[i];
+                    }
+                    list.addForbiddenAddresses(sourceId, batch);
+                }
+            }
+        }
     }
 
     function _step() private returns (ForbiddenAddressListStep _deployStep) {
