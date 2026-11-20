@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   machines answer permissionless per-feed update requests with `SignedPayload`-signed values
   verified through `Fdc2Verification`, and each store implements `IICustomFeed` so it registers
   with FtsoV2 directly as a (possibly signed) custom feed with its own timestamp
+* `ForbiddenAddressList` (UUPS proxy on the `FlareGovernance` stack): a list of forbidden address strings per
+  non-EVM FDC source id and one EVM list by address, in canonical forms only; maintainers add, governance removes
+  (timelocked); accounts of a source's Personal Account provider are listed together with their owners. Deploy
+  script loads `forbidden-addresses.json` (generated from the OFAC SDN list by `update-forbidden-addresses.ts`)
+  and the hand-added `forbidden-addresses-manual.json`
+* `IExternalNetwork` interface: the network (`Mainnet`, `Testnet`, `Local`) of the external chains a deployment serves
 
 ### Changed
 
@@ -60,6 +66,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the return ABI encoding are unchanged for non-negative values, so custom feeds deployed against
   the unsigned declaration remain compatible; the published unsigned FtsoV2 read paths
   (`getFeedsById` family) revert with `"value negative"` for negative custom feed values
+* External-chain address libraries moved to `contracts/utils/lib` and renamed: `BitcoinAddress` → `BtcAddress`,
+  `XrplAddress` → `XrpAddress` (adds `isValidClassic`), `DogecoinAddress` → `DogeAddress`
+* `AddressValidator` accepts Bitcoin Bech32 addresses in lowercase only (all-uppercase is no longer valid)
 
 ### Fixed
 
