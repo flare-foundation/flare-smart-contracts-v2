@@ -1,0 +1,79 @@
+{
+  "lists": [
+    {
+      "source": "XRPL ACCOUNT_ZERO (no one holds its key; the XRPL rejects every transaction to it, so an FAssets redemption to it cannot work)",
+      "sourceIds": [
+        "XRP",
+        "testXRP"
+      ],
+      "addresses": [
+        "rrrrrrrrrrrrrrrrrrrrrhoLvTp"
+      ]
+    },
+    {
+      "source": "Binance hack of 2026-10-29: attacker-controlled XRPL accounts",
+      "sourceIds": [
+        "XRP",
+        "testXRP"
+      ],
+      "addresses": [
+        "rK21t6nGLy4MNDqhvy3pGwcLFy25qgfzMx",
+        "ryB7NESZcttqzRioiD5L6Kf5tFL87ktmx",
+        "rKxwzjpZj5r9eXnCJQvLVUnebpGEHTDH1F",
+        "rhfA8QzpcDPYX3safySLrvT5afnNjHc9XB",
+        "rsNoNkb1zqMBR1rjbrasUzExqjCDXseisW",
+        "rhXtRtpfZRAKVayWd5Z5kRJ2YXYkcuxNRD",
+        "raoMrxbMFo5xpVfE9VPoEuVpv1CTtebm5t",
+        "rJheAAxFoWNoTrfrt8N5GyAJLa559jWh4b",
+        "rDtGqWTzDbdVzxMPUtZKNaNSNZwKwrzfBz",
+        "rUkFd8SCw1jyQCBNh5BkjCmRsyZLzEj45N",
+        "r4ovzgQLRofU3JmBjkSpHZyNc13oJsmChR",
+        "rnHknW4mZuRhrQhVQzeTNgdjEaKUnq9ctd",
+        "rNzBHhB3Pw1ac471FzUWPznuSvGJ3Mghrn",
+        "rMUzYMJYCAc59guVUCZTGuNb9LYCdB9N4e",
+        "rKbCVAu2HKyvrrzBxN2jvdxJWbU9JNKqTS",
+        "rUaCjntKAZJCNUcpzdNx9ywRZXugTFD5c"
+      ]
+    }
+  ],
+  "evmLists": [
+    {
+      "source": "Binance hack of 2026-10-29: attacker-controlled Flare addresses",
+      "addresses": [
+        "0x116051ea1187a1eab01efa253b62e9b1137b3dbb",
+        "0x1eb576d1df1f9a2d74ec1a571ff18aa0362d605d",
+        "0x22fbb311860b13febf60d772ecc7321fd734d001",
+        "0x32789997f2a901af4b3a7c8418fa70c9817103e5",
+        "0x3eb016cf66449537e1dd1bb10b83f20e832909d5",
+        "0x4d87593512785915611d0991d9ea7958035313e9",
+        "0x5019b44ffad92378c0d9f6caf24b43999f9a90af",
+        "0x6d4b392b32907599656dec5ce10dc6eb6651690e",
+        "0x806edc74d0cfc3c10a3b45759ffff64c1ab8ff2c",
+        "0x8ef7e523ab6a7697b302bf4f754b4f3ff2137806",
+        "0xc9f7d0e8149e2015fb7c30d6a67f4a826937ded0",
+        "0xd28f2a0a93afb2195501ec41269dcbe73c877c6f",
+        "0xe59aa4916d143b15907a7a96f67367a9ea28c8df",
+        "0xecea618a10224804d714c201c516b5763657308e",
+        "0xf6c947497fe97f7af5a7b7c0cec12469f55bf0cc",
+        "0x1fcf5a293ca8249bf734bad44898b29f68ffdcd8",
+        "0x11aec781c0f74348a00641dccb3a98d4cc384694",
+        "0xfff9b496fd7503fca52289973b71c544ffd5438e",
+        "0x3f217aa4db011523ce5a1ad0c323fb9fd8b96500",
+        "0x80890b8671cdb1889151c15c76bb1edcbbf9b44b",
+        "0x20703872a1b258b6730fa5904a3ba12bf6a7f61b",
+        "0x82ca34484c54159c431c89ae7376c602575f4ab7",
+        "0x33b44a94a9dec1afe7885fe6f84f015c1f169a43",
+        "0x6becb0f10d9974bce1592bed6ff4dcbcd747879c",
+        "0x24d9551e8cefc8766b97b76a2bec94d1e31e11bb",
+        "0x902e795bf8db0be966b17a5fc215301dca4df43d",
+        "0xace6608ca1a18f088f32459ee344487f7798cf20",
+        "0x7bbeb4b194952bc97052a22da5b76d5d4c7a66b5",
+        "0xaf41dd20bcf30a2055aa8d5e414436587f1f8dc2",
+        "0xd4b3d505314d19ca114ed9a9465aef246904aa6f",
+        "0x774f456c45cf5fb9cd477587bc8ff12621924b15",
+        "0x5b45031ea702a05e6eeb45f192b1fed9370c7ee9",
+        "0xb2da33d8360a0f616410796c605e945c74fee631"
+      ]
+    }
+  ]
+}

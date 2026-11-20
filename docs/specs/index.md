@@ -22,6 +22,7 @@ These docs describe protocol-level behavior and the contracts that implement it.
 - [Governance](./Governance.md) — `Governor`, `Governed`, timelocks
 - [Staking](./Staking.md) — `ValidatorRewardOffersManager`, P-chain stake mirroring
 - [RNat](./RNat.md) — the RNat token and per-account `RNatAccount` proxies
+- [Forbidden address list](./ForbiddenAddressList.md) — the governed sanctions list FDC2 verifiers and on-chain consumers read
 - [Inflation and Incentive Pool](./Inflation.md) — `InflationReceiver`, `IncentivePoolReceiver`, distribution into reward managers
 - [API reference](./ApiReference.md) — pointer index from each module to its public `userInterfaces/I*.sol`
 

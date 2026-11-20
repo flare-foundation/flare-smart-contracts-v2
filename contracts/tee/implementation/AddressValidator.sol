@@ -4,10 +4,10 @@ pragma solidity ^0.8.35;
 import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { IIAddressValidator } from "../interface/IIAddressValidator.sol";
 import { IAddressValidator } from "../../userInterfaces/tee/IAddressValidator.sol";
-import { BitcoinAddress } from "../library/BitcoinAddress.sol";
-import { DogecoinAddress } from "../library/DogecoinAddress.sol";
-import { EvmAddress } from "../library/EvmAddress.sol";
-import { XrplAddress } from "../library/XrplAddress.sol";
+import { BtcAddress } from "../../utils/lib/BtcAddress.sol";
+import { DogeAddress } from "../../utils/lib/DogeAddress.sol";
+import { EvmAddress } from "../../utils/lib/EvmAddress.sol";
+import { XrpAddress } from "../../utils/lib/XrpAddress.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
@@ -73,16 +73,16 @@ contract AddressValidator is IIAddressValidator, FlareUpgradeableBase {
         }
         ChainKind kind = profile.chainKind;
         if (kind == ChainKind.Bitcoin) {
-            return BitcoinAddress.isValid(_address, BitcoinAddress.Network(uint8(profile.network)));
+            return BtcAddress.isValid(_address, BtcAddress.Network(uint8(profile.network)));
         }
         if (kind == ChainKind.Dogecoin) {
             // Dogecoin has only mainnet/testnet (regtest, if ever configured, maps to testnet).
-            return DogecoinAddress.isValid(_address, profile.network != Network.Mainnet);
+            return DogeAddress.isValid(_address, profile.network != Network.Mainnet);
         }
         if (kind == ChainKind.Xrpl) {
             // X-addresses carry the network (X = mainnet, T = testnet), enforced here; classic
             // r-addresses carry no network and are accepted for either. XRPL has no regtest.
-            return XrplAddress.isValid(_address, profile.network != Network.Mainnet);
+            return XrpAddress.isValid(_address, profile.network != Network.Mainnet);
         }
         if (kind == ChainKind.Evm) {
             // EVM addresses are chain-agnostic; network is not enforced for EVM.

@@ -531,8 +531,11 @@ coverage-forge:
   - mv node_modules.sol node_modules
   - forge soldeer install
   - forge install --no-git
-  # Warm the shared SVM compiler path once before parallel compiler profiles try to install it.
-  - forge build contracts/tee/library/EvmAddress.sol --use 0.8.35 --no-auto-detect --threads 1
+  # Warm the shared SVM compiler path once before parallel compiler profiles try to install it; a throwaway
+  # project keeps it independent of the repo's files
+  - mkdir -p /tmp/solc-warmup/src
+  - printf 'pragma solidity 0.8.35;\ncontract Warmup {}\n' > /tmp/solc-warmup/src/Warmup.sol
+  - forge build --root /tmp/solc-warmup --use 0.8.35 --threads 1
   - forge build
   script:
   - FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov

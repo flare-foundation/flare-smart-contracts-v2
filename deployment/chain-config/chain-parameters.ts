@@ -590,6 +590,31 @@ export interface ChainParameters {
   teePaymentsUtxoConfigurations: TeePaymentsUtxoConfiguration[];
 
   /**
+   * The initial maintainers of the `ForbiddenAddressList`: the addresses besides governance that may add forbidden
+   * addresses, typically compliance multisigs. Empty when only governance adds.
+   */
+  forbiddenAddressListMaintainers: string[];
+
+  /**
+   * The FDC source ids whose forbidden address strings are loaded when the `ForbiddenAddressList` is deployed, from
+   * the shared `forbidden-addresses.json` (OFAC's) and `forbidden-addresses-manual.json` (added by hand; each group of
+   * addresses there names the sources it applies to, so no network repeats the addresses). Non-EVM sources only, of the
+   * deployment's kind of id (no `test` prefix on mainnet), and whose addresses in the files are of the deployment's
+   * network: their Bitcoin is mainnet, so a local (regtest) profile and the test networks name no Bitcoin source; their
+   * XRPL addresses, which name no network, are filed under `testXRP` too, which the test networks load. The files' EVM
+   * addresses go to the list's one EVM list, on every network. Empty to load none.
+   */
+  forbiddenAddressListSources: string[];
+
+  /**
+   * The Personal Account providers set on the `ForbiddenAddressList` when it is deployed, before its contents are
+   * loaded: for each source, the smart-account controller whose Personal Account of a newly listed address the list
+   * lists on its EVM list. A source id of the deployment's kind (no `test` prefix on mainnet) and a contract on this
+   * network. Empty where no controller serves the network's sources.
+   */
+  forbiddenAddressListPersonalAccountProviders: ForbiddenAddressListPersonalAccountProvider[];
+
+  /**
    * The minimal threshold for FDC2 in BIPS (e.g. 30%).
    */
   fdc2MinThresholdBIPS: integer;
@@ -975,6 +1000,21 @@ export interface TeeOracleFeed {
    * Pin the enclave's `decimals` per feed and size against it.
    */
   maxSpreadAbsolute: string;
+}
+
+export interface ForbiddenAddressListPersonalAccountProvider {
+  /**
+   * The FDC source id whose listed addresses own the Personal Accounts.
+   * @minLength 1
+   * @maxLength 32
+   */
+  sourceId: string;
+
+  /**
+   * The provider: a contract answering `getPersonalAccount(string)` (`IPersonalAccountProvider`).
+   * @pattern ^0x[0-9a-fA-F]{40}$
+   */
+  provider: string;
 }
 
 export interface Fdc2RequestFee {

@@ -4,18 +4,18 @@ pragma solidity ^0.8.35;
 import { Base58Check } from "./Base58Check.sol";
 
 /**
- * @title BitcoinAddress
+ * @title BtcAddress
  * @notice Never-reverting, network-aware validator for Bitcoin payout addresses. Accepts the
  *         spendable address types only: legacy P2PKH and P2SH (Base58Check), SegWit v0 P2WPKH/P2WSH
  *         (Bech32), and SegWit v1 Taproot P2TR (Bech32m), on mainnet, testnet, and regtest.
  * @dev The accepted set is hardcoded (no settable config). Undefined witness versions (2..16) and
  *      non-standard program lengths are rejected — paying an undefined witness version risks loss
  *      (such outputs are currently anyone-can-spend). Bech32/Bech32m checksums follow BIP-173/BIP-350.
- *      SegWit addresses are accepted in either all-lowercase or all-uppercase (mixed case rejected),
- *      matching BIP-173 and the Flare FDC AddressValidity verifier; the FDC canonical `standardAddress`
- *      form is lowercase, so any consumer that needs a single form should lowercase bech32.
+ *      SegWit addresses are accepted in lowercase only, the FDC's canonical `standardAddress` form: BIP-173
+ *      also allows all-uppercase, but an address is hashed as written (`keccak256(bytes(address))`), so a
+ *      second spelling would hash differently from every FDC proof about the same output.
  */
-library BitcoinAddress {
+library BtcAddress {
 
     enum Network {
         Mainnet,
@@ -148,7 +148,7 @@ library BitcoinAddress {
             // returns 1 iff the address is a valid, accepted SegWit address for the (already
             // network-matched) HRP. Folding the checks in here keeps the outer block's stack shallow
             // enough to compile without viaIR (coverage profile). BIP-173 allows an address to be
-            // all-lowercase OR all-uppercase; only mixed case (cmask == 3) is rejected.
+            // lowercase only: any uppercase letter (cmask bit 2) is rejected.
             function scanAll(dptr, tbl, glut, sep, m) -> valid {
                 let chk := 1
                 let cmask := 0
@@ -191,7 +191,7 @@ library BitcoinAddress {
                         }
                     }
                 }
-                if eq(cmask, 3) { leave } // mixed case is invalid (BIP-173)
+                if and(cmask, 2) { leave } // uppercase is not the canonical (FDC standard) form
                 if or(gt(bits, 4), gt(acc, 0)) { leave } // 5->8 padding must be < 5 bits, all zero
                 // checksum constant + accepted program length, by witness version (reject 2..16):
                 // P2WPKH/P2WSH (v0, Bech32) and P2TR (v1, Bech32m).

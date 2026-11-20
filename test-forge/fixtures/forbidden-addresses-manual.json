@@ -1,0 +1,15 @@
+{
+  "lists": [
+    {
+      "source": "fixture: XRP added by hand, one of them also in the OFAC fixture",
+      "sourceIds": ["XRP"],
+      "addresses": ["rrrrrrrrrrrrrrrrrrrrBZbvji", "rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpf"]
+    }
+  ],
+  "evmLists": [
+    {
+      "source": "fixture: EVM added by hand, one of them also in the OFAC fixture",
+      "addresses": ["0x000000000000000000000000000000000000F0A0", "0x000000000000000000000000000000000000F001"]
+    }
+  ]
+}

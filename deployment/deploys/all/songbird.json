@@ -745,5 +745,19 @@
     "addresses": [
       "0x56312b655f29e0CC1E9Fb44F9183c453F7e44640"
     ]
+  },
+  {
+    "name": "ForbiddenAddressListImplementation",
+    "contractName": "ForbiddenAddressList.sol",
+    "addresses": [
+      "0x1Eeb491482dE87a36a3599bb01529e3D897c99Bc"
+    ]
+  },
+  {
+    "name": "ForbiddenAddressList",
+    "contractName": "ForbiddenAddressListProxy.sol",
+    "addresses": [
+      "0x365Ee5735B275Ccf7de2921F2582c35b3881a94F"
+    ]
   }
 ]

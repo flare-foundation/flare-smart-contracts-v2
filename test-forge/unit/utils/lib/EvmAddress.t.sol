@@ -2,7 +2,7 @@
 pragma solidity ^0.8.35;
 
 import {Test} from "forge-std/Test.sol";
-import {EvmAddress} from "../../../../contracts/tee/library/EvmAddress.sol";
+import {EvmAddress} from "../../../../contracts/utils/lib/EvmAddress.sol";
 
 contract EvmAddressHarness {
     function isValid(

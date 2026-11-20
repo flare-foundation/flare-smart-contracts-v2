@@ -464,6 +464,9 @@
         {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "testXRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}]}
     ],
     "teePaymentsUtxoConfigurations": [],
+    "forbiddenAddressListMaintainers": ["0x88278079a62db08fEb125f270102651BbE8F9984", "0x99E0770aa23CAA9071B6112208297E7a8d8F8a4A"],
+    "forbiddenAddressListSources": ["testXRP"],
+    "forbiddenAddressListPersonalAccountProviders": [{"sourceId": "testXRP", "provider": "0x434936d47503353f06750Db1A444DBDC5F0AD37c"}],
     "fdc2MinThresholdBIPS": 4000,
     "fdc2DefaultNumberOfTees": 1,
     "fdc2RequestFees": [

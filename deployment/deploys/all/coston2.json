@@ -125,7 +125,8 @@
     "addresses": [
       "0x816b1739e6aBEe2b31B1cEc87522C18704ce649f",
       "0xE25880D593206F57b46Af0BDd9e4c45F8f0f7b9a",
-      "0xdC338222e3Bf815A87F561C6BD42C094a5d171d4"
+      "0xdC338222e3Bf815A87F561C6BD42C094a5d171d4",
+      "0x32B99F6076Af8843aB4C5Ddab79FF54081a068Ba"
     ]
   },
   {
@@ -858,6 +859,20 @@
     "contractName": "Relay.sol",
     "addresses": [
       "0xb6578f5bF014249C4b816F4B5E80d315DFb69a3A"
+    ]
+  },
+  {
+    "name": "ForbiddenAddressListImplementation",
+    "contractName": "ForbiddenAddressList.sol",
+    "addresses": [
+      "0x2649B5DEeb39c28F633d4dDb61B64d6D4A3EA093"
+    ]
+  },
+  {
+    "name": "ForbiddenAddressList",
+    "contractName": "ForbiddenAddressListProxy.sol",
+    "addresses": [
+      "0x8EE3B38A1733daBE2d9840b2E26A89038af08D0d"
     ]
   }
 ]

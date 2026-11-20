@@ -7,7 +7,7 @@ pragma solidity ^0.8.35;
  *         alphabet (Bitcoin, Dogecoin). Decodes the 25-byte `version | hash160(20) | checksum(4)`
  *         payload, verifies the double-SHA256 checksum, and returns the version byte for the caller
  *         to map to a chain/network. Never reverts.
- * @dev Gas-optimized inline-assembly implementation (same shape as {XrplAddress}): the input bytes
+ * @dev Gas-optimized inline-assembly implementation (same shape as {XrpAddress}): the input bytes
  *      are read directly, accumulated into a single uint256 (the 25-byte payload is 200 bits), and
  *      the checksum is the first 4 bytes of a double SHA-256 computed via the `0x02` precompile —
  *      hence `view`, not `pure`. The encoding is required to be canonical (leading-'1' count plus
